@@ -100,7 +100,7 @@ struct WeekGrid: View {
                         .frame(maxWidth: .infinity, minHeight: TextSize.of(Metrics.rowSection))
                         .background(today ? Color(nsColor: .fillRest) : .clear)
                 }
-                Color.clear.frame(width: TextSize.of(Metrics.iconButton) + Metrics.inset, height: 1)
+                Color.clear.frame(width: Metrics.iconButton + Metrics.inset, height: 1)
             }
             ForEach(routines) { routine in
                 GridRow {
@@ -147,7 +147,7 @@ struct WeekGrid: View {
             Image(systemName: open ? "stop.fill" : "play.fill").font(.symbol())
         }
         .buttonStyle(PointerButtonStyle()).help(verb).accessibilityLabel(verb)
-        .frame(width: TextSize.of(Metrics.iconButton) + Metrics.inset)
+        .frame(width: Metrics.iconButton + Metrics.inset)
     }
 
     private func name(_ routine: Routine) -> some View {

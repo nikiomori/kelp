@@ -233,7 +233,7 @@ final class SidebarCell: NSTableCellView {
         addSubview(rowStack)
         // The row is as tall as the + that appears on hover. When the row grew to fit the +, its content rose and
         // fell back.
-        rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: TextSize.of(Metrics.iconButton)).isActive = true
+        rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
         let centerY = rowStack.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = centerY
         NSLayoutConstraint.activate([
@@ -372,10 +372,9 @@ extension SidebarCell {
         button.tints = (.tertiaryLabelColor, .secondaryLabelColor)
         // A fixed square, whatever room the row's stack had left when the button appeared on hover (without this it
         // came out narrower than tall).
-        // It grows with Text size, as every icon button does.
-        let side = TextSize.of(Metrics.iconButton)
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: side), button.heightAnchor.constraint(equalToConstant: side)
+            button.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+            button.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
         ])
         return button
     }

@@ -109,7 +109,7 @@ struct AddonRows {
         let open = addon.path.map { path in
             IconButton(.symbol("arrow.up.forward.square"), tip: String(localized: "Open")) { onOpen(path) }
         }
-        let room = open == nil ? 0 : TextSize.of(Metrics.iconButton) + Metrics.gap   // the button grows with Text size
+        let room = open == nil ? 0 : Metrics.iconButton + Metrics.gap
         let fixed = ([mark, name] + held).reduce(inset + Metrics.inset + room) {
             $0 + $1.fittingSize.width + Metrics.gap
         }

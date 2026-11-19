@@ -79,7 +79,7 @@ final class SyncPopover: NSViewController {
         head.setViews([fetch], in: .trailing)
         // The sign's own edge is the words' edge, as a chevron's under it: its square greys in past them.
         // The square and the sign grow with Text size.
-        head.edgeInsets.right = Self.bleed - (TextSize.of(Metrics.iconButton) - TextSize.of(Metrics.iconTiny)) / 2
+        head.edgeInsets.right = Self.bleed - (Metrics.iconButton - Metrics.iconTiny) / 2
 
         // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint, and the bezel
         // colour before it).

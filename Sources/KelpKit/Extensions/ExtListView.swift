@@ -38,7 +38,7 @@ struct ExtListView: View {
                     } else {
                         Button(action: run) {
                             Image(systemName: action.icon ?? "play.fill").font(.symbol()).foregroundStyle(.secondary)
-                                .frame(width: TextSize.of(Metrics.iconButton), height: TextSize.of(Metrics.iconButton))
+                                .frame(width: Metrics.iconButton, height: Metrics.iconButton)
                         }
                         .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
                     }

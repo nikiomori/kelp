@@ -53,7 +53,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
         replaceRow.spacing = Metrics.gap
         replaceRow.edgeInsets = NSEdgeInsets(
-            top: 0, left: TextSize.of(Metrics.iconButton) + Metrics.gap, bottom: 0, right: 0)
+            top: 0, left: Metrics.iconButton + Metrics.gap, bottom: 0, right: 0)
         replaceRow.isHidden = true
         card.onSearch = { [weak self] _ in self?.search(moving: true) }
         card.onStep = { [weak self] in self?.step(forward: $0) }

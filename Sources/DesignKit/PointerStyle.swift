@@ -19,7 +19,7 @@ public struct PointerButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .padding(.horizontal, PointerButtonStyle.padding)
-                .frame(minHeight: TextSize.of(Metrics.iconButton))
+                .frame(minHeight: Metrics.iconButton)
                 .background(
                     RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
                         .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear))
@@ -106,7 +106,7 @@ private struct PointerMenu: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, PointerButtonStyle.padding)
-            .frame(minHeight: TextSize.of(Metrics.iconButton))
+            .frame(minHeight: Metrics.iconButton)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
                     .fill(Color(nsColor: hovering ? .fillHover : .clear))

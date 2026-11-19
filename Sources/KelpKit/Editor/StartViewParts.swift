@@ -140,7 +140,7 @@ final class StartRow: PointerControl {
         pin(row)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
-            icon.widthAnchor.constraint(equalToConstant: TextSize.of(Metrics.iconButton))
+            icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.button)

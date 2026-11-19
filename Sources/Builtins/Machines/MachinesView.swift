@@ -84,7 +84,7 @@ struct MachinesView: View {
                 }
             }
             .foregroundStyle(.white).frame(
-                width: TextSize.of(Metrics.iconButton), height: TextSize.of(Metrics.iconButton)
+                width: Metrics.iconButton, height: Metrics.iconButton
             )
             .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
             .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
