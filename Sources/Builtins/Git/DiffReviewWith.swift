@@ -22,16 +22,16 @@ extension DiffViewController {
             menu.addItem(withTitle: String(localized: "No Agent Installed"), action: nil, keyEquivalent: "")
             return
         }
-        for a in agents {
-            guard !a.models.isEmpty else {
-                menu.add(a.name) { [weak self] in self?.review(with: a, model: nil) }
+        for agent in agents {
+            guard !agent.models.isEmpty else {
+                menu.add(agent.name) { [weak self] in self?.review(with: agent, model: nil) }
                 continue
             }
             let sub = NSMenu()
-            sub.add(String(localized: "Default Model")) { [weak self] in self?.review(with: a, model: nil) }
+            sub.add(String(localized: "Default Model")) { [weak self] in self?.review(with: agent, model: nil) }
             sub.addItem(.separator())
-            for model in a.models { sub.add(model) { [weak self] in self?.review(with: a, model: model) } }
-            menu.addItem(withTitle: a.name, action: nil, keyEquivalent: "").submenu = sub
+            for model in agent.models { sub.add(model) { [weak self] in self?.review(with: agent, model: model) } }
+            menu.addItem(withTitle: agent.name, action: nil, keyEquivalent: "").submenu = sub
         }
     }
 

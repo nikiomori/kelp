@@ -19,17 +19,18 @@ extension DiffViewController {
         return row
     }
 
-    private func openGap(file f: Int, from: Int, lines n: Int) {
-        guard diffs.indices.contains(f) else { return }
-        let path = diffs[f].path
+    private func openGap(file: Int, from: Int, lines count: Int) {
+        guard diffs.indices.contains(file) else { return }
+        let path = diffs[file].path
         var whole = diffRequest()
         whole.file = path
         whole.context = 1_000_000   // asks for the whole file, as one hunk
         Task {
             let shown =
                 await app.call(whole)?.first { $0.path == path }?.hunks.flatMap(\.lines)
-                .filter { $0.kind == .context && ($0.newLine.map { (from..<from + n).contains($0) } ?? false) } ?? []
-            guard shown.count == n else {
+                .filter { $0.kind == .context && ($0.newLine.map { (from..<from + count).contains($0) } ?? false) }
+                ?? []
+            guard shown.count == count else {
                 NSSound.beep()
                 return
             }   // the file moved on since, and the next read shows it

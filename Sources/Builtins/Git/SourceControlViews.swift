@@ -43,9 +43,9 @@ final class GraphBar: NSView {
         sep.boxType = .separator
         fill.wantsLayer = true
         fill.layer?.cornerRadius = Metrics.radiusSM
-        for v in [sep, fill, sectionCell] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [sep, fill, sectionCell] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         NSLayoutConstraint.activate([
             fill.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: 1),

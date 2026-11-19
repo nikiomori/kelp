@@ -23,20 +23,20 @@ final class CommitCard {
 
     /// Called when the pointer came onto or left a commit's row. A card already up follows the pointer to the next row
     /// at once.
-    func hover(_ on: Bool, commit c: GraphCommit, pushed: Bool?, over row: NSView) {
+    func hover(_ on: Bool, commit graphCommit: GraphCommit, pushed: Bool?, over row: NSView) {
         guard on else {
             card.closeSoon()
             return
         }
-        guard !(card.isShown && shown == c.hash) else {
+        guard !(card.isShown && shown == graphCommit.hash) else {
             card.cancel()
             return
         }
-        let loading = Task { await detailsOf(c.hash) }
+        let loading = Task { await detailsOf(graphCommit.hash) }
         card.open { [weak self] in
             let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
-            self.show(c, details: loaded, pushed: pushed, over: row)
+            self.show(graphCommit, details: loaded, pushed: pushed, over: row)
         }
     }
 

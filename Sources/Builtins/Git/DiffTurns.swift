@@ -18,12 +18,12 @@ extension DiffViewController {
         if let session { marks = await app.quiet(SessionTurns(id: session)) ?? [] }
         let picked = chosenTurn
         turnPop.removeAllItems()
-        for (i, m) in marks.enumerated() {
-            let when = m.at.formatted(date: .omitted, time: .shortened)
-            let title = i == 0 ? String(localized: "Last Turn") : "“\(m.prompt.prefix(48))” · \(when)"
+        for (index, mark) in marks.enumerated() {
+            let when = mark.at.formatted(date: .omitted, time: .shortened)
+            let title = index == 0 ? String(localized: "Last Turn") : "“\(mark.prompt.prefix(48))” · \(when)"
             turnPop.addItem(withTitle: title)
-            turnPop.lastItem?.representedObject = m
-            turnPop.lastItem?.toolTip = m.prompt
+            turnPop.lastItem?.representedObject = mark
+            turnPop.lastItem?.toolTip = mark.prompt
         }
         if let picked, let index = marks.firstIndex(where: { $0.id == picked }) { turnPop.selectItem(at: index) }
         turnBar.isHidden = marks.isEmpty

@@ -162,8 +162,8 @@ extension SourceControlController {
     func outlineView(_ outline: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         (item as? Node)?.children.count ?? roots(of: outline).count
     }
-    func outlineView(_ outline: NSOutlineView, child i: Int, ofItem item: Any?) -> Any {
-        (item as? Node)?.children[i] ?? roots(of: outline)[i]
+    func outlineView(_ outline: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        (item as? Node)?.children[index] ?? roots(of: outline)[index]
     }
     func outlineView(_ outline: NSOutlineView, isItemExpandable item: Any) -> Bool {
         !((item as? Node)?.children.isEmpty ?? true)

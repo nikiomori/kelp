@@ -169,9 +169,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let sep = NSBox()
         sep.boxType = .separator
         separator = sep
-        for x in [header, box, sep, scroll, graphBar, graphScroll] as [NSView] {
-            x.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview(x)
+        for part in [header, box, sep, scroll, graphBar, graphScroll] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(part)
         }
         // When open, the graph is the height it was dragged to. Under windowSizeStayPut it never stretches the window.
         let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
@@ -251,8 +251,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         track(owner: self) {
             app.fileIcons.revision
         } changed: { [weak self] _ in
-            for o in [self?.outline, self?.graphOutline].compactMap({ $0 }) {
-                o.reloadData(forRowIndexes: IndexSet(0..<o.numberOfRows), columnIndexes: [0])
+            for outlineView in [self?.outline, self?.graphOutline].compactMap({ $0 }) {
+                outlineView.reloadData(forRowIndexes: IndexSet(0..<outlineView.numberOfRows), columnIndexes: [0])
             }
         }
     }
@@ -323,9 +323,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         stack.setCustomSpacing(4, after: field)   // the words under the field belong to it
         stack.setCustomSpacing(6, after: buttons)   // so a hidden CI line takes no room
         let box = NSView()
-        for x in [messageScroll, placeholder, ui.corner, ui.work] as [NSView] {
-            x.translatesAutoresizingMaskIntoConstraints = false
-            field.addSubview(x)
+        for part in [messageScroll, placeholder, ui.corner, ui.work] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            field.addSubview(part)
         }
         stack.translatesAutoresizingMaskIntoConstraints = false
         box.addSubview(stack)

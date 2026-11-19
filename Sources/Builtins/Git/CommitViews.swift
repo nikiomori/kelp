@@ -224,19 +224,19 @@ final class CommitCell: NSTableCellView, Hoverable {
                 if r.hasPrefix("HEAD -> ") { return String(r.dropFirst(8)) }
                 return r.hasPrefix("tag: ") || r.contains("/") || r == "HEAD" ? nil : r
             })
-        for r in refs where !r.hasSuffix("/HEAD") {   // origin/HEAD only repeats origin/main
-            if r.hasPrefix("HEAD -> ") {
-                out.insert((String(r.dropFirst(8)), .emphasis, true), at: 0)
-            } else if r == "HEAD" {
+        for ref in refs where !ref.hasSuffix("/HEAD") {   // origin/HEAD only repeats origin/main
+            if ref.hasPrefix("HEAD -> ") {
+                out.insert((String(ref.dropFirst(8)), .emphasis, true), at: 0)
+            } else if ref == "HEAD" {
                 out.insert(("HEAD", .emphasis, true), at: 0)
-            } else if r.hasPrefix("tag: ") {
-                out.append((String(r.dropFirst(5)), .secondaryLabelColor, false))   // orange is for what waits for you
-            } else if r.contains("/") {
-                if !locals.contains(String(r.drop { $0 != "/" }.dropFirst())) {
-                    out.append((r, .secondaryLabelColor, false))
+            } else if ref.hasPrefix("tag: ") {
+                out.append((String(ref.dropFirst(5)), .secondaryLabelColor, false))   // orange is for what waits for you
+            } else if ref.contains("/") {
+                if !locals.contains(String(ref.drop { $0 != "/" }.dropFirst())) {
+                    out.append((ref, .secondaryLabelColor, false))
                 }
             } else {
-                out.append((r, .emphasis, false))
+                out.append((ref, .emphasis, false))
             }
         }
         return out
@@ -338,8 +338,8 @@ final class GraphView: NSView {
             path.stroke()
         }
         for l in commit.top { segment(l, from: 0, to: mid, color: Self.color(l[0])) }
-        for l in commit.bottom {
-            segment(l, from: mid, to: bounds.height, color: Self.color(l.count == 2 ? l[1] : commit.lane))
+        for lanes in commit.bottom {
+            segment(lanes, from: mid, to: bounds.height, color: Self.color(lanes.count == 2 ? lanes[1] : commit.lane))
         }
         let center = Self.x(commit.lane), col = Self.color(commit.lane)
         if isHead {

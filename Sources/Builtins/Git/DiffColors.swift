@@ -36,11 +36,11 @@ enum DiffColors {
     /// cell stays one colour.
     static func spans(_ diffs: [FileDiff], grammars: [Int: CodeGrammar]) -> [String: [Span]] {
         var out: [String: [Span]] = [:]
-        for (f, g) in grammars where diffs.indices.contains(f) {
-            let lines = diffs[f].hunks.flatMap(\.lines)
+        for (fileIndex, fileGrammar) in grammars where diffs.indices.contains(fileIndex) {
+            let lines = diffs[fileIndex].hunks.flatMap(\.lines)
             for side in [DiffLine.Kind.del, .add] {
                 let shown = lines.filter { $0.kind == .context || $0.kind == side }
-                for (k, v) in spans(of: shown, file: f, keep: side, grammar: g) { out[k] = v }
+                for (k, v) in spans(of: shown, file: fileIndex, keep: side, grammar: fileGrammar) { out[k] = v }
             }
         }
         return out
@@ -48,7 +48,7 @@ enum DiffColors {
 
     /// Parses one side's lines as one text and cuts the captures at line ends. Unchanged lines are kept from the new
     /// side only.
-    private static func spans(of lines: [DiffLine], file f: Int, keep side: DiffLine.Kind, grammar: CodeGrammar)
+    private static func spans(of lines: [DiffLine], file: Int, keep side: DiffLine.Kind, grammar: CodeGrammar)
         -> [String: [Span]]
     {
         var starts: [Int] = [], at = 0
@@ -65,7 +65,7 @@ enum DiffColors {
             while lineIndex < lines.count, starts[lineIndex] < NSMaxRange(range) {
                 let line = lines[lineIndex], length = line.text.utf16.count
                 let cut = NSIntersectionRange(range, NSRange(location: starts[lineIndex], length: length))
-                if cut.length > 0, kept(line), length <= Highlighter.maxColored, let lineKey = key(f, line) {
+                if cut.length > 0, kept(line), length <= Highlighter.maxColored, let lineKey = key(file, line) {
                     out[lineKey, default: []].append(
                         Span(range: NSRange(location: cut.location - starts[lineIndex], length: cut.length), name: name)
                     )
@@ -74,7 +74,9 @@ enum DiffColors {
             }
         }
         // A line with no captures is still marked as coloured by the grammar (all plain), so no regex runs for it.
-        for line in lines where kept(line) { if let lineKey = key(f, line), out[lineKey] == nil { out[lineKey] = [] } }
+        for line in lines where kept(line) {
+            if let lineKey = key(file, line), out[lineKey] == nil { out[lineKey] = [] }
+        }
         return out
     }
 }

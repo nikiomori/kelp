@@ -50,8 +50,8 @@ extension SourceControlController {
     /// Fades discarded rows where they stand. The status then closes the gap, and a failed discard rebuilds them.
     func fadeRows(_ paths: Set<String>) {
         guard !Motion.reduced else { return }
-        for r in 0..<outline.numberOfRows {
-            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell,
+        for rowIndex in 0..<outline.numberOfRows {
+            guard let cell = outline.view(atColumn: 0, row: rowIndex, makeIfNecessary: false) as? FileCell,
                 paths.contains(cell.path)
             else { continue }
             NSAnimationContext.runAnimationGroup {

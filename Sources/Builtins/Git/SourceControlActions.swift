@@ -331,9 +331,9 @@ extension SourceControlController {
                 menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) }
             }
             let acts = Array(sectionActions(section, node).reversed())
-            for (i, a) in acts.enumerated() {
-                if i == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
-                menu.add(a.title) { a.run() }
+            for (index, act) in acts.enumerated() {
+                if index == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
+                menu.add(act.title) { act.run() }
             }
         case .commit(let index):
             let commit = commits[index]

@@ -75,9 +75,9 @@ final class SplitPushButton: NSButton {
         arrow.toolTip = arrowTip
         arrow.symbolConfiguration = .chrome()
         divider.wantsLayer = true
-        for v in [arrow, divider, ring] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [arrow, divider, ring] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         addSubview(glow)
         NSLayoutConstraint.activate([

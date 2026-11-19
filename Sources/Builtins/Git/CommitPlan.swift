@@ -17,9 +17,9 @@ struct CommitPlan: Equatable {
         self.agent = agent
         let known = Set(changed)
         var seen = Set<String>()
-        commits = proposed.compactMap { p in
-            let files = p.files.filter { known.contains($0) && seen.insert($0).inserted }
-            return files.isEmpty ? nil : Commit(message: p.message, files: files)
+        commits = proposed.compactMap { proposal in
+            let files = proposal.files.filter { known.contains($0) && seen.insert($0).inserted }
+            return files.isEmpty ? nil : Commit(message: proposal.message, files: files)
         }
     }
 

@@ -228,8 +228,8 @@ extension SourceControlController {
     }
 
     func pulseArrows() {
-        for r in 0..<graphOutline.numberOfRows {
-            (graphOutline.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommitCell)?.pulse(
+        for rowIndex in 0..<graphOutline.numberOfRows {
+            (graphOutline.view(atColumn: 0, row: rowIndex, makeIfNecessary: false) as? CommitCell)?.pulse(
                 syncing?.push == true)
         }
     }

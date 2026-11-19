@@ -95,9 +95,9 @@ extension DiffViewController {
         save.keyEquivalent = "\r"
         save.keyEquivalentModifierMask = .command
         save.toolTip = String(localized: "Comment (⌘↩)")
-        for b in [cancel, save] {
-            b.bezelStyle = .push
-            b.controlSize = .small
+        for button in [cancel, save] {
+            button.bezelStyle = .push
+            button.controlSize = .small
         }
         let buttons = NSStackView(views: [NSView(), cancel, save])
         let card = FillStack(views: [draft.field, buttons])

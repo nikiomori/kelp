@@ -34,8 +34,8 @@ enum DiffRows {
                 adds.append(lines[index])
                 index += 1
             }
-            for k in 0..<max(dels.count, adds.count) {
-                out.append((k < dels.count ? dels[k] : nil, k < adds.count ? adds[k] : nil))
+            for index in 0..<max(dels.count, adds.count) {
+                out.append((index < dels.count ? dels[index] : nil, index < adds.count ? adds[index] : nil))
             }
         }
         return out
@@ -99,8 +99,8 @@ enum ReviewRow: Equatable, Sendable {
 extension DiffRows {
     /// The part of two versions of a line that differs: what's left after the common start and end (UTF-16 ranges).
     /// Limit: one range per line, not a word-by-word diff; enough to spot the edit, as VS Code's first pass does.
-    static func changedRanges(_ a: String, _ b: String) -> (NSRange, NSRange) {
-        let old = Array(a.utf16), new = Array(b.utf16)
+    static func changedRanges(_ before: String, _ after: String) -> (NSRange, NSRange) {
+        let old = Array(before.utf16), new = Array(after.utf16)
         var prefix = 0
         while prefix < min(old.count, new.count), old[prefix] == new[prefix] { prefix += 1 }
         var suffix = 0
@@ -118,8 +118,8 @@ extension DiffRows {
     static func changedWords(_ diffs: [FileDiff]) -> [String: NSRange] {
         var out: [String: NSRange] = [:]
         for (fi, f) in diffs.enumerated() {
-            for h in f.hunks {
-                for (left, right) in pairs(h.lines) {
+            for hunk in f.hunks {
+                for (left, right) in pairs(hunk.lines) {
                     guard let left, let right, left.kind == .del, right.kind == .add, let oldLine = left.oldLine,
                         let newLine = right.newLine
                     else {
@@ -159,10 +159,10 @@ extension DiffRows {
             }
         }
         var out: [ReviewRow] = []
-        for r in build(diffs, sideBySide: sideBySide, opened: opened) {
-            if hideFileRows, case .file = r { continue }
-            out.append(.diff(r))
-            switch r {
+        for row in build(diffs, sideBySide: sideBySide, opened: opened) {
+            if hideFileRows, case .file = row { continue }
+            out.append(.diff(row))
+            switch row {
             case .line(let file, let line): out += under(file, line)
             case .pair(let file, let left, let right):
                 if let line = right ?? left { out += under(file, line) }

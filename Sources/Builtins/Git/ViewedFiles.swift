@@ -9,8 +9,8 @@ enum ViewedFiles {
     /// A short print of the file's changes as shown, the same on every run (FNV-1a over its hunks).
     static func print(_ fileDiff: FileDiff) -> String {
         var hash: UInt64 = 0xcbf29ce484222325
-        for b in fileDiff.hunks.map(\.fingerprint).joined(separator: "\n").utf8 {
-            hash = (hash ^ UInt64(b)) &* 0x100000001b3
+        for byte in fileDiff.hunks.map(\.fingerprint).joined(separator: "\n").utf8 {
+            hash = (hash ^ UInt64(byte)) &* 0x100000001b3
         }
         return String(hash, radix: 36)
     }

@@ -63,17 +63,17 @@ extension SourceControlController {
         if agents.isEmpty {
             menu.addItem(withTitle: String(localized: "No Agent Installed"), action: nil, keyEquivalent: "")
         }
-        for a in agents {
-            let item = menu.add(a.name) { [weak self] in self?.ask(a, model: self?.model(for: a)) }
-            item.show(app.catalog.icon(a.id, size: 16))
-            item.state = a.id == lastAgent?.id ? .on : .off
-            guard !a.models.isEmpty else { continue }
-            let sub = NSMenu(), chosen = model(for: a)
-            let byDefault = sub.add(String(localized: "Default Model")) { [weak self] in self?.ask(a, model: nil) }
+        for agent in agents {
+            let item = menu.add(agent.name) { [weak self] in self?.ask(agent, model: self?.model(for: agent)) }
+            item.show(app.catalog.icon(agent.id, size: 16))
+            item.state = agent.id == lastAgent?.id ? .on : .off
+            guard !agent.models.isEmpty else { continue }
+            let sub = NSMenu(), chosen = model(for: agent)
+            let byDefault = sub.add(String(localized: "Default Model")) { [weak self] in self?.ask(agent, model: nil) }
             byDefault.state = chosen == nil ? .on : .off
             sub.addItem(.separator())
-            for m in a.models {
-                sub.add(m) { [weak self] in self?.ask(a, model: m) }.state = m == chosen ? .on : .off
+            for name in agent.models {
+                sub.add(name) { [weak self] in self?.ask(agent, model: name) }.state = name == chosen ? .on : .off
             }
             item.submenu = sub
         }
@@ -317,10 +317,12 @@ extension SourceControlController {
     func planItems(_ menu: NSMenu, _ file: String, _ plan: CommitPlan) {
         menu.addItem(.separator())
         let now = plan.number(of: file)
-        for i in plan.commits.indices {
+        for index in plan.commits.indices {
             let title =
-                now == i + 1 ? String(localized: "In Commit \(i + 1)") : String(localized: "Move to Commit \(i + 1)")
-            menu.add(title) { [weak self] in self?.editPlan { $0.move(file, to: i) } }.state = now == i + 1 ? .on : .off
+                now == index + 1
+                ? String(localized: "In Commit \(index + 1)") : String(localized: "Move to Commit \(index + 1)")
+            menu.add(title) { [weak self] in self?.editPlan { $0.move(file, to: index) } }.state =
+                now == index + 1 ? .on : .off
         }
         menu.add(String(localized: "Move to a New Commit")) { [weak self] in
             self?.editPlan { $0.move(file, to: $0.commits.count) }

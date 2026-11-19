@@ -64,8 +64,14 @@ extension DiffViewController {
     /// The number of columns before a line's code: the marker, then the line's leading spaces and tabs.
     nonisolated static func indent(_ prefix: String, _ text: String) -> Int {
         var column = prefix.count
-        for c in text {
-            if c == " " { column += 1 } else if c == "\t" { column = (column / 4 + 1) * 4 } else { break }
+        for character in text {
+            if character == " " {
+                column += 1
+            } else if character == "\t" {
+                column = (column / 4 + 1) * 4
+            } else {
+                break
+            }
         }
         return column
     }
@@ -77,11 +83,11 @@ extension DiffViewController {
     /// line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
     /// A line's code in `column`: "t" inline, "l" and "r" side by side.
-    func codeCell(_ diffLine: DiffLine, file f: Int, column: String) -> NSTextField {
+    func codeCell(_ diffLine: DiffLine, file: Int, column: String) -> NSTextField {
         let prefix = prefix(diffLine)
         let text = Self.shown(diffLine.text)
         let colored =
-            DiffColors.key(f, diffLine).flatMap { syntax[$0] }.map {
+            DiffColors.key(file, diffLine).flatMap { syntax[$0] }.map {
                 Highlighter.attributed(
                     prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
             }
@@ -90,8 +96,8 @@ extension DiffViewController {
         let styled = NSMutableAttributedString(attributedString: colored)
         let key =
             diffLine.kind == .add
-            ? diffLine.newLine.map { "\(f):a:\($0)" }
-            : diffLine.kind == .del ? diffLine.oldLine.map { "\(f):d:\($0)" } : nil
+            ? diffLine.newLine.map { "\(file):a:\($0)" }
+            : diffLine.kind == .del ? diffLine.oldLine.map { "\(file):d:\($0)" } : nil
         if let key, let wordRange = words[key], wordRange.length > 0,
             wordRange.location + wordRange.length <= (text as NSString).length
         {
@@ -214,8 +220,8 @@ extension DiffViewController {
         }
         let para = NSMutableParagraphStyle()
         para.lineBreakMode = .byTruncatingMiddle
-        for s in [short, full] {
-            s.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: s.length))
+        for title in [short, full] {
+            title.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: title.length))
         }
         let nameLabel = FitLabel(labelWithAttributedString: short)
         nameLabel.full = full
@@ -237,12 +243,12 @@ extension DiffViewController {
 
     /// A file's band across the review: its icon, path and "+6 −2" on a grey fill, where one file's changes end and
     /// the next one's begin. Bold text alone on the page didn't mark that place.
-    func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
+    func fileBand(_ path: String, added: Int, removed: Int) -> NSView {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         let name = NSTextField.label(path, font: .ui(TextSize.row, weight: .medium), truncation: .byTruncatingHead)
         let stack = FillStack(views: [
-            icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
+            icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: added, removed: removed))
         ])
         // A spacer takes the room between.
         if single == nil, let index = diffs.firstIndex(where: { $0.path == path }) {
@@ -323,18 +329,18 @@ extension DiffViewController {
     func remeasure() { table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count)) }
 
     /// A hunk's header row: where the hunk is, and Stage / Unstage (and Discard where the diff is the unstaged one).
-    func hunkRow(file f: Int, hunk h: Int, header: String) -> NSView {
+    func hunkRow(file: Int, hunk: Int, header: String) -> NSView {
         let stack = FillStack()
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.fill = .diffHunk
         let where_ = NSTextField.label(header, font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         stack.addArrangedSubview(where_)
-        if let staged = hunksStaged(f) {
+        if let staged = hunksStaged(file) {
             // Buttons with names sit at the end of the hunk, as in Xcode's and GitHub Desktop's reviews.
             func button(_ title: String, _ selector: Selector) -> NSButton {
                 let hunkButton = TextButton(title, target: self, action: selector)
-                hunkButton.tag = f * 10000 + h
+                hunkButton.tag = file * 10000 + hunk
                 return hunkButton
             }
             stack.addArrangedSubview(NSView())

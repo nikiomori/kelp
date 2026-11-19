@@ -96,18 +96,18 @@ private final class PlanCard: FieldBox {
         files.lineBreakMode = .byTruncatingTail
         files.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         files.toolTip = commit.files.joined(separator: "\n")
-        for v in [badge, text, remove, files] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [badge, text, remove, files] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
-        let h = text.heightAnchor.constraint(equalToConstant: 30)
-        height = h
+        let heightLimit = text.heightAnchor.constraint(equalToConstant: 30)
+        height = heightLimit
         NSLayoutConstraint.activate([
             badge.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gapWide),
             badge.topAnchor.constraint(equalTo: topAnchor, constant: 7),
             text.leadingAnchor.constraint(equalTo: badge.trailingAnchor, constant: 2),
             text.trailingAnchor.constraint(equalTo: remove.leadingAnchor),
-            text.topAnchor.constraint(equalTo: topAnchor, constant: 1), h,
+            text.topAnchor.constraint(equalTo: topAnchor, constant: 1), heightLimit,
             remove.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
             remove.topAnchor.constraint(equalTo: topAnchor, constant: 4),
             files.leadingAnchor.constraint(equalTo: text.leadingAnchor, constant: 7),
