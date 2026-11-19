@@ -7,7 +7,8 @@ import DesignKit
 package enum CIRunLook {
     /// The mark for a run: a grey filled ✓, as the sidebar's CI mark draws a pass, ✕ red, the agents' spinning ring
     /// while it runs, their orange waiting ring while it waits for someone's approval (as the sidebar's CI mark), an
-    /// empty circle while it waits its turn, and a grey – when skipped or cancelled. A pass is not green: colour is
+    /// empty circle while it waits its turn, and a grey – when skipped or cancelled, all in secondary grey, because the
+    /// mark is the only copy of the state on the row and the shapes tell them apart. A pass is not green: colour is
     /// kept for what broke or waits for you.
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
@@ -23,9 +24,9 @@ package enum CIRunLook {
             switch (status, conclusion) {
             case ("completed", "success"?): ("checkmark.circle.fill", .secondaryLabelColor)
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
-                ("minus.circle", .tertiaryLabelColor)
+                ("minus.circle", .secondaryLabelColor)
             case ("completed", _): ("xmark.circle.fill", .systemRed)
-            default: ("circle", .tertiaryLabelColor)
+            default: ("circle", .secondaryLabelColor)
             }
         let view = NSImageView(image: .symbol(symbol, words))
         view.contentTintColor = color
@@ -51,6 +52,11 @@ package enum CIRunLook {
     /// the sidebar's CI mark counts as waiting (`CIRuns.state`).
     private static func approval(_ status: String, _ conclusion: String?) -> Bool {
         status == "waiting" || conclusion == "action_required"
+    }
+
+    /// The tooltip's line for a run's row that a ⌘-click opens on its site: GitLab's pipelines are under "/-/".
+    package static func clickTip(_ url: String) -> String {
+        String(localized: "⌘-click: open on \(url.contains("/-/pipelines/") ? "GitLab" : "GitHub")")
     }
 
     package static func ago(_ iso: String) -> String {

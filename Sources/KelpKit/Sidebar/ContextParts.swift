@@ -198,36 +198,65 @@ struct ContextParts: View {
     }
 }
 
-/// What the parts will look like while they're read: the bar's track and four rows' outlines, breathing slowly (still
-/// under Reduce Motion), as a list waits for its rows.
+/// What the parts will look like while they're read: the bar's track and four legend rows' outlines, a name and its
+/// line under it, with a light passing over them as over a list's loading rows (`SkeletonRows`): on the clock's beat,
+/// so it keeps step with them, and still under Reduce Motion, which is read live.
 struct ContextPartsOutline: View {
-    @State private var dim = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let widths: [CGFloat] = [0.62, 0.45, 0.54, 0.38]
 
     var body: some View {
-        let shade = Color(nsColor: .quaternaryLabelColor)
-        VStack(alignment: .leading, spacing: Metrics.gap) {
-            Capsule().fill(shade).frame(height: PartsBar.height)
-            ForEach(Self.widths.indices, id: \.self) { index in
-                GeometryReader { geometry in
-                    HStack(spacing: Metrics.gap) {
-                        RoundedRectangle(cornerRadius: Metrics.radiusXS / 2).fill(shade).frame(
-                            width: PartsBar.height, height: PartsBar.height)
-                        Capsule().fill(shade).frame(
-                            width: geometry.size.width * Self.widths[index], height: Metrics.gap)
-                        Spacer()
-                        Capsule().fill(shade).frame(width: 28, height: Metrics.gap)
-                    }
+        let still = reduceMotion || Motion.reduced
+        let period = Motion.breathe, start = Motion.beat(Motion.breathe)
+        shapes(Color(nsColor: .quaternaryLabelColor))
+            .overlay {
+                if !still {
+                    TimelineView(.animation) { _ in light(at: (CACurrentMediaTime() - start) / period) }
+                        .mask(shapes(.black))
                 }
-                .frame(height: TextSize.of(TextSize.caption) + Metrics.lineGap * 2)
             }
+            .accessibilityElement()
+            .accessibilityLabel(String(localized: "Reading the conversation…"))
+    }
+
+    /// A band two fifths as wide as the rows, `phase` (0…1 each pass) of its way from wholly left of them to wholly right.
+    private func light(at phase: Double) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let eased = UnitCurve.easeInOut.value(at: phase - phase.rounded(.down))
+            LinearGradient(
+                colors: [.clear, Color(nsColor: .quaternaryLabelColor), .clear], startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: width * 0.4)
+            .offset(x: width * (1.4 * eased - 0.4))
         }
-        .opacity(dim ? 0.45 : 1)
-        .accessibilityElement()
-        .accessibilityLabel(String(localized: "Reading the conversation…"))
-        .onAppear {
-            guard !Motion.reduced else { return }
-            withAnimation(.easeInOut(duration: Motion.breathe).repeatForever(autoreverses: true)) { dim = true }
+    }
+
+    private func shapes(_ shade: Color) -> some View {
+        let line = TextSize.of(TextSize.caption) + Metrics.lineGap * 2
+        return VStack(alignment: .leading, spacing: Metrics.gap) {
+            RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(shade).frame(height: PartsBar.height)
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                ForEach(Self.widths.indices, id: \.self) { index in
+                    GeometryReader { geometry in
+                        let text = geometry.size.width - PartsBar.height - Metrics.gap
+                        // The line under the name stands a line and a gap below it, as the legend's does.
+                        let under = line + Metrics.lineGap - (PartsBar.height + Metrics.gap) / 2
+                        VStack(alignment: .leading, spacing: under) {
+                            HStack(spacing: Metrics.gap) {
+                                RoundedRectangle(cornerRadius: Metrics.radiusXS / 2).fill(shade).frame(
+                                    width: PartsBar.height, height: PartsBar.height)
+                                Capsule().fill(shade).frame(width: text * Self.widths[index], height: Metrics.gap)
+                            }
+                            Capsule().fill(shade).frame(width: text * Self.widths[index] * 0.6, height: Metrics.gap)
+                                .padding(.leading, PartsBar.height + Metrics.gap)
+                        }
+                        .padding(.top, (line - PartsBar.height) / 2)
+                    }
+                    .frame(height: line * 2 + Metrics.lineGap)
+                }
+            }
         }
     }
 }

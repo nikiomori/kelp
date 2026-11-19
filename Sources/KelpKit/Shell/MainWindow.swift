@@ -36,6 +36,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// the workspace's name follows the toggle, so both move once, with the column, and never while the sidebar only
     /// slides in at the edge.
     var toggleFloor: NSLayoutConstraint?
+    /// Where the update pill starts: on the same floor as the toggle, so with the sidebar away it stands at the
+    /// window's edge too, and the toggle and the name after it.
+    var pillFloor: NSLayoutConstraint?
     /// The traffic lights' right end and left start, in the window.
     var lightsEnd: CGFloat = 69, lightsStart: CGFloat = 12
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
@@ -80,9 +83,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         root.view.pin(split.view)
         // The toggles go under their floaters: the inspector's stood half on its floater's border, and the sidebar's,
         // at the window's edge while the sidebar is away, would stand on the traffic lights of a sidebar sliding in,
-        // which covers it as Dia's does.
+        // which covers it as Dia's does. The update pill stands there too, so it goes under as well.
         let parts = [
-            bar, sidebarToggle, left.floater, inspectorToggle, right.floater, updatePill, left.edge, right.edge
+            bar, sidebarToggle, updatePill, left.floater, inspectorToggle, right.floater, left.edge, right.edge
         ]
         for part in parts {
             part.translatesAutoresizingMaskIntoConstraints = false
@@ -95,6 +98,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let floor = sidebarToggle.leadingAnchor.constraint(
             greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12)
         toggleFloor = floor
+        let pillFloor = updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12)
+        self.pillFloor = pillFloor
         // The bar lies over the editor area only, because the sidebar and the inspector both run the window's full
         // height. With the sidebar away, the bar runs under the traffic lights. With the inspector away, it runs under
         // the inspector's toggle.
@@ -110,7 +115,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sidebarToggle.trailingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: -8).withPriority(
                 600),
             sidebarToggle.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
-            updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12),
+            pillFloor,
             updatePill.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
             // The workspace's name starts over the editor area, or after the sidebar's toggle while the sidebar is
             // away.
@@ -139,11 +144,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         } changed: { [weak self] _ in
             self?.updateTitle()
         }
-        track(owner: self) {
-            app.updates.ready != nil
-        } changed: { [weak self] in
-            self?.clearOfPill.isActive = $0
-        }
+        followPill(app)
         track(owner: self) {
             app.themes.look
         } changed: { [weak self] look in
@@ -199,6 +200,24 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let menu = NSMenu(), app = app
         menu.add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
         return menu
+    }
+    /// Makes room for the update pill while an update is ready.
+    private func followPill(_ app: AppModel) {
+        track(owner: self) {
+            app.updates.ready != nil
+        } changed: { [weak self] in
+            self?.makeRoom(forPill: $0)
+        }
+    }
+    /// Moves the sidebar's toggle and the workspace's name over for the update pill, or back once it's gone.
+    private func makeRoom(forPill shown: Bool) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(shown ? Motion.base : Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: shown ? .easeOut : .easeIn)
+            ctx.allowsImplicitAnimation = true
+            clearOfPill.isActive = shown
+            window?.contentView?.layoutSubtreeIfNeeded()
+        }
     }
     /// Notes where the traffic lights start and end in `window`, and returns their end.
     private func measureLights(_ window: NSWindow) -> CGFloat {
@@ -281,7 +300,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !left.autoHide, left.item.isCollapsed { return slide([(left, false)]) }
         app.settings.set(SettingKeys.sidebarAutoHide, !left.autoHide)
     }
-    var sidebarShown: Bool { !left.item.isCollapsed || peeking === left }
+    /// Whether View's item hides the sidebar, by what choosing it does: a sidebar put away that peeks gets docked by
+    /// it, so it says Show (`toggleSidebarPanel`).
+    var sidebarShown: Bool { inFocusMode ? peeking === left : !left.autoHide && !left.item.isCollapsed }
     var inspectorShown: Bool { !right.item.isCollapsed || peeking === right }
 
     /// Leaves focus mode when quitting, so the panels come back first. Otherwise the split's autosave would start the

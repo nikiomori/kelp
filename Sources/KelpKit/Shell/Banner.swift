@@ -43,13 +43,9 @@ package enum Banner {
         let card = BannerCard(
             text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
             stays: fix?.blocking == true)   // when git can't run at all, it stays until closed
-        stack.rearrange {
-            stack.insertArrangedSubview(card, at: 0)
-            while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last {
-                oldest.removeFromSuperview()
-            }
-        }
+        stack.rearrange { stack.insertArrangedSubview(card, at: 0) }
         card.appear()
+        cards.dropFirst(most).forEach { $0.dismiss() }   // the oldest fades out, as one whose time came does
         // VoiceOver announces it too, because the banner is out of the keyboard's way and would go unheard.
         NSAccessibility.post(
             element: window, notification: .announcementRequested,

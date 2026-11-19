@@ -254,11 +254,23 @@ final class CountBadge: NSView {
             guard badge != oldValue else { return }
             let old = Self.number(oldValue), new = Self.number(badge)
             if let old, let new, old != new, !isHidden { digits.roll(up: new > old) }
-            if oldValue == nil { fadeIn() } else if badge == nil { isHidden = true }
+            if oldValue == nil { fadeIn() } else if badge == nil { return fadeOut() }   // the old mark fades as it was
             digits.stringValue = new.map { $0 > 99 ? "99+" : "\($0)" } ?? ""
             digits.isHidden = new == nil
             invalidateIntrinsicContentSize()
             needsDisplay = true
+        }
+    }
+    /// Goes in about two thirds of the time a new mark takes to come in.
+    private func fadeOut() {
+        guard window != nil, !Motion.reduced else { return isHidden = true }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.fast * 2 / 3
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit ends the animation group on the main thread
+                if self?.alphaValue == 0 { self?.isHidden = true }
+            }
         }
     }
     private static func number(_ badge: PanelBadge?) -> Int? { badge.flatMap { $0.count > 0 ? $0.count : nil } }

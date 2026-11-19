@@ -6,12 +6,13 @@ import TerminalKit
 
 /// The window's side columns: auto-hide, a peek from the edge, a pin, and the slide that opens and closes them.
 extension MainWindowController {
-    /// Fades a window bar's button out or in with the panels moving beside it, instead of in a single frame.
+    /// Fades a window bar's button out or in with the panels moving beside it, instead of in a single frame. It goes
+    /// as the floater it rides on does: in about two thirds of the time it took to come.
     func fade(_ button: NSView, hidden: Bool) {
         if !hidden { button.isHidden = false }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.duration(Motion.base)
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = Motion.duration(hidden ? Motion.fast : Motion.base)
+            ctx.timingFunction = CAMediaTimingFunction(name: hidden ? .easeIn : .easeOut)
             button.animator().alphaValue = hidden ? 0 : 1
         } completionHandler: {
             MainActor.assumeIsolated { if button.alphaValue == 0 { button.isHidden = true } }   // AppKit calls on main
@@ -56,9 +57,11 @@ extension MainWindowController {
         // The side that stays is the one whose panel isn't moving. With both moving, what's shown travels with the
         // left.
         editors.holdWidth(trailing: !moves.contains { $0.side === right })
+        // Columns that only close leave as panels do: sooner, speeding away.
+        let leaving = moves.allSatisfy(\.collapsed)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.base
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = leaving ? Motion.fast : Motion.base
+            ctx.timingFunction = CAMediaTimingFunction(name: leaving ? .easeIn : .easeOut)
             moves.forEach { $0.side.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
@@ -111,9 +114,10 @@ extension MainWindowController {
         let floor = away ? lightsStart : lightsEnd + 12
         if toggleFloor?.constant != floor {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Motion.duration(Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ctx.duration = Motion.duration(away ? Motion.fast : Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: away ? .easeIn : .easeOut)
                 toggleFloor?.animator().constant = floor
+                pillFloor?.animator().constant = floor
             }
         }
         let shown = !away || peeking === left

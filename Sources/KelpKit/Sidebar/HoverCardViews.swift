@@ -174,7 +174,10 @@ struct ContextBlock: View {
         let open = opened || model.compact != nil
         VStack(alignment: .leading, spacing: Metrics.gap) {
             Button {
-                opened.toggle()
+                // The chevron turns and the parts come and go as a fold does (`soft`).
+                withAnimation(Motion.reduced ? nil : .timingCurve(0.25, 0.8, 0.25, 1, duration: Motion.fold)) {
+                    opened.toggle()
+                }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)

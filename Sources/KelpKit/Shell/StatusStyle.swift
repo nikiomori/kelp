@@ -83,7 +83,7 @@ package final class StatusMark: NSView {
     /// pulse while it compacts, a pie for how far it got, a clock at its limit. Every place that shows a chat's mark
     /// sets these with this, after the status it shows there. Each copied them by hand, some two of the five and a
     /// folded project's logos none, so one agent stood as a ring of dots in its tab and turned as an arc in the list.
-    func follow(_ session: Session) {
+    package func follow(_ session: Session) {
         limited = session.limitHit != nil
         compacting = session.compacting
         waitsForCommand = session.waitsForCommand

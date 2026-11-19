@@ -197,6 +197,10 @@ extension SidebarController {
             AgentActions(app).addFork(to: menu, sid)
             AgentActions(app).addMove(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
+            // The chat's group, as ⌥-click on the row does (SidebarController+Outline), which the tip tells.
+            app.workbench.addWindowItems(
+                to: menu, workspace: app.session(sid)?.worktreeId,
+                tip: String(localized: "⌥-click the chat’s row: the same"))
             menu.addItem(.separator())
             if let session = app.session(sid),
                 NoProject.holds(app.worktree(session.worktreeId).flatMap { app.repo($0.repoId) })
