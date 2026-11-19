@@ -59,7 +59,10 @@ public final class HoverPopover {
     /// Shows the card at this row; when it's shown already, it moves here.
     public func show(_ content: NSViewController, relativeTo rect: NSRect, of view: NSView, edge: NSRectEdge) {
         popover.contentViewController = content
+        popover.animates = false   // it opens at once, where the pointer rests
         popover.show(relativeTo: rect, of: view, preferredEdge: edge)
+        // Once up, it grows and shrinks to what comes in (a part read later) instead of jumping to the new size.
+        popover.animates = !Motion.reduced
         keys =
             keys
             ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in

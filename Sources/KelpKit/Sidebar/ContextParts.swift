@@ -197,3 +197,37 @@ struct ContextParts: View {
         (Double(tokens) / Double(max(window, 1))).formatted(.percent.precision(.fractionLength(1)))
     }
 }
+
+/// What the parts will look like while they're read: the bar's track and four rows' outlines, breathing slowly (still
+/// under Reduce Motion), as a list waits for its rows.
+struct ContextPartsOutline: View {
+    @State private var dim = false
+    private static let widths: [CGFloat] = [0.62, 0.45, 0.54, 0.38]
+
+    var body: some View {
+        let shade = Color(nsColor: .quaternaryLabelColor)
+        VStack(alignment: .leading, spacing: Metrics.gap) {
+            Capsule().fill(shade).frame(height: PartsBar.height)
+            ForEach(Self.widths.indices, id: \.self) { index in
+                GeometryReader { geometry in
+                    HStack(spacing: Metrics.gap) {
+                        RoundedRectangle(cornerRadius: Metrics.radiusXS / 2).fill(shade).frame(
+                            width: PartsBar.height, height: PartsBar.height)
+                        Capsule().fill(shade).frame(
+                            width: geometry.size.width * Self.widths[index], height: Metrics.gap)
+                        Spacer()
+                        Capsule().fill(shade).frame(width: 28, height: Metrics.gap)
+                    }
+                }
+                .frame(height: TextSize.of(TextSize.caption) + Metrics.lineGap * 2)
+            }
+        }
+        .opacity(dim ? 0.45 : 1)
+        .accessibilityElement()
+        .accessibilityLabel(String(localized: "Reading the conversation…"))
+        .onAppear {
+            guard !Motion.reduced else { return }
+            withAnimation(.easeInOut(duration: Motion.breathe).repeatForever(autoreverses: true)) { dim = true }
+        }
+    }
+}
