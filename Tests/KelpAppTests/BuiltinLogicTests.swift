@@ -74,16 +74,18 @@ import os
     #expect(glyph("OPEN", draft: true) === open)
 }
 
-/// A pull request that changed since its tab was last opened says so to VoiceOver: its dot alone is only a colour.
-@MainActor @Test func anUnseenPullRequestsDotHasAName() {
-    func named(_ view: NSView) -> [String] {
-        let own = view.isAccessibilityElement() ? view.accessibilityLabel() : nil
-        return [own].compactMap { $0 }.filter { !$0.isEmpty } + view.subviews.flatMap(named)
+/// A pull request that changed since its tab was last opened says so in words, in its tooltip and to VoiceOver: the
+/// title's weight alone is only a look.
+@MainActor @Test func anUnseenPullRequestSaysItChanged() {
+    func helps(_ view: NSView) -> [String] {
+        [view.accessibilityHelp()].compactMap { $0 }.filter { !$0.isEmpty } + view.subviews.flatMap(helps)
     }
     let pr = GitHub.PullRequest(
         number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN", checks: .init())
-    let seen = named(ForgeRows.pr(pr, worktree: false, unseen: false))
-    #expect(named(ForgeRows.pr(pr, worktree: false, unseen: true)).count == seen.count + 1)
+    let seen = ForgeRows.pr(pr, worktree: false, unseen: false)
+    let unseen = ForgeRows.pr(pr, worktree: false, unseen: true)
+    #expect(seen.toolTip == nil && unseen.toolTip?.isEmpty == false)
+    #expect(helps(unseen).count == helps(seen).count + 1)
 }
 
 /// A heading in the list of pull requests does nothing on a click, so the pointer doesn't light it up as it does a
@@ -426,7 +428,7 @@ import os
     #expect(Machines.machineLine(app, v) == "Wakes in under a second" && Machines.machineWord(v).text == "Asleep")
     v.state = .error   // its last start failed: made, so it starts again
     v.detail = "The disk is full"
-    #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Didn't start")
+    #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Didn’t start")
     v.notMade = true
     #expect(Machines.machineWord(v).text == "Failed")
 }
@@ -450,5 +452,5 @@ import os
     let off = word(HostStats(host: "box", connected: false))
     #expect(off?.text == "Not connected" && off?.color == .secondaryLabelColor)
     let lost = word(HostStats(host: "box", connected: false, error: "Connection timed out"))
-    #expect(lost?.text == "Can't reach" && lost?.color != .secondaryLabelColor)
+    #expect(lost?.text == "Can’t reach" && lost?.color != .secondaryLabelColor)
 }

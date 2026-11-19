@@ -66,15 +66,9 @@ final class AgentCommitControls {
         plan.onCommit = { [weak controller] in controller?.makeCommits(push: false) }
     }
 
-    /// A word that acts, in the link colour and underlined under the pointer.
+    /// A word that acts, on the grey plate every worded button in the window has: a bare word isn't a button.
     private static func link(_ title: String, _ target: AnyObject, _ action: Selector) -> PointerButton {
-        let button = PointerButton(title: title) {}
-        button.target = target
-        button.action = action
-        button.contentTintColor = .linkColor
-        button.font = .ui(TextSize.caption)
-        button.underlinesOnHover = true
-        return button
+        TextButton(title, target: target, action: action)
     }
 }
 

@@ -35,7 +35,7 @@ extension Builtins {
                 CommandSpec(id: "git.review", title: "Git: Review Changes", key: "shift+cmd+r") { _ in
                     if let workspace = app.workbench.workspaceId { app.workbench.open(DiffTab.uri(workspace)) }
                 },
-                CommandSpec(id: "git.pullRequest", title: "Git: Create Pull Request") { _ in
+                CommandSpec(id: "git.pullRequest", title: "Git: Create Pull Request…") { _ in
                     if let workspace = app.workbench.workspaceId { PRActions(app).create(worktree: workspace) }
                 },
                 // The panel's quick actions, with their keys. They go through the panel when it's built (for its

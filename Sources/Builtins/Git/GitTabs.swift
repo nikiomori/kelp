@@ -143,7 +143,7 @@ final class CommitMessageTab: TabContent {
 
     private func build() {
         // A commit message is written in the editor's font, at its size.
-        text.plain(font: CodeEditor.font, inset: NSSize(width: 12, height: 12))
+        text.plain(font: CodeEditor.font, inset: NSSize(width: Metrics.inset, height: Metrics.inset))
         text.isVerticallyResizable = true
         text.autoresizingMask = .width
         text.onCommit = { [weak self] in self?.commit() }
@@ -160,19 +160,16 @@ final class CommitMessageTab: TabContent {
         commitButton.title =
             amend ? String(localized: "Amend") : push ? String(localized: "Commit & Push") : String(localized: "Commit")
         commitButton.bezelStyle = .push
-        commitButton.bezelColor = .controlAccentColor
+        // The bar's one main action is in the accent colour (macOS 26's primary tint, and the bezel colour before it).
+        if #available(macOS 26, *) {
+            commitButton.tintProminence = .primary
+        } else {
+            commitButton.bezelColor = .controlAccentColor
+        }
         commitButton.toolTip = String(localized: "Commit (⌘↩)")
         commitButton.target = self
         commitButton.action = #selector(commitPressed)
-        let bar = NSStackView(views: [hint, NSView(), cancel, commitButton])
-        bar.spacing = 8
-        bar.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
-        let sep = NSBox()
-        sep.boxType = .separator
-        root.pin(stacked(bar, sep, scroll))
-        NSLayoutConstraint.activate([
-            bar.heightAnchor.constraint(equalToConstant: 40), sep.heightAnchor.constraint(equalToConstant: 1)
-        ])
+        root.pin(stacked(Bar.content([hint], [cancel, commitButton]), scroll))
     }
 
     /// Fills in the message (the last commit's, when amending), then what goes into the commit as "#" lines, as git's

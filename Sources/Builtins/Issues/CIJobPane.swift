@@ -26,6 +26,12 @@ final class CIJobPane: NSObject {
     // Lines wrap at the pane's width, because a long one (a URL, a command) was cut off at the edge.
     private let logScroll = NSTextView.scrollableTextView()
     private var log: NSTextView { logScroll.documentView as? NSTextView ?? NSTextView() }
+    /// The log, with the wait for it and what went wrong standing in its place, as in every panel.
+    private let logArea = NSView()
+    private let loading = LoadingView(), empty = EmptyStateView()
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in
+        if let self, let shown, let worktree { show(shown.job, run: shown.run, in: worktree) }
+    }
     private let title = NSTextField(labelWithString: "")
     private lazy var mode = NSSegmentedControl(
         labels: [String(localized: "Failure"), String(localized: "Log")], trackingMode: .selectOne,
@@ -36,9 +42,10 @@ final class CIJobPane: NSObject {
     private lazy var askButton = IconButton(.symbol("sparkles"), tip: String(localized: "Ask Agent to Fix")) {
         [weak self] in self?.askAgent()
     }
-    private lazy var rerunButton = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Re-run Failed")) {
-        [weak self] in self?.rerun()
-    }
+    // Not Refresh's clockwise arrow: this runs the jobs again on GitHub.
+    private lazy var rerunButton = IconButton(
+        .symbol("arrow.counterclockwise"), tip: String(localized: "Re-run Failed")
+    ) { [weak self] in self?.rerun() }
     private lazy var stopButton = IconButton(.symbol("stop.fill"), tip: String(localized: "Cancel Run…")) {
         [weak self] in
         if let self, let shown, let run = runOf?(shown.run) { actions?.cancel(run) }
@@ -57,30 +64,35 @@ final class CIJobPane: NSObject {
         super.init()
         log.isEditable = false
         log.font = .uiMono(TextSize.caption)
-        log.textContainerInset = NSSize(width: 6, height: 6)
+        log.textContainerInset = NSSize(width: Metrics.gap, height: Metrics.gap)
         log.drawsBackground = false
         logScroll.drawsBackground = false
-        title.font = .ui(TextSize.row, weight: .semibold)
+        title.font = .ui(TextSize.row, weight: .medium)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         mode.controlSize = .small
         mode.selectedSegment = 0
         failures.onOpen = { [weak self] in self?.open($0) }
         failures.onFix = { [weak self] in self?.fix($0) }
+        logArea.pin(logScroll)
+        loading.place(in: logArea)
+        empty.place(in: logArea)
         view.orientation = .vertical
         view.spacing = 0
         view.setViews(
             [
-                Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, fullLogButton]), logScroll,
+                Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, fullLogButton]), logArea,
                 failures
             ], in: .top)
-        for pane in [logScroll, failures] { pane.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
+        for pane in [logArea, failures] { pane.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
     }
 
     func clear() {
         shown = nil
         report = nil
         log.string = ""
+        loading.show(nil)
+        empty.show(nil)
     }
 
     /// Called when a job is picked or has finished since. It reads what broke, which comes with the log's tail.
@@ -90,21 +102,28 @@ final class CIJobPane: NSObject {
         report = nil
         note = nil
         log.string = ""
+        loading.show(nil)
+        empty.show(nil)
         arrange()
         // gh hands out a job's log only once the job is over, and the next refresh after that brings it.
         guard job.status == "completed" else {
-            log.string = String(localized: "The log appears when the job finishes.")
+            empty.show(
+                String(localized: "No Log Yet"), symbol: "doc.text",
+                text: String(localized: "The log appears when the job finishes."))
             return
         }
-        let slow = whileSlow { [weak self] in
-            if self?.shown?.job.id == job.id { self?.log.string = String(localized: "Loading the log…") }
-        }
+        loading.wait(String(localized: "Loading the log…"))
         Task {
-            defer { slow.cancel() }
             let result = await app.tryCall(CIFailures(worktreeId: worktree, job: job.id))
             guard shown?.job.id == job.id else { return }
+            await loading.settled()
+            guard shown?.job.id == job.id else { return }
+            loading.show(nil)
             report = result.value
-            log.string = result.value?.log ?? result.error ?? ""
+            if let error = result.error, result.value == nil {
+                empty.showError(String(localized: "Couldn’t Read the Log"), text: error, buttons: [tryAgain])
+            }
+            log.string = result.value?.log ?? ""
             log.scrollToEndOfDocument(nil)
             arrange()
             await compareWithEarlierTry(job, run: run, in: worktree)
@@ -146,7 +165,7 @@ final class CIJobPane: NSObject {
         title.stringValue = shown?.job.steps.first { $0.status == "in_progress" }?.shortName ?? shown?.job.name ?? ""
         let showFailure = why && mode.selectedSegment == 0
         failures.isHidden = !showFailure
-        logScroll.isHidden = showFailure
+        logArea.isHidden = showFailure
     }
 
     @objc private func modeChanged() { arrange() }

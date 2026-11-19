@@ -8,7 +8,7 @@ import SwiftUI
 extension TasksViewController {
     // MARK: detail
     private func label(
-        _ text: String, size: CGFloat = 13, weight: NSFont.Weight = .regular, color: NSColor = .labelColor
+        _ text: String, size: CGFloat = TextSize.body, weight: NSFont.Weight = .regular, color: NSColor = .labelColor
     )
         -> NSTextField
     {
@@ -21,10 +21,9 @@ extension TasksViewController {
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
     }
-    func button(_ title: String, _ sym: String, _ action: @escaping @MainActor () -> Void) -> NSButton {
+    /// A button named in words, which carries no symbol.
+    func button(_ title: String, _ action: @escaping @MainActor () -> Void) -> NSButton {
         let button = ClosureButton(title: title, action: action)
-        button.image = .symbol(sym)   // Kelp's own drawing where it has one (a branch, a pull request)
-        button.imagePosition = .imageLeading
         button.bezelStyle = .push
         return button
     }
@@ -47,7 +46,7 @@ extension TasksViewController {
             }
             if case .linear(let issue) = row { detail.addArrangedSubview(statePicker(issue)) }
             detail.addArrangedSubview(
-                button(String(localized: "Start Agent on This"), "sparkles") { [app] in
+                button(String(localized: "Start Agent on This")) { [app] in
                     IssueWork.startHere(app, brief)
                 })
             body(brief["body"] ?? "")
@@ -57,7 +56,7 @@ extension TasksViewController {
                 label(String(localized: "Status: \(item.status ?? "—")"), color: .secondaryLabelColor))
         }
         if let url = row.url {
-            detail.addArrangedSubview(button(String(localized: "Open on the Web"), "safari") { Forge.open(url) })
+            detail.addArrangedSubview(button(String(localized: "Open on the Web")) { Forge.open(url) })
         }
     }
 

@@ -184,6 +184,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         fileList = fs
         buildBar()
         view = stacked(bar, split)
+        empty.place(in: view, under: bar)
+        loading.place(in: view, under: bar)
         track(owner: self) { [app] in
             app.themes.editorRevision
         } changed: { [weak self] _ in
@@ -213,6 +215,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     private let bar = Bar.content([])
+    /// Where the diff stands while it's on its way, when there is none, or when git couldn't read it (`showState`).
+    let empty = EmptyStateView(), loading = LoadingView()
+    lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
     var split: NSSplitView?
     var fileList: NSView?
     var positioned = false
@@ -295,7 +300,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             pathText.append(
                 NSAttributedString(
                     string: "  " + dir,
-                    attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor]))
+                    attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
         }
         pathLabel.attributedStringValue = pathText
         buildBar()

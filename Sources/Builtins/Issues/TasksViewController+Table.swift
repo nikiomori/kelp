@@ -46,7 +46,7 @@ extension TasksViewController {
             case .issue(let issue): ("#\(issue.number)  \(issue.title)", "")
             }
         let t1 = NSTextField(labelWithString: title)
-        t1.font = .ui(TextSize.body, weight: .medium)
+        t1.font = .ui(TextSize.row, weight: .medium)   // a list's row, as a pull request's in Issues & PRs
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: sub)
         t2.font = .ui(TextSize.caption)

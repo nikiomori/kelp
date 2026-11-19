@@ -59,7 +59,7 @@ enum ForgeRows {
         } else if checks.pending > 0 {
             said.append(("◌", nil))
         } else if checks.passed > 0 {
-            said.append(("✓", .textGreen))
+            said.append(("✓", nil))   // passed is quiet grey; only a failure has a colour
         }
         return ForgeRowCell(
             symbol: symbol(pr), tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
@@ -173,19 +173,10 @@ final class ForgeRowCell: NSView {
         row.spacing = Metrics.gapWide
         row.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.inset, bottom: 6, right: Metrics.inset)
         if unseen {
-            let dot = NSView()
-            dot.wantsLayer = true
-            dot.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-            dot.layer?.cornerRadius = Metrics.radiusXS
-            dot.toolTip = String(localized: "Changed since you last opened it")
-            // The dot is only a colour, so VoiceOver reads it with the tooltip's words.
-            dot.setAccessibilityElement(true)
-            dot.setAccessibilityRole(.image)
-            dot.setAccessibilityLabel(dot.toolTip)
-            NSLayoutConstraint.activate([
-                dot.widthAnchor.constraint(equalToConstant: 7), dot.heightAnchor.constraint(equalToConstant: 7)
-            ])
-            row.addArrangedSubview(dot)
+            // What changed since you last looked is news, which the title's weight says; the row's tooltip and
+            // VoiceOver say it in words.
+            toolTip = String(localized: "Changed since you last opened it")
+            setAccessibilityHelp(toolTip)
         }
         pin(row)
     }

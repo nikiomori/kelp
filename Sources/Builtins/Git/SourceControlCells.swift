@@ -159,11 +159,11 @@ final class FileCell: NSTableCellView, Hoverable {
         dir.lineBreakMode = .byTruncatingHead
         dir.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         name.setContentCompressionResistancePriority(.init(400), for: .horizontal)
-        letterField.font = .uiMono(TextSize.caption, weight: .semibold)
+        letterField.font = .ui(TextSize.micro, weight: .bold)   // a git letter as Files and the diff's list draw it
         letterField.alignment = .center
         letterField.widthAnchor.constraint(equalToConstant: 12).isActive = true
         mark.symbolConfiguration = .chrome(Metrics.iconTiny)
-        mark.contentTintColor = .textOrange
+        mark.contentTintColor = .secondaryLabelColor   // grey, so it isn't read as the orange M beside it
         number.font = .uiDigits(TextSize.micro, weight: .semibold)
         number.textColor = .secondaryLabelColor
         leading = pinRow(self, [icon, name, dir, NSView(), actions, mark, number, letterField], leading: Metrics.inset)

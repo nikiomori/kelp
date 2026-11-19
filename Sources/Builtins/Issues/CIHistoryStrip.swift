@@ -13,7 +13,7 @@ final class CIHistoryStrip: NSView {
     private let words = NSTextField(labelWithString: "")
     private let line = NSStackView()
     private var height: NSLayoutConstraint?
-    /// "green on #177", and "#177" in green for a panel too narrow for the words; the tooltip keeps the words.
+    /// "green on #177", and "#177" for a panel too narrow for the words; the tooltip keeps the words.
     private var whole = "", short: String?, wholeWidth: CGFloat = 0
 
     init() {
@@ -62,13 +62,12 @@ final class CIHistoryStrip: NSView {
         super.layout()
         let fits = line.fittingSize.width - words.fittingSize.width + wholeWidth <= line.bounds.width
         let text = fits ? whole : short ?? whole
-        guard words.stringValue != text else { return }
-        words.stringValue = text
-        words.textColor = text == whole ? .secondaryLabelColor : .textGreen
+        if words.stringValue != text { words.stringValue = text }
     }
 }
 
-/// One run's mark, 8 × 12, in the colour of the run's mark.
+/// One run's mark, 8 × 12, in the colour of the run's mark: a passed run grey, as CI's mark in the sidebar is, and only
+/// a failed one red.
 @MainActor
 private final class HistoryMark: PointerControl {
     private let color: NSColor
@@ -76,7 +75,7 @@ private final class HistoryMark: PointerControl {
     init(_ run: CIRuns.Run, pick: @escaping () -> Void) {
         color =
             switch (run.status, run.conclusion) {
-            case ("completed", "success"?): .systemGreen
+            case ("completed", "success"?): .secondaryLabelColor
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
                 .quaternaryLabelColor
             case ("completed", _): .systemRed

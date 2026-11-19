@@ -125,13 +125,14 @@ final class CommitCardView: NSView {
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 8
+        stack.spacing = Metrics.gapWide
         stack.setCustomSpacing(10, after: line)
-        stack.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)   // a popover's 12
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate(
-            rows.map { $0.widthAnchor.constraint(equalToConstant: Self.width - 28) } + [
+            rows.map { $0.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset) } + [
                 stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor),
                 stack.leadingAnchor.constraint(equalTo: leadingAnchor),
                 stack.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -225,26 +226,25 @@ final class CommitCardView: NSView {
                         labelWithAttributedString: GitFolders.changes(added: details.added, removed: details.removed)))
             }
         }
-        let copyTitle = String(localized: "Copy Commit Hash")
+        // A button named in words carries no symbol: the hash is its name, and it says "Copied" for a moment.
+        let hash = String(commit.hash.prefix(7))
         weak var button: NSButton?
-        let copy = ClosureButton(title: String(commit.hash.prefix(7))) {
+        let copy = ClosureButton(title: hash) {
             copyText(commit.hash)
             button?.crossfade()
-            button?.image = .symbol("checkmark", String(localized: "Copied"))
+            button?.title = String(localized: "Copied")
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) {
                 button?.crossfade()
-                button?.image = .symbol("doc.on.doc", copyTitle)
+                button?.title = hash
             }
         }
         button = copy
         copy.font = .uiMono(TextSize.caption)
-        copy.image = .symbol("doc.on.doc", copyTitle)
-        copy.imagePosition = .imageTrailing
         copy.bezelStyle = .push
         copy.controlSize = .small
-        copy.toolTip = copyTitle
+        copy.toolTip = String(localized: "Copy Commit Hash")
         let row = NSStackView(views: views + [NSView(), copy])
-        row.spacing = 6
+        row.spacing = Metrics.gap
         return row
     }
 
@@ -259,7 +259,7 @@ final class CommitCardView: NSView {
         field.isSelectable = false
         field.maximumNumberOfLines = lines
         field.cell?.truncatesLastVisibleLine = true
-        field.preferredMaxLayoutWidth = width - 28
+        field.preferredMaxLayoutWidth = width - 2 * Metrics.inset
         return field
     }
 }

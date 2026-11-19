@@ -81,6 +81,8 @@ extension DiffViewController {
             files.reloadData()
             return
         }
+        // The first read of a tab waits with a spinner once it takes a second; a read over a diff on screen doesn't.
+        if diffs.isEmpty, !empty.showing { loading.wait(String(localized: "Reading the changes…")) }
         if single == nil, sourcePicked == .commit, askCommit {
             askCommit = false   // before asking, so a load that starts while the question is up doesn't ask again
             // The user picked "a commit", so a banner says when git can't list them.
@@ -104,7 +106,7 @@ extension DiffViewController {
             words = [:]
             files.reloadData()
             table.reloadData()
-            status.stringValue = String(localized: "No agent on this screen")
+            showState(error: nil, nothing: String(localized: "No agent on this screen"))
             return
         }
         if single == nil { await readTurns(sourcePicked == .turn ? agent : nil) }
@@ -136,6 +138,7 @@ extension DiffViewController {
             Dictionary(newDiffs.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a }
         }.value
         let spans = await parsed
+        await loading.settled()   // so the rows don't come up under a wait that has only just appeared
         // Rows, cell tags and the hunk buttons all index `diffs`, so they change together, once every answer is in.
         guard asked == loads.asking, wid == worktreeId else { return }
         loads.builds += 1   // rows that a layout change is still building are the old diff's
@@ -154,10 +157,20 @@ extension DiffViewController {
         reloadKeepingDraft()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
-        if let error = result.error {
-            status.stringValue = error
-            return
-        }   // the error says why there's nothing, rather than "0 files"
-        status.stringValue = statusText()
+        showState(error: result.error)
+    }
+
+    /// Shows what the diff's room says when it has no rows, as every panel does: git's error with Try Again, or
+    /// `nothing` ("No Changes") for an empty diff. The bar counts files only when there are some, not "0 files".
+    func showState(error: String?, nothing: String = String(localized: "No Changes")) {
+        loading.show(nil)
+        if let error {
+            empty.showError(
+                String(localized: "Couldn’t Read the Changes"), text: error, fix: FixRecipes.fix(for: error)?.command,
+                buttons: [tryAgain])
+        } else {
+            empty.show(diffs.isEmpty ? nothing : nil, symbol: "plus.forwardslash.minus")
+        }
+        status.stringValue = error == nil && !diffs.isEmpty ? statusText() : ""
     }
 }

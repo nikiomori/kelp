@@ -93,7 +93,7 @@ enum ForgePage {
         let rows = checks.map { check -> String in
             let mark =
                 switch check.bucket {
-                case "pass": "<span class=\"pass\">✓</span>"
+                case "pass": "<span class=\"ok\">✓</span>"   // passed is grey: only a failure has a colour
                 case "fail": "<span class=\"fail\">✕</span>"
                 case "pending": "<span class=\"wait\">◌</span>"
                 default: "<span class=\"wait\">–</span>"
@@ -138,10 +138,10 @@ enum ForgePage {
         .block{color:var(--warning);font-size:13px;margin:0 0 14px}.block.quiet{color:var(--muted)}
         .none{color:var(--muted)}
         h2{font-size:14px;border:0;margin:28px 0 8px}
-        h3{font-size:11px;text-transform:uppercase;color:var(--muted);margin:0 0 6px;letter-spacing:.02em}
+        h3{font-size:11px;font-weight:600;color:var(--muted);margin:0 0 6px}
         ul.side{list-style:none;padding:0;margin:0 0 18px}ul.side li{margin:0 0 3px;display:flex;gap:6px}
         .file{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .pass{color:var(--tip)}.fail{color:var(--caution)}.wait{color:var(--muted)}
+        .pass{color:var(--tip)}.fail{color:var(--caution)}.wait,.ok{color:var(--muted)}
         .comment{border-top:1px solid var(--border);padding:10px 0 2px}
         .comment .who{color:var(--muted);font-size:12px;margin:0 0 6px}
         </style>

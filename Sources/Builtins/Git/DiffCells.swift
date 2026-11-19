@@ -240,7 +240,7 @@ extension DiffViewController {
     func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        let name = NSTextField.label(path, font: .ui(TextSize.row, weight: .semibold), truncation: .byTruncatingHead)
+        let name = NSTextField.label(path, font: .ui(TextSize.row, weight: .medium), truncation: .byTruncatingHead)
         let stack = FillStack(views: [
             icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
         ])

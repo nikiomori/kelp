@@ -16,6 +16,13 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
     private let box = NSView()
     private var editor: CodeEditor?
     private var text = ""
+    /// The wait and the error stand where the log will, as in every panel.
+    private let loading = LoadingView(), empty = EmptyStateView()
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in
+        self?.readAgain()
+    }
+    /// Reads the log of this tab's job again.
+    private var readAgain: @MainActor () -> Void = {}
 
     /// The tabs on screen, so that a second step moves the tab that's open instead of reading the log again.
     private static var shown: [String: () -> CILogTab?] = [:]
@@ -56,13 +63,27 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
         title = Self.title(uri)
         view = box
         Self.shown[uri] = { [weak self] in self }
+        loading.place(in: box)
+        empty.place(in: box)
         guard let worktree = value("worktree"), let job = value("job").flatMap(Int.init) else { return }
-        let slow = whileSlow { [weak self] in self?.show(String(localized: "Loading the log…")) }
+        readAgain = { [weak self] in self?.read(app, worktree: worktree, job: job) }
+        readAgain()
+    }
+
+    /// Reads the log: a wait once it takes a second, then the log, or what went wrong with Try Again.
+    private func read(_ app: AppModel, worktree: String, job: Int) {
+        empty.show(nil)
+        loading.wait(String(localized: "Loading the log…"))
         Task { [weak self] in
             let result = await app.tryCall(CIFullLog(worktreeId: worktree, job: job))
-            slow.cancel()
             guard let self else { return }
-            if let log = result.value { loaded(log) } else { show(result.error ?? "") }
+            await loading.settled()
+            loading.show(nil)
+            if let log = result.value {
+                loaded(log)
+            } else {
+                empty.showError(String(localized: "Couldn’t Read the Log"), text: result.error, buttons: [tryAgain])
+            }
         }
     }
 
@@ -72,19 +93,12 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
         return true
     }
 
-    private func show(_ message: String) {
-        let empty = EmptyStateView()
-        box.subviews.forEach { $0.removeFromSuperview() }
-        empty.show(message)
-        box.pin(empty)
-    }
-
     private func loaded(_ log: String) {
         text = log
         let codeEditor = CodeEditor(text: log, url: URL(fileURLWithPath: "/ci.log"), editable: false)
         codeEditor.view.clipsToBounds = true
+        editor?.view.removeFromSuperview()
         editor = codeEditor
-        box.subviews.forEach { $0.removeFromSuperview() }
         box.pin(codeEditor.view)
         if let step = Self.waiting.removeValue(forKey: uri) { go(to: step) }
     }
