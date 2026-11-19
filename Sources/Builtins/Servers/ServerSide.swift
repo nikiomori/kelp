@@ -137,7 +137,8 @@ struct ServerSide: View {
         }
         if port.port != 22 {
             row.button = .init(
-                String(localized: "Forward"), tip: String(localized: "Reach it from this Mac as localhost")
+                String(localized: "Forward a Port", defaultValue: "Forward"),
+                tip: String(localized: "Reach it from this Mac as localhost")
             ) {
                 forward(port.port)
             }

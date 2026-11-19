@@ -30,8 +30,10 @@ struct RoutineDetail: View {
             )
             .padding(Metrics.gapWide).background(
                 Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusMD))
-            Form { RepeatFields(routine: Binding(get: { routine }, set: { save($0) })) }.formStyle(.columns).frame(
-                maxWidth: 420)
+            // As wide as its words: capped at 420 pt, a longer language's segments ran past both sides of the cap
+            // and the labels were cut at the page's edge.
+            Form { RepeatFields(routine: Binding(get: { routine }, set: { save($0) })) }.formStyle(.columns)
+                .fixedSize(horizontal: true, vertical: false)
             facts
             if let run = runs.first(where: { $0.id == picked }) ?? runs.first { RunResult(app: app, run: run) }
         }
