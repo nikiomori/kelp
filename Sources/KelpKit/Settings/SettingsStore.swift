@@ -101,8 +101,8 @@ package final class SettingsStore {
     }
 
     /// Sets the key in `language`'s own block, whether the block had the key or not (for the language picker in
-    /// Settings). A nil `value` takes the key out.
-    func setOwn(_ key: String, _ value: JSONValue?, language: String) {
+    /// Settings, and the editor's status bar card for code suggestions). A nil `value` takes the key out.
+    package func setOwn(_ key: String, _ value: JSONValue?, language: String) {
         var block: [String: JSONValue] = [:]
         if case .object(let existing)? = values["[\(language)]"] { block = existing }
         block[key] = value

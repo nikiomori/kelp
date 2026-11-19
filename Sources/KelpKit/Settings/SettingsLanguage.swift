@@ -17,10 +17,10 @@ struct LanguagePicker: View {
             Picker(selection: $language) {
                 Text("All Files").tag("")
                 Divider()
-                ForEach(own, id: \.self) { Text(SettingRow.languageName($0)).tag($0) }
+                ForEach(own, id: \.self) { Text(LanguageName.of($0)).tag($0) }
                 if !own.isEmpty { Divider() }
                 ForEach(CodeEditor.languageIds.filter { !own.contains($0) }.sorted(), id: \.self) {
-                    Text(SettingRow.languageName($0)).tag($0)
+                    Text(LanguageName.of($0)).tag($0)
                 }
             } label: {
                 Text("For")
@@ -46,9 +46,11 @@ extension SettingRow {
     func bool() -> Bool? { store.bool(spec.key, language: language) }
     func number() -> Double? { store.number(spec.key, language: language) }
     func string() -> String? { store.string(spec.key, language: language) }
+}
 
-    /// Returns a language id as people say it.
-    static func languageName(_ id: String) -> String {
+/// A language id as people say it: "javascript" is JavaScript, "swift" Swift.
+package enum LanguageName {
+    package static func of(_ id: String) -> String {
         [
             "plaintext": "Plain Text", "javascript": "JavaScript", "typescript": "TypeScript", "tsx": "TSX",
             "json": "JSON", "yaml": "YAML",

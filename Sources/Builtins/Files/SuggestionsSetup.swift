@@ -107,6 +107,11 @@ extension Suggestions {
         await turnOn()
     }
 
+    /// Suggestions off in `language`'s files only, or back to the setting for all files.
+    func set(on: Bool, in language: String) {
+        app.settings.setOwn(SettingKeys.suggestions.key, on ? nil : .string("off"), language: language)
+    }
+
     /// Suggestions from `cloud`, which asks for its key when it has none.
     func use(_ cloud: SuggestCloud) {
         app.settings.set(SettingKeys.suggestionCloud, cloud.rawValue)

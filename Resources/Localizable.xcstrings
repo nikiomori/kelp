@@ -1043,6 +1043,16 @@
         }
       }
     },
+    "Off in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено в файлах %@"
+          }
+        }
+      }
+    },
     "Off in This File": {
       "localizations": {
         "ru": {
@@ -1659,6 +1669,16 @@
         }
       }
     },
+    "Suggestions are on in other files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В остальных файлах подсказки включены."
+          }
+        }
+      }
+    },
     "Suggestions Off": {
       "localizations": {
         "ru": {
@@ -1835,6 +1855,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отслеживается git, вместе с .git"
+          }
+        }
+      }
+    },
+    "Turn On in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить в файлах %@"
+          }
+        }
+      }
+    },
+    "Turn Off in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить в файлах %@"
           }
         }
       }

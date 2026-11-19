@@ -37,6 +37,12 @@ struct SuggestionsCard: View {
                 let status = suggestions.status(language: language, secret: false), status.needsYou
             {
                 problemCard(problem, title: status.text, named: named)
+            } else if mode == "off", app.settings[SettingKeys.suggestions] != "off" {
+                title(String(localized: "Off in \(LanguageName.of(language)) Files"))
+                Text("Suggestions are on in other files.").foregroundStyle(.secondary)
+                buttons(String(localized: "Turn On in \(LanguageName.of(language)) Files")) {
+                    suggestions.set(on: true, in: language)
+                }
             } else if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
                 cloudCard(cloud, named: named)
             } else if let model, mode != "off" {
@@ -44,6 +50,7 @@ struct SuggestionsCard: View {
                 if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
                 facts(String(localized: "This Mac · \(model.server)"))
                 otherModels()
+                offHere()
                 buttons(String(localized: "Turn Off"), prominent: false) {
                     suggestions.turnOff()
                 }
@@ -100,6 +107,14 @@ struct SuggestionsCard: View {
         }
     }
 
+    /// Off for this file's language only, the rest going on as they are.
+    private func offHere() -> some View {
+        Button(String(localized: "Turn Off in \(LanguageName.of(language)) Files")) {
+            suggestions.set(on: false, in: language)
+        }
+        .buttonStyle(.link)
+    }
+
     /// Every model to pick from, the cloud's too.
     private func otherModels() -> some View {
         Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(.link)
@@ -116,6 +131,7 @@ struct SuggestionsCard: View {
             title(name)
             facts(String(localized: "Cloud · \(Self.company(cloud, app.settings[SettingKeys.suggestionURL]))"))
             Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(.link)
+            offHere()
             buttons(String(localized: "Turn Off"), prominent: false) {
                 suggestions.turnOff()
             }

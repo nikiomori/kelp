@@ -28,6 +28,20 @@ extension OneAtATime {
         #expect(s.number("editor.tabSize", language: "markdown") == 2)
     }
 
+    /// The status bar's card turns suggestions off in one language's files and back to the setting for all.
+    @Test func suggestionsGoOffInOneLanguageAndBackOn() {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all)
+        let s = app.settings
+        s.apply(["editor.suggestions": .string("local")])
+        Suggestions.of(app).set(on: false, in: "markdown")
+        #expect(s[SettingKeys.suggestions, language: "markdown"] == "off")
+        #expect(s[SettingKeys.suggestions, language: "swift"] == "local" && s[SettingKeys.suggestions] == "local")
+        Suggestions.of(app).set(on: true, in: "markdown")
+        #expect(s[SettingKeys.suggestions, language: "markdown"] == "local")
+        #expect(s.values["[markdown]"] == nil)   // nothing of its own left
+    }
+
     /// Settings' language picker writes the language's block even when it had nothing yet, and its reset empties it.
     @Test func thePickersValueGoesInTheLanguagesOwnBlock() {
         _ = testHome
