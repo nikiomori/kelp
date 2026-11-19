@@ -145,7 +145,7 @@ def keeps_sessions(code):
 def main():
     sources = swift_files("Sources")
     kelpkit, builtins = count_loc("Sources/KelpKit"), count_loc("Sources/Builtins")
-    package = grep_count(r"\bpackage\s+(?:static|final|override|lazy|nonisolated|convenience|required|func|var|let|class|struct|enum|protocol|typealias|subscript|actor|init)\b",
+    package = grep_count(r"\bpackage\s+(?:(?:internal|private|fileprivate)\(set\)|(?:static|final|override|lazy|nonisolated|convenience|required|func|var|let|class|struct|enum|protocol|typealias|subscript|actor|init)\b)",
                          swift_files("Sources/KelpKit"))
     app_ext = [p for p in swift_files("Sources/KelpKit", "Sources/Builtins")
                if p.name != "AppModel.swift" and re.search(r"^(@\w+ +)*(\w+ +)?extension AppModel\b", p.read_text(errors="replace"), re.M)]

@@ -107,7 +107,7 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // func`, a one-line extension's members), not only lines that start with one.
     let token = try NSRegularExpression(
         pattern:
-            #"\bpackage\s+(?:(?:static|final|override|lazy|nonisolated|convenience|required|init)\b|(?:func|var|let|class|struct|enum|protocol|typealias|subscript|actor)\b|init\b)"#
+            #"\bpackage\s+(?:(?:internal|private|fileprivate)\(set\)|(?:static|final|override|lazy|nonisolated|convenience|required|init)\b|(?:func|var|let|class|struct|enum|protocol|typealias|subscript|actor)\b|init\b)"#
     )
     let declared = sources(["Sources/KelpKit"]).map { f in
         let code = codeOnly(f.text)
@@ -192,7 +192,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // so a key rebound in Settings › Keyboard isn't still the old one on Git's, Run's and the editor's buttons.
     // +3: a file's status bar card turns code suggestions off in its language's files and says which
     // (`setOwn`, `LanguageName`, its `of`), as Settings' language picker does.
-    #expect(declared == 371, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3, nothing new: a `package internal(set)` is counted too (`inFocusMode`, `page`, `byKey`), as it is surface.
+    #expect(declared == 374, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
