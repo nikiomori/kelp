@@ -562,7 +562,7 @@ extension OneAtATime {
     await DaemonLink.stop(other.processIdentifier)
     #expect(other.isRunning)
     await DaemonLink.stop(d.processIdentifier)
-    #expect(try await waitFor { !(d.isRunning) })
+    #expect(try await waitFor { !d.isRunning })
     #expect(!d.isRunning && d.terminationReason == .uncaughtSignal)
 }
 
