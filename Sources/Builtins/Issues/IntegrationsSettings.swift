@@ -68,7 +68,7 @@ struct IntegrationsSettings: View {
             }
         } label: {
             Text(name)
-            Text(about)
+            Text(about).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }
     }
 

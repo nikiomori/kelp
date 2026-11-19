@@ -104,11 +104,21 @@ struct ExtensionsSettings: View {
         } label: {
             Label {
                 Text(info.builtin ? loc(info.name) : "\(loc(info.name)) \(info.version)")
-                if !info.description.isEmpty { Text(loc(info.description)) }
-                if let err = info.error { Text(err).foregroundStyle(Color.textRed).textSelection(.enabled) }
-                if let reason = info.unavailable { Text(reason) }
+                // A label's lines under the title are set as the system sets them (smaller, grey), because the
+                // window's font is set for its rows.
+                if !info.description.isEmpty {
+                    Text(loc(info.description)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
+                if let err = info.error {
+                    Text(err).font(.ui(TextSize.caption)).foregroundStyle(Color.textRed).textSelection(.enabled)
+                }
+                if let reason = info.unavailable {
+                    Text(reason).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
                 if info.waitsToBeAllowed {
-                    Text("New or changed since it was allowed: it runs no commands until you allow it.")
+                    Text("New or changed since it was allowed: it runs no commands until you allow it.").font(
+                        .ui(TextSize.caption)
+                    ).foregroundStyle(.secondary)
                 }
             } icon: {
                 SymbolIcon(info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textRed)

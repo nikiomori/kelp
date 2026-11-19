@@ -204,7 +204,7 @@ struct KeyboardSettings: View {
                 Button("Restore Defaults…") { restore() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
             } label: {
                 Text("Click a shortcut, then press the new keys.")
-                Text("⌫ removes it, esc keeps it.")
+                Text("⌫ removes it, esc keeps it.").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
         }
         let changed = entries.filter { KeyBindings.overrides(app.settings)[$0.id] != nil }
