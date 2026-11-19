@@ -32,6 +32,11 @@ extension CIRunsController {
         }
         Task { await expand(item, openFailed: false) }
     }
+    /// A ⌘-click leaves the pick as it was, because it opens the row's page (`rowClicked`), not its log.
+    func outlineView(_ outlineView: NSOutlineView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet
+    {
+        NSApp.currentEvent?.isClick(with: .command) == true ? outlineView.selectedRowIndexes : proposed
+    }
     func outlineViewSelectionDidChange(_ notification: Notification) {
         guard let item = outline.item(atRow: outline.selectedRow) as? Item, case .job(let job, let run) = item.kind
         else {
@@ -45,9 +50,10 @@ extension CIRunsController {
     }
 
     /// A fold opens from anywhere on its row. A step goes to its place in the job's log, which is read once the job is
-    /// over.
+    /// over. A ⌘-click opens the row's page in the browser.
     @objc func rowClicked() {
         guard let item = outline.item(atRow: outline.actedRow) as? Item else { return }
+        if NSApp.currentEvent?.isClick(with: .command) == true, let page = page(item) { return Forge.open(page) }
         switch item.kind {
         case .fold: if outline.isItemExpanded(item) { outline.collapseItem(item) } else { outline.expandItem(item) }
         case .step(let step): showInLog(step, of: item)
@@ -61,6 +67,16 @@ extension CIRunsController {
         CILogTab.open(app, worktree: worktree, job: job, step: step.name)
     }
 
+    /// The row's page on the site: the run's, the job's, or the step's place in its job's.
+    func page(_ item: Item) -> String? {
+        switch item.kind {
+        case .run(let run): run.url
+        case .job(let job, _): job.url
+        case .step(let step): job(of: item)?.url.flatMap { url in step.number.map { "\(url)#step:\($0):1" } }
+        case .fold: nil
+        }
+    }
+
     /// The job a step belongs to, looking past the fold the step may sit in.
     func job(of item: Item) -> CIRuns.Job? {
         var up = outline.parent(forItem: item) as? Item
@@ -71,8 +87,19 @@ extension CIRunsController {
         return nil
     }
 
+    /// A row with a page says in its tooltip that a ⌘-click opens it, on the site the project's origin is on.
     func outlineView(_ outlineView: NSOutlineView, viewFor column: NSTableColumn?, item: Any) -> NSView? {
         guard let item = item as? Item else { return nil }
+        let view = cell(item)
+        if page(item) != nil {
+            let site = ["gitlab": "GitLab", "bitbucket": "Bitbucket"][pages?.forge ?? ""] ?? "GitHub"
+            view.toolTip = [view.toolTip, String(localized: "⌘-click: open on \(site)")].compactMap { $0 }
+                .joined(separator: "\n")
+        }
+        return view
+    }
+
+    private func cell(_ item: Item) -> NSView {
         switch item.kind {
         case .run(let run): return runRow(run)
         case .job(let job, _):

@@ -318,3 +318,12 @@ extension NSTableView {
         if moves { settleRows(from: places, key, new: came) }
     }
 }
+
+extension NSEvent {
+    /// Whether this is a click with exactly `keys` held, as the design system reads them: ⌘ alone does the same thing
+    /// in another place, ⌥ alone another action of the same place, ⇧ beside.
+    public func isClick(with keys: NSEvent.ModifierFlags) -> Bool {
+        [.leftMouseDown, .leftMouseUp].contains(type)
+            && modifierFlags.intersection([.command, .shift, .option, .control]) == keys
+    }
+}

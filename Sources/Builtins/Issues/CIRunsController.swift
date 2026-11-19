@@ -51,7 +51,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var setup: Forge.Setup?
     private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var moreButton: NSButton?
-    private var pages: GitWebPages.Pages?
+    var pages: GitWebPages.Pages?
     lazy var jobPane: CIJobPane = {
         let pane = CIJobPane(app: app)
         pane.onChange = { [weak self] in self?.reload() }

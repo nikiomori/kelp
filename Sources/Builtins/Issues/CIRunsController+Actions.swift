@@ -23,9 +23,7 @@ extension CIRunsController {
                     CILogTab.open(app, worktree: act.worktree, job: job, step: step.name)
                 }
             }
-            if let url = job(of: item)?.url, let number = step.number {
-                menu.add(String(localized: "Open in Browser")) { Forge.open("\(url)#step:\(number):1") }
-            }
+            if let url = page(item) { menu.add(String(localized: "Open in Browser")) { Forge.open(url) } }
             if menu.numberOfItems > 0 { menu.addItem(.separator()) }
             menu.add(String(localized: "Copy Step Name")) {
                 copyText(step.name)

@@ -92,8 +92,10 @@ extension WindowBar {
     }
     @objc func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 
+    /// Opens the PR's tab, and with ⌘ held its page in the browser, as the sidebar row's mark does.
     @objc func openPR() {
-        guard let uri = prMark?.uri else { return }
-        app.workbench.open(uri, workspace: worktree?.id)
+        guard let mark = prMark else { return }
+        if EditorArea.commandClick, let page = mark.page { return PreviewLinks.openOutside(page) }
+        app.workbench.open(mark.uri, workspace: worktree?.id)
     }
 }

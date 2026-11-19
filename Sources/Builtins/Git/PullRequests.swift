@@ -12,11 +12,11 @@ enum PullRequests {
     /// mark, and the tooltip counts them. Returns nil while Settings › Appearance › Changes and pull requests is off.
     /// A click opens the PR's own tab.
     @MainActor static func mark(_ folder: String, _ app: AppModel) -> (
-        title: NSAttributedString, tip: String, uri: String
+        title: NSAttributedString, tip: String, uri: String, page: URL?
     )? {
         guard app.settings[SettingKeys.gitBadges], let pr = app.latest(PREvent.self, folder)?.pr else { return nil }
         let (title, tip) = badge(pr)
-        return (title, tip, uri(folder, number: pr.number, page: pr.url, app))
+        return (title, tip, uri(folder, number: pr.number, page: pr.url, app), URL(string: pr.url))
     }
 
     /// The PR's own tab (Issues'), as the Issues panel opens it, or the PR's page while the folder's project isn't

@@ -71,6 +71,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let ts = table.plainList("t")
         table.dataSource = self
         table.target = self
+        table.action = #selector(clicked)
         table.doubleAction = #selector(keepOpened)
         table.delegate = self
         table.menu = NSMenu()

@@ -270,6 +270,7 @@ final class EditorArea: NSViewController {
         let group = GroupView(groupId: gid, themes: app.themes)
         group.strip.onSelect = { [weak self] id in self?.select(id) }
         group.strip.onClose = { [weak self] id in self?.closeTab(id) }
+        group.strip.onCloseOthers = { [weak self] id in if let self { closeTabs(tabs(beside: id)) } }
         group.strip.onMenu = { [weak self] id in self?.tabMenu(id) }
         group.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
         group.strip.onNewAgent = { [weak self] in
@@ -415,10 +416,7 @@ final class EditorArea: NSViewController {
     }
 
     /// A click with ⌘ alone held, which does the same thing in another place (the design system's rule for ⌘).
-    static var commandClick: Bool {
-        guard let event = NSApp.currentEvent, [.leftMouseUp, .leftMouseDown].contains(event.type) else { return false }
-        return event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command
-    }
+    static var commandClick: Bool { NSApp.currentEvent?.isClick(with: .command) == true }
     /// What a click on an agent does (the button at the end of the tabs, "+", the empty screen): it starts here, and
     /// with ⌘ held (`elsewhere`) in a new group of this project.
     func startAgent(_ agent: String? = nil, prompt: String? = nil, elsewhere: Bool = EditorArea.commandClick) {

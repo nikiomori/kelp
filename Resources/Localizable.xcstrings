@@ -31718,6 +31718,36 @@
           }
         }
       }
+    },
+    "Jump to Definition Beside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти к определению рядом"
+          }
+        }
+      }
+    },
+    "⌥-click: close the others": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥-клик: закрыть остальные"
+          }
+        }
+      }
+    },
+    "⌘-click: open on %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘-клик: открыть на %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

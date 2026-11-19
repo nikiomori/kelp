@@ -56,7 +56,7 @@ final class WindowBar: NSView {
     /// The CI mark and its place, from the CI built-in (`FolderCI`). Without that built-in the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// The branch's pull request, from the CI built-in (`FolderCI`). Without that built-in there is no PR chip.
-    var prMark: (title: NSAttributedString, tip: String, uri: String)? {
+    var prMark: (title: NSAttributedString, tip: String, uri: String, page: URL?)? {
         badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
     }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
@@ -267,7 +267,7 @@ final class WindowBar: NSView {
         pr.isHidden = badge == nil
         if let badge {
             pr.attributedTitle = badge.title
-            pr.toolTip = badge.tip
+            pr.toolTip = badge.tip + "\n" + SidebarCell.onGitHub
         }
     }
 
