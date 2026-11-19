@@ -5,8 +5,9 @@ import os
 /// The model that guesses the next edit, Sweep Next-Edit 1.5B (Apache-2.0), in a llama-server (llama.cpp) that kelpd
 /// starts on a free port of its own: for the first ask, or Start. It stops after 15 minutes unasked, on a memory
 /// warning, when the next edit is switched off, and with the daemon; a start that takes over 15 minutes is ended. The
-/// first start downloads the model (1.5 GB) into llama.cpp's cache. Prompt lookup (ngram-simple) does it: the model writes the cursor's lines again, most of
-/// it a copy of what it read, which this takes from the prompt, so an answer takes 0.36 s, not 1.5.
+/// first start downloads the model (1.5 GB) into llama.cpp's cache. Prompt lookup (ngram-simple) makes it quick: the
+/// model writes the cursor's lines again, most of it a copy of what it read, which this takes from the prompt, so an
+/// answer takes 0.36 s, not 1.5.
 final class NextEditServer: Sendable {
     static let arguments = [
         "--hf-repo", "sweepai/sweep-next-edit-1.5B", "--hf-file", "sweep-next-edit-1.5b.q8_0.v2.gguf", "--host",

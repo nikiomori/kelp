@@ -8,7 +8,7 @@ import KelpKit
 /// with llama.cpp installed by Homebrew in a terminal tab when it isn't there.
 extension Suggestions {
     /// Whether the next edit is wanted: its setting, while suggestions are on somewhere. `followNextEdit` starts and
-    /// stops its model as this changes, whoever changed the setting (the card, Settings, `kelp settings`, settings.json).
+    /// stops its model as this changes, whoever changed the setting (the card, Settings, `kelp settings`, by hand).
     var nextEditWanted: Bool { app.settings[SettingKeys.nextEdit] && app.settings[SettingKeys.suggestions] != .off }
 
     /// On: starts the model now, so the first edit doesn't wait for its download. Off: stops it, giving its memory back.
