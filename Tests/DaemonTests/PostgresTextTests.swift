@@ -58,6 +58,12 @@ private func array(_ element: UInt32, _ items: [[UInt8]?]) -> [Part] {
         (.inet, [.u8(2), .u8(24), .u8(0), .u8(4), .bytes([192, 168, 0, 1])], "192.168.0.1/24"),
         (.inet, [.u8(2), .u8(32), .u8(0), .u8(4), .bytes([10, 0, 0, 1])], "10.0.0.1"),
         (.cidr, [.u8(2), .u8(32), .u8(1), .u8(4), .bytes([10, 0, 0, 1])], "10.0.0.1/32"),
+        (.inet, [.u8(3), .u8(128), .u8(0), .u8(16), .bytes(Array(repeating: 0, count: 15) + [1])], "::1"),
+        (
+            .inet,
+            [.u8(3), .u8(64), .u8(0), .u8(16), .bytes([0x20, 0x01, 0x0d, 0xb8] + Array(repeating: 0, count: 11) + [1])],
+            "2001:db8::1/64"
+        ),
         (.money, [.i64(1234)], "$12.34"),
         (.money, [.i64(-5)], "-$0.05"),
         (.bytea, [.bytes([0xDE, 0xAD, 0xBE, 0xEF])], "\\xdeadbeef"),
