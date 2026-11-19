@@ -201,7 +201,9 @@ extension SettingsSet: Handled {
     /// - whether terminals are tmux sessions (whose panes are told apart only by who is attached), whether agents hear
     /// from the agents they start, and where every workspace's folder goes;
     /// - the keyboard (`keys`): a key bound to one of the user's commands, such as git.push on ⌘S, would make the user
-    /// run it unawares.
+    /// run it unawares;
+    /// - code suggestions (`editor.suggestion*`, `editor.nextEdit`): where the code around the cursor goes, with the
+    /// key the user saved for it, and whether kelpd downloads and runs a model.
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
@@ -210,7 +212,8 @@ extension SettingsSet: Handled {
         // how an agent calls the user (waiting, done, failed) and whether the banner stays: not the agent's to quiet
         SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.holdBanners.key,
         // every project's language servers, with their own settings: some name a program they run (a check command)
-        SettingKeys.languageServers.key
+        SettingKeys.languageServers.key,
+        "editor.suggestion", "editor.nextEdit"   // the Files built-in's keys, by prefix as `phone.`
     ]
     var fence: Fence {
         Fence(

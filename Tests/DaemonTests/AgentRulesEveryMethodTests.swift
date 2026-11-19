@@ -152,8 +152,8 @@ private func rows() async throws -> Rows {
         ])
 }
 
-/// Settings an agent may set, but the user's own (`SettingsSet.usersOnly`): how an agent calls the user, and every
-/// project's language servers.
+/// Settings an agent may set, but the user's own (`SettingsSet.usersOnly`): how an agent calls the user, every
+/// project's language servers, and where code suggestions send the code.
 @Test func whoMaySetASetting() async throws {
     let r = try await rows()
     defer { r.w.d.stop() }
@@ -169,6 +169,12 @@ private func rows() async throws -> Rows {
             (
                 agent, SettingsSet(key: SettingKeys.languageServers.key, value: .object([:])), false,
                 "nor every project's language servers, some of which run a program their settings name"
-            )
+            ),
+            (
+                agent, SettingsSet(key: "editor.suggestionURL", value: .string("https://x.example")), false,
+                "nor where the code around the cursor goes, with the user's key"
+            ),
+            (agent, SettingsSet(key: "editor.suggestions", value: .string("cloud")), false, "nor that it goes at all"),
+            (agent, SettingsSet(key: "editor.nextEdit", value: .bool(true)), false, "nor a model kelpd downloads")
         ])
 }
