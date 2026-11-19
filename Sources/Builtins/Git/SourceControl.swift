@@ -55,6 +55,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// graph follows right under them, because a gap there looked like something still loading. The changes keep at
     /// least their rows' height, up to 80 pt.
     var changesHug: NSLayoutConstraint?, changesCap: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
+    /// How tall the changes' rows are, for `fitChanges`.
+    var changesRows: CGFloat = 0
     let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip does
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
@@ -147,6 +149,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     // MARK: view
 
+    /// The lists' room changes with the window and the commit box: the changes fit it again.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        fitChanges()
+    }
+
     override func loadView() {
         let app = self.app
         branchButton.target = self
@@ -179,8 +187,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let gh = graphScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 260)
         gh.priority = .init(740)
         graphHeight = gh
+        // Set in numbers (`fitChanges`), above windowSizeStayPut: a wish weaker than the window's keeping its parts'
+        // sizes lost to it, and the list kept an old, tall height over two changes.
         changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
-        changesHug?.priority = .init(495)
+        changesHug?.priority = .init(750)
         changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: root.heightAnchor, multiplier: 0.5)
         changesCap?.priority = .init(750)   // weaker than the 80 pt the changes keep
         graphClosed = graphScroll.heightAnchor.constraint(equalToConstant: 0)

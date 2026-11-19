@@ -53,7 +53,8 @@ extension SourceControlController {
         let shown = outline.numberOfRows
         let height = shown > 0 ? outline.rect(ofRow: shown - 1).maxY : 0
         changesRoom?.constant = min(80, height)
-        changesHug?.constant = height
+        changesRows = height
+        fitChanges()
         slideStaged(from: places)
     }
 
@@ -128,8 +129,24 @@ extension SourceControlController {
         graphHeight?.constant = min(saved ?? 0, (NSScreen.main?.visibleFrame.height ?? 800) / 2)
         graphHeight?.isActive = open && saved != nil
         changesHug?.isActive = open   // the changes are as tall as their rows; the graph has the rest
-        changesCap?.isActive = open && saved == nil
+        changesCap?.isActive = false
+        fitChanges()
         graphClosed?.isActive = !open
+    }
+
+    /// Gives the changes their rows' height, up to what leaves the graph its least: the height it was dragged to, or
+    /// else half the room the two lists share. The graph takes the rest. Worked out from the lists' room as it stands,
+    /// so it never asks the window to grow.
+    func fitChanges() {
+        guard let hug = changesHug, hug.isActive, let changes = outline.enclosingScrollView,
+            let graph = graphOutline.enclosingScrollView
+        else { return }
+        let both = changes.frame.height + graph.frame.height
+        guard both > 0 else { return }
+        let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
+        let least = min(saved ?? both / 2, max(0, both - 80))
+        let fit = max(min(changesRows, both - least), min(80, changesRows))
+        if abs(hug.constant - fit) > 0.5 { hug.constant = fit }
     }
 
     func resizeGraph(by dy: CGFloat) {
@@ -137,8 +154,8 @@ extension SourceControlController {
             let graph = graphOutline.enclosingScrollView
         else { return }
         gh.constant = min(max(60, graph.frame.height + dy), changes.frame.height + graph.frame.height - 80)
-        changesCap?.isActive = false   // the changes still hug their rows: dragging never opens empty room
         gh.isActive = true
+        fitChanges()   // the changes still hug their rows: dragging never opens empty room
         UserDefaults.standard.set(gh.constant, forKey: "scm.graphHeight")
     }
 

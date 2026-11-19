@@ -265,6 +265,34 @@ extension AppOfItsOwn {
         #expect(below.height > vc.view.bounds.height / 2, "\(below) in \(vc.view.bounds), changes \(changes.frame)")   // the room left
     }
 
+    /// When many changes become a few, the list shrinks to them in the window as it is: the window keeps its parts'
+    /// sizes over weaker wishes, so a list that only asked for its rows' height stayed tall over two changes.
+    @Test func aListThatShrinksGivesItsRoomToTheGraph() async throws {
+        let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }
+        for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
+        let names = (0..<12).map { "f\($0).txt" }
+        let rig = try await AppRig(files: Dictionary(uniqueKeysWithValues: names.map { ($0, "a\n") }))
+        defer { rig.done() }
+        for name in names { try rig.write(name, "b\n") }
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 800)
+        vc.followWatches()
+        let outline = try #require(outlines(in: vc.view).first)
+        #expect(try await waitFor(5) { !(outline.numberOfRows < 13) })
+        vc.view.layoutSubtreeIfNeeded()
+        // What the window does: it keeps a part's size at windowSizeStayPut, which beat the list's own wish (495).
+        let changesView = try #require(outline.enclosingScrollView)
+        let stays = changesView.heightAnchor.constraint(equalToConstant: changesView.frame.height)
+        stays.priority = .windowSizeStayPut
+        stays.isActive = true
+        for name in names.dropFirst(2) { try rig.write(name, "a\n") }   // back as committed: two changes are left
+        #expect(try await waitFor(5) { outline.numberOfRows == 3 })
+        vc.view.layoutSubtreeIfNeeded()
+        let changes = try #require(outline.enclosingScrollView), rows = outline.rect(ofRow: 2).maxY
+        #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
+    }
+
     /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
     /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
     @Test func sourceControlFitsANarrowInspector() async throws {
