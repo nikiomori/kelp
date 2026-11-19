@@ -32,7 +32,7 @@ private final class RowActions: NSStackView {
 }
 
 @MainActor @discardableResult
-private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailing: CGFloat = 10) -> NSLayoutConstraint {
+private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat) -> NSLayoutConstraint {
     let row = NSStackView(views: views)
     row.spacing = Metrics.gap
     row.alignment = .centerY
@@ -40,7 +40,7 @@ private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailin
     cell.addSubview(row)
     let lead = row.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: leading)
     NSLayoutConstraint.activate([
-        lead, row.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -trailing),
+        lead, row.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -Metrics.inset),
         row.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
     ])
     return lead
@@ -87,6 +87,9 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
+        // In a narrow panel the line counts give way before the section's name.
+        detailField.lineBreakMode = .byTruncatingTail
+        detailField.setContentCompressionResistancePriority(.init(240), for: .horizontal)
         // The row starts at the panel's edge, as the header's branch does.
         pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)
         showChevron()
@@ -153,7 +156,7 @@ final class FileCell: NSTableCellView, Hoverable {
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
         name.font = .ui(TextSize.row)
-        name.lineBreakMode = .byTruncatingTail
+        name.lineBreakMode = .byTruncatingMiddle   // as Finder cuts a name, so its extension stays
         dir.font = .ui(TextSize.caption)
         dir.textColor = .secondaryLabelColor
         dir.lineBreakMode = .byTruncatingHead

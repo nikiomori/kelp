@@ -8,6 +8,7 @@ extension SyncPopover {
     // MARK: state
 
     func update() {
+        let was = view.window == nil ? nil : root.fittingSize
         let info = app.latest(GitEvent.self, folder)?.branches, running = GitSync.state(app).running[wid]?.title
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
@@ -30,6 +31,9 @@ extension SyncPopover {
         showLists(ahead: ahead, behind: behind, published: published)
         showCI()
         showChanges()
+        // Once it's on screen, what comes or goes (the commits read after it opened, CI) dissolves in place, rather
+        // than in one frame.
+        if let was, root.fittingSize != was { root.crossfade() }
         fit()
     }
 
@@ -203,7 +207,8 @@ extension SyncPopover {
                 RowMarks.of(app).openCI(folder)
                 popover?.performClose(nil)
             }
-            line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
+            line.toolTip = [run.title, String(localized: "Click to open CI Runs"), CIRunLook.clickTip(run.url)]
+                .joined(separator: "\n")
             line.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
             return line as NSView
         }
@@ -244,9 +249,11 @@ extension SyncPopover {
         let shown = list.prefix(list.count > 3 ? 2 : 3).map { file -> NSView in
             let code = file.letter(inWorktree: file.unstaged || file.untracked)
             let letter = NSTextField(labelWithString: code)
-            letter.font = .uiMono(TextSize.caption, weight: .semibold)
+            letter.font = .ui(TextSize.micro, weight: .bold)   // a git letter as Source Control and Files draw it
             letter.textColor = .gitLetter(code)
-            letter.widthAnchor.constraint(equalToConstant: 10).isActive = true
+            letter.alignment = .center
+            letter.widthAnchor.constraint(equalToConstant: 12).isActive = true
+            letter.setAccessibilityLabel(gitLetterWord(code))   // VoiceOver reads a bare "M" as a letter
             let name = NSTextField(labelWithString: "")
             let folder = (file.path as NSString).deletingLastPathComponent
             let text = NSMutableAttributedString(

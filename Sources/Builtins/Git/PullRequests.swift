@@ -32,7 +32,7 @@ enum PullRequests {
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         let label = NSAttributedString(
             string: "#\(number)",
-            attributes: [.font: NSFont.uiDigits(TextSize.caption, weight: .medium), .foregroundColor: color])
+            attributes: [.font: NSFont.uiDigits(TextSize.micro, weight: .medium), .foregroundColor: color])
         let checks =
             failed > 0
             ? String(localized: "\(failed) checks failing")

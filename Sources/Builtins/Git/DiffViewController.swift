@@ -57,7 +57,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// "Change 3 of 17" after a step between changes, or the comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(
-        previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
+        previous: app.extensions.hint(String(localized: "Previous Change"), "git.previousChange"),
+        next: app.extensions.hint(String(localized: "Next Change"), "git.nextChange"),
         target: self, action: #selector(stepped(_:)))
     let files = NSTableView()
     let table = DiffTable()
@@ -130,8 +131,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         status.textColor = .secondaryLabelColor
         position.font = .uiDigits(TextSize.caption)
         position.textColor = .secondaryLabelColor
-        position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
-        pathLabel.lineBreakMode = .byTruncatingHead
+        position.toolTip = stepsTip
+        pathLabel.lineBreakMode = .byTruncatingTail   // name, then folder: the folder is cut first
         pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let fs = files.plainList("file")

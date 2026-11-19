@@ -91,7 +91,7 @@ extension DiffViewController {
             let log = await app.call(GitLog(id: wid, all: true)) ?? []
             let commits = log.prefix(30).map { ("\($0.hash)  \($0.subject)", $0.hash) }
             if let hash = await pick(
-                String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"), width: 360)
+                String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"))
             {
                 commitHash = hash
             } else {

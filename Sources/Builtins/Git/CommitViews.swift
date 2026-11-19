@@ -73,7 +73,7 @@ final class CommitCell: NSTableCellView, Hoverable {
             graph.topAnchor.constraint(equalTo: topAnchor),
             graph.bottomAnchor.constraint(equalTo: bottomAnchor), width,
             row.leadingAnchor.constraint(equalTo: graph.trailingAnchor, constant: 2),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.inset),
             row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
         ])
     }
@@ -263,11 +263,13 @@ final class Badge: NSView {
     private let color: NSColor
     init(text: String, color: NSColor, strong: Bool) {
         self.color = color
+        let middle = NSMutableParagraphStyle()
+        middle.lineBreakMode = .byTruncatingMiddle   // a branch is cut in the middle, as Finder cuts a name
         self.text = NSAttributedString(
             string: text,
             attributes: [
                 .font: NSFont.ui(TextSize.micro, weight: strong ? .semibold : .medium),
-                .foregroundColor: color
+                .foregroundColor: color, .paragraphStyle: middle
             ])
         super.init(frame: .zero)
         setContentCompressionResistancePriority(.init(300), for: .horizontal)

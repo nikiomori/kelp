@@ -66,6 +66,11 @@ extension Builtins {
                 // The panel's ⋯ menu's stash actions.
                 CommandSpec(id: "git.stash", title: "Git: Stash Changes") { _ in stash(app, panel, pop: false) },
                 CommandSpec(id: "git.popStash", title: "Git: Pop Stash") { _ in stash(app, panel, pop: true) },
+                // The diff's steps between its changes and its comments, as the arrows on its bar step.
+                step(app, "git.nextChange", "Git: Next Change", "opt+down", 1),
+                step(app, "git.previousChange", "Git: Previous Change", "opt+up", -1),
+                step(app, "git.nextComment", "Git: Next Comment", "shift+opt+down", 1),
+                step(app, "git.previousComment", "Git: Previous Comment", "shift+opt+up", -1),
                 // What the branch chip's menu copies, for the keyboard.
                 CommandSpec(
                     id: "git.copyBranchName", title: "Git: Copy Branch Name", enabled: { branchName(app) != nil }
@@ -191,6 +196,24 @@ private func stash(_ app: AppModel, _ panel: LivePanel, pop: Bool) {
     }
     Task {
         if await app.call(method(workspace)) != nil, let done { Banner.show(done) }
+    }
+}
+
+/// A step between the changes or the comments of the diff in front. It is off elsewhere, and while a comment or a line
+/// is being typed in the diff, so the key goes on to the editor or the field.
+@MainActor
+private func step(
+    _ app: AppModel, _ id: String, _ title: String, _ key: String, _ dir: Int
+) -> CommandSpec {
+    let comments = id.hasSuffix("Comment")
+    func diff() -> DiffTab? {
+        guard let tab = app.workbench.focusedContent as? DiffTab, !(tab.view.window?.firstResponder is NSText) else {
+            return nil
+        }
+        return tab
+    }
+    return CommandSpec(id: id, title: title, key: key, enabled: { diff() != nil }) { _ in
+        diff()?.jump(dir, comments: comments)
     }
 }
 

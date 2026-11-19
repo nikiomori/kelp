@@ -72,6 +72,8 @@ final class DiffTab: TabContent {
     private let gitWatch: Watched
 
     func focus() { controller.view.window?.makeFirstResponder(controller.view) }
+    /// Steps to the next or previous change or comment (Git's commands for the diff in front).
+    func jump(_ dir: Int, comments: Bool) { controller.jump(dir, comments: comments) }
 
     static func uri(
         _ worktree: String, file: String? = nil, source: DiffSource? = nil, commit: String? = nil

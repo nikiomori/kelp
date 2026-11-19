@@ -34,6 +34,23 @@ extension TasksViewController {
             if case .heading(let text) = lines[index] { return ForgeRows.heading(text) }
             return nil
         }
+        let view = cell(row)
+        // A ⌘-click opens the row's page (`clicked`), which its tooltip says.
+        let place =
+            switch row {
+            case .linear: "Linear"
+            case .jira: "Jira"
+            case .item: "GitHub"
+            case .pr, .issue: site
+            }
+        if row.url != nil {
+            view.toolTip = [view.toolTip, String(localized: "⌘-click: open on \(place)")].compactMap { $0 }
+                .joined(separator: "\n")
+        }
+        return view
+    }
+
+    private func cell(_ row: Row) -> NSView {
         switch row {
         case .pr(let pr):
             let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false

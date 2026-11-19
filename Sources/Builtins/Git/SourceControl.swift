@@ -57,6 +57,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var changesHug: NSLayoutConstraint?, changesCap: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
     /// How tall the changes' rows are, for `fitChanges`.
     var changesRows: CGFloat = 0
+    /// How many of `fitChanges`'s moves are under way: each step of one lays the panel out again.
+    var changesMoving = 0
     let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip does
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
@@ -71,7 +73,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
     let empty = EmptyStateView()
-    let loading = LoadingView(rows: true)
+    let loading = LoadingView(rows: true, rowHeight: Metrics.row)
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.reloadAll() }
     var headerBar: NSView?
 

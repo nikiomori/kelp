@@ -28,7 +28,8 @@ extension SourceControlController {
         commitFiles = [:]
         openCommits = []
         ciRuns = []
-        ciRow.show([], failure: nil)
+        // What's known of this branch's CI shows at once, so the line doesn't go and come back when the watch answers.
+        if let ci = app.latest(CIEvent.self, gitKey ?? "") { applyCI(ci) } else { ciRow.show([], failure: nil) }
         message.string = wid.flatMap { drafts[$0] } ?? ""
         messageChanged()
         showAgentCommit()

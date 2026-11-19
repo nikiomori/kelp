@@ -16,9 +16,13 @@ extension SourceControlController {
     /// Sections fold through `collapsed`, not through the outline's own expansion state, which goes stale across
     /// reloads (a click then "expanded" a section that was already open).
     func rebuildChanges() {
-        let places = stagingPlaces()
+        // A row that comes or goes fades, and the rows around it move, also when an agent changed the file. The user's
+        // own staging and discarding moves the rows however many there are.
+        let staged = stagingPlaces()
+        var places = outline.rowPlaces(changeKey)
         if clearing {
             clearing = false
+            places = [:]
             outline.crossfade(Motion.base)
         }
         let before = Self.flat(roots)   // the nodes that are kept get filled again below
@@ -49,14 +53,29 @@ extension SourceControlController {
         }
         changeNodes = rows.kept
         roots = out
-        _ = show(outline, was: before, rows.redrawn)
+        let was = Set(before.map(Self.rowName)), now = Set(Self.flat(out).map(Self.rowName))
+        let came = now.subtracting(was), gone = was.subtracting(now)
+        let moves = outline.movesFor(came: came.count, gone: gone.count, from: places)
+        outline.reloadSettling(from: places, came: came, gone: gone, changeKey) {
+            _ = show(outline, was: before, rows.redrawn)
+        }
         let shown = outline.numberOfRows
-        let height = shown > 0 ? outline.rect(ofRow: shown - 1).maxY : 0
-        changesRoom?.constant = min(80, height)
-        changesRows = height
-        fitChanges()
-        slideStaged(from: places)
+        changesRows = shown > 0 ? outline.rect(ofRow: shown - 1).maxY : 0
+        fitChanges(moving: moves || !staged.isEmpty)
+        if !moves { slideStaged(from: staged) }
     }
+
+    /// A change row's name across rebuilds. A file keeps its path when it's staged, so its row travels to its new
+    /// section.
+    private static func rowName(_ node: Node) -> String {
+        switch node.kind {
+        case .section(let section): "s \(section.rawValue)"
+        case .file(let file, _): file.path
+        case .note(let text): "n \(text)"
+        case .commit, .commitFile: ""
+        }
+    }
+    private func changeKey(_ row: Int) -> String? { (outline.item(atRow: row) as? Node).map(Self.rowName) }
 
     func rebuildGraph() {
         let before = Self.flat(graphRoots)
@@ -136,17 +155,47 @@ extension SourceControlController {
 
     /// Gives the changes their rows' height, up to what leaves the graph its least: the height it was dragged to, or
     /// else half the room the two lists share. The graph takes the rest. Worked out from the lists' room as it stands,
-    /// so it never asks the window to grow.
-    func fitChanges() {
-        guard let hug = changesHug, hug.isActive, let changes = outline.enclosingScrollView,
-            let graph = graphOutline.enclosingScrollView
-        else { return }
+    /// so it never asks the window to grow. The changes keep at least their rows' height, up to 80 pt (`changesRoom`).
+    /// When `moving` (a few rows came or went), the changes grow or shrink to their new height and the graph moves with
+    /// them, rather than jump by a row.
+    func fitChanges(moving: Bool = false) {
+        guard changesMoving == 0 || moving else { return }   // each step of a move lays the panel out again
+        var wanted: [(NSLayoutConstraint?, CGFloat)] = [(changesRoom, min(80, changesRows))]
+        if changesHug?.isActive == true, let fit = changesFit() { wanted.append((changesHug, fit)) }
+        let changed = wanted.compactMap { constraint, value in
+            constraint.flatMap { abs($0.constant - value) > 0.5 ? ($0, value) : nil }
+        }
+        guard !changed.isEmpty else { return }
+        guard moving, view.window?.isVisible == true, !Motion.reduced else {
+            for (constraint, value) in changed { constraint.constant = value }
+            return
+        }
+        let grows = changesRows > outline.enclosingScrollView?.frame.height ?? 0
+        changesMoving += 1
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = grows ? Motion.appear : Motion.base   // what leaves goes in less time than what comes takes
+            ctx.timingFunction = CAMediaTimingFunction(name: grows ? .easeOut : .easeIn)
+            for (constraint, value) in changed { constraint.animator().constant = value }
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                guard let self else { return }
+                self.changesMoving -= 1
+                if self.changesMoving == 0 { self.fitChanges() }   // what changed while it moved
+            }
+        }
+    }
+
+    /// The changes' height: their rows', up to what leaves the graph its least, the height it was dragged to or else
+    /// half the room the two lists share.
+    private func changesFit() -> CGFloat? {
+        guard let changes = outline.enclosingScrollView, let graph = graphOutline.enclosingScrollView else {
+            return nil
+        }
         let both = changes.frame.height + graph.frame.height
-        guard both > 0 else { return }
+        guard both > 0 else { return nil }
         let saved = graphHeight?.isActive == true ? graphHeight?.constant : nil   // the dragged height
         let least = min(saved ?? both / 2, max(0, both - 80))
-        let fit = max(min(changesRows, both - least), min(80, changesRows))
-        if abs(hug.constant - fit) > 0.5 { hug.constant = fit }
+        return max(min(changesRows, both - least), min(80, changesRows))
     }
 
     func resizeGraph(by dy: CGFloat) {

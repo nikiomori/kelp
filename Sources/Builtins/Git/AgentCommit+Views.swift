@@ -88,6 +88,7 @@ extension SourceControlController {
         ui.work.isHidden = run == nil
         if let run {
             ui.mark.status = run.status == .waiting ? .waiting : .working
+            if let session = run.session.flatMap(app.session) { ui.mark.follow(session) }   // its ring, as everywhere
             ui.watch.isHidden = run.status != .waiting
             ui.working.stringValue =
                 run.status == .waiting

@@ -5,7 +5,11 @@ import DesignKit
 import KelpKit
 
 extension SyncPopover: NSTextFieldDelegate {
-    func controlTextDidChange(_ notification: Notification) { showChanges() }
+    func controlTextDidChange(_ notification: Notification) {
+        let hinted = hint.isHidden
+        showChanges()
+        if hint.isHidden != hinted { root.crossfade() }   // the hint comes and goes in place
+    }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         guard sel == #selector(NSResponder.insertNewline(_:)) || sel == Selector(("noop:")),

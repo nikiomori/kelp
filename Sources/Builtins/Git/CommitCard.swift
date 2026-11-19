@@ -62,7 +62,9 @@ final class CommitCard {
         Task { [weak self, weak view] in
             guard let img = await self?.picture?(email) else { return }
             self?.pictures[email] = img
-            if self?.shown == commit.hash { view?.avatar.image = img }
+            guard self?.shown == commit.hash, let avatar = view?.avatar else { return }
+            avatar.crossfade()   // the initial dissolves into the picture
+            avatar.image = img
         }
     }
 }
@@ -163,7 +165,7 @@ final class CommitCardView: NSView {
             let kind =
                 subject.type.map { [$0, subject.scope].compactMap { $0 }.joined(separator: " · ") }
                 ?? String(localized: "Merge commit")
-            views += [icon, label(kind, font: .ui(TextSize.caption, weight: .medium))]
+            views += [icon, label(kind, font: .ui(TextSize.caption))]
         }
         // The type and scope resist squeezing, so "Not pushed yet" gives way first.
         for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }
@@ -205,7 +207,7 @@ final class CommitCardView: NSView {
             sameYear
                 ? .dateTime.month(.abbreviated).day().hour().minute()
                 : .dateTime.month(.abbreviated).day().year().hour().minute())
-        let author = label(commit.author, font: .ui(TextSize.caption, weight: .medium))
+        let author = label(commit.author, font: .ui(TextSize.caption))
         author.textColor = .secondaryLabelColor
         author.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         let row = NSStackView(views: [

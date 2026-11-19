@@ -15,7 +15,7 @@ extension CIRunsController {
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
         guard let item = item as? Item else { return runs[index] }
         return item.children?[index]
-            ?? Item(.step(.init(name: String(localized: "Reading the steps…"), status: "queued", conclusion: nil)))
+            ?? Item(.step(.init(name: String(localized: "Reading the steps…"), status: "reading", conclusion: nil)))
     }
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let item = item as? Item else { return false }
@@ -117,14 +117,25 @@ extension CIRunsController {
             // The step running now reads like a title and the others are grey: their marks tell a done step from one
             // still to come (tertiary grey would be the only copy of its name).
             let color: NSColor = step.status == "in_progress" ? .labelColor : .secondaryLabelColor
+            let mark = step.status == "reading" ? readingMark() : CIRunLook.mark(step.status, step.conclusion)
             let line = CIRow.line(
-                CIRunLook.mark(step.status, step.conclusion), step.shortName, font: .ui(TextSize.caption), color: color,
-                right: step.seconds().map(ciSpan))
+                mark, step.shortName, font: .ui(TextSize.caption), color: color, right: step.seconds().map(ciSpan))
             if step.status == "in_progress", let time = line.time { clock.follow(time) { step.seconds().map(ciSpan) } }
             line.cell.toolTip = step.name
             return line.cell
         case .fold(let fold, _): return CIRow.fold(fold)
         }
+    }
+
+    /// The placeholder's mark while a run's steps are read: the system's spinner, as the interface waits, not a step's
+    /// empty circle.
+    private func readingMark() -> NSView {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        for side in [spinner.widthAnchor, spinner.heightAnchor] { side.constraint(equalToConstant: 12).isActive = true }
+        return spinner
     }
 
     /// The title, then `CIRunMeta`: which run, how long, and when. The tooltip has the whole title, because a commit's

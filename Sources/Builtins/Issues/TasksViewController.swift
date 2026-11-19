@@ -49,6 +49,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     var lastOpened: String?
     /// PRs that changed since their tab was last opened, which get a dot on the row.
     var unseen: Set<Int> = []
+    /// Where the project's pull requests and issues are, for the rows' "⌘-click: open on GitHub".
+    var site = "GitHub"
     private(set) var repoId: String?
     private var projectOwner: String?
     /// Bumped by every reload and every filter menu built, so a reply for an older one (another project, list or
@@ -189,6 +191,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else { return }
         Task {
             let forge = await app.quiet(GitHubForge(repoId: repoId))   // the list's own load says what failed
+            site = forge == "gitlab" ? "GitLab" : "GitHub"
             source.menu?.item(withTag: Source.pulls.rawValue)?.title =
                 forge == "gitlab" ? String(localized: "Merge Requests") : Source.pulls.title
         }
