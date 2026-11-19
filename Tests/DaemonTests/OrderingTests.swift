@@ -14,8 +14,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
 {
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var t = timeval(tv_sec: 10, tv_usec: 0)
-    _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 10)
     var batch = Data()
     for (i, c) in calls.enumerated() { batch += try Wire.line(RPCRequest(id: i + 1, method: c.0, params: c.1)) }
     Unix.writeAll(fd, batch)
@@ -29,8 +28,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
         lines += new
         if !replied, lines.filter({ $0["id"] != nil }).count >= calls.count {   // then the events still on their way, for 0.5 s
             replied = true
-            t = timeval(tv_sec: 0, tv_usec: 500_000)
-            _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+            readTimeout(fd, 0.5)
         }
     }
     return lines
@@ -92,14 +90,12 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     }
     func listener(muted: Bool) throws -> Int32 {
         let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
-        var t = timeval(tv_sec: 3, tv_usec: 0)
-        _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+        readTimeout(fd, 3)
         // Either way it says something first, and hears the answer: until the daemon read it, it could be a terminal's
         // byte stream (session.stream), which hears nothing. Another connection's call proves nothing about this one.
-        let first =
-            muted
-            ? RPCRequest(id: 1, method: ClientEvents.name, params: .obj(["events": false]))
-            : RPCRequest(id: 1, method: Ping.name)
+        // `client.events` is answered in order, on the connection's own thread: a ping waits for the pool, which a
+        // busy run (Thread Sanitizer, tests side by side) can hold past any timeout.
+        let first = RPCRequest(id: 1, method: ClientEvents.name, params: .obj(["events": .bool(!muted)]))
         Unix.writeAll(fd, try Wire.line(first))
         #expect(heard(fd).contains("\"id\":1"))
         return fd
@@ -111,8 +107,9 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     }
     _ = try await c.call(SettingsSet(key: "terminal.fontSize", value: .int(13)))   // broadcasts event.settings
     #expect(heard(loud).contains("event.settings"))
-    // What the quiet one hears next is the answer to its own ping: the broadcast before it never came.
-    Unix.writeAll(quiet, try Wire.line(RPCRequest(id: 2, method: Ping.name)))
+    // What the quiet one hears next is the answer to its own call, made after the broadcast: the broadcast never came.
+    Unix.writeAll(
+        quiet, try Wire.line(RPCRequest(id: 2, method: ClientEvents.name, params: .obj(["events": false]))))
     let next = heard(quiet)
     #expect(next.contains("\"id\":2") && !next.contains("event.settings"), "\(next)")
 }
@@ -335,8 +332,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     defer { d.stop() }
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var t = timeval(tv_sec: 10, tv_usec: 0)
-    _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 10)
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: 1, method: "session.list", params: nil)))
     shutdown(fd, SHUT_WR)
     var got = Data(), buf = [UInt8](repeating: 0, count: 65536)

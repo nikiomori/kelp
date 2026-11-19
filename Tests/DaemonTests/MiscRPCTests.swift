@@ -423,8 +423,7 @@ func trustQuestionStandIn() -> String {
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self)
     let fd = try Unix.connect(w.root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var tv = timeval(tv_sec: 1, tv_usec: 0)
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 1)
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: "session.stream", params: .obj(["id": .string(s.id)]))))
     var buf = [UInt8](repeating: 0, count: 65536), streamed = ""
     // true: the daemon closed the stream; `screen`: until the agent's screen came, as it does once attached

@@ -114,8 +114,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     defer { d.stop() }
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var tv = timeval(tv_sec: 30, tv_usec: 0)   // an answer that must come: room for TSan
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 30)   // an answer that must come: room for TSan
     Unix.writeAll(
         fd, Data((#"{"jsonrpc":"2.0","id":"a1","method":"ping"}"# + "\n" + #"{"jsonrpc":"2.0","id":7}"# + "\n").utf8))
     var lb = LineBuffer(), lines: [JSONValue] = [], buf = [UInt8](repeating: 0, count: 4096)
@@ -162,8 +161,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
         })
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var tv = timeval(tv_sec: 2, tv_usec: 0)
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 2)
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: "session.stream", params: .obj(["id": .string(s.id)]))))
     var got = Data(), buf = [UInt8](repeating: 0, count: 65536)
     let end = Date().addingTimeInterval(1.5)
@@ -246,8 +244,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     #expect(try await waitFor(10) { started.withLock { $0 } == held })   // all of them running, holding their threads
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var tv = timeval(tv_sec: 30, tv_usec: 0)   // an answer that must come: room for TSan
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 30)   // an answer that must come: room for TSan
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: 1, method: "session.list")))
     var buf = [UInt8](repeating: 0, count: 4096)
     let n = read(fd, &buf, buf.count)
@@ -277,8 +274,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     defer { close(fd) }
     // Behind the held slots it would never come (they're let go only at the end): 30 s tells that apart from TSan's
     // slowness on a shared runner, where 3 s ran out
-    var tv = timeval(tv_sec: 30, tv_usec: 0)
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+    readTimeout(fd, 30)
     Unix.writeAll(
         fd,
         try Wire.line(RPCRequest(id: 1, method: SessionHook.name, params: .obj(["id": "gone", "event": "working"]))))
@@ -301,8 +297,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     for _ in 0..<5 {   // several tries: each a race the old code lost most of the time
         let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
         defer { close(fd) }
-        var tv = timeval(tv_sec: 30, tv_usec: 0)   // an answer that must come: room for TSan
-        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        readTimeout(fd, 30)   // an answer that must come: room for TSan
         Unix.writeAll(
             fd, try Wire.line(RPCRequest(id: 1, method: "session.attach", params: .obj(["id": .string(s.id)]))))
         var got = "", buf = [UInt8](repeating: 0, count: 65536)

@@ -24,3 +24,11 @@ public func waitFor(
     Issue.record("waited \(timeout * testSlowness) s and it never held", sourceLocation: sourceLocation)
     return false
 }
+
+/// Makes a blocking `read` of `fd` give up after `seconds`, stretched by `testSlowness` as every wait is: an answer
+/// that never comes fails the test instead of hanging the run, and one that comes late on a busy runner still counts.
+public func readTimeout(_ fd: Int32, _ seconds: Double) {
+    let scaled = seconds * testSlowness
+    var limit = timeval(tv_sec: Int(scaled), tv_usec: Int32((scaled - scaled.rounded(.down)) * 1_000_000))
+    _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
+}
