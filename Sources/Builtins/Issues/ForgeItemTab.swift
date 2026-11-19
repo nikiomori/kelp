@@ -121,7 +121,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         web.isHidden = true
         let open = ClosureButton(title: String(localized: "Open in Browser")) { [weak self] in self?.openInBrowser() }
         let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
-        empty.showError(String(localized: "Couldn’t read #\(number)"), text: error ?? "", buttons: [again, open])
+        empty.showError(String(localized: "Couldn’t Read #\(number)"), text: error ?? "", buttons: [again, open])
         showBar()
     }
 

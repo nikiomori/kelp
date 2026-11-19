@@ -259,7 +259,7 @@ extension DiffViewController {
         }
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-        stack.fill = .fillSelected
+        stack.fill = .fillRest
         return stack
     }
 

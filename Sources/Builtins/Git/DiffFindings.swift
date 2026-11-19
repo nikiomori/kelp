@@ -39,7 +39,7 @@ extension DiffViewController {
         let row = FillStack(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
-        row.fill = .fillSelected
+        row.fill = .fillRest
         return row
     }
 

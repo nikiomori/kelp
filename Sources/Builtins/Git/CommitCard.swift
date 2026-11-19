@@ -157,9 +157,9 @@ final class CommitCardView: NSView {
     private static func header(_ subject: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
         var views: [NSView] = []
         if let mark = CommitCell.mark(subject, merge: merge) {
-            let icon = NSImageView(image: .symbol(mark.symbol))
+            let icon = NSImageView(image: .symbol(mark))
             icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-            icon.contentTintColor = mark.color
+            icon.contentTintColor = .secondaryLabelColor
             let kind =
                 subject.type.map { [$0, subject.scope].compactMap { $0 }.joined(separator: " · ") }
                 ?? String(localized: "Merge commit")

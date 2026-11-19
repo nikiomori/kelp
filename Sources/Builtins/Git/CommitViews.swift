@@ -103,7 +103,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         subject.font = .ui(TextSize.row, weight: isHead ? .medium : .regular)   // 600 is kept for news
         bang.isHidden = !parsedSubject.breaking
         let typeMark = Self.mark(parsedSubject, merge: commit.parents.count > 1)
-        mark.image = typeMark.map { .symbol($0.symbol, parsedSubject.type ?? String(localized: "Merge commit")) }
+        mark.image = typeMark.map { .symbol($0, parsedSubject.type ?? String(localized: "Merge commit")) }
         mark.isHidden = typeMark == nil
         scope.stringValue = parsedSubject.scope ?? ""
         date.stringValue = Self.relative(commit.date)
@@ -178,21 +178,21 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.alphaValue = 0
     }
 
-    /// The commit's type as an SF Symbol. The colour repeats the shape and never stands alone. A merge without a type
-    /// gets git's merge mark, and any other subject gets none.
-    static func mark(_ commitSubject: CommitSubject, merge: Bool) -> (symbol: String, color: NSColor)? {
+    /// The commit's type as an SF Symbol, drawn in the secondary label colour: the shape names the type, and colour
+    /// stays for state. A merge without a type gets git's merge mark, and any other subject gets none.
+    static func mark(_ commitSubject: CommitSubject, merge: Bool) -> String? {
         switch commitSubject.type {
-        case "feat": ("sparkle", .systemGreen)
-        case "fix": ("ladybug", .systemOrange)
-        case "refactor": ("arrow.triangle.2.circlepath", .systemPurple)
-        case "perf": ("bolt", .systemYellow)
-        case "docs": ("doc.text", .systemCyan)
-        case "test": ("flask", .systemIndigo)
-        case "build", "ci": ("hammer", .secondaryLabelColor)
-        case "chore": ("wrench.adjustable", .secondaryLabelColor)
-        case "style": ("paintbrush", .systemPink)
-        case "revert": ("arrow.uturn.backward", .systemRed)
-        default: merge ? ("arrow.triangle.merge", .secondaryLabelColor) : nil
+        case "feat": "sparkle"
+        case "fix": "ladybug"
+        case "refactor": "arrow.triangle.2.circlepath"
+        case "perf": "bolt"
+        case "docs": "doc.text"
+        case "test": "flask"
+        case "build", "ci": "hammer"
+        case "chore": "wrench.adjustable"
+        case "style": "paintbrush"
+        case "revert": "arrow.uturn.backward"
+        default: merge ? "arrow.triangle.merge" : nil
         }
     }
 

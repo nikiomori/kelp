@@ -257,11 +257,16 @@ extension SourceControlController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
     }
 
-    /// Merges a workspace on its own branch (a worktree) into the project's base branch.
+    /// Merges a workspace on its own branch (a worktree) into the project's base branch, once asked (as a PR's merge).
     private func mergeIntoBase() {
-        guard let wid = worktreeId else { return }
+        guard let wid = worktreeId, let worktree = app.worktree(wid), let repo = app.repo(worktree.repoId) else {
+            return
+        }
         Task { @MainActor in
-            guard let outcome = await app.call(GitMerge(id: wid)) else { return }
+            let question = String(localized: "Merge \(worktree.branch) into \(repo.baseBranch)?")
+            guard await confirm(question, action: String(localized: "Merge")),
+                let outcome = await app.call(GitMerge(id: wid))
+            else { return }
             if outcome.merged {
                 Banner.show(String(localized: "Merged"))
                 // The base moved in the project's own folder, so the project's git status and this branch's are read
