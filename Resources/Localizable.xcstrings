@@ -31698,6 +31698,16 @@
           }
         }
       }
+    },
+    "Comes in while the pointer is at the window’s left edge, like the Dock. The sidebar button and its key switch it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выезжает, когда указатель у левого края окна, как Dock. Кнопка боковой панели и её клавиша включают и выключают это."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

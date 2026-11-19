@@ -148,7 +148,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 app.settings[setting]
             } changed: { [weak self, unowned side] in
                 self?.setAutoHide(side, $0)
-                toggle.menu = self?.autoHideMenu(title, setting, $0)
+                // The sidebar's button itself switches its auto-hide (decision 109): no menu for the same thing.
+                toggle.menu = side === self?.left ? nil : self?.autoHideMenu(title, setting, $0)
             }
         }
     }
@@ -252,10 +253,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         inspector.show(panel: panel, keys: keys)
     }
+    /// The sidebar button and ⌘0 put the sidebar away so that it still comes in at the window's left edge, as Dia's
+    /// does (decision 109): hidden and auto-hide are one state, the setting, not two ways to the same thing. A sidebar
+    /// left collapsed by an older Kelp opens first.
     @objc func toggleSidebarPanel() {
         if inFocusMode { return togglePeek(left) }
-        if left.autoHide { return togglePin(left) }
-        slide([(left, !left.item.isCollapsed)])
+        if !left.autoHide, left.item.isCollapsed { return slide([(left, false)]) }
+        app.settings.set(SettingKeys.sidebarAutoHide, !left.autoHide)
     }
     var sidebarShown: Bool { !left.item.isCollapsed || peeking === left }
     var inspectorShown: Bool { !right.item.isCollapsed || peeking === right }

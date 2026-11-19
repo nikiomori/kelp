@@ -152,7 +152,8 @@ extension Builtins {
     static let sidebarRows = [
         s(
             SettingKeys.sidebarAutoHide, "Auto-hide sidebar", .boolean,
-            "Comes in while the pointer is at the window’s left edge, like the Dock.",
+            "Comes in while the pointer is at the window’s left edge, like the Dock. The sidebar button and its key "
+                + "switch it.",
             group: "Sidebar"),
         s(
             SettingKeys.rowHeight, "Row height", .enum,

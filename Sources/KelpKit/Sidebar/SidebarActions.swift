@@ -257,7 +257,6 @@ extension SidebarController {
         menu.addChoiceMenu(SettingKeys.agentIcons, app, title: String(localized: "Agent Icons"))
         menu.addToggle(SettingKeys.gitBadges, app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
-        menu.addToggle(SettingKeys.sidebarAutoHide, app, title: String(localized: "Auto-Hide Sidebar"))
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)
     }
 
