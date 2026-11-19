@@ -136,6 +136,23 @@ extension OneAtATime {
         #expect(!e.isOfferingEdit)
     }
 
+    @Test func aFileWrittenFromOutsideIsntTheUsersEdit() async throws {
+        let (e, tv) = editing("a = 1\nb = 2\nc = 3\n")
+        var asked: [NextEdit.Ask] = []
+        e.nextEditProvider = { ask in
+            asked.append(ask)
+            return nil
+        }
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+        tv.insertText("0", replacementRange: NSRange(location: NSNotFound, length: 0))   // a = 10
+        #expect(try await waitFor(2) { asked.count == 1 })
+        e.setText("a = 10\nb = 2\nc = 30\n")   // an agent changes line 3
+        tv.insertText("0", replacementRange: NSRange(location: NSNotFound, length: 0))   // a = 100
+        #expect(try await waitFor(2) { asked.count == 2 })
+        #expect(asked.last?.latest == NextEdit.Change(old: "a = 10", new: "a = 100"))
+        #expect(asked.last?.earlier == [NextEdit.Change(old: "a = 1", new: "a = 10")])   // only the user's
+    }
+
     /// An editor in a window, with no gray text, so edits ask for the next edit.
     private func editing(_ text: String) -> (CodeEditor, EditorTextView) {
         _ = NSApplication.shared

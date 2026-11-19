@@ -108,6 +108,27 @@ extension OneAtATime {
         #expect(tv.string == "let a = 1\r\nlet b = 2\r\nlet c = 3")
     }
 
+    @Test func aFileChangedOnDiskDropsTheGrayTextAndTheAnswerOnItsWay() async throws {
+        let (e, tv) = suggesting("let a = \nlet b = 2", answer: "1")
+        tv.setSelectedRange(NSRange(location: 8, length: 0))
+        type(tv, " ")
+        #expect(try await settled(e))
+        e.setText("let a =  \nlet b = 3")   // an agent wrote the line below: the cursor didn't move
+        #expect(!e.isSuggesting)
+
+        var answer: CheckedContinuation<Void, Never>?
+        e.suggestionProvider = { _ in
+            await withCheckedContinuation { answer = $0 }
+            return "1"
+        }
+        type(tv, " ")
+        #expect(try await waitFor(2) { answer != nil })
+        e.setText("let a =   \nlet b = 4")   // written again while the model writes
+        answer?.resume()
+        await e.suggestion.task?.value
+        #expect(!e.isSuggesting)
+    }
+
     @Test func optionRightTakesOneWordAndEscapeDropsIt() async throws {
         let (e, tv) = suggesting("x = ", answer: "price * count")
         type(tv, " ")

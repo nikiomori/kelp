@@ -63,6 +63,14 @@ extension CodeEditor {
         return true
     }
 
+    /// The text was replaced from outside (an agent wrote the file, it changed on disk): gray text, and answers on the
+    /// way, are for the old text, and the edit the next edit follows is no longer only the user's.
+    func textReplacedFromOutside() {
+        suggestion.edits += 1
+        dropSuggestion()
+        nextEditTextReplaced()
+    }
+
     func dropSuggestion() {
         suggestion.task?.cancel()
         suggestion.task = nil

@@ -237,6 +237,7 @@ public final class CodeEditor: NSObject {
         let now = textView.string as NSString
         // Not `==`, because that compares character by character.
         guard now.length != contents.utf16.count || !now.isEqual(to: contents) else { return }
+        textReplacedFromOutside()
         let cursors = textView.cursors
         // Only what changed goes in, so an agent writing a file several times a second keeps the tree, folds and view.
         guard textView.isEditable else {   // read only, so `shouldChangeText` says no
@@ -356,10 +357,9 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         onSelection?()
     }
 
-    /// Called before an edit, while the old text is there, so the tree and the line count hear what's replaced by
-    /// what.
+    /// Called before an edit, while the old text is there, so the tree and line count hear what's replaced by what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
-        if let range = ranges.first, let text = texts.first { nextEditWillReplace(range, with: text) }
+        if !loading, let range = ranges.first, let text = texts.first { nextEditWillReplace(range, with: text) }
         let string = textView.string as NSString
         var pieces: [(column: Int, removed: String, inserted: String)] = []
         // Goes from the bottom, so each edit's offsets still hold for the next.

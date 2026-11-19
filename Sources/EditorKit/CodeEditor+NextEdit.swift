@@ -43,15 +43,27 @@ extension CodeEditor {
             let low = min(first, region.lowerBound)
             nextEdit.region = low...max(low, max(region.upperBound, last) + added)
         } else {
-            let now = textView.string
-            if let base = nextEdit.base, let made = NextEdit.change(from: NextEdit.lines(base), to: NextEdit.lines(now))
-            {
-                nextEdit.earlier = Array((nextEdit.earlier + [made]).suffix(2))
-            }
-            nextEdit.base = now
+            keepEditMade()
+            nextEdit.base = textView.string
             nextEdit.region = first...max(first, last + added)
         }
         nextEdit.at = Date()
+    }
+
+    /// The text is about to be replaced from outside: the edit being made ends here, kept with the earlier ones, and
+    /// what comes from outside isn't added to it (the next edit starts from the new text).
+    func nextEditTextReplaced() {
+        dropNextEdit()
+        keepEditMade()
+        nextEdit.base = nil
+    }
+
+    /// Keeps the edit made since `base` with the two before it.
+    private func keepEditMade() {
+        guard let base = nextEdit.base,
+            let made = NextEdit.change(from: NextEdit.lines(base), to: NextEdit.lines(textView.string))
+        else { return }
+        nextEdit.earlier = Array((nextEdit.earlier + [made]).suffix(2))
     }
 
     private static func breaks(_ text: String) -> Int { text.utf16.lazy.filter { $0 == 10 }.count }
