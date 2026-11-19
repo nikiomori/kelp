@@ -106,9 +106,15 @@ final class EditorArea: NSViewController {
         } changed: { [weak self] low in
             self?.groupViews.values.forEach { $0.strip.low = low }
         }
-        // The empty workspace lists the agents that work, with their icons; rebuild it when either changes.
+        // The empty workspace lists the agents that work here, with their icons; rebuild it when either changes. A
+        // remote project's agents come from its host, which answers after the page first shows.
         track(owner: self) {
             app.availability.ids
+        } changed: { [weak self] _ in
+            self?.rebuildStart()
+        }
+        track(owner: self, now: false) {
+            app.availability.onHost
         } changed: { [weak self] _ in
             self?.rebuildStart()
         }
@@ -119,8 +125,8 @@ final class EditorArea: NSViewController {
             for gid in self?.layout.root?.sessions ?? [] { self?.refreshGroup(gid) }   // agent tabs get the real icon
         }
         // The default agent's button beside each "+".
-        track(owner: self) {
-            app.catalog.startable
+        track(owner: self) { [weak self] in
+            app.catalog.startable.map { _ in app.catalog.defaultAgent(in: self?.worktree) }
         } changed: { [weak self] _ in
             for gid in self?.layout.root?.sessions ?? [] { self?.refreshGroup(gid) }
         }
@@ -320,7 +326,7 @@ final class EditorArea: NSViewController {
         guard let group = groupViews[gid], let model = layout.groups[gid] else { return }
         group.strip.focused = layout.focused == gid || (layout.focused == nil && layout.root?.sessions.first == gid)
         group.strip.zoomed = zoomed == gid
-        let agent = app.catalog.startable
+        let agent = app.catalog.startable.map { _ in app.catalog.defaultAgent(in: worktree) }
         let agentIcon = agent.flatMap { app.catalog.icon($0) }
         group.strip.setNewAgent(
             icon: agentIcon, grey: agentIcon.map(app.agentIcons.grey), name: app.catalog.name(agent))
@@ -418,7 +424,7 @@ final class EditorArea: NSViewController {
     func startAgent(_ agent: String? = nil, prompt: String? = nil, elsewhere: Bool = EditorArea.commandClick) {
         guard elsewhere else { return starter.newAgent(agent, prompt: prompt) }
         app.workbench.newChatInGroup(
-            repo: worktree?.repoId, agent: agent ?? app.catalog.defaultAgent,
+            repo: worktree?.repoId, agent: agent ?? app.catalog.defaultAgent(in: worktree),
             prompt: prompt?.isEmpty == false ? prompt : nil)
     }
 

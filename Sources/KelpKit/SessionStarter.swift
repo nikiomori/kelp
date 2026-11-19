@@ -18,7 +18,7 @@ package struct SessionStarter {
         focus: Bool = true, model: String? = nil, env: [String: String]? = nil, args: [String]? = nil
     ) {
         var create = SessionCreate(
-            worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent,
+            worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent(in: area.worktree),
             model: model?.isEmpty == false ? model : nil, prompt: prompt?.isEmpty == false ? prompt : nil,
             draft: draft ? true : nil)
         (create.env, create.args) = (env, args)
