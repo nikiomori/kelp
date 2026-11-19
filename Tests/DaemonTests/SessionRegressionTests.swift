@@ -93,7 +93,7 @@ private func submitted(_ screen: String) -> String {
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(other.id)]))   // b paused
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(other.id)]))
     let la = try #require(w.d.sessions.existing(a.id))
-    let archiving = Task { try await w.c.call("worktree.archive", .obj(["id": .string(slow.id)])) }   // ~2 s: a ignores SIGTERM
+    let archiving = Task { try await w.c.call("worktree.archive", .obj(["id": .string(slow.id)])) }   // `PTY.grace`: a ignores SIGTERM
     #expect(try await waitFor(10) { String(decoding: la.tail(4000), as: UTF8.self).contains("STOPPING") })   // under way, its lock held
     _ = try await w.c.call("session.attach", .obj(["id": .string(b.id)]))   // wakes b
     #expect(kill(a.pid, 0) == 0)   // a still stopping: b's wake didn't wait for it

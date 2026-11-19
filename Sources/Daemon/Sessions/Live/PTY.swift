@@ -280,11 +280,15 @@ final class PTY: @unchecked Sendable {   // unchecked: phases are under `phase`,
     /// the shell is gone its jobs belong to launchd and can't be found from here any more.
     func tree() -> [pid_t] { phase.withLock { $0.program == .reaped ? [] : Subprocess.tree(pid) } }
 
+    /// How long `terminate` waits before SIGKILL: 2 s. KELP_TEST_SLOW stretches it along with the tests' waits (in a
+    /// sanitizer's run), as `ExtensionEvents.eventDelay`, so a test that acts while a stop is under way still can.
+    static let grace = 2 * (ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1)
+
     /// Hangup and SIGTERM to the program and everything it started (a server in a shell's job too), then SIGKILL to
     /// whatever is still there after `grace` seconds (some TUIs ignore SIGTERM, servers treat SIGHUP as "reload").
     /// Returns them all, for `Sessions.waitGone`.
     @discardableResult
-    func terminate(grace: TimeInterval = 2) -> [pid_t] {
+    func terminate(grace: TimeInterval = PTY.grace) -> [pid_t] {
         let all = tree()
         kill()
         for child in all.dropFirst() {
