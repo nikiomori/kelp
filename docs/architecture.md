@@ -276,6 +276,14 @@ else a `NotificationCenter` name.
   Language-server requests time out.
 - **Checked by** DaemonTests, which run against a real daemon with real PTYs and git, also under Thread Sanitizer in CI.
 
+## Speed budgets
+CI holds two times on every pull request and push to main (`scripts/ui-smoke.sh`, its "UI smoke" step): the first
+launch (daemon start, window, the snapshot's wait, quit) stays under 11 s, and the slowest of four workspace switches
+under 120 ms, each switch timed by the app itself (`KELP_SWITCH`). Each budget is about 1.5 times CI's median over
+seven runs, so a slowdown of half fails the step. A local run under load can raise them (`KELP_LAUNCH_BUDGET_MS`,
+`KELP_SWITCH_BUDGET_MS`). What a time can't hold, ArchitectureTests does: the app doesn't poll the daemon (each clock
+is listed). `KELP_HANG_WATCH=1` logs main-thread stalls when looking for one by hand.
+
 ## Machines
 `kelp vm` gives agents Linux, macOS, Android and iOS machines. Each runs in a `kelp-vm` process of its own (one per
 machine, by `kelp-vm.lock`), which kelpd starts detached and talks to over the machine folder's `ctl.sock`; in Kelp.app
