@@ -302,3 +302,11 @@ import WorkbenchKit
     let shell = LayoutTemplates.run(LayoutTemplates.running(session("shell", ["/bin/zsh", "-l"])))
     #expect(shell.agent == "shell" && shell.command == nil)
 }
+
+/// A terminal is always there to start: a default set to it holds before Kelp has checked which agents are installed
+/// (on a new Mac that list is empty, and New Agent fell back to an agent that may not be there at all).
+@MainActor @Test func aTerminalDefaultHoldsBeforeAgentsAreChecked() {
+    let app = AppModel(builtins: Builtins.all)
+    app.settings.apply([SettingKeys.defaultAgent.key: .string(Session.shellAgent)])
+    #expect(app.catalog.defaultAgent == Session.shellAgent)
+}
