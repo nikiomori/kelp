@@ -20,6 +20,8 @@ actor LocalModels {
     private let known: [Place]
     /// Who hears a model's download (`SuggestPullEvent`); none in tests.
     let clients: Clients?
+    /// The gray text's ask still running, which a newer one cancels.
+    nonisolated let latest = LatestAsk()
     /// The download going on, which Cancel stops.
     var pulling: Task<Void, any Error>?
     /// Where Ollama listens for a download, and how many half seconds it's waited for when just opened.
@@ -221,11 +223,18 @@ actor LocalModels {
 
 extension EditorSuggest: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> SuggestAnswer {
+        // A warm-up takes no newer ask's place: it only has the model read the file.
+        guard warm == true else { return try await lsp.models.latest.run { try await ask(lsp) } }
+        guard cloud == nil else { return SuggestAnswer() }   // a warm-up would be paid for: the cloud's are loaded
+        return try await lsp.models.suggest(
+            prefix: prefix, suffix: suffix, path: path, model: model, warm: true, extra: extra ?? [])
+    }
+
+    private func ask(_ lsp: LSPHost) async throws -> SuggestAnswer {
         guard let cloud else {
             return try await lsp.models.suggest(
-                prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true, extra: extra ?? [])
+                prefix: prefix, suffix: suffix, path: path, model: model, extra: extra ?? [])
         }
-        guard warm != true else { return SuggestAnswer() }   // a warm-up would be paid for: the cloud's are loaded
         let key = try await lsp.offloads.run { try Keychain.find(CloudModels.account(cloud)) }
         return try await lsp.models.suggest(self, cloud: cloud, key: key)
     }

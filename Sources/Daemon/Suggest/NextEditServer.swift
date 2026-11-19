@@ -35,6 +35,8 @@ final class NextEditServer: Sendable {
     /// without stopping it ends it at the next start; nil keeps no note.
     private let notes: URL?
     let http = URLSession(configuration: .ephemeral)
+    /// The ask still running, which a newer one cancels.
+    let latest = LatestAsk()
 
     /// `command` is llama-server's name on the login PATH, or a path; tests name a stand-in. `startLimit` is how long
     /// a start may take, the first one's 1.5 GB download included.
@@ -307,7 +309,9 @@ final class NextEditServer: Sendable {
 }
 
 extension EditorNextEdit: AsyncHandled {
-    func handle(_ lsp: LSPHost) async throws -> SuggestAnswer { try await lsp.nextEdit.ask(self, lsp.offloads) }
+    func handle(_ lsp: LSPHost) async throws -> SuggestAnswer {
+        try await lsp.nextEdit.latest.run { try await lsp.nextEdit.ask(self, lsp.offloads) }
+    }
 }
 
 extension EditorNextEditStart: AsyncHandled {

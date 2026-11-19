@@ -1,6 +1,8 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
+import os
 
 @testable import Daemon
 
@@ -229,6 +231,24 @@ import Testing
         let openAI = Data(#"{"choices":[{"text":"x","logprobs":{"tokens":["x"],"token_logprobs":[-0.3]}}]}"#.utf8)
         #expect(try LocalModels.logprobs(openAI, ollama: false) == [-0.3])
         #expect(try LocalModels.logprobs(Data(#"{"response":"x"}"#.utf8), ollama: true) == nil)
+    }
+
+    @Test func aNewerAskCancelsTheOneStillRunning() async throws {
+        let latest = LatestAsk()
+        let started = OSAllocatedUnfairLock(initialState: false)
+        let older = Task {
+            try await latest.run {
+                started.withLock { $0 = true }
+                let (never, open) = AsyncStream.makeStream(of: Int.self)
+                for await _ in never {}   // a model that writes till it's cancelled
+                open.finish()
+                try Task.checkCancellation()
+                return SuggestAnswer(text: "old")
+            }
+        }
+        try await waitFor { started.withLock { $0 } }
+        #expect(try await latest.run { SuggestAnswer(text: "new") } == SuggestAnswer(text: "new"))
+        #expect(try await older.value == SuggestAnswer())   // cancelled: nothing, and at once
     }
 
     @Test func theNextEditIsAskedInSweepsOwnFormat() throws {
