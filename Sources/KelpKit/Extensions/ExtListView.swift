@@ -92,11 +92,7 @@ struct ExtListView: View {
             }
         }
         .task(id: bench.workspaceId) {
-            while !Task.isCancelled {
-                reload()
-                guard let seconds = def.refresh, seconds > 0 else { break }
-                try? await Task.sleep(for: .seconds(max(seconds, 1)))
-            }
+            await Self.refreshing(every: def.refresh, away: { app.away }, run: refresh)
         }
     }
 
@@ -177,25 +173,41 @@ struct ExtListView: View {
         }
     }
 
-    private func reload() {
+    /// Runs `run` now, then again `seconds` (at least 1) after each run ends, so a command slower than its interval never
+    /// runs twice at once. While the window is away nobody sees the list: it only looks again every 5 s whether to run.
+    /// No `seconds` (or 0): once.
+    static func refreshing(
+        every seconds: Double?, away: @MainActor () -> Bool, run: @MainActor () async -> Void,
+        pause: @MainActor (Double) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
+    ) async {
+        var first = true
+        while !Task.isCancelled {
+            if first || !away() { await run() }
+            first = false
+            guard let seconds, seconds > 0 else { return }
+            await pause(away() ? 5 : max(seconds, 1))
+        }
+    }
+
+    private func reload() { Task { await refresh() } }
+
+    private func refresh() async {
         let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
         let cwd = IDEContext.of(app).workspace?.path ?? folder.path
         let slow = whileSlow { loading = true }   // a spinner only for a wait you'd notice
         running = true
-        Task {
-            let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
-            slow.cancel()
-            loading = false
-            running = false
-            if result.code != 0, result.stdout.isEmpty {
-                error =
-                    result.stderr.isEmpty
-                    ? String(localized: "Exit code \(result.code)") : String(result.stderr.suffix(600))
-                return
-            }
-            error = nil
-            items = Self.parse(result.stdout)
+        let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
+        slow.cancel()
+        loading = false
+        running = false
+        if result.code != 0, result.stdout.isEmpty {
+            error =
+                result.stderr.isEmpty
+                ? String(localized: "Exit code \(result.code)") : String(result.stderr.suffix(600))
+            return
         }
+        error = nil
+        items = Self.parse(result.stdout)
     }
 
     /// A JSON array, or one JSON object per line.

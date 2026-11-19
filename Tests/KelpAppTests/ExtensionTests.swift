@@ -53,6 +53,28 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(ExtListView.parse("  \n").isEmpty)
 }
 
+/// A list's command runs again only after the last run ended, however slow it is, and not while the window is away.
+@MainActor @Test func aListsCommandNeverRunsTwiceAtOnceNorWhileAway() async {
+    var started = 0, pauses: [Double] = [], away = false
+    var finish: CheckedContinuation<Void, Never>?
+    let loop = Task {
+        await ExtListView.refreshing(every: 2, away: { away }) {
+            started += 1
+            await withCheckedContinuation { finish = $0 }   // a slow command: it ends when the test says
+        } pause: { seconds in
+            pauses.append(seconds)
+            if pauses.count == 3 { withUnsafeCurrentTask { $0?.cancel() } }
+        }
+    }
+    for _ in 0..<20 { await Task.yield() }
+    #expect(started == 1 && pauses.isEmpty)   // the first run hasn't ended: nothing else starts
+    away = true
+    finish?.resume()
+    finish = nil
+    await loop.value
+    #expect(started == 1 && pauses == [5, 5, 5])   // away: it only looks again, every 5 s
+}
+
 /// Off by default is the built-in's to say (Activity), not a list the shell keeps of them.
 @MainActor @Test func disabledListFallsBackToTheDefaultOnlyWhenUnset() {
     let reg = AppModel(builtins: Builtins.all).extensions
