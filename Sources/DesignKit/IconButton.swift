@@ -1,8 +1,9 @@
 import AppKit
 
-/// A button that is an icon (and maybe a count): a 13 pt medium symbol in secondary grey on a 22 pt square. Under the
-/// pointer the square fades to grey; pressed, it darkens; and a click dips it and springs it back (`PointerButton`).
-/// This is the one icon button used in bars: a panel's header, a tab's toolbar, the sidebar.
+/// A button that is an icon (and maybe a count): a 13 pt medium symbol in secondary grey on a 22 pt square, both
+/// scaled with Text size. Under the pointer the square fades to grey; pressed, it darkens; and a click dips it and
+/// springs it back (`PointerButton`). This is the one icon button used in bars: a panel's header, a tab's toolbar,
+/// the sidebar.
 @MainActor
 public final class IconButton: PointerButton {
     /// An icon button showing `image`, named `tip` (its tooltip), that calls `action`.
@@ -18,7 +19,7 @@ public final class IconButton: PointerButton {
         toolTip = tip
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
-        symbolConfiguration = .chrome()
+        symbolConfiguration = .chrome(TextSize.of(Metrics.iconPoint))
         font = .uiDigits(TextSize.caption, weight: .medium)
         self.target = target
         self.action = action
@@ -62,8 +63,9 @@ public final class IconButton: PointerButton {
         return spinner
     }()
 
+    /// The square grows with Text size, as a `TextButton` beside it does, so a bar's buttons stay one height.
     override public var intrinsicContentSize: NSSize {
-        let size = super.intrinsicContentSize
-        return NSSize(width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : 6)), height: Metrics.iconButton)
+        let size = super.intrinsicContentSize, side = TextSize.of(Metrics.iconButton)
+        return NSSize(width: max(side, size.width + (title.isEmpty ? 0 : Metrics.gap)), height: side)
     }
 }

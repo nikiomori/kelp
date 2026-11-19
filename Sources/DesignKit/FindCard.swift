@@ -43,7 +43,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         rows.orientation = .vertical
         rows.alignment = .leading
         rows.spacing = Metrics.gap
-        rows.edgeInsets = NSEdgeInsets(top: 5, left: 6, bottom: 5, right: 6)
+        rows.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.gap, bottom: Metrics.gap, right: Metrics.gap)
         pin(FloatingCard(rows, radius: Metrics.radiusMD))
         field.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
         count.setContentHuggingPriority(.required, for: .horizontal)

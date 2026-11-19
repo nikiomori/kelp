@@ -42,7 +42,7 @@ public final class LoadingView: NSView {
         line.font = .ui(TextSize.body)
         line.textColor = .secondaryLabelColor
         detail.font = .ui(TextSize.caption)
-        detail.textColor = .tertiaryLabelColor
+        detail.textColor = .secondaryLabelColor
         detail.alignment = .center
         detail.preferredMaxLayoutWidth = 360
         let row = NSStackView(views: [spinner, line])

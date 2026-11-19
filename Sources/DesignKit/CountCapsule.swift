@@ -18,10 +18,13 @@ public final class CountCapsule: NSView {
         field.textColor = .secondaryLabelColor
         field.translatesAutoresizingMaskIntoConstraints = false
         addSubview(field)
+        // The capsule and its edge grow with Text size, as the digits in it do. A single digit stays a circle.
+        let edge = TextSize.of(Metrics.gapTight)
         NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
-            field.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: 16),
+            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: edge),
+            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -edge),
+            field.centerYAnchor.constraint(equalTo: centerYAnchor),
+            heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.countCapsule)),
             widthAnchor.constraint(greaterThanOrEqualTo: heightAnchor)
         ])
         // VoiceOver reads the capsule with its label, not the digits inside it.

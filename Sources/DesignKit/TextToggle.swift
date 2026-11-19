@@ -13,8 +13,10 @@ public final class TextToggle: PointerButton {
         onClick = action
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
-        widthAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
-        heightAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
+        // A square that grows with Text size, as its letters and the icon buttons beside it do.
+        let side = TextSize.of(Metrics.iconButton)
+        widthAnchor.constraint(equalToConstant: side).isActive = true
+        heightAnchor.constraint(equalToConstant: side).isActive = true
     }
     required public init?(coder: NSCoder) { fatalError("not from a nib") }
 }

@@ -108,7 +108,9 @@ extension View {
         font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
     }
     /// A section's title in a column of sections: `sectionTitle()` at the bottom of a section row's height.
-    public func sectionHeading() -> some View { sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom) }
+    public func sectionHeading() -> some View {
+        sectionTitle().frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom)
+    }
     /// A line that says there's nothing here or why: 12, secondary.
     public func quietNote() -> some View { font(.ui(TextSize.row)).foregroundStyle(.secondary) }
 }
