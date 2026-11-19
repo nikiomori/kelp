@@ -88,7 +88,8 @@ extension Runs {
                 let stop = menu.add(String(localized: "Stop \(row.name)")) { [weak self] in
                     Task { await self?.app.call(SessionKill(id: sid)) }
                 }
-                stop.show(Self.tinted("stop.fill", .systemRed))
+                // A template, in the text colour: stopping is an action, which has no colour of its own.
+                stop.show(NSImage.symbol("stop.fill").withSymbolConfiguration(.chrome()))
                 // An alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone.
                 stop.keyEquivalent = item.keyEquivalent
                 stop.keyEquivalentModifierMask = item.keyEquivalent.isEmpty ? .option : [.command, .option]
@@ -130,11 +131,10 @@ extension Runs {
     }
 
     /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue check
-    /// lint, red plane deploy, teal install. The Run menu shows the colour only on what runs; a run's tab shows the
-    /// symbol in grey. The rest are grey, chosen by name. ▶ in a green circle means it runs now.
+    /// lint, red plane deploy, teal install. The Run menu shows the colour only on what runs, so colour says it runs
+    /// now and the symbol what for; a run's tab shows the symbol in grey. The rest are grey, chosen by name.
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
-        if row.running { return ("play.circle.fill", .systemGreen) }
         switch row.purpose {
         case .install: return ("arrow.down.circle.fill", .systemTeal)
         case .run: return ("play.fill", .systemGreen)

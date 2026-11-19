@@ -31,11 +31,11 @@ import Testing
     #expect(Runs.purpose(install) == .install)
 }
 
-/// A command that runs now is a green circled ▶, whatever it is for.
-@MainActor @Test func aRunningCommandIsAGreenPlay() {
+/// A command that runs now shows its purpose in the purpose's colour (decision 83), not a green ▶ for everything.
+@MainActor @Test func aRunningCommandShowsItsPurposesColour() {
     var running = row("test", "npm test", kind: "test")
     running.running = true
-    #expect(Runs.glyph(running) == ("play.circle.fill", .systemGreen))
+    #expect(Runs.glyph(running) == ("flask.fill", .systemPurple))
 }
 
 /// Where a command comes from, in a word: its program as people call it, and the folder it runs in.

@@ -79,7 +79,7 @@ struct PhoneSettings: View {
             }
             Section("Paired Phones") {
                 if state.phones.isEmpty {
-                    EmptyState(String(localized: "No phone is paired yet."), symbol: "iphone", lifted: false)
+                    EmptyState(String(localized: "No Phone Paired Yet"), symbol: "iphone", lifted: false)
                 }
                 ForEach(state.phones) { phone in
                     HStack(spacing: Metrics.gap) {

@@ -165,10 +165,11 @@ struct AgentsSettings: View {
                     HStack(spacing: Metrics.gap) {
                         Text(manifest.name).foregroundStyle(have ? .primary : .secondary)
                         if updates.contains(where: { $0.id == manifest.id }) {
-                            // An update is news, which has no colour: orange is for what waits for the user.
-                            Circle().fill(Color.secondary).frame(width: Metrics.gap, height: Metrics.gap).help(
-                                "Update available"
-                            ).accessibilityLabel("Update available")
+                            // An update is news, which has no colour: orange is for what waits for the user. It is
+                            // a symbol, not a dot, because a grey dot in Settings says "connected".
+                            Image(systemName: "arrow.down.circle").font(.symbol(Metrics.iconSmall))
+                                .foregroundStyle(.secondary).help("Update available")
+                                .accessibilityLabel("Update available")
                         }
                     }
                     HStack(spacing: 0) {

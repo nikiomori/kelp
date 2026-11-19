@@ -23,6 +23,9 @@ struct UsageReportView: View {
     @State var agentOrder = AgentOrder(by: .cost, ascending: false)
     enum AgentSort: String { case agent, tokens, cost }
     struct AgentOrder: Equatable { var by: AgentSort, ascending: Bool }
+    /// What the models' and the projects' tables are sorted by, as the agents'.
+    @State var modelOrder = AgentOrder(by: .cost, ascending: false)
+    @State var projectOrder = AgentOrder(by: .cost, ascending: false)
     @State var byCost = true
     @State var selected: String?
     /// The project the page is narrowed to (a name from the span's projects).

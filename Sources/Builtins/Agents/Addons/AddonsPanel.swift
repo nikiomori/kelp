@@ -205,7 +205,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         shownKey = key
         addons = value
         if let error {
-            empty.showError(String(localized: "Couldn’t read the skills and servers"), text: error)
+            empty.showError(String(localized: "Couldn’t Read the Skills and Servers"), text: error)
         } else {
             empty.show(
                 (value?.items ?? []).isEmpty ? String(localized: "Nothing here yet") : nil, symbol: "powerplug",
