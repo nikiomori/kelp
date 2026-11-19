@@ -107,7 +107,14 @@ struct ProcessTable: NSViewRepresentable {
         }
 
         func show(_ lines: [ServerProcesses.Line]) {
-            let before = roots.map { [$0.id] + (open.contains($0.id) ? $0.children.map(\.id) : []) }
+            // A row's shape: its id, whether it folds (a line that grew a second process gains its triangle), and its
+            // children while open.
+            func shape() -> [[String]] {
+                roots.map {
+                    [$0.id, $0.children.isEmpty ? "" : "+"] + (open.contains($0.id) ? $0.children.map(\.id) : [])
+                }
+            }
+            let before = shape()
             var kept: [String: Node] = [:]
             func node(_ id: String, _ process: HostStats.Process) -> Node {
                 let node = nodes[id] ?? Node(id: id, process: process)
@@ -124,7 +131,7 @@ struct ProcessTable: NSViewRepresentable {
             }
             nodes = kept
             open.formIntersection(kept.keys)
-            let after = roots.map { [$0.id] + (open.contains($0.id) ? $0.children.map(\.id) : []) }
+            let after = shape()
             guard before != after else {
                 // The same rows in the same order: only their figures moved, so they are written in place.
                 let all = IndexSet(0..<outline.numberOfRows), columns = IndexSet(0..<outline.numberOfColumns)

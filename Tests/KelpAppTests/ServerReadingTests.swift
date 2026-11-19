@@ -1,8 +1,11 @@
+import AppKit
 import Core
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import BuiltinServers
+@testable import KelpKit
 
 /// A server's readings as its header, card and tab say them: a used amount in its total's unit, a rate, ps's percent,
 /// the load averages, and orange from 90 %.
@@ -96,4 +99,21 @@ import Testing
     // cron and atd both stand at 0 %: the same order whichever way the reading lists them.
     #expect(names(.cpu, up: false, read.reversed()) == busiest && names(.cpu, up: false, read.shuffled()) == busiest)
     #expect(ServerProcesses.lines(read, kelpOnly: true, order: .init(by: .cpu, ascending: false)).isEmpty)
+}
+
+/// A folded line that grows a second process under the same id gets its triangle.
+@MainActor @Test func aServersLineThatGrowsAProcessCanBeOpened() {
+    let rows = ProcessTable.Coordinator(
+        app: AppModel(builtins: []), order: .constant(.init(by: .cpu, ascending: false)))
+    let outline = rows.outline
+    outline.addTableColumn(NSTableColumn(identifier: .init("command")))
+    outline.dataSource = rows
+    outline.delegate = rows
+    func process(_ pid: Int) -> HostStats.Process {
+        HostStats.Process(pid: pid, user: "root", cpu: 0, memory: 1, seconds: 1, command: "nginx", args: "nginx")
+    }
+    rows.show([ServerProcesses.Line(id: "nginx", members: [process(1)])])
+    #expect(!outline.isExpandable(outline.item(atRow: 0)))
+    rows.show([ServerProcesses.Line(id: "nginx", members: [process(1), process(2)])])
+    #expect(outline.isExpandable(outline.item(atRow: 0)))
 }
