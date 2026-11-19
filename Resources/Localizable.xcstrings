@@ -31298,6 +31298,336 @@
           }
         }
       }
+    },
+    "%@\nAn agent’s page: cookies and storage of its own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@\nСтраница агента: свои куки и хранилище"
+          }
+        }
+      }
+    },
+    "%@ is writing the first one into boards/. Each board shows as it’s saved.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ пишет первую в boards/. Каждая доска появится, как только сохранится."
+          }
+        }
+      }
+    },
+    "%lld×%lld (the agent’s)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld×%2$lld (как у агента)"
+          }
+        }
+      }
+    },
+    "A window’s picture is a .png file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок окна — это файл .png."
+          }
+        }
+      }
+    },
+    "After restart": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После перезапуска"
+          }
+        }
+      }
+    },
+    "Canvas.json Doesn’t Read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "canvas.json не читается"
+          }
+        }
+      }
+    },
+    "Couldn’t find that element in %@ as it is now: drawn again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось найти этот элемент в %@ в нынешнем виде: доска перерисована."
+          }
+        }
+      }
+    },
+    "Couldn’t move %@ to the Trash: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось переместить %1$@ в Корзину: %2$@"
+          }
+        }
+      }
+    },
+    "Couldn’t read #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать #%lld"
+          }
+        }
+      }
+    },
+    "Couldn’t write %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось записать %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Extensions people shared, each reviewed before it’s added. Or any repository: kelp ext install owner/repo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расширения, которыми поделились, каждое проверено перед добавлением. Или любой репозиторий: kelp ext install owner/repo"
+          }
+        }
+      }
+    },
+    "It asks you on its page: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивает вас на своей странице: %@"
+          }
+        }
+      }
+    },
+    "It isn’t {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}."
+          }
+        }
+      }
+    },
+    "Its page: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его страница: %@"
+          }
+        }
+      }
+    },
+    "It’s a draft: mark it ready for review first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это черновик: сначала отметьте его готовым к ревью."
+          }
+        }
+      }
+    },
+    "Kelp can’t read the accounts in settings.json: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp не может прочитать аккаунты в settings.json: %@"
+          }
+        }
+      }
+    },
+    "Kelp’s background service isn’t answering.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фоновая служба Kelp не отвечает."
+          }
+        }
+      }
+    },
+    "Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометки"
+          }
+        }
+      }
+    },
+    "Read off the screen: a guess, so Kelp won’t call it done or notify": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитано с экрана — это догадка, поэтому Kelp не назовёт работу законченной и не пришлёт уведомление"
+          }
+        }
+      }
+    },
+    "The repository’s rules block it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правила репозитория не дают."
+          }
+        }
+      }
+    },
+    "What its agent’s last turn changed, marked beside the text: click for the next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что изменил последний ход агента, отмечено рядом с текстом: щелчок — к следующему"
+          }
+        }
+      }
+    },
+    "Where it came from isn’t said: ask its agent for a data-source.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откуда данные, не сказано: попросите агента указать data-source."
+          }
+        }
+      }
+    },
+    "Working in its page: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работает на своей странице: %@"
+          }
+        }
+      }
+    },
+    "You have its page: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его страница у вас: %@"
+          }
+        }
+      }
+    },
+    "Your first click or key in the page takes it too; scrolling doesn’t": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первый щелчок или клавиша на странице тоже забирают её; прокрутка — нет"
+          }
+        }
+      }
+    },
+    "answers the page’s question": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отвечает на вопрос страницы"
+          }
+        }
+      }
+    },
+    "approved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одобрено"
+          }
+        }
+      }
+    },
+    "changes requested": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "просят изменить"
+          }
+        }
+      }
+    },
+    "conflict": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "конфликт"
+          }
+        }
+      }
+    },
+    "macOS didn’t take the notification: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS не приняла уведомление: %@"
+          }
+        }
+      }
+    },
+    "sets the page’s size %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "задаёт размер страницы %@"
+          }
+        }
+      }
+    },
+    "the agent’s turn: the files changed since it began": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ход агента: файлы, изменённые с его начала"
+          }
+        }
+      }
+    },
+    "this branch’s changes since %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения этой ветки с %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
