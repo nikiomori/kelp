@@ -54,15 +54,16 @@ final class LSPHost: Sendable {
     let offloads: Slots
     /// The model servers on this Mac the editor's gray text comes from (`editor.suggest`), beside the code's servers.
     let models: LocalModels
-    /// The llama-server it starts for the next edit (`editor.nextEdit`).
-    let nextEdit = NextEditServer()
+    /// The llama-server it starts for the next edit (`editor.nextEdit`), noted in the daemon's home.
+    let nextEdit: NextEditServer
 
     /// `retryDelay` sets when a broken server restarts, and `idleDelay` when an idle one stops. Tests shorten both.
     init(
         store: Store, remotes: Remotes, offloads: Slots, clients: Clients, retryDelay: TimeInterval,
-        idleDelay: TimeInterval
+        idleDelay: TimeInterval, home: URL
     ) {
         models = LocalModels(clients: clients)
+        nextEdit = NextEditServer(notes: home)
         self.store = store
         self.remotes = remotes
         self.offloads = offloads

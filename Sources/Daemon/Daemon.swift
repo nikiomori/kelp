@@ -79,7 +79,7 @@ public final class Daemon: Sendable {
         self.forges = Forges(offloads: offloads, store: self.store, clients: clients, remotes: remotes)
         self.lsp = LSPHost(
             store: self.store, remotes: remotes, offloads: offloads, clients: clients, retryDelay: lspDelays.retry,
-            idleDelay: lspDelays.idle)
+            idleDelay: lspDelays.idle, home: root)
         self.watches = Watches(clients: clients)
         lsp.whenProblemsChange { [watches] path in
             watches.touched(.init(topic: .file, key: path), tag: UUID().uuidString)
