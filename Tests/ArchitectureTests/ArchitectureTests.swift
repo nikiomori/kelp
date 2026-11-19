@@ -434,6 +434,14 @@ func codeOnly(_ s: String) -> String {
 /// Limit: a one-shot `asyncAfter` isn't counted (the app has dozens, for motion); one that schedules itself again polls.
 @Test func theAppDoesntPollTheDaemon() throws {
     let clocks: [String: (Int, String)] = [
+        // The editor and DesignKit run in the app too: each of theirs is a one-shot wait that a newer event cancels.
+        "EditorKit/CodeEditor+Suggestion.swift": (2, "the pause in typing before a suggestion or a next edit is asked"),
+        "EditorKit/CodeEditor+Hover.swift": (1, "a short wait before a signature is asked for"),
+        "DesignKit/HoverPopover.swift": (1, "the hover delay before a popover shows"),
+        "DesignKit/Latency.swift": (1, "`whileSlow`: a spinner only once a wait passes a second"),
+        "DesignKit/LoadingView.swift": (
+            3, "when the loading note shows, how long it can stay, and its least time on screen"
+        ),
         "KelpKit/App/AppDelegate.swift": (
             2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
         ),
@@ -502,7 +510,7 @@ func codeOnly(_ s: String) -> String {
     ]
     let all = try matches(
         #"repeats: true|Task\.sleep\(|makeTimerSource|publish\(every:|[Cc]lock\(\)?\.sleep\(|Thread\.sleep|usleep\("#,
-        in: appDirs)
+        in: appDirs + ["Sources/EditorKit", "Sources/DesignKit"])
     var found: [String: Int] = [:]
     for m in all { found[String(m.dropFirst("Sources/".count).split(separator: ":")[0]), default: 0] += 1 }
     let new = found.filter { f, n in n > clocks[f]?.0 ?? 0 }
