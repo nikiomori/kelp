@@ -67,7 +67,7 @@ extension BrowserTab {
             + (local
                 ? String(localized: "Is the dev server running? The page opens once it starts here; ⌘R tries now.")
                 : String(localized: "Reload (⌘R) tries again."))
-        web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
+        web.loadHTMLString(EmptyStateView.html(String(localized: "Can’t open this page"), text: text), baseURL: nil)
     }
 
     /// Completes the address as it's typed from the pages visited (`BrowserHistory`), with the completed part selected,

@@ -252,12 +252,12 @@ final class TextCell: NSTableCellView {
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 }
 
-/// A process's name, then its pid and what follows the program on its command line, both fainter. The three are the
+/// A process's name, then its pid and what follows the program on its command line, both in grey. The three are the
 /// cell's own subviews, so each follows the row's selection.
 final class CommandCell: NSTableCellView {
     private let name = NSTextField.label("", font: .ui(TextSize.row))
-    private let pid = NSTextField.label("", font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
-    private let tail = NSTextField.label("", font: .ui(TextSize.row), color: .tertiaryLabelColor)
+    private let pid = NSTextField.label("", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+    private let tail = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
 
     override init(frame: NSRect) {
         super.init(frame: frame)

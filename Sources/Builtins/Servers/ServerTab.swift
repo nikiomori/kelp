@@ -52,15 +52,15 @@ struct ServerView: View {
     private var header: some View {
         ContentBar {
             Text(host).font(.ui(TextSize.body, weight: .semibold))
-            Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1).truncationMode(
-                .middle)
+            // A sentence is cut at its end, never in its middle.
+            Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
             Button(String(localized: "Terminal")) { ServerActions.runOnServer(app, host) }
             Button("htop") { ServerActions.openHtop(app, host) }
             Menu {
                 Button(String(localized: "Add Project on \(host)…")) { app.workbench.addProject(onServer: host) }
                 if stats?.connected == true {
-                    Button(String(localized: "Disconnect")) { ServerActions.disconnectServer(app, host) }
+                    Button(String(localized: "Disconnect…")) { ServerActions.disconnectServer(app, host) }
                 }
                 Divider()
                 Button(String(localized: "Copy Host")) {
@@ -78,7 +78,7 @@ struct ServerView: View {
     private var offline: some View {
         let error = stats?.error
         return EmptyState(
-            error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can't reach \(host)"),
+            error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can’t reach \(host)"),
             symbol: error == nil ? "server.rack" : "exclamationmark.triangle"
         ) {
             VStack(spacing: 8) {
@@ -131,14 +131,17 @@ struct ServerView: View {
     }
 
     /// A line under the bar while something on the server wants a look, with a failed service's status a click away.
+    /// A failed service is broken, so it is red, and the line with it; a strained reading or a restart asked for is
+    /// orange.
     private func attentionLine(_ stats: HostStats) -> some View {
         let items = attention(stats)
+        let broken = items.contains { $0.unit != nil }
         return HStack(spacing: Metrics.gapWide) {
             Image(systemName: "exclamationmark.triangle.fill").font(.symbol(Metrics.iconSmall))
-                .foregroundStyle(Color.textOrange)
+                .foregroundStyle(broken ? Color.textRed : Color.textOrange)
             ForEach(Array(items.prefix(4).enumerated()), id: \.offset) { index, item in
                 if index > 0 { Text(verbatim: "·").foregroundStyle(.tertiary) }
-                Text(item.text).foregroundStyle(Color.textOrange).lineLimit(1)
+                Text(item.text).foregroundStyle(item.unit == nil ? Color.textOrange : Color.textRed).lineLimit(1)
                 if let unit = item.unit {
                     Button(String(localized: "Show Status")) {
                         ServerActions.runOnServer(
@@ -155,8 +158,8 @@ struct ServerView: View {
         }
         .font(.ui(TextSize.caption))
         .padding(.horizontal, Metrics.inset)
-        .frame(height: Metrics.row + Metrics.gapWide)
-        .background(Color(nsColor: .fillTint(.systemOrange)))
+        .frame(minHeight: TextSize.of(Metrics.contentBar))
+        .background(Color(nsColor: .fillTint(broken ? .systemRed : .systemOrange)))
         .help(
             stats.rebootRequired == true
                 ? String(localized: "An update asks for a restart (/run/reboot-required).") : "")

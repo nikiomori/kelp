@@ -87,7 +87,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
-    lazy var explain = NSButton(title: String(localized: "Explain"), target: self, action: #selector(explainQuery))
+    /// Explain is a bar's worded button, the grey plate, beside Run, the one main action in the system's accent.
+    lazy var explain = TextButton(String(localized: "Explain"), target: self, action: #selector(explainQuery))
     lazy var saveQuery = NSButton(title: String(localized: "Save Query…"), target: self, action: #selector(keepQuery))
     lazy var save = NSButton(title: String(localized: "Save"), target: self, action: #selector(saveEdits))
     lazy var showSQL = NSButton(title: String(localized: "Show SQL"), target: self, action: #selector(showEdits))

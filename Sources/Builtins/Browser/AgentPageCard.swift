@@ -29,7 +29,8 @@ struct AgentPageCard: View {
                     HStack(spacing: 6) {
                         Text(step.text).font(.ui(TextSize.caption)).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(shortAgo(step.at)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.tertiary)
+                        Text(shortAgo(step.at)).font(.ui(TextSize.caption).monospacedDigit())
+                            .foregroundStyle(.secondary)
                     }
                 }
                 if let error = shown.page.lastError {
@@ -60,7 +61,8 @@ struct AgentPageCard: View {
                     .truncationMode(.middle)
             }
             if let line = holder(page) {
-                Text(line).font(.ui(TextSize.caption)).foregroundStyle(Color.accentColor).lineLimit(2)
+                // The page waits for you, so it is orange, as everything that waits for you is.
+                Text(line).font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange).lineLimit(2)
             } else if let subagent = page.subagent {
                 Text(subagentTitle(subagent)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             }

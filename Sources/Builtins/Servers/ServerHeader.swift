@@ -225,7 +225,7 @@ enum ServerHeaders {
         menu.addItem(.separator())
         menu.add(String(localized: "Add Project on \(host)…")) { app.workbench.addProject(onServer: host) }
         if app.latest(HostEvent.self, host)?.stats.connected == true {
-            menu.add(String(localized: "Disconnect")) { ServerActions.disconnectServer(app, host) }
+            menu.add(String(localized: "Disconnect…")) { ServerActions.disconnectServer(app, host) }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Host")) {

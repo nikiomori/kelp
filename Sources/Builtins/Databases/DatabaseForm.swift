@@ -306,14 +306,14 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 self.status.stringValue =
                     "● " + through + "\(found.version) · "
                     + String(localized: "\(found.tables) tables") + " · \(found.ms) ms"
-                self.status.textColor = .systemGreen
+                self.status.textColor = .secondaryLabelColor   // it answers: nothing to do, so no colour
                 if !found.databases.isEmpty {
                     self.database.removeAllItems()
                     self.database.addItems(withObjectValues: found.databases)
                 }
             } else {
                 self.status.stringValue = "● " + (answer.error ?? String(localized: "It doesn’t answer."))
-                self.status.textColor = .systemOrange
+                self.status.textColor = .textRed
             }
             self.sheet.fit()
         }
@@ -347,7 +347,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 sheet.end()
             } else {
                 status.stringValue = "● " + (answer.error ?? "")
-                status.textColor = .systemRed
+                status.textColor = .textRed
                 add.isEnabled = true
                 sheet.fit()
             }

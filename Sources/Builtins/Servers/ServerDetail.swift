@@ -59,9 +59,9 @@ struct ServerDetail: View {
             if let network = stats.network {
                 Divider()
                 Meter(
-                    label: "Network", value: "↓ " + ServerReading.rate(network.received),
-                    detail: "↑ " + ServerReading.rate(network.sent), share: nil, trend: traffic,
-                    foot: network.interface)
+                    label: "Network", value: ServerReading.rate(network.received),
+                    detail: ServerReading.rate(network.sent), share: nil, trend: traffic,
+                    foot: network.interface, arrows: true)
             }
         }
         .fixedSize(horizontal: false, vertical: true)   // every reading as tall as the tallest
@@ -118,6 +118,8 @@ private struct Meter: View {
     var trend: [Trend.Point]?
     var foot: String?
     var footStrained = false
+    /// Network's: the number is what came in and the detail what went out, each after its arrow symbol.
+    var arrows = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -125,13 +127,15 @@ private struct Meter: View {
                 Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 if trend != nil {
-                    Text("1 h").font(.ui(TextSize.caption)).foregroundStyle(.tertiary).help(
+                    Text("1 h").font(.ui(TextSize.caption)).foregroundStyle(.secondary).help(
                         String(localized: "The line is the last hour"))
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
+                if arrows { arrow("arrow.down", Metrics.iconLarge, said: String(localized: "Received")) }
                 Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
                     .foregroundStyle(ServerReading.strained(share ?? 0) ? ServerReading.strainedColor : .primary)
+                if arrows { arrow("arrow.up", Metrics.iconSmall, said: String(localized: "Sent")) }
                 Text(detail).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             }
             if let trend, trend.count > 1 {
@@ -149,6 +153,10 @@ private struct Meter: View {
         }
         .padding(Metrics.inset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func arrow(_ symbol: String, _ size: CGFloat, said: String) -> some View {
+        Image(systemName: symbol).font(.symbol(size)).foregroundStyle(.secondary).accessibilityLabel(said)
     }
 }
 

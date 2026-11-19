@@ -22,7 +22,8 @@ extension DatabaseTab {
                     worktreeId: worktree, database: name, sql: DatabaseUndo.check(kept, engine),
                     limit: QueryResult.kept))
             guard let now else {
-                return Banner.show(String(localized: "Can’t read \(table) to undo the change: \(failure ?? "")"))
+                return Banner.show(
+                    String(localized: "Can’t read \(table) to undo the change: \(failure ?? "")"), style: .error)
             }
             guard DatabaseUndo.unchanged(kept, now: now.rows) else {
                 return Banner.show(
@@ -34,7 +35,7 @@ extension DatabaseTab {
             let (done, error) = await app.tryCall(
                 DatabaseApply(worktreeId: worktree, database: name, statements: statements, each: 1))
             guard let done else {
-                return Banner.show(String(localized: "Nothing was put back: \(error ?? "")"))
+                return Banner.show(String(localized: "Nothing was put back: \(error ?? "")"), style: .error)
             }
             let back = done.changed ?? 0
             guard back == statements.count else {   // some database can't count each one (`Databases.applied`)

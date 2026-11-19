@@ -19,13 +19,11 @@ struct DatabasePanelRows {
         case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
         case .library(let count):
             let title = DatabaseSheet.section(String(localized: "All My Databases"))
-            let capsule = CountCapsule()   // the capsule every list's section has, as Source Control's does
-            capsule.text = count.formatted()
-            views = [chevron(libraryOpen), title, NSView(), capsule]
+            views = [chevron(libraryOpen), title, NSView(), capsule(count)]
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
             let title = DatabaseSheet.section(String(localized: "Activity"))
-            views = [chevron(activityOpen), title, NSView(), small("\(who) · \(count)")]
+            views = [chevron(activityOpen), title, NSView(), small(who), capsule(count)]
         }
         return line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
     }
@@ -86,7 +84,7 @@ struct DatabasePanelRows {
         let words = stack([top, detail])
         words.setHuggingPriority(.defaultLow - 1, for: .horizontal)
         top.widthAnchor.constraint(equalTo: words.widthAnchor).isActive = true
-        var views: [NSView] = [mark(db.engine, health), words]
+        var views: [NSView] = [DatabaseLook.mark(db.engine, health), words]
         var hovered: [NSView] = []
         if library, used {
             let icon = projectIcon(size: 14)
@@ -157,8 +155,8 @@ struct DatabasePanelRows {
         let icon = projectIcon(size: 16)
         let slot = NSStackView(views: [icon])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true   // the column of the badges under it
-        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row, weight: .semibold))
-        let views = [slot, name, NSView()] + (count > 0 ? [digits(count)] : [])   // with none, the last row says so
+        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row, weight: .medium))
+        let views = [slot, name, NSView()] + (count > 0 ? [capsule(count)] : [])   // with none, the last row says so
         return line(views, inset: Self.inCard, trailing: Metrics.insetTrailing)
     }
 
@@ -200,8 +198,8 @@ struct DatabasePanelRows {
         fold.isHidden = true
         let slot = NSStackView(views: [folder, fold])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
-        let title = NSTextField.label(name, font: .ui(TextSize.row, weight: .semibold))
-        let row = line([slot, title, NSView(), digits(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
+        let title = NSTextField.label(name, font: .ui(TextSize.row, weight: .medium))
+        let row = line([slot, title, NSView(), capsule(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
         (row as? HoverRow)?.hovered = [fold]
         (row as? HoverRow)?.resting = [folder]
         return row
@@ -247,7 +245,8 @@ struct DatabasePanelRows {
             .joined(separator: " ")
     }
 
-    /// The row under a database that doesn't answer: why, and Start when compose can start it.
+    /// The row under a database that doesn't answer: why, and Start when compose can start it. A stopped service is
+    /// said in grey, because nothing broke: red is for one that doesn't answer.
     func problem(_ db: DatabaseInfo, _ databaseHealth: DatabaseHealth) -> NSView {
         // The reason reads "inkover doesn't answer at …", but the row above already names the database, so the line
         // keeps only the rest.
@@ -255,14 +254,14 @@ struct DatabasePanelRows {
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
         let why = NSTextField.label(
             said, font: .ui(TextSize.caption),
-            color: databaseHealth.state == .stopped ? .textOrange : .textRed)
+            color: databaseHealth.state == .stopped ? .secondaryLabelColor : .textRed)
         why.toolTip = databaseHealth.reason
         var views: [NSView] = [why, NSView()]
         if databaseHealth.state == .stopped {
-            let start = PointerButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
-            start.contentTintColor = .linkColor
-            start.font = .ui(TextSize.caption)
-            start.underlinesOnHover = true
+            // A row's worded action is the system's small button, as Allow and Deny are in an agent's question.
+            let start = ClosureButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
+            start.controlSize = .small
+            start.bezelStyle = .push
             views.append(start)
         }
         let under = Self.inCard + 19 + Metrics.gap   // starts under the database's name
@@ -282,51 +281,22 @@ struct DatabasePanelRows {
 
     // MARK: Parts
 
-    /// The engine's badge with a dot on its corner: green when it answers, orange stopped, red down, grey not tried. A
-    /// ring is cut out around the dot, so the dot reads on any row (selected, hovered). VoiceOver hears the state in
-    /// words, because the dot is only a colour.
-    private func mark(_ engine: DatabaseInfo.Engine, _ databaseHealth: DatabaseHealth?) -> NSImageView {
-        let badge = DatabaseLook.badge(engine, size: 16)
-        let (color, said): (NSColor, String) =
-            switch databaseHealth?.state {
-            case .ok: (.systemGreen, String(localized: "Answers"))
-            case .stopped: (.systemOrange, String(localized: "Stopped"))
-            case .down: (.systemRed, String(localized: "It doesn’t answer."))
-            default: (.tertiaryLabelColor, String(localized: "Not tried yet"))
-            }
-        let image = NSImage(size: NSSize(width: 19, height: 19), flipped: false) { _ in
-            badge.draw(in: NSRect(x: 0, y: 3, width: 16, height: 16))
-            let dot = NSRect(x: 12, y: 0, width: 7, height: 7)
-            NSGraphicsContext.current?.compositingOperation = .clear
-            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
-            NSGraphicsContext.current?.compositingOperation = .sourceOver
-            color.setFill()
-            NSBezierPath(ovalIn: dot).fill()
-            return true
-        }
-        let view = NSImageView(image: image)
-        view.setAccessibilityLabel(said)
-        view.toolTip =
-            databaseHealth.map {
-                [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined()
-            }
-            ?? String(localized: "Not tried yet")
-        return view
-    }
-
     private func chevron(_ open: Bool) -> NSImageView {
         let image = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
         image.symbolConfiguration = .chrome(Metrics.iconTiny)
-        image.contentTintColor = .tertiaryLabelColor
+        image.contentTintColor = .secondaryLabelColor
         image.widthAnchor.constraint(equalToConstant: 12).isActive = true
         return image
     }
 
     private func small(_ text: String) -> NSTextField {
-        NSTextField.label(text, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
+        NSTextField.label(text, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
-    private func digits(_ n: Int) -> NSTextField {
-        NSTextField.label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+    /// A count on the capsule every list's section has, as Source Control's does.
+    private func capsule(_ n: Int) -> CountCapsule {
+        let capsule = CountCapsule()
+        capsule.text = n.formatted()
+        return capsule
     }
 
     private func oneLine(_ sql: String) -> String {

@@ -45,12 +45,12 @@ enum BrowserMarks {
     /// Returns the browser part of an agent's card: whether the agent's chats get the browser skill, and the page it
     /// drives.
     static func card(_ session: Session, _ app: AppModel, close: @escaping @MainActor () -> Void) -> AnyView? {
-        let skill = session.browser.map { "Browser \(BrowserSkillWords.line($0))" }
+        let skill = session.browser.map { String(localized: "Browser \(BrowserSkillWords.line($0))") }
         guard skill != nil || !AgentPages.of(app).of(session: session.id).isEmpty else { return nil }
         return AnyView(
             VStack(alignment: .leading, spacing: 6) {
                 if let skill {
-                    Text(skill).font(.ui(TextSize.caption)).foregroundStyle(.tertiary).lineLimit(1)
+                    Text(skill).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 AgentPageCard(app: app, session: session.id, close: close)
             })

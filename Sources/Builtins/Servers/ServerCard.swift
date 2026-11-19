@@ -11,11 +11,11 @@ struct ServerSection: View {
 
     var body: some View {
         let stats = app.latest(HostEvent.self, host)?.stats
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.gapWide) {
             Divider()
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.gap) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
-                Text(host).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
+                Text(host).font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
                 if let word = ServerActions.serverWord(app, host) {
                     Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
                 }
@@ -41,7 +41,7 @@ struct ServerSection: View {
 func serverLine(_ stats: HostStats?) -> String {
     guard let stats else { return String(localized: "Reading…") }
     guard stats.connected else {
-        return stats.error.map { String(localized: "Can't reach: \($0)") }
+        return stats.error.map { String(localized: "Can’t reach: \($0)") }
             ?? String(localized: "Not connected. Opening it connects.")
     }
     let cores = stats.cores.map { $0 == 1 ? String(localized: "1 core") : String(localized: "\($0) cores") }
@@ -55,7 +55,7 @@ func serverLine(_ stats: HostStats?) -> String {
 struct ServerMeters: View {
     let stats: HostStats
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+        Grid(alignment: .leading, horizontalSpacing: Metrics.gapWide, verticalSpacing: Metrics.gap) {
             if let cpu = stats.cpu {
                 row("CPU", cpu / 100, String(localized: "\(Int(cpu.rounded()))% · load \(load)"))
             }

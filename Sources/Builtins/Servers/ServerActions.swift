@@ -29,9 +29,17 @@ enum ServerActions {
         runOnServer(app, host, command: "command -v htop >/dev/null 2>&1 && exec htop || exec top", title: "htop")
     }
 
-    /// Closes the shared connection; agents in tmux there carry on.
+    /// Closes the shared connection once the person says so; agents in tmux there carry on.
     static func disconnectServer(_ app: AppModel, _ host: String) {
-        Task { _ = await app.call(HostDisconnect(host: host)) }
+        Task {
+            guard
+                await confirm(
+                    String(localized: "Disconnect \(host)?"),
+                    detail: String(localized: "Agents in tmux there carry on. Kelp connects again when you ask."),
+                    action: String(localized: "Disconnect"))
+            else { return }
+            _ = await app.call(HostDisconnect(host: host))
+        }
     }
 
     /// What a server's heading says, and in what colour: nothing while it's fine, and what's wrong otherwise.
@@ -40,7 +48,7 @@ enum ServerActions {
         if !stats.connected {
             return stats.error == nil
                 ? (String(localized: "Not connected"), .secondaryLabelColor)
-                : (String(localized: "Can't reach"), .textRed)
+                : (String(localized: "Can’t reach"), .textRed)
         }
         guard let (what, p) = stats.alert else { return nil }
         switch what {

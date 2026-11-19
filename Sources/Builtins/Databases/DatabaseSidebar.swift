@@ -186,13 +186,12 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case .section(let title, let count, let open):
             let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
             chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-            chevron.contentTintColor = .tertiaryLabelColor
+            chevron.contentTintColor = .secondaryLabelColor
             let capsule = CountCapsule()   // the title and capsule every list's section has, as the panel's do
             capsule.text = count.formatted()
             return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: 6)
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
-            if table.kind == "view" { icon.contentTintColor = .systemPurple }
             let name = NSTextField.label(
                 table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(TextSize.caption))
             name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": these names differ at their ends
