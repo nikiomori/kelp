@@ -52,7 +52,7 @@ final class WindowBar: NSView {
         equalTo: branch.leadingAnchor, constant: Self.chipPadding + 13 / 2)
     private lazy var ciAtEnd = ciMark.view.centerXAnchor.constraint(
         equalTo: branch.trailingAnchor, constant: -(Self.chipPadding + 12 / 2))
-    private static let chipPadding: CGFloat = 6
+    static let chipPadding: CGFloat = 6
     /// The CI mark and its place, from the CI built-in (`FolderCI`). Without that built-in the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// The branch's pull request, from the CI built-in (`FolderCI`). Without that built-in there is no PR chip.
@@ -210,9 +210,19 @@ final class WindowBar: NSView {
         needsLayout = true
     }
 
+    /// The chip's title, cut in its middle when short of room. Centred, as a plain title is: a paragraph style without
+    /// an alignment sets the title left, and the glyph then leaves its slot, where the CI mark stands over it.
+    static func cutInMiddle(_ title: NSMutableAttributedString) -> NSAttributedString {
+        let cut = NSMutableParagraphStyle()
+        cut.lineBreakMode = .byTruncatingMiddle
+        cut.alignment = .center
+        title.addAttribute(.paragraphStyle, value: cut, range: NSRange(location: 0, length: title.length))
+        return title
+    }
+
     /// Makes a capsule that greys in under the pointer and springs when clicked (`PointerButton`), instead of AppKit's
     /// outline.
-    private static func chip(_ symbol: String?) -> NSButton {
+    static func chip(_ symbol: String?) -> NSButton {
         let button = PointerButton(frame: .zero)
         button.radius = nil
         button.padding = chipPadding
@@ -306,10 +316,7 @@ final class WindowBar: NSView {
         }
         // Short of room, a long name loses its middle: both its ends tell branches apart, and the counts and the dot
         // after it stay, because they are the title's end.
-        let cut = NSMutableParagraphStyle()
-        cut.lineBreakMode = .byTruncatingMiddle
-        title.addAttribute(.paragraphStyle, value: cut, range: NSRange(location: 0, length: title.length))
-        branch.attributedTitle = title
+        branch.attributedTitle = Self.cutInMiddle(title)
         ciMark.state = atEnd || inPlace ? ci : nil
         ciAtStart.isActive = inPlace
         ciAtEnd.isActive = atEnd

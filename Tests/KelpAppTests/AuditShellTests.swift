@@ -35,3 +35,25 @@ import Testing
         #expect(dot.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .secondaryLabelColor)
     }
 }
+
+/// The branch chip's glyph stays where a plain title leaves it, in the slot the CI mark is drawn over, so the mark never
+/// covers the branch's name. Drawn, because the cell's own rects don't follow a title that hugs its image.
+@MainActor @Test func theBranchChipsGlyphStaysInTheSlotTheCIMarkCovers() throws {
+    let chip = WindowBar.chip("arrow.triangle.branch")
+    func inkStarts(_ title: NSAttributedString) throws -> CGFloat {
+        chip.attributedTitle = title
+        chip.frame = NSRect(origin: .zero, size: chip.fittingSize)
+        let rep = try #require(chip.bitmapImageRepForCachingDisplay(in: chip.bounds))
+        chip.cacheDisplay(in: chip.bounds, to: rep)
+        let first = (0..<rep.pixelsWide).first { x in
+            (0..<rep.pixelsHigh).contains { y in (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.3 }
+        }
+        return CGFloat(try #require(first)) * chip.bounds.width / CGFloat(rep.pixelsWide)
+    }
+    for name in ["main", "feature/a-much-longer-branch-name"] {
+        let words: [NSAttributedString.Key: Any] = [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.black]
+        let plain = try inkStarts(NSAttributedString(string: name, attributes: words))
+        let cut = try inkStarts(WindowBar.cutInMiddle(NSMutableAttributedString(string: name, attributes: words)))
+        #expect(abs(cut - plain) < 0.6, "\(name): the glyph starts at \(cut), a plain title's at \(plain)")
+    }
+}
