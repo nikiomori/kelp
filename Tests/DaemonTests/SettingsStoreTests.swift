@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import Testing
+import os
 
 @testable import Daemon
 
@@ -21,6 +22,27 @@ private func home() throws -> URL {
     try Data("{ broken".utf8).write(to: file)
     #expect(SettingsStore(root: root)["extensions.disabled"] == .array(["bad"]))
     #expect(try String(contentsOf: file, encoding: .utf8) == "{ broken")
+}
+
+/// A hand edit saved while a set was merging (an editor's save in that moment) is read again and kept, not written over
+/// by the set's older copy.
+@Test func aHandEditSavedWhileASetMergesIsKept() throws {
+    let root = try home(), file = root.appendingPathComponent("settings.json")
+    let edits = OSAllocatedUnfairLock(initialState: 0)
+    let store = SettingsStore(root: root) {
+        guard
+            edits.withLock({ n in
+                defer { n += 1 }
+                return n == 0
+            })
+        else { return }   // the first merge only
+        try? Data(#"{"editor.fontSize": 20}"#.utf8).write(to: file)
+        let later = Date().addingTimeInterval(5)   // a date the set's first look can't have seen
+        try? FileManager.default.setAttributes([.modificationDate: later], ofItemAtPath: file.path)
+    }
+    let saved = try store.set("theme", .string("dark"))
+    #expect(saved == ["editor.fontSize": .int(20), "theme": .string("dark")])
+    #expect(SettingsStore(root: root).values == saved)   // on disk too
 }
 
 @Test func aFreshHomeStartsEmptyAndWritesTheFile() throws {
