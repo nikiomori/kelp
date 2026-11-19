@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The filter over a table's rows (⇧⌘F), like TablePro's. Each rule is a row of column ▾, condition ▾ and value, with
-/// a checkbox that turns the rule on and + and − buttons; Match all or any joins the rules. Choosing Raw SQL in the
-/// column list turns that row into a WHERE clause of its own. Apply (↩) reads the rows again with the filter.
+/// The filter over a table's rows (Filters), like TablePro's. Each rule is a row of column ▾, condition ▾ and value,
+/// with a checkbox that turns the rule on and + and − buttons; Match all or any joins the rules. Choosing Raw SQL in
+/// the column list turns that row into a WHERE clause of its own. Apply (↩) reads the rows again with the filter.
 @MainActor
 final class DatabaseFilters: NSObject, NSTextFieldDelegate {
     struct Rule: Equatable {

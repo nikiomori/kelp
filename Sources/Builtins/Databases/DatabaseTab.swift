@@ -8,7 +8,7 @@ import KelpKit
 /// database:
 /// - on the left, the database's items, saved queries and history (`DatabaseSidebar`);
 /// - on top, the environment's tag (Production in red) and, more quietly, where you are, with the filter's rows under
-/// it (⇧⌘F);
+/// it (Filters: no key of its own, ⇧⌘F is Find in Project everywhere; one can be set in Settings › Keyboard);
 /// - in the middle, a table's rows, a run's rows, or a query of the user's own;
 /// - at the foot, everything about the table shown (Data / Structure, Add Row, the row count, the changes, Columns,
 /// pages);
@@ -240,8 +240,6 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         run.toolTip = app.extensions.hint(String(localized: "Run"), "databases.run")
         explain.toolTip = app.extensions.hint(String(localized: "Explain the Statement"), "databases.explain")
         save.toolTip = app.extensions.hint(String(localized: "Save Changes"), "databases.save")
-        filterToggle.keyEquivalent = "f"
-        filterToggle.keyEquivalentModifierMask = [.command, .shift]
         run.keyEquivalent = "\r"
         run.keyEquivalentModifierMask = .command
         return Bar.content(

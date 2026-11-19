@@ -3,18 +3,6 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A row of the grid. The row draws its stripe and the columns' lines itself, so there are none under the last row.
-final class GridRowView: NSTableRowView {
-    override func drawBackground(in dirtyRect: NSRect) {
-        super.drawBackground(in: dirtyRect)
-        guard let table = superview as? NSTableView else { return }
-        NSColor.separatorColor.setFill()
-        for column in 0..<table.numberOfColumns {
-            NSRect(x: table.rect(ofColumn: column).maxX - 1, y: 0, width: 1, height: bounds.height).fill()
-        }
-    }
-}
-
 /// The grid's table: Space shows the row, and ⌫ marks the selected rows to be deleted.
 final class GridTable: NSTableView {
     var onSpace: () -> Void = {}
@@ -201,6 +189,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     /// Draws stripes only where there are rows, none past the last one.
     func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
+        (rowView as? GridRowView)?.marked = marked.contains(row)
         rowView.backgroundColor =
             row >= rows.count || change?.kind == .insert
             ? NSColor.fillTint(.systemGreen)
@@ -213,7 +202,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         // AppKit can ask for an old row while the columns change over to another result.
         guard let id = tableColumn?.identifier.rawValue, row < count else { return nil }
         let new = row >= rows.count, at = row - rows.count
-        guard let column = Int(id) else {   // the row's number column, with an agent's mark
+        guard let column = Int(id) else {   // the row's number column (an agent's mark is the row view's)
             let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
             field.attributedStringValue = number(row, new: new)
             field.alignment = .right
@@ -312,21 +301,13 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     private func number(_ row: Int, new: Bool) -> NSAttributedString {
-        let text = NSMutableAttributedString()
-        if marked.contains(row) {
-            text.append(
-                NSAttributedString(
-                    string: "▍",
-                    attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFont.ui(TextSize.caption)]))
-        }
-        text.append(
-            NSAttributedString(
-                string: new ? "+" : String(row + 1),
-                attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor]))
         // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.
-        text.addAttribute(
-            .paragraphStyle, value: Self.aligned(.right), range: NSRange(location: 0, length: text.length))
-        return text
+        NSAttributedString(
+            string: new ? "+" : String(row + 1),
+            attributes: [
+                .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor,
+                .paragraphStyle: Self.aligned(.right)
+            ])
     }
 
     private static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {

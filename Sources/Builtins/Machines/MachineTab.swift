@@ -109,7 +109,7 @@ struct MachineView: View {
                 }
             }
         } else {
-            EmptyState(String(localized: "No machine called \(name)"), symbol: "shippingbox") {
+            EmptyState(String(localized: "No Machine Called \(name)"), symbol: "shippingbox") {
                 Text("`kelp vm list` shows the machines.")
             }
         }

@@ -45,9 +45,9 @@ extension Builtins {
                     }
                     Task { await DatabaseSheet.run(app, worktreeId: workspace, editing: nil) }
                 },
-                // What the database tab in front does, each while its button shows. Save's ⌘S and Filters' ⇧⌘F stay
-                // the buttons' own keys, not these commands' defaults: as defaults they would take Save and Find in
-                // Project's keys from the whole window.
+                // What the database tab in front does, each while its button shows. Save's ⌘S stays the button's own
+                // key, not the command's default, which would take Save's key from the whole window. Filters has no
+                // key: ⇧⌘F is Find in Project everywhere, and ⌥⌘F is Git: Fetch.
                 tabCommand(app, "databases.run", "Run Statement", "cmd+return", shown: { $0.run }) { $0.runQuery() },
                 tabCommand(app, "databases.explain", "Explain", shown: { $0.explain }) { $0.explainQuery() },
                 tabCommand(app, "databases.filters", "Filters", shown: { $0.filterToggle }) {

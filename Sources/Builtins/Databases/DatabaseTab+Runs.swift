@@ -136,7 +136,7 @@ extension DatabaseTab {
         if let error {
             grid.show(columns: [], rows: [])
             empty.showError(
-                String(localized: "\(address.name) said no"), text: error, buttons: askAbout(sql, said: error))
+                String(localized: "\(address.name) Said No"), text: error, buttons: askAbout(sql, said: error))
             status.stringValue = ""
         }
         return result

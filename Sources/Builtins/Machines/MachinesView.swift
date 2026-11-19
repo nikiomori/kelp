@@ -104,7 +104,9 @@ struct MachinesView: View {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
                     Text(vmInfo.machine.name).font(.ui(TextSize.body)).lineLimit(1)   // as every name in the sidebar
-                    if vmInfo.state == .starting || vmInfo.state == .creating { ProgressView().controlSize(.mini) }
+                    if vmInfo.state == .starting || vmInfo.state == .creating {
+                        StatusIcon(status: .working)   // the ring of an agent at work, still with Reduce Motion
+                    }
                     Text(word).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: wordColor)).lineLimit(1)
                     Spacer(minLength: Metrics.gap)
                     faces(vmInfo)
