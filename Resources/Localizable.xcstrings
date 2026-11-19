@@ -4596,7 +4596,7 @@
         }
       }
     },
-    "%@ isn't installed": {
+    "%@ isn’t installed": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7477,7 +7477,7 @@
         }
       }
     },
-    "Cleared %@'s cookies and data": {
+    "Cleared %@’s cookies and data": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8113,7 +8113,7 @@
         }
       }
     },
-    "Couldn't read the usage: %@": {
+    "Couldn’t read the usage: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8133,7 +8133,7 @@
         }
       }
     },
-    "Couldn't save %@: %@": {
+    "Couldn’t save %@: %@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -16532,7 +16532,7 @@
         }
       }
     },
-    "The agent's default": {
+    "The agent’s default": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -19320,7 +19320,7 @@
         }
       }
     },
-    "Can't open this page": {
+    "Can’t open this page": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -21481,7 +21481,7 @@
         }
       }
     },
-    "Couldn't read the databases": {
+    "Couldn’t read the databases": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23663,7 +23663,7 @@
         }
       }
     },
-    "Don't Allow": {
+    "Don’t Allow": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -25873,7 +25873,7 @@
         }
       }
     },
-    "Didn't start": {
+    "Didn’t start": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26853,7 +26853,7 @@
         }
       }
     },
-    "Can't See": {
+    "Can’t See": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26863,7 +26863,7 @@
         }
       }
     },
-    "Can't reach": {
+    "Can’t reach": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26873,7 +26873,7 @@
         }
       }
     },
-    "Can't reach %@": {
+    "Can’t reach %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26883,7 +26883,7 @@
         }
       }
     },
-    "Can't reach: %@": {
+    "Can’t reach: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27973,7 +27973,7 @@
         }
       }
     },
-    "No Agent Has Run Anything on It": {
+    "No agent has run anything on it": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27993,7 +27993,7 @@
         }
       }
     },
-    "No Matching Fields": {
+    "No matching fields": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -28003,7 +28003,7 @@
         }
       }
     },
-    "No Row Selected": {
+    "No row selected": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -28023,7 +28023,7 @@
         }
       }
     },
-    "No Table Shown": {
+    "No table shown": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -29779,6 +29779,583 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌘↩ выполняет запрос, в котором стоит курсор. Слова из таблиц подставляются по мере ввода."
+          }
+        }
+      }
+    },
+    "Couldn’t load": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить"
+          }
+        }
+      }
+    },
+    "Couldn’t load the library": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить библиотеку"
+          }
+        }
+      }
+    },
+    "No extension matches “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет расширений по запросу «%@»"
+          }
+        }
+      }
+    },
+    "+%lld this week": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%lld за неделю"
+          }
+        }
+      }
+    },
+    "Stars": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звёзды"
+          }
+        }
+      }
+    },
+    "Settings for": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки для"
+          }
+        }
+      }
+    },
+    "A language’s own value wins over the one for all files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значение для языка важнее значения для всех файлов."
+          }
+        }
+      }
+    },
+    "Quit Kelp?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти из Kelp?"
+          }
+        }
+      }
+    },
+    "Context %lld%% full: %lldk of %lldk tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контекст заполнен на %lld%%: %lldk из %lldk токенов"
+          }
+        }
+      }
+    },
+    "%lld%% full: %lldk of %lldk tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заполнен на %lld%%: %lldk из %lldk токенов"
+          }
+        }
+      }
+    },
+    "No Agent Found on This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac нет агентов"
+          }
+        }
+      }
+    },
+    "Branch %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка %@"
+          }
+        }
+      }
+    },
+    "Remove from %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать из %@…"
+          }
+        }
+      }
+    },
+    "Forget…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забыть…"
+          }
+        }
+      }
+    },
+    "Clear Cookies and Data for This Site…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить cookie и данные этого сайта…"
+          }
+        }
+      }
+    },
+    "Forget %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забыть %@?"
+          }
+        }
+      }
+    },
+    "Remove %@ from %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать %@ из %@?"
+          }
+        }
+      }
+    },
+    "It stays in All My Databases, with its password.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Она остаётся во «Всех моих базах», с паролем."
+          }
+        }
+      }
+    },
+    "Its address and password leave Kelp. Projects that use it keep theirs.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Её адрес и пароль удаляются из Kelp. Проекты, которые ею пользуются, сохраняют свои."
+          }
+        }
+      }
+    },
+    "Its address and password leave Kelp. The database itself stays as it is.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Её адрес и пароль удаляются из Kelp. Сама база остаётся как есть."
+          }
+        }
+      }
+    },
+    "Agents in tmux there carry on. Kelp connects again when you ask.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты в tmux там работают дальше. Kelp подключится снова, когда вы попросите."
+          }
+        }
+      }
+    },
+    "Received": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получено"
+          }
+        }
+      }
+    },
+    "Sent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено"
+          }
+        }
+      }
+    },
+    "Clear %@’s cookies and data?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить cookie и данные %@?"
+          }
+        }
+      }
+    },
+    "You’re signed out of it, and the page loads again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы выйдете из него, и страница загрузится заново."
+          }
+        }
+      }
+    },
+    "Open in This Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в этой вкладке"
+          }
+        }
+      }
+    },
+    "Couldn’t download %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скачать %@: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t Measure the Sessions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось измерить сессии"
+          }
+        }
+      }
+    },
+    "It couldn’t be tried first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заранее попробовать не удалось."
+          }
+        }
+      }
+    },
+    "Can’t Read This Subagent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать субагента"
+          }
+        }
+      }
+    },
+    "Nothing to Show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего показать"
+          }
+        }
+      }
+    },
+    "Reading the agents’ logs…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю логи агентов…"
+          }
+        }
+      }
+    },
+    "Measuring the sessions…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Измеряю сессии…"
+          }
+        }
+      }
+    },
+    "Reading the subagent’s steps…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю шаги субагента…"
+          }
+        }
+      }
+    },
+    "Revert": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откатить"
+          }
+        }
+      }
+    },
+    "Couldn’t run the notebook: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выполнить блокнот: %@"
+          }
+        }
+      }
+    },
+    "Errors: %lld, Warnings: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибки: %lld, предупреждения: %lld"
+          }
+        }
+      }
+    },
+    "Git: Create Pull Request…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: создать pull request…"
+          }
+        }
+      }
+    },
+    "Couldn’t Read the Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать лог"
+          }
+        }
+      }
+    },
+    "No Log Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лога пока нет"
+          }
+        }
+      }
+    },
+    "Couldn’t Read the Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать изменения"
+          }
+        }
+      }
+    },
+    "No Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменений нет"
+          }
+        }
+      }
+    },
+    "sent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отправлен"
+          }
+        }
+      }
+    },
+    "resolved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "решён"
+          }
+        }
+      }
+    },
+    "Merge conflicts in %@. The merge was aborted; nothing changed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфликты слияния в %@. Слияние отменено, ничего не изменилось."
+          }
+        }
+      }
+    },
+    "Squash and Merge…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Влить со squash…"
+          }
+        }
+      }
+    },
+    "Create a Merge Commit…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать коммит слияния…"
+          }
+        }
+      }
+    },
+    "Rebase and Merge…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Влить с rebase…"
+          }
+        }
+      }
+    },
+    "Squash and Merge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Влить со squash"
+          }
+        }
+      }
+    },
+    "Create a Merge Commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать коммит слияния"
+          }
+        }
+      }
+    },
+    "Rebase and Merge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Влить с rebase"
+          }
+        }
+      }
+    },
+    "Couldn't save %@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Couldn't save %1$@: %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить %@: %@"
+          }
+        }
+      }
+    },
+    "Can't reach": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи"
+          }
+        }
+      }
+    },
+    "Can't reach %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи с %@"
+          }
+        }
+      }
+    },
+    "Cleared %@'s cookies and data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookie и данные %@ удалены"
+          }
+        }
+      }
+    },
+    "Don't Allow": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не разрешать"
+          }
+        }
+      }
+    },
+    "Couldn't download %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скачать %@: %@"
           }
         }
       }
