@@ -283,7 +283,7 @@ import os
     let rig = try await AppRig(files: ["a.txt": "a\n"])
     defer { rig.done() }
     await rig.app.uiState.load()   // as connecting does: what was allowed is known (`ExtensionTrust`)
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let file = dir.appendingPathComponent("extension.json")
     try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}]}}"#.write(
@@ -319,14 +319,14 @@ import os
     let m = AppModel()
     m.arrangement.park("s1", until: Date().addingTimeInterval(0.3))
     #expect(m.arrangement.parked["s1"] != nil)
-    #expect(try await waitFor(5) { !(m.arrangement.parked["s1"] != nil) })
+    #expect(try await waitFor { m.arrangement.parked["s1"] == nil })
     #expect(m.arrangement.parked["s1"] == nil)
 }
 
 /// The Issues panel shows the list last asked for: the slower reply of a filter left behind (All open, then Mine) used
 /// to land over it, since only the project and the source were checked.
 @MainActor @Test func theIssuesPanelShowsTheFilterLastPicked() async throws {
-    let path = NSTemporaryDirectory() + "kelp-issues-\(getpid()).sock"
+    let path = tmp().path + "/kelp-issues-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -334,8 +334,12 @@ import os
     }
     // A daemon whose "open" list answers late, the rest at once (an error for what isn't a list).
     let lateSent = OSAllocatedUnfairLock(initialState: false)
-    Thread.detachNewThread {
-        let fd = accept(server, nil, nil)
+    Thread.detachNewThread {   // until the app's client hangs up (the test's end)
+        let fd = accept(server, nil, nil), writing = DispatchGroup()
+        defer {
+            writing.wait()   // a late reply still to go
+            close(fd)
+        }
         var lines = LineBuffer(), buf = [UInt8](repeating: 0, count: 65536)
         while case let n = read(fd, &buf, buf.count), n > 0 {
             for line in lines.append(Data(buf[0..<n])) {
@@ -348,15 +352,18 @@ import os
                     m["method"] as? String == "github.prs"
                     ? #"{"jsonrpc":"2.0","id":\#(id),"result":[\#(pr)]}"#
                     : #"{"jsonrpc":"2.0","id":\#(id),"error":{"code":-32601,"message":"no"}}"#
+                writing.enter()
                 DispatchQueue.global().asyncAfter(deadline: .now() + (late ? 0.3 : 0)) {
                     _ = Unix.writeAll(fd, Data((reply + "\n").utf8))
                     if late { lateSent.withLock { $0 = true } }
+                    writing.leave()
                 }
             }
         }
     }
-    let m = AppModel(builtins: [])
-    m.daemon.use(try RPCClient(socket: path))
+    let m = AppModel(builtins: []), client = try RPCClient(socket: path)
+    defer { client.close() }
+    m.daemon.use(client)
     m.repos = [Repo(id: "r1", name: "one", path: "/one")]
     let panel = TasksViewController(app: m, watch: PRWatch(app: m))
     panel.show(worktree: nil)

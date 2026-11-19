@@ -65,7 +65,8 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     #expect(StripModel.stays(.done) < StripModel.stays(.failed) && StripModel.stays(.failed) < StripModel.stays(.asks))
 }
 
-/// Where the strip stands is one value on this Mac: the tests that save it go one at a time.
+/// Where the strip stands is one value on this Mac: the tests that save it, and those whose strip reads it as it starts
+/// (`extension StripPlaceTests`), go one at a time.
 @MainActor @Suite(.serialized) struct StripPlaceTests {
     private func session(_ place: String, _ status: AgentStatus, summary: String = "") -> Session {
         var s = Session(cwd: "/", command: "x", agent: "claude", status: status, summary: summary)
@@ -136,9 +137,13 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         rig.app.sessions = [session(rig.workspace.id, .working)]
         try await settled(strip) { strip.isShowing }
         let before = try #require(strip.frame)
+        let screen = try #require(NSScreen.screens.first { $0.frame.contains(NSPoint(x: before.midX, y: before.midY)) })
+        let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+        let sides: [StripEdge] = [.left, .right]
+        guard sides.contains(where: { StripModel.outer($0, of: screen.frame, among: others) }) else { return }   // a screen stands past both sides on this Mac
         strip.call(true)
         try await settled(strip)
-        guard strip.place?.edge != nil else { return }   // a screen stands past both sides on this Mac
+        #expect(strip.place?.edge != nil)
         #expect(try #require(strip.frame) != before)
         #expect(StripPlace.load() == nil)   // the place the person chose stays theirs
         strip.call(false)

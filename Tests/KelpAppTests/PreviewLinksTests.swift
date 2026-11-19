@@ -17,7 +17,7 @@ import Testing
 /// app's scheme doesn't open from a click.
 @MainActor
 @Test func previewLinksOpenPagesAndFilesOnly() throws {
-    let repo = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("links-\(UUID().uuidString)")
+    let repo = tmp().appendingPathComponent("links-\(UUID().uuidString)")
     let app = repo.appendingPathComponent("docs.app/Contents/MacOS")
     try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: repo) }
@@ -82,7 +82,7 @@ import Testing
 /// text, or an agent's Markdown link — with a line, a space or Cyrillic in it.
 @MainActor
 @Test func aTerminalLinkWithoutASchemeIsAFile() throws {
-    let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tlinks-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("tlinks-\(UUID().uuidString)")
     let file = dir.appendingPathComponent("banner/мой файл.html")
     try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -127,7 +127,7 @@ import Testing
 /// A PDF's links go by the same rules: its view has Kelp's delegate (without one, PDFKit opens any link with its app).
 @MainActor
 @Test func aPDFsLinksGoThroughKelp() async throws {
-    let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("doc-\(UUID().uuidString).pdf")
+    let url = tmp().appendingPathComponent("doc-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: url) }
     let doc = PDFDocument()
     doc.insert(PDFPage(), at: 0)
@@ -170,7 +170,7 @@ import Testing
     await mainActorTurns()   // a session they began would be asked for by now
     #expect(try await rig.app.get(SessionList()).isEmpty)
     area.runURI("terminal:?cmd=echo%20hi")
-    #expect(try await waitFor(5) { !(try await rig.app.get(SessionList()).isEmpty) })
+    #expect(try await waitFor { !(try await rig.app.get(SessionList()).isEmpty) })
     #expect(try await rig.app.get(SessionList()).count == 1)
 }
 

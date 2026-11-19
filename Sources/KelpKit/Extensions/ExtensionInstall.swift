@@ -8,18 +8,17 @@ extension ExtensionRegistry {
     /// VS Code's "Install from VSIX…". A version already there goes to the Trash. An extension with a Kelp manifest
     /// (which can run commands) is installed only once the user has seen what it runs, as for one from GitHub.
     func install(_ src: URL) async throws {
-        let app = self.app, dir = Self.userDir, fm = FileManager.default
-        let tmp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? fm.removeItem(at: tmp) }
+        let app = self.app, dir = Self.userDir
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let (folder, name) = try await Task.detached { @Sendable () async throws -> (URL, String) in
-            let fm = FileManager.default
             guard src.pathExtension.lowercased() == "vsix" else { return (src, src.lastPathComponent) }
             let unzip = await Shell.exec(app, ["/usr/bin/ditto", "-x", "-k", src.path, tmp.path])
             let folder = tmp.appendingPathComponent("extension")
-            guard unzip.code == 0, fm.fileExists(atPath: folder.appendingPathComponent("package.json").path) else {
+            let package = folder.appendingPathComponent("package.json")
+            guard unzip.code == 0, FileManager.default.fileExists(atPath: package.path) else {
                 throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: src.path])
             }
-            let package = folder.appendingPathComponent("package.json")
             let name = (try? JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: package)))?.manifest.id
             return (folder, name ?? src.deletingPathExtension().lastPathComponent)
         }.value
@@ -61,7 +60,7 @@ extension ExtensionRegistry {
 
     func uninstall(_ id: String) {
         guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
-        do { try FileManager.default.trashItem(at: path, resultingItemURL: nil) } catch {
+        do { try Trash.move(path) } catch {
             let why = error.localizedDescription
             Banner.show(String(localized: "Couldn't move \(ext.name) to the Trash: \(why)"), style: .error)
         }

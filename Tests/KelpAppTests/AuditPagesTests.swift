@@ -20,8 +20,9 @@ import Testing
     }
 }
 
-/// Forgetting a database asks first, so its menu item ends with "…".
-@MainActor @Test func forgettingADatabaseAsksFirst() {
+/// Forgetting a database asks first, so its menu item ends with "…". (The question is a sheet: only the mark is
+/// checked.)
+@MainActor @Test func forgettingADatabaseEndsInAnEllipsis() {
     let menu = NSMenu()
     let shop = DatabaseInfo(name: "shop", engine: .postgres)
     DatabaseMenu.fill(menu, shop, app: AppModel(builtins: []), worktreeId: "w")

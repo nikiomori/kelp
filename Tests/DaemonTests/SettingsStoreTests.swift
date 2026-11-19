@@ -1,11 +1,12 @@
 import Core
 import Foundation
 import Testing
+import os
 
 @testable import Daemon
 
 private func home() throws -> URL {
-    let d = FileManager.default.temporaryDirectory.appendingPathComponent("ks-\(UUID().uuidString.prefix(8))")
+    let d = tmp().appendingPathComponent("ks-\(UUID().uuidString.prefix(8))")
     try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
     return d
 }
@@ -21,6 +22,27 @@ private func home() throws -> URL {
     try Data("{ broken".utf8).write(to: file)
     #expect(SettingsStore(root: root)["extensions.disabled"] == .array(["bad"]))
     #expect(try String(contentsOf: file, encoding: .utf8) == "{ broken")
+}
+
+/// A hand edit saved while a set was merging (an editor's save in that moment) is read again and kept, not written over
+/// by the set's older copy.
+@Test func aHandEditSavedWhileASetMergesIsKept() throws {
+    let root = try home(), file = root.appendingPathComponent("settings.json")
+    let edits = OSAllocatedUnfairLock(initialState: 0)
+    let store = SettingsStore(root: root) {
+        guard
+            edits.withLock({ n in
+                defer { n += 1 }
+                return n == 0
+            })
+        else { return }   // the first merge only
+        try? Data(#"{"editor.fontSize": 20}"#.utf8).write(to: file)
+        let later = Date().addingTimeInterval(5)   // a date the set's first look can't have seen
+        try? FileManager.default.setAttributes([.modificationDate: later], ofItemAtPath: file.path)
+    }
+    let saved = try store.set("theme", .string("dark"))
+    #expect(saved == ["editor.fontSize": .int(20), "theme": .string("dark")])
+    #expect(SettingsStore(root: root).values == saved)   // on disk too
 }
 
 @Test func aFreshHomeStartsEmptyAndWritesTheFile() throws {
@@ -126,6 +148,6 @@ private func home() throws -> URL {
     s.file.lock()   // a write in progress
     let read = DispatchSemaphore(value: 0)
     Thread.detachNewThread { if s.number("sessions.hibernateMinutes") == 5 { read.signal() } }
-    #expect(read.wait(timeout: .now() + 2) == .success)
+    #expect(read.wait(timeout: .now() + 2 * testSlowness) == .success)
     s.file.unlock()
 }

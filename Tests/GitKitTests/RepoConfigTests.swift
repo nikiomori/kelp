@@ -152,19 +152,25 @@ import Testing
 
 /// A submodule's own config can define a filter too (`git status` runs in the submodule): it's turned off as well.
 @Test func aSubmodulesFilterIsTurnedOffToo() throws {
-    let repo = try tempRepo()
-    let modules = repo + "/.git/modules/sub"
-    try FileManager.default.createDirectory(atPath: modules, withIntermediateDirectories: true)
-    try "[core]\n\tbare = false\n[filter \"evil\"]\n\tclean = touch ran\n".write(
-        toFile: modules + "/config", atomically: true, encoding: .utf8)
+    let repo = try tempRepo(), inner = try tempRepo()
+    try Git.run(
+        ["-c", "protocol.file.allow=always", "submodule", "add", "-q", inner, "sub"], cwd: repo, remotes: .none)
+    let modules = repo + "/.git/modules/sub", marker = repo + "/.git/ran"
+    try Git.run(["config", "filter.evil.clean", "touch \(marker); cat"], cwd: repo + "/sub", remotes: .none)
+    try "* filter=evil\n".write(toFile: modules + "/info/attributes", atomically: true, encoding: .utf8)
+    try "x\ny\nz\n".write(toFile: repo + "/sub/f.txt", atomically: true, encoding: .utf8)   // same size: git reads it
     #expect(RepoFilters.names(repo).contains("evil"))
+    _ = try Git.run(["status", "--short"], cwd: repo, remotes: .none)
+    #expect(!FileManager.default.fileExists(atPath: marker))
 }
 
-/// gh and glab run git themselves: the git they run turns off a repo's fsmonitor as Kelp's own does.
+/// gh and glab run git themselves: the git they run doesn't start a repo's fsmonitor, as Kelp's own doesn't.
 @Test func programsThatRunGitGetNoFsmonitor() throws {
     let repo = try tempRepo()
-    let out = try Subprocess.output(
-        ["/bin/sh", "-c", "printf %s \"$GIT_CONFIG_COUNT $GIT_CONFIG_KEY_0=$GIT_CONFIG_VALUE_0\""], cwd: repo,
-        env: Git.toolEnv)
-    #expect(String(decoding: out, as: UTF8.self) == "2 core.fsmonitor=false")
+    let marker = repo + "/.git/ran", monitor = repo + "/.git/monitor"
+    try "#!/bin/sh\ntouch \(marker)\n".write(toFile: monitor, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: monitor)
+    try Git.run(["config", "core.fsmonitor", monitor], cwd: repo, remotes: .none)
+    _ = try Subprocess.output(["/usr/bin/git", "status", "--short"], cwd: repo, env: Git.toolEnv)
+    #expect(!FileManager.default.fileExists(atPath: marker))
 }

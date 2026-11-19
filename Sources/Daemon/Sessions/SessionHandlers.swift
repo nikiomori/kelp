@@ -188,9 +188,10 @@ extension SessionChoose: Handled {
 
 extension SessionPermissionWait: AsyncHandled {
     static let agents = AgentAccess.acts
+    static let within: TimeInterval = 600   // for Kelp's answer; the hook's own timeout is longer (`Hooks.listens`)
     var fence: Fence { Fence(reportsFor: id) }   // only the session's own hook waits for its answer
     func handle(_ permissions: PermissionWaits) async throws -> String? {
-        await permissions.waitForPermission(id, within: 600)
+        await permissions.waitForPermission(id, within: Self.within)
     }
 }
 

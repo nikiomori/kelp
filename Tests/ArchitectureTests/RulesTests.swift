@@ -21,27 +21,50 @@ import Testing
         "Sources/Builtins/Files/FileNode.swift: FileNode":
             "a tree built off the main actor (`FileNode.update`) and handed over whole: read and changed on main only"
     ]
+    // Up to the declaration's brace, so a conformance wrapped onto a line of its own counts too.
     let declaration = try NSRegularExpression(
-        pattern: #"\b(?:class|struct|enum|actor|extension)\s+(\w+)\b[^{\n]*@unchecked\s+Sendable"#)
-    let found = Set(
-        sources(["Sources"]).flatMap { f in
-            let code = codeOnly(f.text)
-            return declaration.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap { m in
-                Range(m.range(at: 1), in: code).map { "\(f.path): \(code[$0])" }
-            }
-        })
+        pattern: #"\b(?:class|struct|enum|actor|extension)\s+(\w+)\b[^{]*@unchecked\s+Sendable"#)
+    func named(_ re: NSRegularExpression) -> Set<String> {
+        Set(
+            sources(["Sources"]).flatMap { f in
+                let code = codeOnly(f.text)
+                return re.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap { m in
+                    Range(m.range(at: 1), in: code).map { "\(f.path): \(code[$0])" }
+                }
+            })
+    }
+    let found = named(declaration)
     #expect(found.subtracting(guarded.keys).sorted() == [], "new: list each with what guards it")
     #expect(Set(guarded.keys).subtracting(found).sorted() == [], "gone: take it off the list")
+    // `nonisolated(unsafe)` stops the same checks for one value. The daemon's code has none
+    // (`theDaemonKeepsNoProcessGlobals`); the rest's are listed the same way.
+    let unsafeGuarded: [String: String] = [
+        "Sources/kelpd/main.swift: sources": "top-level code on the main thread; the handlers only keep it alive",
+        "Sources/kelp/kelp.swift: args": "the CLI's top-level code, on its one thread",
+        "Sources/DesignKit/Glyph.swift: symbolCache": "NSCache is thread-safe; the images it hands out aren't changed",
+        "Sources/DesignKit/Formatting.swift: spanFormatters": "NSCache is thread-safe, and so is formatting",
+        "Sources/DesignKit/LoadingView.swift: patience": "a test's knob, set and read on the main thread",
+        "Sources/Builtins/Databases/EnginePresets.swift: text": "made once and only read by the image's drawing block",
+        "Sources/KelpKit/App/Updates.swift: install": "Sparkle's block, called on the main thread where it was handed over"
+    ]
+    let unsafe = named(
+        try NSRegularExpression(
+            pattern: #"nonisolated\(unsafe\)\s+(?:(?:private|fileprivate|public|package|static)\s+)*(?:let|var)\s+(\w+)"#
+        ))
+    #expect(unsafe.subtracting(unsafeGuarded.keys).sorted() == [], "new: list each with what guards it")
+    #expect(Set(unsafeGuarded.keys).subtracting(unsafe).sorted() == [], "gone: take it off the list")
 }
 
 /// Every method is called by a test, by its type or its name: one no test calls can break unseen. The ones no test calls
 /// yet are listed; the list only shrinks (a new method comes with its test, and one that gets a test comes off it). A
-/// call is made in code: `Name(` (not `Name.self` in a list, nor a mention in a comment), `Name.name` or its wire name as
-/// a string. One built only for the agent rules' tables (AgentRules*Tests.swift) or to read its `.fence` runs no handler.
+/// call is made in code: `Name(…)` or `Name.name` handed to a function (`c.call(Name(…))`, `vms.create(Name(…))`, a
+/// `let` of one handed on), `Name(…).handle(`, or its wire name as a string. One only made (`_ = Name()`), built only
+/// for the agent rules' tables (AgentRules*Tests.swift) or to read its `.fence` runs no handler.
 @Test func everyMethodIsCalledByATest() throws {
     let untested: Set<String> = [
         "DaemonBackgroundAllowed", "ProcessRefreshPath",   // their answer in a test is the harness's (no app, PATH given)
-        "RepoCloneCancel"   // a clone that runs isn't cancelled in any test yet
+        "RepoCloneCancel",   // a clone that runs isn't cancelled in any test yet
+        "EditorNextEditStart"   // it starts the real llama-server: the app's Turn On, not a test's
     ]
     let declaration = try NSRegularExpression(
         pattern: #"(?:struct|enum) (\w+): [^{\n]*\b(?:RPCMethod|InternalMethod)\b[^{]*\{"#)
@@ -57,16 +80,23 @@ import Testing
     let tests = sources(["Tests"]).filter {
         !$0.path.hasPrefix("Tests/ArchitectureTests/") && !$0.path.hasPrefix("Tests/DaemonTests/AgentRules")
     }
-    let made = try NSRegularExpression(pattern: #"\b([A-Z]\w*)(?:\(|\.name\b)"#)
+    let handed = #"(?:[\w?!)]\(\s*|\w:\s*)(?:try\s+)?(?:await\s+)?"#   // a call's first argument, or a labelled one
+    let made = try NSRegularExpression(
+        pattern: handed + #"([A-Z]\w*)(?:\(|\.name\b)|\b([A-Z]\w*)\((?:[^()]|\([^()]*\))*\)\.handle\("#)
     let fenceOnly = try NSRegularExpression(pattern: #"\b[A-Z]\w*\((?:[^()]|\([^()]*\))*\)\.fence\b"#)
     let names = Set(
         tests.flatMap { f in
             let all = codeOnly(f.text)
             let code = fenceOnly.stringByReplacingMatches(
                 in: all, range: NSRange(all.startIndex..., in: all), withTemplate: "")
-            return made.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap {
-                Range($0.range(at: 1), in: code).map { String(code[$0]) }
+            let direct = made.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap { m in
+                [1, 2].lazy.compactMap { Range(m.range(at: $0), in: code) }.first.map { String(code[$0]) }
             }
+            // `let add = ArtifactAdd(…)`, then `c.call(add)`.
+            let kept = code.matches(of: #/\blet (\w+) = ([A-Z]\w*)\(/#).filter { m in
+                code.range(of: handed + "\\b\(m.1)\\s*[,)]", options: .regularExpression) != nil
+            }.map { String($0.2) }
+            return direct + kept
         })
     // Strings kept, comments gone (a `//` after a space or at a line's start: not the one in "https://").
     let comment = #"(?m)(^|\s)//.*$"#
@@ -187,10 +217,11 @@ import Testing
 /// and a restored home find it; the daemon and the libraries keep no defaults at all. A budget, not a ratchet: a new
 /// per-Mac preference raises it, said in the commit; state that names a record goes to `UIState` instead.
 @Test func defaultsHoldOnlyWhatOneMacPrefers() throws {
-    let all = try matches(#"\bUserDefaults\b"#, in: ["Sources"])
+    // SwiftUI's `@AppStorage` and `@SceneStorage` are UserDefaults by another name.
+    let all = try matches(#"\bUserDefaults\b|@AppStorage\b|@SceneStorage\b"#, in: ["Sources"])
     let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
-    #expect(app.count <= 68, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
-    #expect(app.count >= 68, "\(app.count) now: lower this")
+    #expect(app.count <= 71, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(app.count >= 71, "\(app.count) now: lower this")
     #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
 }
 
@@ -207,25 +238,39 @@ import Testing
 
 /// A test waits for what it waits on (`waitFor`), not for a time: a sleep guesses how long something takes, too long on
 /// a quiet machine and too short on a busy one, and a "nothing happened" after one passes whatever happened later. The
-/// count holds both ways: a sleep that goes lowers it.
+/// count holds both ways: a sleep that goes lowers it. A wait handed to a clock (`asyncAfter`, a timer) is one too.
 @Test func testsSleepOnlyWhereTimeIsTheSubject() throws {
-    let sleep = try NSRegularExpression(pattern: #"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:"#)
+    let sleep = try NSRegularExpression(
+        pattern: #"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:|\.asyncAfter\(|\bscheduledTimer\(|\bTimer\("#)
     let count = sources(["Tests"]).map { f in
         let code = codeOnly(f.text)
         return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    #expect(count == 25, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+    #expect(count == 23, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
 }
 
-/// What `try?` drops, spelled out: a `catch {}` or `catch { return nil }` (`failuresAreNotSwallowed` counts the `try?`s).
-/// Each module's count is a ceiling that holds both ways.
+/// A test's limit grows with its waits (`.timeLimit(minutes:)` from TestSupport): a fixed one beside waits stretched by
+/// KELP_TEST_SLOW failed CI runs whose waits all held.
+@Test func testLimitsGrowWithTheirWaits() throws {
+    let fixed = try matches(#"\.timeLimit\(\.minutes"#, in: ["Tests"]).filter { !$0.hasPrefix("Tests/TestSupport/") }
+    #expect(fixed.isEmpty, "a fixed time limit: use .timeLimit(minutes:) \(fixed)")
+}
+
+/// What `try?` drops, spelled out: a `catch {}`, or one that only returns a stand-in (`return`, `return nil`, `[]`,
+/// `false`, a string…) or goes on (`continue`, `break`). `failuresAreNotSwallowed` counts the `try?`s. Each module's
+/// count is a ceiling that holds both ways.
 @Test func emptyCatchesAreCounted() throws {
     let ceilings = [
-        "Daemon": 18, "Core": 10, "Builtins": 7, "kelp": 1, "KelpVM": 1, "Agents": 1, "LSPKit": 1
+        "Daemon": 39, "Core": 16, "Builtins": 27, "KelpKit": 5, "DesignKit": 5, "EditorKit": 3, "kelp": 2, "KelpVM": 2,
+        "Agents": 1, "LSPKit": 1, "GitKit": 1, "Integrations": 1
     ]
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)
         .filter { !$0.hasPrefix(".") }
-    let emptyCatch = try NSRegularExpression(pattern: #"catch\s*\{\s*(?:return nil\s*)?\}"#)
+    // Strings are gone from the code read (`codeOnly`): `return "none"` reads as `return`.
+    let emptyCatch = try NSRegularExpression(
+        pattern:
+            #"catch(?:\s+_|\s+let\s+\w+)?\s*\{\s*(?:(?:return(?:\s+(?:nil|\[\]|\[:\]|false|true|0|\.none))?|continue|break)\s*)?\}"#
+    )
     for module in modules {
         let ceiling = ceilings[module] ?? 0
         let n = sources(["Sources/" + module]).map { f in

@@ -56,13 +56,22 @@ extension TaskFromIssue: AsyncHandled {
             (launch.cols, launch.rows) = Sessions.Launch.size(cols: cols, rows: rows)
             launch.prompt = text
             launch.title = "\(ref) \(title)".prefix(48).description
-            return (
-                updated,
-                try work.workspaces.sessions.spawn(
-                    cwd: updated.path,
-                    manifest: work.workspaces.sessions.setup.manifest(agent ?? Session.claudeAgent, command: nil),
-                    worktreeId: updated.id, launch)
-            )
+            do {
+                return (
+                    updated,
+                    try work.workspaces.sessions.spawn(
+                        cwd: updated.path,
+                        manifest: work.workspaces.sessions.setup.manifest(agent ?? Session.claudeAgent, command: nil),
+                        worktreeId: updated.id, launch)
+                )
+            } catch {
+                // An agent that can't start (not installed, an unknown id) leaves no group behind: it and its new
+                // branch were made for this agent alone, a moment ago.
+                Log.session.attempt("removing the group made for an agent that didn't start") {
+                    try work.workspaces.removeWorkspace(updated, repo, force: true, dropCommits: true)
+                }
+                throw error
+            }
         }
         await work.forges.moveLinear(worktree, to: .inProgress)
         await work.forges.moveJira(worktree, toName: "progress", category: "indeterminate")

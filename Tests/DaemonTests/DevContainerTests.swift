@@ -5,21 +5,37 @@ import Testing
 
 @testable import Daemon
 
+/// Writes a stand-in program `name` into `bin`.
+private func fake(_ bin: URL, _ name: String, _ body: String) throws {
+    let file = bin.appendingPathComponent(name)
+    try ("#!/bin/sh\n" + body).write(to: file, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+}
+
+/// Runs `argv` with only `bin` and the system's folders on the PATH; returns its exit status and what it printed.
+private func run(_ argv: [String], in folder: String, bin: URL, env: [String: String] = [:]) throws -> (Int32, String) {
+    let p = Process(), out = Pipe()
+    p.executableURL = URL(fileURLWithPath: argv[0])
+    p.arguments = Array(argv.dropFirst())
+    p.currentDirectoryURL = URL(fileURLWithPath: folder)
+    p.environment = ["PATH": bin.path + ":/usr/bin:/bin"].merging(env) { $1 }
+    p.standardOutput = out
+    p.standardError = FileHandle.nullDevice
+    try p.run()
+    p.waitUntilExit()
+    return (p.terminationStatus, String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+}
+
 /// The wrapper brings the container up (once), then runs the command there through `docker exec`: in the folder, as the
 /// container's user, the environment by name only, the folders mounted at their own paths.
 @Test func aCommandRunsInItsProjectsDevContainer() throws {
     let bin = tmp(), log = tmp().appendingPathComponent("calls").path
-    func fake(_ name: String, _ body: String) throws {
-        let file = bin.appendingPathComponent(name)
-        try ("#!/bin/sh\n" + body).write(to: file, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
-    }
     try fake(
-        "devcontainer",
+        bin, "devcontainer",
         #"echo "devcontainer $*" >> "$LOG"; echo '{"outcome":"success","containerId":"c1","remoteUser":"vscode"}'"#)
     // docker ps: nothing runs yet; docker exec: the command after the container's id, run here.
     try fake(
-        "docker",
+        bin, "docker",
         #"""
         echo "docker $*" >> "$LOG"
         [ "$1" = exec ] || exit 0
@@ -29,17 +45,8 @@ import Testing
     let argv = DevContainer.wrap(
         ["sh", "-c", "echo ran in $(pwd)"], cwd: folder, in: (folder, "/p/main"),
         readOnly: ["/k/skills"], env: ["SECRET_X"])
-    let p = Process(), out = Pipe()
-    p.executableURL = URL(fileURLWithPath: argv[0])
-    p.arguments = Array(argv.dropFirst())
-    p.currentDirectoryURL = URL(fileURLWithPath: folder)
-    p.environment = [
-        "PATH": bin.path + ":/usr/bin:/bin", "LOG": log, "SECRET_X": "s3cr3t", "TERM": "xterm-256color"
-    ]
-    p.standardOutput = out
-    try p.run()
-    p.waitUntilExit()
-    let printed = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    let (_, printed) = try run(
+        argv, in: folder, bin: bin, env: ["LOG": log, "SECRET_X": "s3cr3t", "TERM": "xterm-256color"])
     let calls = try String(contentsOfFile: log, encoding: .utf8)
     #expect(printed.contains("Starting the dev container") && printed.contains("ran in"), "\(printed)")
     #expect(
@@ -49,6 +56,29 @@ import Testing
     #expect(calls.contains("--mount type=bind,source=/k/skills,target=/k/skills,readonly"))
     #expect(calls.contains("docker exec -i -u vscode -w \(folder) -e SECRET_X -e TERM c1 sh -c"))
     #expect(!calls.contains("s3cr3t"), "a secret goes by name, never on a command line")
+}
+
+/// When the container can't be had, the terminal says why and nothing runs: the Dev Containers CLI or docker missing,
+/// or `devcontainer up` giving no container.
+@Test func aDevContainerThatCantStartSaysWhy() throws {
+    let up = #"echo '{"outcome":"error","message":"no Dockerfile"}'"#
+    // docker exec makes the command's last word, a file, as if the command ran
+    let docker = #"if [ "$1" = exec ]; then for a; do :; done; touch "$a"; fi"#
+    let rows: [(programs: [String: String], status: Int32, says: [String])] = [
+        (["docker": docker], 127, ["the Dev Containers CLI isn't installed"]),
+        (["devcontainer": up], 127, ["docker isn't here"]),
+        (["devcontainer": up, "docker": docker], 1, ["no Dockerfile", "the dev container didn't start"])
+    ]
+    for row in rows {
+        let bin = tmp(), folder = tmp().path
+        for (name, body) in row.programs { try fake(bin, name, body) }
+        let argv = DevContainer.wrap(
+            ["touch", folder + "/ran"], cwd: folder, in: (folder, folder), readOnly: [], env: [])
+        let (status, printed) = try run(argv, in: folder, bin: bin)
+        #expect(status == row.status, "\(row.programs.keys.sorted()): \(printed)")
+        for words in row.says { #expect(printed.contains(words), "\(printed)") }
+        #expect(!FileManager.default.fileExists(atPath: folder + "/ran"))
+    }
 }
 
 /// Inside, a terminal is the container's shell and Claude-style hooks report through the terminal, not tmux; the

@@ -12,6 +12,13 @@ import Testing
     #expect(lines.count == 1 && lines[0].kind == .add && lines[0].text == "\u{0301}x")
 }
 
+/// A binary file's diff is git's line saying so, or a binary patch: the file is marked binary, with no lines.
+@Test(arguments: ["Binary files a/f and b/f differ", "GIT binary patch\nliteral 1\nIcmZPo000310RR91"])
+func aBinaryFilesDiffIsMarkedBinary(body: String) throws {
+    let file = try #require(Git.parseDiff("diff --git a/f b/f\nindex 1111111..2222222 100644\n\(body)\n").first)
+    #expect(file.binary && file.hunks.isEmpty)
+}
+
 /// Hiding whitespace changes leaves out lines that only moved their spaces, and files with nothing else changed.
 @Test func hidingWhitespaceLeavesOutSpaceOnlyChanges() throws {
     let repo = try tempRepo()
@@ -58,17 +65,20 @@ import Testing
     let a = try Git.addWorktree(
         repo: repo, branch: "feat/local", base: "main", into: dir, copyFiles: [], existing: true, remotes: .none)
     #expect(
-        try Git.run(["branch", "--show-current"], cwd: a, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines)
+        try Git.run(["branch", "--show-current"], cwd: a, remotes: .none).trimmingCharacters(
+            in: .whitespacesAndNewlines)
             == "feat/local")
     let b = try Git.addWorktree(
         repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true, remotes: .none)
     #expect(
-        try Git.run(["branch", "--show-current"], cwd: b, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
+        try Git.run(["branch", "--show-current"], cwd: b, remotes: .none).trimmingCharacters(
+            in: .whitespacesAndNewlines) == "spike")
     try Git.run(["worktree", "remove", "--force", b], cwd: repo, remotes: .none)
     let again = try Git.addWorktree(
         repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true, remotes: .none)
     #expect(
-        try Git.run(["branch", "--show-current"], cwd: again, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines) == "spike"
+        try Git.run(["branch", "--show-current"], cwd: again, remotes: .none).trimmingCharacters(
+            in: .whitespacesAndNewlines) == "spike"
     )   // the local one
     #expect(try Git.fetchPullRequest(repo: repo, number: 7, remotes: .none) == "pr-7")
     #expect(Git.branchExists(repo, "pr-7", remotes: .none))
@@ -102,5 +112,7 @@ import Testing
     #expect(try Git.fetchPullRequest(repo: repo, number: 8, remotes: .none) == "pr-8-2")
     #expect(try head("pr-8") == mineAt && head("pr-8-2") == theirs)
     // No such PR: GitHub's way is what it says, not GitLab's fallback.
-    #expect { try Git.fetchPullRequest(repo: repo, number: 404, remotes: .none) } throws: { "\($0)".contains("pull/404/head") }
+    #expect { try Git.fetchPullRequest(repo: repo, number: 404, remotes: .none) } throws: {
+        "\($0)".contains("pull/404/head")
+    }
 }

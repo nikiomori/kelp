@@ -92,7 +92,7 @@ extension OneAtATime {
                 app.extensions.command($0)?.enabled?() == true
             }
         }
-        let folder = NSTemporaryDirectory()   // a folder that is there, so the project isn't one to locate
+        let folder = tmp().path   // a folder that is there, so the project isn't one to locate
         withExtendedLifetime(MainWindowController(app: app)) {   // the workbench holds its window weakly
             app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
             app.worktrees = [
@@ -141,10 +141,10 @@ extension OneAtATime {
         }
         palette.field.stringValue = "zzqqxxjj"
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.count == 1 && headings() == ["No matches"] })
+        #expect(try await waitFor { palette.rows.count == 1 && headings() == ["No matches"] })
         palette.field.stringValue = command.title
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
+        #expect(try await waitFor { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
     }
 
     /// ⌥⌘1–9 are the icons of the inspector's row, in its order: a panel dragged to the front is ⌥⌘1, and one hidden
@@ -185,7 +185,7 @@ extension OneAtATime {
         let now = try numbered()
         #expect(now.first == "Test List" && !now.contains(loc(first.title)))
 
-        let folder = NSTemporaryDirectory()
+        let folder = tmp().path
         let controller = MainWindowController(app: app)
         app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
         app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]

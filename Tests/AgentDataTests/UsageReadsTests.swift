@@ -10,8 +10,8 @@ private func limitsLine(_ at: String, _ used: Int) -> String {
 }
 
 /// A rollout's newest limits come from its end; past a megabyte of other lines, from the whole file. Written to again,
-/// it's read again; else its last answer stands.
-@Test func aRolloutsLimitsAreReadFromItsEndAndAgainOnlyOnceItGrew() throws {
+/// it's read again (that an unchanged file isn't is `StatMemo`'s, in StatMemoTests).
+@Test func aRolloutsLimitsAreReadFromItsEndAndAgainOnceItGrew() throws {
     let file = tmp().appendingPathComponent("rollout-2026-11-01T00-00-00-x.jsonl")
     let filler = String(
         repeating: #"{"type":"response_item","payload":{"type":"message","role":"assistant"}}"# + "\n", count: 20_000)

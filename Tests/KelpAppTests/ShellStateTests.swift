@@ -32,3 +32,20 @@ import Testing
         #expect(await WorkspaceActions(rig.app).deleteQuestion(rig.workspace) != nil)
     }
 }
+
+/// A key the daemon refuses (trust, written by anyone but Kelp's window) isn't kept: the save says so, and the value
+/// that was there reads back.
+extension OneAtATime {
+    @Test func aKeyTheDaemonRefusesReadsAsBefore() async throws {
+        _ = NSApplication.shared   // the refusal's banner needs an app
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let state = rig.app.uiState, key = ExtensionFiles.extensionTrustKey
+        #expect(await state.save(key, .object(["a": true])))
+        let me = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"]   // this test runner stands in for the app…
+        setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)   // …not now: another copy of Kelp is asking
+        defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
+        #expect(await !state.save(key, .object(["b": true])))
+        #expect(state[key] == .object(["a": true]))
+    }
+}

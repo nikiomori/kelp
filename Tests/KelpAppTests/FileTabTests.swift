@@ -51,14 +51,14 @@ extension AppOfItsOwn {
         defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig, hidden: true)
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil })
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p) != nil })
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try "two\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p)?.stamp != was })
         await mainActorTurns()
         #expect(tab.editor?.text == "one\n" && !tab.reading)
         show(tab)
-        #expect(try await waitFor(5) { tab.editor?.text == "two\n" })
+        #expect(try await waitFor { tab.editor?.text == "two\n" })
     }
 
     /// The caret line's last change, as its menu says it: an agent's turn with its prompt, a commit, or nothing yet.
@@ -107,14 +107,12 @@ extension AppOfItsOwn {
         let tab = await opened(p, in: rig), kept = UnsavedBackup(app: rig.app, uri: tab.uri)
         tab.editor?.setText("mine\n")
         tab.editor?.onChange?("mine\n")
-        #expect(try await waitFor(5) { kept.text != nil })
+        #expect(try await waitFor { kept.text != nil })
         let next = await opened(p, in: rig)
         #expect(next.editor?.text == "mine\n")
-        #expect(try await waitFor(5) { next.isEdited })
-        #expect(next.isEdited)
+        #expect(try await waitFor { next.isEdited })
         #expect(await next.save())
-        #expect(try await waitFor(5) { kept.text == nil })
-        #expect(kept.text == nil)
+        #expect(try await waitFor { kept.text == nil })
     }
 
     /// An untitled tab was never on disk, so a crash would take all of it. Don't Save takes the kept text too.
@@ -124,12 +122,11 @@ extension AppOfItsOwn {
         let tab = UntitledTab(uri: "untitled:1", app: rig.app), kept = UnsavedBackup(app: rig.app, uri: "untitled:1")
         tab.editor.setText("draft")
         tab.editor.onChange?("draft")
-        #expect(try await waitFor(5) { kept.text != nil })
+        #expect(try await waitFor { kept.text != nil })
         let next = UntitledTab(uri: "untitled:1", app: rig.app)
         #expect(next.editor.text == "draft" && next.isEdited)
         next.discard()
-        #expect(try await waitFor(5) { kept.text == nil })
-        #expect(kept.text == nil)
+        #expect(try await waitFor { kept.text == nil })
     }
 
     /// One the saved layout never had still gets its tab; one whose workspace is gone goes.
@@ -165,7 +162,7 @@ extension AppOfItsOwn {
         tab?.editor?.setText("mine\n")
         tab?.editor?.onChange?("mine\n")
         tab = nil
-        #expect(try await waitFor(5) { kept.text != nil })
+        #expect(try await waitFor { kept.text != nil })
         #expect(kept.text == "mine\n")
         let inRepo = rig.workspace.path + "/kept.txt", uri = TabURI.file(inRepo)
         rig.app.uiState["backup.gone.\(uri)"] = .array([.string(uri), "gone", "typed"])
@@ -210,7 +207,7 @@ extension AppOfItsOwn {
         defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil })   // the watch's first version
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p) != nil })   // the watch's first version
         tab.editor?.setText(String(repeating: "mine\n", count: 2_000_000))
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent, as ⌘S checks
         let saved = Task { await tab.save() }
@@ -226,12 +223,12 @@ extension AppOfItsOwn {
         defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil && tab.known != nil })
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p) != nil && tab.known != nil })
         let checked = tab.known?.stamp
         tab.editor?.setText("mine\n")
         tab.editor?.onChange?("mine\n")
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
-        #expect(try await waitFor(5) { tab.known?.stamp != checked })   // the agent's version read meanwhile
+        #expect(try await waitFor { tab.known?.stamp != checked })   // the agent's version read meanwhile
         #expect(await !tab.writeAndClose(over: checked))
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
     }
@@ -247,8 +244,8 @@ extension AppOfItsOwn {
         tab.editor?.onChange?("mine\n")
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
-        #expect(try await waitFor(5) { tab.known?.text == "theirs\n" })   // its text read, and judged in that turn
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p)?.stamp != was })
+        #expect(try await waitFor { tab.known?.text == "theirs\n" })   // its text read, and judged in that turn
         #expect(tab.editor?.text == "mine\n" && tab.isEdited)
         #expect(!tab.gone)   // failed once on CI by saving over the file: this and `now` say which way it got there
         #expect(await !tab.save())
@@ -274,7 +271,7 @@ extension AppOfItsOwn {
         tab.editor?.onChange?("mine\n")
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try touch(5)
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p)?.stamp != was })
         #expect(await tab.save())
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
         tab.editor?.setText("mine again\n")
@@ -341,19 +338,16 @@ extension AppOfItsOwn {
         window.contentView = tab.view
         let tv = try #require(tab.editor?.textView)
         let end = tv.length - 10
-        // Ten compares on the main thread take a second or more; ten keystrokes without them, a few ms. The bound is
-        // wide so a busy CI runner doesn't fail it.
-        let t0 = Date()
+        // Keystrokes that change its length: its length says it's edited, and no compare starts (`comparing`).
         for _ in 0..<10 { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
-        #expect(Date().timeIntervalSince(t0) < 0.5 * testSlowness)
-        #expect(tab.isEdited)
+        #expect(tab.isEdited && tab.comparing == nil)
         #expect(await tab.save())
         #expect(!tab.isEdited)
         let was = (tv.string as NSString).substring(with: NSRange(location: end, length: 1))
         tv.replace([NSRange(location: end, length: 1)], with: ["y"])   // the saved length, other text
-        #expect(tab.isEdited)
+        #expect(tab.isEdited && tab.comparing != nil)   // compared off the main thread
         tv.replace([NSRange(location: end, length: 1)], with: [was])   // the saved text again
-        #expect(try await waitFor(5) { !(tab.isEdited) })
+        #expect(try await waitFor { !tab.isEdited })
         #expect(!tab.isEdited)
     }
 
@@ -379,7 +373,7 @@ extension AppOfItsOwn {
         defer { rig.done() }
         let p = try file("aaaa\n")
         let tab = await opened(p, in: rig)
-        #expect(try await waitFor(5) { tab.known != nil && !tab.reading })
+        #expect(try await waitFor { tab.known != nil && !tab.reading })
         let known = try #require(tab.known?.stamp)
         // Its own version pushed again (a touch the daemon saw, an event sent twice): judged at once, not read. Landed
         // by hand: a file changed on disk and put back to its stamp is seen half way by the watch, which reads it.
@@ -387,7 +381,7 @@ extension AppOfItsOwn {
         tab.diskChanged()
         #expect(!tab.reading)
         try "cccc\n".write(toFile: p, atomically: true, encoding: .utf8)   // a real change still shows
-        #expect(try await waitFor(5) { tab.editor?.text == "cccc\n" })
+        #expect(try await waitFor { tab.editor?.text == "cccc\n" })
     }
 
     /// A preview written over (a new render of a video, an image) shows the new file: it used to keep the old one until
@@ -405,10 +399,10 @@ extension AppOfItsOwn {
         try png(10)
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
         func side() -> CGFloat? { (tab.view.subviews.first as? ImagePreview)?.image?.size.width }
-        #expect(try await waitFor(5) { side() == 10 })
-        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != nil })
+        #expect(try await waitFor { side() == 10 })
+        #expect(try await waitFor { rig.app.latest(FileEvent.self, p)?.stamp != nil })
         try png(20)
-        #expect(try await waitFor(5) { side() == 20 })
+        #expect(try await waitFor { side() == 20 })
     }
 }
 

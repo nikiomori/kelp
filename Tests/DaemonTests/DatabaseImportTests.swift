@@ -7,7 +7,7 @@ import Testing
 
 /// A home folder with each app's connections written as that app writes them (field names from their own source).
 private func fixtureHome() throws -> URL {
-    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kelp-import-\(UUID().uuidString)")
+    let home = tmp().appendingPathComponent("kelp-import-\(UUID().uuidString)")
     func write(_ path: String, _ text: String) throws {
         let url = home.appendingPathComponent(path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

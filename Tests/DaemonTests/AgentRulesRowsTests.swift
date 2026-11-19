@@ -30,7 +30,16 @@ import Testing
     try w.d.sessions.store.save(elsewhere)
     try w.d.sessions.store.save(solo)
     let typed = Caller.typedAgent(term.id)
+    let phone = SettingsSet(key: "phone.url", value: .string("https://x.example")),
+        font = SettingsSet(key: "editor.fontSize", value: .int(13))
     let table: [(Caller, any Answered, Bool, String)] = [
+        (.kelpd, font, true, "kelpd's program is held to an agent's rules: a look it may set"),
+        (.kelpd, phone, false, "the user's settings it may not"),
+        (.kelpd, SessionKill(id: term.id), false, "nor end the user's terminal"),
+        (.unknown, font, true, "one gone as it connected is held to an agent's rules too"),
+        (.unknown, phone, false, "the user's settings it may not"),
+        (.unknown, SessionKill(id: term.id), false, "nor end the user's terminal"),
+        (.session(term.id), SessionReport(id: term.id, state: "done"), true, "a session reports for itself"),
         (.session(alone.id), WorktreeRemove(id: solo.id), true, "it removes a workspace of its own"),
         (.session(alone.id), WorktreeArchive(id: solo.id), true, "or archives it"),
         (.session(alone.id), WorktreeRemove(id: solo.id, force: true), false, "but not with changes in it"),
@@ -131,6 +140,20 @@ func expectRows(_ daemon: Daemon, _ table: [(Caller, any Answered, Bool, String)
         }
         #expect(refused != allowed, "\(why): \(caller), \(type(of: m).name)")
     }
+}
+
+/// Expects `call` refused: by the rules (`RPCError.refused`), or, given `says`, by an error whose message says that
+/// (any case), the reason. Any error isn't enough: a missing record, a timeout or a failed git would pass for one.
+func expectRefusal<T>(
+    says: String? = nil, _ comment: Comment? = nil, sourceLocation: SourceLocation = #_sourceLocation,
+    _ call: () async throws -> T
+) async {
+    let e = await #expect(throws: RPCError.self, comment, sourceLocation: sourceLocation) { _ = try await call() }
+    guard let e else { return }
+    let refused = says.map { e.message.localizedCaseInsensitiveContains($0) } ?? e.isRefusal
+    #expect(
+        refused, "\(comment.map { "\($0): " } ?? "")\(says ?? "a rules refusal") ≠ \(e.message)",
+        sourceLocation: sourceLocation)
 }
 
 /// Each method agents may call has a row in a rules table (AgentRules*Tests.swift) that allows it, so taking it off the

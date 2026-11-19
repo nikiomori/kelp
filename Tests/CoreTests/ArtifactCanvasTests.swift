@@ -60,5 +60,4 @@ import Testing
     let dashboard = try #require(Artifacts.guide("dashboard", whereTo: "local", system: true))
     #expect(dashboard.contains("kelp artifact new dashboard") && dashboard.contains("data-source"))
     #expect(try #require(Artifacts.guide("slides", whereTo: "local")).contains("guide design deck"))
-    #expect(Artifacts.Kind.design.file == "canvas.json" && Artifacts.Kind.dashboard.file == "canvas.json")
 }

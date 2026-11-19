@@ -7,10 +7,10 @@ import Testing
 @testable import Daemon
 
 /// A stand-in for an agent asking whether to trust the folder: TRUSTED-BY-KELP when Enter answers it, NOT-ANSWERED when
-/// nothing does within 4 s.
+/// nothing does within 4 s (times `testSlowness`).
 func trustQuestionStandIn() -> String {
     #"stty -icanon -echo; printf 'Do you trust the files in this folder?\n\xe2\x9d\xaf 1. Yes, proceed\n  2. No, exit\n'; "#
-        + #"if IFS= read -rsn1 -t 4 k && [[ -z "$k" ]]; then echo TRUSTED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k && [[ -z "$k" ]]; then echo TRUSTED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
 }
 
 @Test func anIdleSessionIsNotBusyAndDetachingNeverEndsIt() async throws {
@@ -93,6 +93,22 @@ func trustQuestionStandIn() -> String {
             "repoId": .string(w.repo.id), "ref": "#7", "title": "Add dark mode", "agent": "fake", "branchPrefix": "me/"
         ]))
     #expect(try #require(prefixed["worktree"]).decode(Worktree.self).branch.hasPrefix("me/"))
+}
+
+/// An issue's agent that can't start (its program isn't there) leaves no group and no branch behind: both were made
+/// for it a moment ago, and the user would find an empty group for every try.
+@Test func anIssuesAgentThatDoesntStartLeavesNoGroup() async throws {
+    let gone = AgentManifest(id: "gone", name: "Gone", command: "/nope/agent-x", autoAnswers: [], resumeArgs: [])
+    let w = try await world(agents: [gone])
+    defer { w.d.stop() }
+    let before = try await w.c.call(WorktreeList(repoId: w.repo.id)).map(\.id)
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(
+            "task.fromIssue", .obj(["repoId": .string(w.repo.id), "ref": "#13", "title": "Nothing", "agent": "gone"]))
+    }
+    #expect(try await w.c.call(WorktreeList(repoId: w.repo.id)).map(\.id) == before)
+    let branches = try Git.run(["branch", "--list", "*13*"], cwd: w.repo.path, remotes: .none)
+    #expect(branches.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "\(branches)")
 }
 
 @Test func agentVersionsListEachInstalledAgentWithItsVersion() async throws {
@@ -187,7 +203,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["add", "n.txt"], cwd: wt.path, remotes: .none)
     try Git.run(["commit", "-qm", "only here"], cwd: wt.path, remotes: .none)
     #expect(try await w.c.call("worktree.unmerged", .obj(["id": .string(wt.id)])).int == 1)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "commit that aren't on any other branch") {
+        _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)]))
+    }
     #expect(
         FileManager.default.fileExists(atPath: wt.path + "/n.txt")
             && Git.branchExists(w.repo.path, "feat/work", remotes: .none))   // nothing was removed
@@ -267,7 +285,7 @@ func trustQuestionStandIn() -> String {
     let menu =
         #"stty -icanon -echo; IFS= read -r line; "#
         + #"printf 'README: Do you trust the files in this folder?\nRun rm -rf build?\n\xe2\x9d\xaf 1. Yes\n  2. No\n'; "#
-        + #"if IFS= read -rsn1 -t 4 k && [[ -z "$k" ]]; then echo APPROVED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k && [[ -z "$k" ]]; then echo APPROVED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
     let config = tmp().path
     func agent(_ id: String, _ script: String) -> AgentManifest {
         var m = AgentManifest(
@@ -316,14 +334,17 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qm", "m"], cwd: wt.path, remotes: .none)
     // The main checkout was switched to another branch: merging there would land on the wrong branch.
     try Git.run(["switch", "-q", "-c", "elsewhere"], cwd: w.repo.path, remotes: .none)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "not main: switch it back") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(!FileManager.default.fileExists(atPath: w.repo.path + "/m.txt"))   // nothing merged into "elsewhere"
     try Git.run(["switch", "-q", "main"], cwd: w.repo.path, remotes: .none)
     #expect(try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))["merged"]?.bool == true)
     #expect(FileManager.default.fileExists(atPath: w.repo.path + "/m.txt"))
 }
 
-/// A session started on an account profile comes back on it after a restart and after a pause.
+/// A session started on an account profile comes back on it after a restart and after a pause. A profile of the same
+/// name for another agent is that agent's.
 @Test func theAccountProfileSurvivesRestartAndWake() async throws {
     let fake = AgentManifest(
         id: "claude", name: "Claude", command: "/bin/zsh",
@@ -336,7 +357,10 @@ func trustQuestionStandIn() -> String {
         "settings.set",
         .obj([
             "key": "accounts.profiles",
-            "value": .array([.obj(["name": "work", "agent": "claude", "dir": .string(dir)])])
+            "value": .array([
+                .obj(["name": "work", "agent": "codex", "dir": .string(tmp().path + "/codex-account")]),
+                .obj(["name": "work", "agent": "claude", "dir": .string(dir)])
+            ])
         ]))
     let wt = try await workspace(w, "acct")
     func shows(_ id: String) async throws -> Bool {
@@ -378,7 +402,7 @@ func trustQuestionStandIn() -> String {
     // The file changes while the sheet is open: what was shown is not what would be trusted.
     try "recipe.commit: something else entirely\n".write(
         toFile: w.repo.path + "/.kelp.yaml", atomically: true, encoding: .utf8)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "changed since it was shown") {
         _ = try await w.c.call(
             "scripts.trust", .obj(["worktreeId": .string(wt.id), "digest": info["digest"] ?? .null]))
     }
@@ -405,7 +429,9 @@ func trustQuestionStandIn() -> String {
         try await waitFor(10) {
             (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true
         })
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "uncommitted changes") {
+        _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)]))
+    }
     #expect(FileManager.default.fileExists(atPath: wt.path + "/last-words.txt"))   // refused, and the work is still there
 }
 
@@ -480,7 +506,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qam", "theirs"], cwd: wt.path, remotes: .none)
     // The user has uncommitted work in the main checkout.
     try "mine, unsaved\n".write(toFile: w.repo.path + "/a.txt", atomically: true, encoding: .utf8)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "main checkout has uncommitted changes") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(try String(contentsOfFile: w.repo.path + "/a.txt", encoding: .utf8) == "mine, unsaved\n")
     // The user is halfway through a merge of their own, conflicts and all.
     try Git.run(["checkout", "-q", "--", "a.txt"], cwd: w.repo.path, remotes: .none)
@@ -492,7 +520,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qam", "main"], cwd: w.repo.path, remotes: .none)
     _ = try? Git.run(["merge", "side"], cwd: w.repo.path, remotes: .none)   // conflicts: the user's merge is under way
     #expect(Git.isMerging(w.repo.path, remotes: .none))
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "in the middle of a merge") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(Git.isMerging(w.repo.path, remotes: .none))   // their merge is still there, not aborted
 }
 
@@ -552,12 +582,12 @@ func trustQuestionStandIn() -> String {
     #expect(
         try Git.diff(wt.path, source: .unstaged, file: "a.txt", remotes: .none).first?.hunks.first?.header
             == shown.header)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was discarded") {
         _ = try await w.c.call(
             GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: shown.header, fingerprint: shown.fingerprint))
     }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8).contains("written by the agent"))   // not thrown away
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was staged") {
         _ = try await w.c.call(
             "git.hunk",
             .obj([
@@ -602,7 +632,7 @@ func trustQuestionStandIn() -> String {
     try "c\n".write(toFile: wt.path + "/c.txt", atomically: true, encoding: .utf8)
     try Git.run(["add", "c.txt"], cwd: wt.path, remotes: .none)
     try Git.run(["commit", "-qm", "only here"], cwd: wt.path, remotes: .none)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "commit that aren't on any other branch") {
         _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id), "force": true]))
     }
     #expect(Git.branchExists(w.repo.path, "force", remotes: .none))   // its commit is still there
@@ -613,7 +643,7 @@ func trustQuestionStandIn() -> String {
     defer { w.d.stop() }
     try "setup: touch x\n".write(toFile: w.repo.path + "/.kelp.yaml", atomically: true, encoding: .utf8)
     let wt = try await workspace(w, "nodigest")
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "needs the digest") {
         _ = try await w.c.call("scripts.trust", .obj(["worktreeId": .string(wt.id)]))
     }
     #expect(try await w.c.call("scripts.list", .obj(["worktreeId": .string(wt.id)]))["trusted"]?.bool == false)

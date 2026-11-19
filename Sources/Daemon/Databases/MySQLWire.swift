@@ -11,9 +11,11 @@ struct MySQLWire: DatabaseRunner {
     let connection: DatabaseConnection
     /// How long a read may run past the server's own limit before its connection is closed.
     var grace: TimeInterval = 10
+    /// How long logging in may take, before the call's own time starts.
+    var handshake: TimeInterval = DatabaseTimes.handshake
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await Self.with(connection, within: timeout + grace) { conn in
+        try await Self.with(connection, within: timeout + grace, handshake: handshake) { conn in
             try await Self.limit(conn, timeout)
             _ = try await Self.run(conn, "START TRANSACTION READ ONLY")
             return try await Self.run(conn, sql)
@@ -127,11 +129,12 @@ struct MySQLWire: DatabaseRunner {
     private static func with<T: Sendable>(
         _ databaseConnection: DatabaseConnection,
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
+        handshake: TimeInterval = handshakeTimeout,
         _ body: @escaping @Sendable (MySQLConnection) async throws -> T
     ) async throws -> T {
         let db = databaseConnection.database
         let conn: MySQLConnection
-        do { conn = try await open(databaseConnection) } catch { throw failure(error, db) }
+        do { conn = try await open(databaseConnection, handshake: handshake) } catch { throw failure(error, db) }
         // The connection's id is asked first, inside the call's time, so a second connection can stop this one when
         // the time runs out
         let id = OSAllocatedUnfairLock<String?>(initialState: nil)
@@ -191,8 +194,14 @@ struct MySQLWire: DatabaseRunner {
         )
         // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps
         // its socket until the far end closes it. A connection whose handshake ends late is closed then.
-        return try await DatabaseWire.first(connecting, within: handshake, db) {
-            connecting.whenSuccess { late in _ = late.close() }
+        do {
+            return try await DatabaseWire.first(connecting, within: handshake, db) {
+                connecting.whenSuccess { late in _ = late.close() }
+            }
+        } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
+            // Said apart from a query past its time: nothing ran, so the user knows it's safe to try again.
+            throw DatabaseFailure.failed(
+                "\(db.name) took the connection but didn't finish logging in within \(Int(handshake.rounded(.up))) s.")
         }
     }
 

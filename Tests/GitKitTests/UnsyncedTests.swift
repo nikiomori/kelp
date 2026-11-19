@@ -27,7 +27,7 @@ import Testing
     try commit(repo, "b.txt", "mine 1")
     try commit(repo, "c.txt", "mine 2")
     let other = tmp().path
-    try Git.run(["clone", "-q", bare, other], cwd: NSTemporaryDirectory(), remotes: .none)
+    try Git.run(["clone", "-q", bare, other], cwd: tmp().path, remotes: .none)
     try commit(other, "d.txt", "theirs 1")
     try commit(other, "e.txt", "theirs 2")
     try Git.run(["push", "-q"], cwd: other, remotes: .none)

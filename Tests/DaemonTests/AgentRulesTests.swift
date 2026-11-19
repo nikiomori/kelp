@@ -31,7 +31,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     // `kelp attach`: the stream's line, then what it types.
     let attach =
         #"a() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$1\"}}"; "#
-        + #"print -u $REPLY typed; read -t 3 -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
+        + #"print -u $REPLY typed; read -t \#(scaled(3)) -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
     let script =
         "\(zshAsk); \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
         + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
@@ -179,7 +179,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 
 /// The sessions a call names are found wherever they sit in its params (a struct, a list of them, an optional), and
 /// free-form JSON in it names none.
-@Test func aSessionNamedDeepInACallIsFound() throws {
+@Test func aSessionNamedDeepInACallIsFound() async throws {
     let store = try Store()
     let s = Session(cwd: "/tmp", command: "cat"), t = Session(cwd: "/tmp", command: "cat")
     try store.save(s)
@@ -195,7 +195,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     }
     let found = try store.named(by: Call(inner: [Inner(session: s.id)], args: .obj(["id": .string(t.id)])))
     #expect(found == [s.id])
-    #expect(throws: RPCError.self) { try store.named(by: [[[[[[[[s.id]]]]]]]]) }   // too deep to tell: refused
+    await expectRefusal(says: "can't tell which sessions") { try store.named(by: [[[[[[[[s.id]]]]]]]]) }   // too deep
 }
 
 /// An agent's program types no key into an agent that asks a question, its own included: "1⏎" would approve it.
@@ -265,40 +265,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { r.d.stop() }
     let other = try await session(r, "cat")
     for id in 0..<64 { r.d.clients.connection(id)?.owner.withLock { $0 = .unknown } }
-    await #expect(throws: (any Error).self) {
-        _ = try await r.c.call(SessionHook(id: other.id, event: "done", at: ProcessInfo.processInfo.systemUptime))
+    await expectRefusal {
+        try await r.c.call(SessionHook(id: other.id, event: "done", at: ProcessInfo.processInfo.systemUptime))
     }
-    await #expect(throws: (any Error).self) {
-        _ = try await r.c.call(SessionReport(id: other.id, state: "error", message: "do this"))
-    }
+    await expectRefusal { try await r.c.call(SessionReport(id: other.id, state: "error", message: "do this")) }
     #expect(r.d.sessions.existing(other.id)?.snapshot.summary != "do this")
-    await #expect(throws: (any Error).self) { _ = try await r.c.call(SessionPermissionWait(id: other.id), timeout: 5) }   // refused at once, not after a wait
-}
-
-/// Who may do what by `Caller`, asked of `allow` itself (no terminal in between): one with no session of its own reports
-/// for none and is held to an agent's rules; the user isn't.
-@Test func whatEachKindOfCallerMayDo() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let other = try await session(r, "cat")
-    let phone = SettingsSet(key: "phone.url", value: .string("https://x.example")),
-        font = SettingsSet(key: "editor.fontSize", value: .int(13))
-    for c in [Caller.kelpd, .unknown, .detached] {
-        #expect(throws: (any Error).self, "\(c)") { try r.d.allow(phone, conn: 0, caller: c) }
-        #expect(throws: (any Error).self, "\(c)") { try r.d.allow(SessionKill(id: other.id), conn: 0, caller: c) }
-        #expect(throws: Never.self, "\(c)") { try r.d.allow(font, conn: 0, caller: c) }
-    }
-    #expect(throws: (any Error).self) {
-        try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .detached)
-    }
-    #expect(throws: (any Error).self) {
-        try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .unknown)
-    }
-    #expect(throws: Never.self) {
-        try r.d.allow(SessionReport(id: other.id, state: "done"), conn: 0, caller: .session(other.id))
-    }
-    #expect(throws: Never.self) { try r.d.allow(phone, conn: 0, caller: .user) }
-    #expect(throws: Never.self) { try r.d.allow(SessionKill(id: other.id), conn: 0, caller: .user) }
+    await expectRefusal { try await r.c.call(SessionPermissionWait(id: other.id), timeout: 5) }   // at once, not after a wait
 }
 
 /// A program that forked away from its parent and its terminal (a double fork with `setsid`, what an agent does to pass
@@ -307,7 +279,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }   // as a kelpd leading its own process session is
-    let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
+    let out = tmp().appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: out) }
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
@@ -364,7 +336,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
     let bin = dir.appendingPathComponent("Fake.app/Contents/MacOS")
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -423,7 +395,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func anAgentTypedIntoAPlainTerminalIsHeldToItsRules() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ta-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("ta-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let codex = dir.appendingPathComponent("codex"), out = dir.appendingPathComponent("pids")
@@ -463,9 +435,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     var theirs = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
     theirs.origin = term.id
     try r.d.sessions.store.save(theirs)
-    #expect(throws: (any Error).self) {
-        try r.d.allow(SessionKill(id: theirs.id), conn: 0, caller: .typedAgent(term.id))
-    }
+    await expectRefusal { try r.d.allow(SessionKill(id: theirs.id), conn: 0, caller: .typedAgent(term.id)) }
 }
 
 /// A job left behind in a terminal (`&`, its line cut at launchd, the terminal still its) is held to an agent's rules
@@ -475,7 +445,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let out = dir.appendingPathComponent("pid")
@@ -492,9 +462,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     defer { kill(job, SIGTERM) }
     #expect(try await waitFor(5) { Subprocess.parent(job) == 1 })
     #expect(r.d.callers.session(running: job) == .typedAgent(term.id))
-    #expect(throws: (any Error).self) {
-        try r.d.allow(SessionWrite(id: term.id, text: "1\r"), conn: 0, caller: .typedAgent(term.id))
-    }
+    await expectRefusal { try r.d.allow(SessionWrite(id: term.id, text: "1\r"), conn: 0, caller: .typedAgent(term.id)) }
     #expect(throws: Never.self) {
         try r.d.allow(SessionWrite(id: term.id, text: "1\r"), conn: 0, caller: .session(term.id))
     }
@@ -615,21 +583,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (.kelpd, SessionReport(id: term.id, state: "done"), false, "kelpd's program speaks for no session"),
         (.unknown, SessionReport(id: term.id, state: "done"), false, "nor does one gone as it connected")
     ]
-    try expectRules(r, table)
-}
-
-/// Each row's call allowed or refused by the rules (`RPCError.refused`), not by any error: a missing record or a store's
-/// would pass for a refusal.
-private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String)]) throws {
-    for (caller, m, allowed, why) in table {
-        var refused = false
-        do { try r.d.allow(m, conn: 0, caller: caller) } catch let e as RPCError where e.isRefusal {
-            refused = true
-        } catch {
-            Issue.record("\(why): not a refusal but \(error)")
-        }
-        #expect(refused != allowed, "\(why): \(caller), \(type(of: m).name)")
-    }
+    try expectRows(r.d, table)
 }
 
 /// An agent's database calls, in the same table: statements on its own workspace's databases (their access says what
@@ -679,7 +633,7 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
         ),
         (.session(mine.id), WatchStart(.git, r.wt.id), true, "other watches it may start")
     ]
-    try expectRules(r, table)
+    try expectRows(r.d, table)
 }
 
 /// `kelp attach` from an agent's program types where `session send` may, key by key: a session it started that asks a

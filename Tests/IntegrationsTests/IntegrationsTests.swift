@@ -22,7 +22,7 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
           "url":"https://github.com/o/r/pull/8","statusCheckRollup":[],"mergeStateStatus":"DRAFT"}]
         """
     let prs = try GitHub.parsePullRequests(d(json))
-    #expect(prs.count == 2)
+    try #require(prs.count == 2)
     #expect(
         prs[0]
             == GitHub.PullRequest(
@@ -183,7 +183,7 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
         + #""description":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Steps:"}]},"#
         + #"{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"open app"}]}]}]}]}}}]}"#
     let issues = try JiraClient.parseSearch(Data(search.utf8), site: "https://acme.atlassian.net/")
-    #expect(issues.count == 1)
+    try #require(issues.count == 1)
     #expect(
         issues[0].key == "ENG-7" && issues[0].statusCategory == "indeterminate"
             && issues[0].url == "https://acme.atlassian.net/browse/ENG-7")
@@ -191,22 +191,24 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     let tr =
         #"{"transitions":[{"id":"31","name":"In Review","to":{"statusCategory":{"key":"indeterminate"}}},{"id":"41","name":"Done","to":{"statusCategory":{"key":"done"}}}]}"#
     let ts = try JiraClient.parseTransitions(Data(tr.utf8))
+    try #require(ts.count == 2)
     #expect(ts.map(\.id) == ["31", "41"] && ts[1].toCategory == "done")
 }
 
 @Test func bitbucketParsing() throws {
-    #expect(BitbucketClient.slug(remote: "git@bitbucket.org:team/repo.git")! == ("team", "repo"))
-    #expect(BitbucketClient.slug(remote: "https://user@bitbucket.org/team/repo")! == ("team", "repo"))
+    #expect(try #require(BitbucketClient.slug(remote: "git@bitbucket.org:team/repo.git")) == ("team", "repo"))
+    #expect(try #require(BitbucketClient.slug(remote: "https://user@bitbucket.org/team/repo")) == ("team", "repo"))
     #expect(BitbucketClient.slug(remote: "git@github.com:a/b.git") == nil)
     // Only bitbucket.org as the host: a path or another host that merely contains it isn't Bitbucket.
     #expect(BitbucketClient.slug(remote: "https://example.com/bitbucket.org/team/repo") == nil)
     #expect(BitbucketClient.slug(remote: "git@github.com:me/bitbucket.org-mirror.git") == nil)
     #expect(BitbucketClient.slug(remote: "https://notbitbucket.org/team/repo") == nil)
-    #expect(BitbucketClient.slug(remote: "ssh://git@bitbucket.org/team/repo.git")! == ("team", "repo"))
+    #expect(try #require(BitbucketClient.slug(remote: "ssh://git@bitbucket.org/team/repo.git")) == ("team", "repo"))
     let prs =
         #"{"values":[{"id":12,"title":"Add API","state":"OPEN","draft":false,"author":{"display_name":"Ann"},"source":{"branch":{"name":"feat/api"}},"links":{"html":{"href":"https://bitbucket.org/team/repo/pull-requests/12"}}}]}"#
     let p = try BitbucketClient.parsePullRequests(Data(prs.utf8))
-    #expect(p.count == 1 && p[0].number == 12 && p[0].headRefName == "feat/api" && p[0].author == "Ann")
+    try #require(p.count == 1)
+    #expect(p[0].number == 12 && p[0].headRefName == "feat/api" && p[0].author == "Ann")
 }
 
 @Test func ghErrorsSayWhatToDo() {

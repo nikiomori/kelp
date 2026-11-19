@@ -7,19 +7,19 @@ private func port(_ n: Int, _ command: String = "node", pid: Int32 = 7) -> Ports
     PortsList.Port(port: n, pid: pid, command: command, session: "s")
 }
 
-@Test func aRunsPrintedAddressComesFirstAndItsPortOnce() {
+@Test func aRunsPrintedAddressComesFirstAndItsPortOnce() throws {
     let pages = ServedPages.list(printed: ["http://localhost:5173/app/"], ports: [port(3001), port(5173, pid: 9)])
-    #expect(pages.map(\.port) == [5173, 3001])
+    try #require(pages.map(\.port) == [5173, 3001])
     #expect(pages[0].url == "http://localhost:5173/app/")   // as printed, not the bare port
     #expect(pages[0].pid == 9)
     #expect(pages[1].url == "http://localhost:3001")
 }
 
-@Test func helpersAndForwardingsAreNotServers() {
+@Test func helpersAndForwardingsAreNotServers() throws {
     #expect(ServedPages.list(printed: [], ports: [port(51849, "agy"), port(5173, "ssh")]).isEmpty)
     // Printed by a run, it's meant to be opened whatever its number. On a host nothing here listens: no process to stop.
     let printed = ServedPages.list(printed: ["http://localhost:51000"], ports: [])
-    #expect(printed.map(\.port) == [51000])
+    try #require(printed.map(\.port) == [51000])
     #expect(printed[0].pid == nil)
 }
 

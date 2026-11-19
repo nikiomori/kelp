@@ -55,7 +55,7 @@ private func list(_ w: World, _ worktree: Worktree) async throws -> [DatabaseInf
     #expect(!FileManager.default.fileExists(atPath: copy.path ?? ""))
     let back = try #require(try await list(w, branch).first)
     #expect(back.path == original && back.copy == nil && back.access == .read)
-    await #expect(throws: RPCError.self) {   // the project's own isn't a copy to drop
+    await expectRefusal(says: "isn't this workspace's copy") {   // the project's own isn't a copy to drop
         try await w.c.call(DatabaseCopyRemove(worktreeId: branch.id, database: "shop"))
     }
     #expect(FileManager.default.fileExists(atPath: original))

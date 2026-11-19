@@ -271,18 +271,13 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     #expect(try await waitFor(15) { try await w.c.call(SessionRead(id: s.id)).contains("hello-gone") })
 }
 
+/// Each method is answered one of three ways, by its type: in order on the reader thread (everything sent after it
+/// waits), quick on a thread of its own (no slot), or blocking in `offload`. The first two start no program. A new
+/// in-order one holds up the connection's every call, so it's added here on purpose (a quick one usually does instead).
 /// Only a sync `Handled` is applied in order (the reader thread can't wait for an async one): an async method marked
 /// in-order would run on a task of its own, its order lost without a word.
-@Test func inOrderMethodsAreSyncHandlers() {
-    let inOrder = Daemon.methods.values.filter { $0.inOrder }
-    #expect(inOrder.count >= 10)
-    for t in inOrder { #expect(t is any Handled.Type, "\(t.name)") }
-}
-
-/// Each method is answered one of three ways, by its type: in order on the reader thread (everything sent after it waits),
-/// quick on a thread of its own (no slot), or blocking in `offload`. The first two start no program. A new in-order one
-/// holds up the connection's every call, so it's added here on purpose (a quick one usually does instead).
 @Test func theInOrderMethodsAreTheKnownOnes() {
+    for t in Daemon.methods.values where t.inOrder { #expect(t is any Handled.Type, "\(t.name)") }
     let inOrder = Set(Daemon.methods.values.filter { $0.inOrder }.map { $0.name })
     let known: [any RPCMethod.Type] = [
         SessionWrite.self, SessionSend.self, SessionResize.self, UIPublish.self, StateSet.self, ClientEvents.self,

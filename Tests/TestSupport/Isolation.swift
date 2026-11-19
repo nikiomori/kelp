@@ -32,3 +32,13 @@ public func tmp() -> URL {
     try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
     return u
 }
+
+/// Whether a file in the Trash (KELP_TRASH, every test's) has a path ending in `name` and holds `text`. A test writes
+/// text of its own (`UUID()` in it), so another test's file of the same name doesn't pass for its own.
+public func inTheTrash(_ name: String, holding text: String) -> Bool {
+    let trash = ProcessInfo.processInfo.environment["KELP_TRASH"] ?? ""
+    let all = FileManager.default.enumerator(atPath: trash)?.allObjects as? [String] ?? []
+    return all.contains {
+        $0.hasSuffix(name) && FileManager.default.contents(atPath: trash + "/" + $0) == Data(text.utf8)
+    }
+}

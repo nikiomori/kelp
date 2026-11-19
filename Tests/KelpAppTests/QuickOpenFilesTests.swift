@@ -18,7 +18,7 @@ extension AppOfItsOwn {
         let q = QuickOpen(app: rig.app)
         q.build()
         q.list(query: "")
-        #expect(try await waitFor(5) { q.files.paths.count == 2 })
+        #expect(try await waitFor { q.files.paths.count == 2 })
         q.field.stringValue = "ghost"
         q.filter()
         await q.scoring?.value

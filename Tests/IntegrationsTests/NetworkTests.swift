@@ -59,7 +59,7 @@ private func basic(_ user: String, _ pass: String) -> String {
     #expect(StubURL.sent(host).filter { $0.method == "POST" }.count == posts)   // nothing fits: quietly nothing happens
 }
 
-@Suite(.serialized) struct FixedHostClients {
+@Suite(.serialized, .fixedHosts) struct FixedHostClients {
     @Test func linearSendsTheKeyAndReadsIssues() async throws {
         StubURL.serve("api.linear.app") { _ in
             (

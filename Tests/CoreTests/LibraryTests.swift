@@ -1,11 +1,12 @@
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Core
 
 /// An archive can ship the file Kelp writes as a symlink, before anyone reviewed it: the link is replaced, not written through.
 @Test func theSourceFileIsNotWrittenThroughAnArchivesSymlink() throws {
-    let work = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+    let work = tmp().appendingPathComponent(
         "kelp-lib-\(UUID().uuidString.prefix(6))")
     let top = work.appendingPathComponent("repo-main"), victim = work.appendingPathComponent("victim")
     defer { try? FileManager.default.removeItem(at: work) }
@@ -46,7 +47,7 @@ import Testing
 /// a manifest, a bad id or a symlink out of the archive is refused.
 @Test func anArchiveUnpacksToTheExtensionsFolder() throws {
     let fm = FileManager.default,
-        dir = fm.temporaryDirectory.appendingPathComponent("kl-\(UUID().uuidString.prefix(8))")
+        dir = tmp().appendingPathComponent("kl-\(UUID().uuidString.prefix(8))")
     defer { try? fm.removeItem(at: dir) }
     func archive(_ files: [String: String], links: [String: String] = [:]) throws -> URL {
         let src = dir.appendingPathComponent("src-\(UUID().uuidString.prefix(4))"),
@@ -92,7 +93,7 @@ import Testing
         try ExtensionFiles.unpackExtension(a, path: "nope", source: "s", work: try work())
     }
     let badID = try archive(["extension.json": #"{"id": "../evil", "name": "E"}"#])
-    #expect(throws: RPCError.self) {
+    expectRefusal(says: "needs an id of lowercase letters") {
         try ExtensionFiles.unpackExtension(badID, path: "", source: "s", work: try work())
     }
     let outside = dir.appendingPathComponent("outside")
@@ -100,7 +101,7 @@ import Testing
     try #"{"id": "out", "name": "O"}"#.write(
         to: outside.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
     let link = try archive(["README.md": "x"], links: ["ext": outside.path])
-    #expect(throws: RPCError.self) {
+    expectRefusal(says: "has no extension.json") {
         try ExtensionFiles.unpackExtension(link, path: "ext", source: "s", work: try work())
     }
 }
@@ -108,18 +109,26 @@ import Testing
 /// Installing over one that's there sends the old one to the Trash; a name that isn't one folder is refused.
 @Test func installingReplacesTheOldCopy() throws {
     let fm = FileManager.default,
-        dir = fm.temporaryDirectory.appendingPathComponent("ki-\(UUID().uuidString.prefix(8))")
+        dir = tmp().appendingPathComponent("ki-\(UUID().uuidString.prefix(8))")
     defer { try? fm.removeItem(at: dir) }
     let src = dir.appendingPathComponent("src/docker"), into = dir.appendingPathComponent("extensions")
     try Paths.ensure(src)
     try "v1".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    try ExtensionFiles.installExtension(src, as: "docker", in: into)
+    let name = "docker-\(UUID().uuidString.prefix(8))"   // its own name: the Trash is shared by every test
+    try ExtensionFiles.installExtension(src, as: name, in: into)
     try "v2".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    let dest = try ExtensionFiles.installExtension(src, as: "docker", in: into, move: true)
+    let dest = try ExtensionFiles.installExtension(src, as: name, in: into, move: true)
     #expect(try String(contentsOf: dest.appendingPathComponent("extension.json"), encoding: .utf8) == "v2")
     #expect(!fm.fileExists(atPath: src.path))
+    // The old copy went to Kelp's Trash (KELP_TRASH in tests), whole, where Put Back finds it.
+    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+    let kept = try fm.contentsOfDirectory(atPath: trash).map { "\(trash)/\($0)/\(name)/extension.json" }
+        .filter { fm.fileExists(atPath: $0) }
+    #expect(try kept.map { try String(contentsOfFile: $0, encoding: .utf8) } == ["v1"])
     for bad in ["..", ".", "", "a/b", "../x", ".hidden"] {
-        #expect(throws: RPCError.self, "\(bad)") { try ExtensionFiles.installExtension(dest, as: bad, in: into) }
+        expectRefusal(says: "can't be an extension's folder name", "\(bad)") {
+            try ExtensionFiles.installExtension(dest, as: bad, in: into)
+        }
         #expect(!ExtensionFiles.isPlainName(bad))
     }
 }
@@ -163,7 +172,7 @@ import Testing
 /// Allowing an extension covers every file of its folder, not its `.git`: a script changed after it was allowed is
 /// asked about again, a commit isn't.
 @Test func anExtensionsDigestFollowsEveryFileButGit() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-digest-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-digest-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: dir) }
     try FileManager.default.createDirectory(at: dir.appendingPathComponent("bin"), withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)
@@ -181,4 +190,14 @@ import Testing
     try Data("rm -rf /".utf8).write(to: URL(fileURLWithPath: script))
     try FileManager.default.setAttributes([.modificationDate: was ?? Date()], ofItemAtPath: script)
     #expect(ExtensionFiles.extensionDigest(dir) != second)
+}
+
+/// Expects `call` refused by an `RPCError` whose message says `says` (any case), the reason: any error would pass a
+/// missing file for a refusal.
+func expectRefusal<T>(
+    says: String, _ comment: Comment? = nil, sourceLocation: SourceLocation = #_sourceLocation, _ call: () throws -> T
+) {
+    let e = #expect(throws: RPCError.self, comment, sourceLocation: sourceLocation) { _ = try call() }
+    guard let e else { return }
+    #expect(e.message.localizedCaseInsensitiveContains(says), "\(says) ≠ \(e.message)", sourceLocation: sourceLocation)
 }

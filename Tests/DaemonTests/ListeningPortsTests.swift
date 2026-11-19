@@ -107,10 +107,9 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     #expect(try log().contains("cancel -L 127.0.0.1:10022:localhost:22"))
     #expect(try await c.call(PortsList(worktreeId: w.id)).contains { $0.port == 22 } == false)
     // This Mac's own projects forward nothing.
-    let local = try await c.call("worktree.list", as: [Worktree].self).filter { $0.repoId != repo.id }
-    if let l = local.first {
-        await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: l.id, port: 1)) }
-    }
+    let mine: Repo = try await c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
+    let l = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == mine.id })
+    await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: l.id, port: 1)) }
 }
 
 /// Forwardings changed from many threads at once (a prune beside a forward) are saved as they end up, not as an older copy.

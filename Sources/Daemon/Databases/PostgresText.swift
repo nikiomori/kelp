@@ -173,14 +173,18 @@ enum PostgresText {
             let cidr = byteBuffer.readInteger(as: UInt8.self), let size = byteBuffer.readInteger(as: UInt8.self),
             let addr = byteBuffer.readBytes(length: Int(size))
         else { return "" }
-        let text =
-            family == 2
-            ? addr.map(String.init).joined(separator: ".")
-            : stride(from: 0, to: addr.count, by: 2).map {
-                String(UInt16(addr[$0]) << 8 | UInt16(addr[$0 + 1]), radix: 16)
-            }.joined(separator: ":")
+        let text = family == 2 ? addr.map(String.init).joined(separator: ".") : ipv6(addr)
         let full = family == 2 ? 32 : 128
         return cidr == 1 || Int(bits) != full ? "\(text)/\(bits)" : text
+    }
+
+    /// An IPv6 address as psql writes it: its longest run of zero groups as `::` (`::1`, `2001:db8::1`).
+    private static func ipv6(_ addr: [UInt8]) -> String {
+        var out = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+        guard addr.count == 16,
+            addr.withUnsafeBytes({ inet_ntop(AF_INET6, $0.baseAddress, &out, socklen_t(out.count)) }) != nil
+        else { return "" }
+        return String(cString: out)
     }
 
     /// Writes an array as psql does, such as `{1,2,NULL}`, nested for more dimensions. Elements are quoted where psql
