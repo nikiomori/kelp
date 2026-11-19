@@ -116,7 +116,15 @@ final class EditorStatusBar: NSView {
         servers.isHidden = summary == nil
         servers.title = summary?.title ?? ""
         // Grey: "No Language Server" offers an install, and nothing waits on it (orange is for what waits on you).
-        servers.contentTintColor = summary?.missing == true ? .secondaryLabelColor : nil
+        // Red when a server stopped, which the click's list restarts.
+        let stopped = summary?.stopped ?? []
+        servers.contentTintColor =
+            !stopped.isEmpty ? .textRed : summary?.missing == true ? .secondaryLabelColor : nil
+        servers.toolTip =
+            stopped.isEmpty
+            ? nil
+            : String(
+                localized: "\(stopped.joined(separator: ", ")) stopped. Click to see the servers, then Restart.")
     }
     func show(suggestions status: SuggestionStatus?) {
         suggestions.isHidden = status == nil

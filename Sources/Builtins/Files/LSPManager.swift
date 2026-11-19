@@ -115,16 +115,21 @@ final class LSPManager {
     func gaveUp(on command: String) { installing.remove(command) }
 
     /// Returns what a file's status bar says of its servers: the names of those that took the file, or that none is
-    /// installed. `missing` is true when a server the language needs isn't installed. Returns nil while there's nothing
-    /// to say (no servers, servers off, or the project not trusted yet).
+    /// installed. `missing` is true when a server the language needs isn't installed, and `stopped` names those the
+    /// daemon said ended on their own or didn't start (`LSPServerEvent`). Returns nil while there's nothing to say (no
+    /// servers, servers off, or the project not trusted yet).
     func summary(_ root: String, _ language: LanguageSpec?) -> ServerSummary? {
         guard enabled(), let all = language?.allServers, trusted(root) else { return nil }
-        let up = all.filter { installed[$0.command] == true }.map(Self.name)
+        let stopped = all.filter {
+            app.latest(LSPServerEvent.self, LSPServerEvent.key(root, $0.command))?.failed == true
+        }
+        // A server that stopped ran here, so it is named even if this tab didn't see it installed.
+        let up = all.filter { installed[$0.command] == true || stopped.contains($0) }.map(Self.name)
         let absent = all.filter { installed[$0.command] == false }
         guard !up.isEmpty || !absent.isEmpty else { return nil }
         return ServerSummary(
             title: up.isEmpty ? String(localized: "No Language Server") : up.joined(separator: ", "),
-            missing: absent.contains { $0.optional != true })
+            missing: absent.contains { $0.optional != true }, stopped: stopped.map(Self.name))
     }
 
     /// Gives the file a tab shows to its servers, which the daemon starts when they aren't running. Returns false when
@@ -223,7 +228,14 @@ final class LSPManager {
 
 /// A file's language servers as its status bar names them.
 struct ServerSummary: Equatable {
-    var title: String, missing: Bool
+    var title: String, missing: Bool, stopped: [String] = []
+}
+
+/// Kept by project and command, and never forgotten: a server stopped stays stopped until the daemon says it runs.
+extension LSPServerEvent: Pushed {
+    package var key: String { Self.key(root, command) }
+    package static var forgottenWith: WatchTopic? { nil }
+    static func key(_ root: String, _ command: String) -> String { root + "\n" + command }
 }
 
 extension LSPManager {

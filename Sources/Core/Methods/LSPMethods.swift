@@ -191,6 +191,17 @@ public struct LSPRestart: InternalMethod {
         self.command = command
     }
 }
+/// Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the
+/// editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.
+public struct LSPServerEvent: RPCEvent, Equatable {
+    public static let name = "event.lsp.server"
+    public var root: String, command: String, failed: Bool
+    public init(root: String, command: String, failed: Bool) {
+        self.root = root
+        self.command = command
+        self.failed = failed
+    }
+}
 /// Sends the file's whole text as it is now, as a notification while typing.
 public struct LSPChange: InternalMethod {
     public static let name = "lsp.change"

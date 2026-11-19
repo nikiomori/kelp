@@ -3054,6 +3054,26 @@
         ],
         "type" : "object"
       },
+      "LSPServerEvent" : {
+        "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "boolean"
+          },
+          "root" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "command",
+          "failed",
+          "root"
+        ],
+        "type" : "object"
+      },
       "LSPServerState" : {
         "description" : "A language server command on this Mac: whether it is installed, and, for the project asked about, whether it runs (or is starting), how many open files it has, and whether it failed to start or died.",
         "properties" : {
@@ -14653,6 +14673,13 @@
       "name" : "event.limits",
       "params" : {
         "$ref" : "#/components/schemas/LimitsEvent"
+      }
+    },
+    {
+      "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+      "name" : "event.lsp.server",
+      "params" : {
+        "$ref" : "#/components/schemas/LSPServerEvent"
       }
     },
     {
