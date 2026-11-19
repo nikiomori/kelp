@@ -232,12 +232,19 @@ else a `NotificationCenter` name.
   agents and their conversations, Allow, a reply, Stop, starting an agent where Settings allow it), and sends Web Push itself;
   off until Settings › Phone turns it on; docs/phone.md), `AgentUpdates` (Claude Code restarted into its update),
   and in `Workspaces`, `Databases` (a project's databases, found in its files or added by hand, and what ran on them).
+  `LSPHost` runs the language servers (one per project and server command) and the editor's code suggestions: the
+  models on this Mac (`LocalModels`: Ollama, LM Studio or a llama-server), the cloud providers' keys in the login keychain
+  (`CloudModels`) and the next edit's llama-server (`NextEditServer`). `FileService` (files.*, here or on a remote
+  project's host), `SourceControl` and `VMService` (the machines agents run commands in, each run by its own kelp-vm)
+  are made for each call from what they need, and keep no state of their own.
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
   reaches only what that service holds; each service's projection from the daemon is in one place (`DaemonService`).
   A service that needs only part of `Sessions` keeps that part (`WorkspaceSessions`, `AgentAsks`, the live table:
   `Sessions/SessionParts.swift`); one that keeps all of `Sessions` answers for it, and its handlers count as Sessions'
-  (`DaemonShapeTests`). A new method takes three files: its type in Core (`*Methods.swift`), its handler beside its
-  service (its `fence`, and `agents` if an agent's program may call it), and rpc.json (written by the schema test).
+  (`DaemonShapeTests`). A new method in a family that exists takes three files and a test: its type in Core
+  (`*Methods.swift`), its handler beside its service, in its family's list there (its `fence`, and `agents` if an
+  agent's program may call it), rpc.json (written by the schema test), and a test that calls it
+  (`everyMethodIsCalledByATest`). A new family also adds its list to `Daemon.methods` (Handlers.swift).
   Its home (`Daemon(root:)`) is all the daemon takes from outside: its paths, which project folders are remote ones
   (`Remotes`) and how their ssh connections are shared come from it, never from the environment or a static
   (`theDaemonKeepsNoProcessGlobals`).
@@ -414,6 +421,16 @@ for what's the user's. It isn't a boundary against an agent set on getting aroun
 so one with a shell can write what Kelp keeps as the user can (its database, settings.json, a shell's startup file, an
 agent's manifest in ~/.kelp/agents), make a bundle of its own to look like an app, add a cron line, put a window of its
 own in front of the user in their tmux, or start an app for the user to watch run something (`open -a Terminal`). Holding that takes a sandbox around the agent itself, which Kelp doesn't add.
+
+**Code suggestions send code only where the user chose.** With a model on this Mac (Settings › Editor › Code
+suggestions), the code around the cursor stays on it. With a cloud provider it goes to that provider, with the key the
+user saved in the login keychain (kelpd keeps it there, never in settings.json): Mercury's to api.inceptionlabs.ai
+only, Codestral's to an https `*.mistral.ai` host only, a server of the user's own to the address they typed
+(`CloudModels.request`). Where suggestions come from, the address and the models are the user's settings
+(`editor.suggestion*` in `SettingsSet.usersOnly`), so an agent can't point the key, or the code, elsewhere; nor switch
+the next edit on (`editor.nextEdit`), which has kelpd start llama-server and download its model (1.5 GB, from Hugging
+Face) the first time. A file whose name says it holds secrets (`.env*`, keys, `.netrc`, `.npmrc`…:
+`Suggestions.holdsSecrets`) is never shown to any model.
 
 **Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
 asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the
