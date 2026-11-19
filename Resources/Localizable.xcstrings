@@ -321,12 +321,12 @@
         }
       }
     },
-    "Empty: the first code model on this Mac, or the cloud provider's own.": {
+    "Empty: the first code model on this Mac.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пусто — первая модель для кода на этом Mac или модель облачного провайдера."
+            "value": "Пусто — первая модель для кода на этом Mac."
           }
         }
       }
@@ -1609,6 +1609,16 @@
         }
       }
     },
+    "Server model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель сервера"
+          }
+        }
+      }
+    },
     "Share of cost": {
       "localizations": {
         "ru": {
@@ -1735,6 +1745,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Код вокруг курсора отправляется ему. Ключ хранится в вашей связке ключей."
+          }
+        }
+      }
+    },
+    "The code model a server of your own is asked for.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель для кода, которую спрашивают у вашего сервера."
           }
         }
       }

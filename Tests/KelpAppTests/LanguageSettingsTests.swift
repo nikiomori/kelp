@@ -99,7 +99,9 @@ extension AppOfItsOwn {
 @Test(arguments: [
     ("/p/.env", true), ("/p/.env.local", true), ("/home/me/.ssh/id_ed25519", true), ("/p/server.pem", true),
     ("/p/tls.key", true), ("/p/.netrc", true), ("/p/main.swift", false), ("/p/environment.ts", false),
-    ("/p/keyboard.swift", false)
+    ("/p/keyboard.swift", false), ("/p/.npmrc", true), ("/p/.pypirc", true), ("/p/prod.tfvars", true),
+    ("/home/me/.git-credentials", true), ("/p/secrets.yaml", true), ("/p/cert.pfx", true),
+    ("/p/secretsauce.swift", false)
 ])
 func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
     #expect(Suggestions.holdsSecrets(path) == secret)
@@ -218,4 +220,13 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
     let request = Suggestions.request(ask, path: "Sources/X.swift")
     #expect(request.changes == [NextEditChange(old: "a", new: "A"), NextEditChange(old: "b", new: "B")])
     #expect(request.path == "Sources/X.swift" && request.original == "b" && request.current == "B")
+}
+
+/// A cloud provider is asked for its own model, never this Mac's; only a server of one's own names one.
+@Test(
+    arguments: [
+        (nil, "qwen2.5-coder:1.5b-base"), (SuggestCloud.mercury, nil), (.codestral, nil), (.openai, "qwen2.5-coder-7b")
+    ] as [(SuggestCloud?, String?)])
+func aCloudProviderIsntAskedForThisMacsModel(cloud: SuggestCloud?, model: String?) {
+    #expect(Suggestions.model(for: cloud, local: "qwen2.5-coder:1.5b-base", server: "qwen2.5-coder-7b") == model)
 }

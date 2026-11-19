@@ -120,7 +120,18 @@ import Testing
                 .codestral, "https://codestral.mistral.ai", "https://codestral.mistral.ai/v1/fim/completions",
                 "codestral-latest"
             ),
-            (.openai, "https://llm.example.com/v1", "https://llm.example.com/v1/completions", "qwen2.5-coder-7b")
+            (.openai, "https://llm.example.com/v1", "https://llm.example.com/v1/completions", "qwen2.5-coder-7b"),
+            // The key goes to its provider only, wherever the address says.
+            (.mercury, "https://llm.example.com", "https://api.inceptionlabs.ai/v1/fim/completions", "mercury-edit-2"),
+            (.codestral, "https://llm.example.com", "https://api.mistral.ai/v1/fim/completions", "codestral-latest"),
+            (
+                .codestral, "http://codestral.mistral.ai", "https://api.mistral.ai/v1/fim/completions",
+                "codestral-latest"
+            ),
+            (
+                .codestral, "https://mistral.ai.example.com", "https://api.mistral.ai/v1/fim/completions",
+                "codestral-latest"
+            )
         ] as [(SuggestCloud, String?, String, String)])
     func eachCloudIsAskedAtItsOwnAddressWithTheKey(cloud: SuggestCloud, url: String?, endpoint: String, model: String)
         throws

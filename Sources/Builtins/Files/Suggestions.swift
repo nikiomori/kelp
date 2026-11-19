@@ -64,12 +64,12 @@ final class Suggestions {
     /// What a file's status bar says, for its language; `secret` for a file no model is shown.
     func status(language: String?, secret: Bool, editOffered: Bool = false) -> SuggestionStatus? {
         let settings = app.settings, mode = settings[SettingKeys.suggestions, language: language]
-        let named = settings[SettingKeys.suggestionModel]
+        let named = settings[SettingKeys.suggestionModel], server = settings[SettingKeys.suggestionServerModel]
         let cloud = mode == "cloud" ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
         return SuggestionStatus.of(
             .init(
                 mode: mode, everywhere: settings[SettingKeys.suggestions], secret: secret, model: model(named: named),
-                known: models != nil, pause: pause, cloud: cloud.map { (Self.cloudName($0, model: named), keys[$0]) },
+                known: models != nil, pause: pause, cloud: cloud.map { (Self.cloudName($0, model: server), keys[$0]) },
                 problem: problem, loading: loading, editOffered: editOffered))
     }
 
@@ -156,8 +156,9 @@ final class Suggestions {
     /// Whether a file's name says it holds keys or passwords, whose text no model is shown.
     nonisolated static func holdsSecrets(_ path: String) -> Bool {
         let name = (path as NSString).lastPathComponent.lowercased()
-        return name.hasPrefix(".env") || name.hasPrefix("id_") || name.hasSuffix(".pem") || name.hasSuffix(".key")
-            || name.hasSuffix(".p12") || name == ".netrc" || name == "credentials"
+        return name.hasPrefix(".env") || name.hasPrefix("id_") || name.hasPrefix("secrets.")
+            || [".pem", ".key", ".p12", ".pfx", ".tfvars"].contains { name.hasSuffix($0) }
+            || [".netrc", "credentials", ".npmrc", ".pypirc", ".git-credentials"].contains(name)
     }
 
     private struct State: Equatable {
@@ -227,14 +228,17 @@ final class Suggestions {
             editor?.suggestionDelay = Self.pause(
                 battery: SuggestionPause.onBattery, typicalWait: self?.today.typicalWait)
             guard let self else { return nil }
-            let settings = app.settings, named = settings[SettingKeys.suggestionModel], start = Date()
+            let settings = app.settings, start = Date()
             let cloud =
                 settings[SettingKeys.suggestions, language: editor?.languageId] == "cloud"
                 ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
             let url = settings[SettingKeys.suggestionURL]
+            let model = Self.model(
+                for: cloud, local: settings[SettingKeys.suggestionModel],
+                server: settings[SettingKeys.suggestionServerModel])
             let ask = EditorSuggest(
-                prefix: context.prefix, suffix: context.suffix, path: name, model: named.isEmpty ? nil : named,
-                cloud: cloud, url: cloud == nil || url.isEmpty ? nil : url)
+                prefix: context.prefix, suffix: context.suffix, path: name, model: model, cloud: cloud,
+                url: cloud == nil || cloud == .mercury || url.isEmpty ? nil : url)
             let slow = whileSlow { [weak self] in self?.loading = true }   // the model is loading: say so past a second
             let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10)
             slow.cancel()
@@ -246,6 +250,18 @@ final class Suggestions {
             }
             return answer.text
         }
+    }
+
+    /// The model the editor names for `cloud`: this Mac's, or a server of one's own's; none for a cloud provider, which
+    /// is asked for its own.
+    nonisolated static func model(for cloud: SuggestCloud?, local: String, server: String) -> String? {
+        let named =
+            switch cloud {
+            case nil: local
+            case .openai: server
+            case .mercury, .codestral: ""
+            }
+        return named.isEmpty ? nil : named
     }
 
     private func showCard(from button: NSView, language: String) {

@@ -97,7 +97,7 @@ struct SuggestionsList: View {
         VStack(alignment: .leading, spacing: Metrics.gap) {
             if cloud == .openai {
                 TextField(String(localized: "Server address"), text: setting(SettingKeys.suggestionURL))
-                TextField(String(localized: "Model"), text: setting(SettingKeys.suggestionModel))
+                TextField(String(localized: "Model"), text: setting(SettingKeys.suggestionServerModel))
             }
             if suggestions.keys[cloud] != true {
                 HStack(spacing: Metrics.gap) {

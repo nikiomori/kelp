@@ -30,9 +30,14 @@ extension Builtins {
                 placeholder: "https://api.example.com"),
             s(
                 SettingKeys.suggestionModel, "Model", .string,
-                "Empty: the first code model on this Mac, or the cloud provider's own.",
+                "Empty: the first code model on this Mac.",
                 group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)!=off",
                 placeholder: "qwen2.5-coder:1.5b-base"),
+            s(
+                SettingKeys.suggestionServerModel, "Server model", .string,
+                "The code model a server of your own is asked for.",
+                group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestionCloud.key)=openai",
+                placeholder: "qwen2.5-coder-7b"),
             s(
                 SettingKeys.nextEdit, "Predict the next edit", .boolean,
                 "After an edit, Sweep Next-Edit on this Mac offers the like one nearby; ⇥ goes there, ⇥ takes it.",
@@ -148,6 +153,8 @@ extension SettingKeys {
     static let hover = Setting("editor.hover", true)
     static let suggestions = Setting("editor.suggestions", "off")
     static let suggestionModel = Setting("editor.suggestionModel", "")
+    /// The model a server of one's own (OpenAI-compatible) is asked for: apart from the one on this Mac.
+    static let suggestionServerModel = Setting("editor.suggestionServerModel", "")
     static let suggestionCloud = Setting("editor.suggestionCloud", "mercury")
     static let suggestionURL = Setting("editor.suggestionURL", "")
     static let nextEdit = Setting("editor.nextEdit", false)

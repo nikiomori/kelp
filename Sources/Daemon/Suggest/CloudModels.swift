@@ -7,7 +7,9 @@ enum CloudModels {
     static func account(_ cloud: SuggestCloud) -> String { "suggest.\(cloud.rawValue)" }
 
     /// The request for `cloud`, or nil when it can't be asked: an OpenAI-style server with no address, or a model
-    /// whose markers Kelp doesn't know.
+    /// whose markers Kelp doesn't know. The key goes only to its provider: Mercury always to Inception, Codestral to
+    /// an https address of Mistral's (the free key's codestral.mistral.ai) or else its own; only a server of one's own
+    /// is asked wherever the address says.
     static func request(_ ask: EditorSuggest, cloud: SuggestCloud, key: String) throws -> URLRequest? {
         let (prefix, suffix) = (ask.prefix, ask.suffix)
         let named = ask.model.flatMap { $0.isEmpty ? nil : $0 }
@@ -20,10 +22,10 @@ enum CloudModels {
         let endpoint: String
         switch cloud {
         case .mercury:
-            endpoint = (address ?? "https://api.inceptionlabs.ai") + "/v1/fim/completions"
+            endpoint = "https://api.inceptionlabs.ai/v1/fim/completions"
             body["model"] = named ?? "mercury-edit-2"
         case .codestral:
-            endpoint = (address ?? "https://api.mistral.ai") + "/v1/fim/completions"
+            endpoint = (address.flatMap(mistral) ?? "https://api.mistral.ai") + "/v1/fim/completions"
             body["model"] = named ?? "codestral-latest"
             body["temperature"] = 0
         case .openai:
@@ -46,6 +48,14 @@ enum CloudModels {
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
+    }
+
+    /// `address` when it's one of Mistral's own over https, else nil.
+    static func mistral(_ address: String) -> String? {
+        guard let url = URL(string: address), url.scheme == "https", let host = url.host?.lowercased(),
+            host == "mistral.ai" || host.hasSuffix(".mistral.ai")
+        else { return nil }
+        return address
     }
 
     /// The text of an answer: `choices[0].text` (Inception, OpenAI), or `choices[0].message.content` (Mistral).

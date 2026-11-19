@@ -44,7 +44,7 @@ struct SuggestionsCard: View {
                     suggestions.set(on: true, in: language)
                 }
             } else if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
-                cloudCard(cloud, named: named)
+                cloudCard(cloud, named: app.settings[SettingKeys.suggestionServerModel])
             } else if let model, mode != "off" {
                 title(Suggestions.shortName(model.id))
                 if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
