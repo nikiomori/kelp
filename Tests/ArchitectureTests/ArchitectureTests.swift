@@ -395,6 +395,8 @@ func codeOnly(_ s: String) -> String {
     let says = #/\b(actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp):/#
     // What types text in (a send, raw input) names that session as `typesInto` too: a question there refuses an agent's.
     let types = #/SessionSend\(|\.submit\(|\.userInput\(/#
+    // Ends only what it made itself in the same call, never something the caller names: nothing for a fence to check.
+    let endsOnlyItsOwn = ["TaskFromIssue"]   // the group made for an agent that then didn't start
     var unsaid: [String] = [], untyped: [String] = []
     for f in sources(["Sources/Daemon"]) {
         for piece in f.text.components(separatedBy: "\nextension ").dropFirst() {
@@ -402,7 +404,8 @@ func codeOnly(_ s: String) -> String {
             guard head.contains(#/: [^{]*\b(Handled|AsyncHandled|SessionInput)\b/#) else { continue }
             let oneLine = head.hasSuffix("}") && head.filter { $0 == "{" }.count == head.filter { $0 == "}" }.count
             let body = oneLine ? head : piece.components(separatedBy: "\n}").first ?? piece
-            if body.contains(acts) || body.contains(ends), !body.contains(says) {
+            let name = String(head.prefix { $0 != ":" })
+            if body.contains(acts) || (body.contains(ends) && !endsOnlyItsOwn.contains(name)), !body.contains(says) {
                 unsaid.append("\(f.path): \(head.prefix { $0 != ":" })")
             }
             if body.contains(types), !body.contains(#/\btypesInto:/#) {

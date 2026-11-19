@@ -95,6 +95,22 @@ func trustQuestionStandIn() -> String {
     #expect(try #require(prefixed["worktree"]).decode(Worktree.self).branch.hasPrefix("me/"))
 }
 
+/// An issue's agent that can't start (its program isn't there) leaves no group and no branch behind: both were made
+/// for it a moment ago, and the user would find an empty group for every try.
+@Test func anIssuesAgentThatDoesntStartLeavesNoGroup() async throws {
+    let gone = AgentManifest(id: "gone", name: "Gone", command: "/nope/agent-x", autoAnswers: [], resumeArgs: [])
+    let w = try await world(agents: [gone])
+    defer { w.d.stop() }
+    let before = try await w.c.call(WorktreeList(repoId: w.repo.id)).map(\.id)
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(
+            "task.fromIssue", .obj(["repoId": .string(w.repo.id), "ref": "#13", "title": "Nothing", "agent": "gone"]))
+    }
+    #expect(try await w.c.call(WorktreeList(repoId: w.repo.id)).map(\.id) == before)
+    let branches = try Git.run(["branch", "--list", "*13*"], cwd: w.repo.path, remotes: .none)
+    #expect(branches.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "\(branches)")
+}
+
 @Test func agentVersionsListEachInstalledAgentWithItsVersion() async throws {
     let dir = tmp()
     let tool = dir.appendingPathComponent("demo-agent").path
