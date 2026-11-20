@@ -4936,16 +4936,6 @@
         }
       }
     },
-    "%lld green in a row": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "зелёных подряд: %lld"
-          }
-        }
-      }
-    },
     "%lld more": {
       "localizations": {
         "ru": {
@@ -9876,26 +9866,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Граф"
-          }
-        }
-      }
-    },
-    "green %@ ago": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "зелёный %@ назад"
-          }
-        }
-      }
-    },
-    "green on #%lld": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "зелёный был #%lld"
           }
         }
       }
@@ -36085,6 +36055,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Git: предыдущий комментарий"
+          }
+        }
+      }
+    },
+    "passed on #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прошёл на #%lld"
+          }
+        }
+      }
+    },
+    "%lld passed in a row": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прошли подряд: %lld"
+          }
+        }
+      }
+    },
+    "passed %@ ago": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прошёл %@ назад"
+          }
+        }
+      }
+    },
+    "Finding the definition…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ищу определение…"
           }
         }
       }
