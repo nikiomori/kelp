@@ -196,7 +196,7 @@ public enum ExtensionFiles {
         guard isPlainName(name) else { throw RPCError.invalidParams("“\(name)” can't be an extension's folder name.") }
         let fm = FileManager.default, dest = dir.appendingPathComponent(name)
         try Paths.ensure(dir)
-        if fm.fileExists(atPath: dest.path) { try fm.trashItem(at: dest, resultingItemURL: nil) }
+        if fm.fileExists(atPath: dest.path) { try Trash.move(dest) }
         if move { try fm.moveItem(at: folder, to: dest) } else { try fm.copyItem(at: folder, to: dest) }
         return dest
     }

@@ -14,9 +14,13 @@ final class SettingsStore: Sendable {
     /// Takes the file's reads and writes one at a time (a set's read, merge and write stay together).
     let file = NSLock()
     private var lastGood: URL { url.deletingLastPathComponent().appendingPathComponent("settings.last-good.json") }
+    /// Runs in `set` between the merge and the look that the file didn't change meanwhile: a test saves a hand edit
+    /// there, as an editor might.
+    private let merged: @Sendable () -> Void
 
-    init(root: URL) {
+    init(root: URL, merged: @escaping @Sendable () -> Void = {}) {
         url = root.appendingPathComponent("settings.json")
+        self.merged = merged
         if FileManager.default.fileExists(atPath: url.path) {
             // Upgrade only a file that parsed, because a broken one is the user's and is not to be written over.
             if reloadIfChanged(), let upgraded = Self.upgraded(values) {
@@ -54,6 +58,7 @@ final class SettingsStore: Sendable {
                 // Limit: an editor's save between this look and the write's rename (encoding and writing the file,
                 // well under a millisecond) is written over, and the last good copy then holds Kelp's, not the hand
                 // edit. Editors don't lock the file, so there is nothing to wait on that would close it.
+                merged()
                 guard modified() == seen else { continue }
                 try write(values)
                 return values

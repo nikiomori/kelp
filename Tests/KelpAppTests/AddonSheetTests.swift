@@ -54,14 +54,14 @@ import Testing
         }
         #expect(texts().contains("Found on This Mac") && texts().contains("node_repl"))
         #expect(!texts().contains("MCP Server"))
-        let empty = sheet.window.frame.height
+        let empty = sheet.window.frame.height, width = sheet.window.frame.width
         shot("empty")
 
         sheet.field.stringValue = "CONTEXT7_API_KEY=abc npx -y @upstash/context7-mcp"
         sheet.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: sheet.field))
         #expect(texts().contains("MCP Server") && texts().contains("CONTEXT7_API_KEY") && texts().contains("Gets it"))
         #expect(sheet.name.stringValue == "context7" && sheet.secrets["env:CONTEXT7_API_KEY"]?.stringValue == "abc")
-        #expect(sheet.window.frame.height > empty && sheet.window.frame.width == 480)
+        #expect(sheet.window.frame.height > empty && sheet.window.frame.width == width)   // grows down, not wider
         shot("server")
 
         sheet.field.stringValue = "https://github.com/acme/skills"

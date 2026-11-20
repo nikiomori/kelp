@@ -37,11 +37,11 @@ extension OneAtATime {
         let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id), here = rig.workspace.id
         rig.app.connected = true   // the rig hands the app its daemon without the launch that says so
         area.startAgent(Session.shellAgent, elsewhere: true)
-        #expect(try await waitFor(5) { rig.app.sessions.contains { rig.app.worktree($0.worktreeId) != nil } })
+        #expect(try await waitFor(15) { rig.app.sessions.contains { rig.app.worktree($0.worktreeId) != nil } })   // a worktree
         let made = try #require(rig.app.sessions.first)
         #expect(made.worktreeId != here && rig.app.worktree(made.worktreeId)?.repoId == rig.project.id)
         area.startAgent(Session.shellAgent, elsewhere: false)
-        #expect(try await waitFor(5) { rig.app.sessions.contains { $0.worktreeId == here } })
+        #expect(try await waitFor { rig.app.sessions.contains { $0.worktreeId == here } })
         #expect(rig.app.sessions.count == 2)
     }
 

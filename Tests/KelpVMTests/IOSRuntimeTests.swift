@@ -10,7 +10,7 @@ import Testing
 /// from 8700.
 @MainActor @Suite(.serialized) struct IOSRuntimeOnAStandIn {
     /// A start boots the simulator, starts the runner and waits for its answer; a stop ends both, then kelp-vm.
-    @Test(.timeLimit(.minutes(1))) func aStartBootsTheSimulatorAndItsRunnerAndAStopEndsThem() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStartBootsTheSimulatorAndItsRunnerAndAStopEndsThem() async throws {
         let (vm, folder) = try iOS()
         defer { putAway(folder) }
         #expect(await ask(vm, .start) == nil)
@@ -29,7 +29,7 @@ import Testing
 
     /// A stop (or SIGTERM) while the simulator boots: the start is told, the shutdown comes after the boot's simctl
     /// (shut down before it ends, the simulator would come up after the stop), and no runner starts.
-    @Test(.timeLimit(.minutes(1))) func aStopWhileItBootsShutsDownAfterTheBootAndStartsNoRunner() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStopWhileItBootsShutsDownAfterTheBootAndStartsNoRunner() async throws {
         let (vm, folder) = try iOS(simctl: #"[ "$2" = bootstatus ] && sleep 1"#)
         defer { putAway(folder) }
         let start = Task { await ask(vm, .start) }
@@ -46,7 +46,7 @@ import Testing
     }
 
     /// A runner not built fails the start and says so; once it's there, the next start boots.
-    @Test(.timeLimit(.minutes(1))) func aRunnerNotBuiltFailsTheStartAndTheNextOneRecovers() async throws {
+    @Test(.timeLimit(minutes: 1)) func aRunnerNotBuiltFailsTheStartAndTheNextOneRecovers() async throws {
         let (vm, folder) = try iOS(built: false)
         defer { putAway(folder) }
         #expect(await ask(vm, .start)?.contains("isn't built") == true)
@@ -59,7 +59,7 @@ import Testing
     }
 
     /// A runner that quits as it starts fails the start at once, not after its three minutes.
-    @Test(.timeLimit(.minutes(1))) func aRunnerThatQuitsFailsTheStart() async throws {
+    @Test(.timeLimit(minutes: 1)) func aRunnerThatQuitsFailsTheStart() async throws {
         let (vm, folder) = try iOS(runner: "exit 3")
         defer { putAway(folder) }
         #expect(await ask(vm, .start)?.contains("runner quit") == true)
@@ -67,7 +67,7 @@ import Testing
     }
 
     /// A runner that ends by itself takes its simulator down with it: left booted and off, nothing would count its memory.
-    @Test(.timeLimit(.minutes(1))) func aRunnerThatEndsShutsItsSimulatorDown() async throws {
+    @Test(.timeLimit(minutes: 1)) func aRunnerThatEndsShutsItsSimulatorDown() async throws {
         let (vm, folder) = try iOS()
         defer { putAway(folder) }
         #expect(await ask(vm, .start) == nil)
@@ -78,7 +78,7 @@ import Testing
 
     /// Unused for `sleepAfter` it shuts down (a simulator can't be paused) and kelp-vm stays, for the next start to
     /// boot.
-    @Test(.timeLimit(.minutes(1))) func idleItShutsDownAndTheNextStartBoots() async throws {
+    @Test(.timeLimit(minutes: 1)) func idleItShutsDownAndTheNextStartBoots() async throws {
         let (vm, folder) = try iOS()
         defer { putAway(folder) }
         var ended = false
@@ -99,7 +99,7 @@ import Testing
     /// kelpd's calls to the runner (a tap, a screenshot) go straight to its port, each right after a start: that start
     /// counts as use for `callWindow`, so the memory budget's sleep doesn't stop the simulator under the call. Once
     /// it's past, the machine is idle again (a tick doesn't keep it in use).
-    @Test(.timeLimit(.minutes(1))) func aRunnerCallIsUseAndTheBudgetsSleepWaitsForIt() async throws {
+    @Test(.timeLimit(minutes: 1)) func aRunnerCallIsUseAndTheBudgetsSleepWaitsForIt() async throws {
         let (vm, folder) = try iOS()
         defer { putAway(folder) }
         var later: TimeInterval = 0
@@ -122,7 +122,7 @@ import Testing
 /// and an xcrun of its own whose xcodebuild runs `runner`; `simctl` runs first for each call (`sleep 1` there: a slow
 /// one).
 @MainActor func iOS(built: Bool = true, runner: String? = nil, simctl: String = "") throws -> (IOSRuntime, URL) {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ios-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("ios-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     try "U-\(UUID().uuidString)".write(to: folder.appendingPathComponent("udid"), atomically: true, encoding: .utf8)
     if built { try build(folder) }

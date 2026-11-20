@@ -59,26 +59,29 @@ import Testing
     #expect(filterAt < listAt)
 }
 
-/// A panel whose first answer is slow says it is reading, so its empty list isn't taken for nothing there. The answer
-/// takes the wait away once the wait has had its moment, and the rows show.
-@MainActor @Test func aPanelWaitingForItsFirstAnswerSaysSo() async throws {
-    let app = AppModel(builtins: []), folder = NSTemporaryDirectory()
-    app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
-    app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
-    app.workbench.show(workspace: "own")
-    let panel = ArtifactsPanel(app: app)
-    let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 300, height: 500), styleMask: [.titled], backing: .buffered, defer: true)
-    window.contentView?.addSubview(panel.view)
-    LoadingView.patience = 0.05
-    defer { LoadingView.patience = 1 }
-    panel.viewDidAppear()
-    #expect(!panel.loading.showing)
-    #expect(try await waitFor(10) { panel.loading.showing })
-    let page = ArtifactItem(
-        slug: "p", type: "page", title: "Plan", created: Date().timeIntervalSince1970, target: "/tmp/p.html")
-    app.land(ArtifactsEvent(worktree: "own", items: [page]))
-    #expect(try await waitFor(10) { !panel.loading.showing && panel.rows.count == 2 })
+extension OneAtATime {
+    /// A panel whose first answer is slow says it is reading, so its empty list isn't taken for nothing there. The answer
+    /// takes the wait away once the wait has had its moment, and the rows show.
+    @Test func aPanelWaitingForItsFirstAnswerSaysSo() async throws {
+        let app = AppModel(builtins: []), folder = tmp().path
+        app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
+        app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
+        app.workbench.show(workspace: "own")
+        let panel = ArtifactsPanel(app: app)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 500), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView?.addSubview(panel.view)
+        LoadingView.patience = 0.05
+        defer { LoadingView.patience = 1 }
+        panel.viewDidAppear()
+        #expect(!panel.loading.showing)
+        #expect(try await waitFor(10) { panel.loading.showing })
+        let page = ArtifactItem(
+            slug: "p", type: "page", title: "Plan", created: Date().timeIntervalSince1970, target: "/tmp/p.html")
+        app.land(ArtifactsEvent(worktree: "own", items: [page]))
+        #expect(try await waitFor(10) { !panel.loading.showing && panel.rows.count == 2 })
+    }
 }
 
 /// A read of the pages that fails keeps the pages read before, under a line that says why. With none read before, the
@@ -87,7 +90,7 @@ import Testing
     func texts(_ view: NSView) -> [String] {
         ((view as? NSTextField).map { [$0.stringValue] } ?? []) + view.subviews.filter { !$0.isHidden }.flatMap(texts)
     }
-    let app = AppModel(builtins: []), folder = NSTemporaryDirectory()
+    let app = AppModel(builtins: []), folder = tmp().path
     app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
     app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
     app.workbench.show(workspace: "own")

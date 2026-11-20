@@ -107,11 +107,15 @@ import os
     #expect(try await waitFor(5) { try await screen().components(separatedBy: "1. fix the tests").count == 3 })   // the echo, then cat's
 }
 
-/// A CI read that failed (no network just after a wake) is tried again: it used to end the polling until a push.
+/// A CI read that failed (no network just after a wake) is tried again: it used to end the polling until a push. Till
+/// then, the mark says what went wrong.
 @Test func aFailedCIReadIsTriedAgain() async throws {
     let w = try await world()
     defer { w.d.stop() }
-    #expect(await w.d.topic(.init(topic: .ci, key: "no-such-workspace")).read(false).1 == 120)
+    let (sent, again) = await w.d.topic(.init(topic: .ci, key: "no-such-workspace")).read(false)
+    #expect(again != nil)
+    let event = try JSONDecoder().decode(JSONValue.self, from: try #require(sent))
+    #expect(event["method"]?.string == CIEvent.name && event["params"]?["error"]?.string?.isEmpty == false)
 }
 
 /// A banner answers the question it showed. Its session asks something else by now, or several things (the summary is the

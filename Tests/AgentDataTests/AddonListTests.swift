@@ -204,12 +204,12 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
 /// even when the folder is reached through a linked parent (the test's /tmp is /private/tmp), as from dotfiles.
 @Test func trashingASharedSkillPutsItsFolderInTheTrash() throws {
     let (files, cwd) = try home()
-    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
     let link = files.claude.appendingPathComponent("skills/web-perf")
     let real = try FileManager.default.destinationOfSymbolicLink(atPath: link.path)
+    let mine = "---\nname: web-perf\n---\n\(UUID())\n"   // this test's own, among every test's in the Trash
+    try mine.write(toFile: real + "/SKILL.md", atomically: true, encoding: .utf8)
     try files.trashSkill("web-perf", cwd: cwd)
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) == nil)
     #expect(!FileManager.default.fileExists(atPath: real))
-    let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("web-perf/SKILL.md") }
-    #expect(!kept.isEmpty)
+    #expect(inTheTrash("web-perf/SKILL.md", holding: mine))
 }

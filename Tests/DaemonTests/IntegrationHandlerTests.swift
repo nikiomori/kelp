@@ -15,7 +15,7 @@ private func clearKeys() {
 private let viewer = #"{"data":{"viewer":{"id":"u1","name":"Ada","email":"ada@x.io"}}}"#
 
 // These share one set of keychain accounts (and Linear / Bitbucket have fixed hosts), so they run one after another.
-@Suite(.serialized) struct FixedHostHandlers {
+@Suite(.serialized, .fixedHosts) struct FixedHostHandlers {
     @Test func linearIsValidatedBeforeItsKeyIsKept() async throws {
         let (d, c, _) = try daemon()
         defer {

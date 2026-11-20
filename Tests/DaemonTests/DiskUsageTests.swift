@@ -141,12 +141,12 @@ private func blob(_ path: String, mb: Int = 2) throws {
 
 /// A remote project's file is named on its host by its path as it reads with `..` taken out, and only when it's in
 /// the project's folder: any other path's rest names another file there.
-@Test func aHostsNameIsOnlyForAPathInTheProject() throws {
+@Test func aHostsNameIsOnlyForAPathInTheProject() async throws {
     let files = HostFiles(folder: "/k/remote/box/app-2", remote: RemoteHost(host: "box", path: "/srv/app"))
     #expect(try files.there("/k/remote/box/app-2/src/a.txt") == "/srv/app/src/a.txt")
     #expect(try files.there("/k/remote/box/app-2") == "/srv/app")
     #expect(try files.there("/k/remote/box/app-2/../app-2/x") == "/srv/app/x")   // not app-2 beside it on the host
-    #expect(throws: RPCError.self) { try files.there("/k/remote/box/other/x") }   // as long as the folder
+    await expectRefusal(says: "isn't in the project") { try files.there("/k/remote/box/other/x") }   // as long as the folder
 }
 
 /// A worktree's own folder never goes aside on a host as an ignored folder: in `.claude/` git ignores it and tracks

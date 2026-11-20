@@ -5,6 +5,18 @@ import Testing
 /// that much longer; what's waited for is the same.
 public let testSlowness = ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1
 
+/// A test's time limit, stretched by `testSlowness` as every wait is: a fixed limit beside waits that grow fails a slow
+/// run whose waits all held. Whole minutes, as `TimeLimitTrait` takes them. Every `@Test`'s limit is this one.
+extension Trait where Self == TimeLimitTrait {
+    public static func timeLimit(minutes: Int) -> Self {
+        .timeLimit(.minutes(scaled(Double(minutes))))
+    }
+}
+
+/// `seconds` stretched by `testSlowness`, whole and rounded up: for a time limit inside a test's shell script (`read -t`,
+/// a stand-in's `sleep`), which takes whole seconds.
+public func scaled(_ seconds: Double) -> Int { Int((seconds * testSlowness).rounded(.up)) }
+
 /// Whether `cond` holds within `timeout` seconds, asked every 50 ms: the one way a test waits for something to happen.
 /// A wait that runs out is an issue recorded where it waited (the caller's line), not at a later check that reads like
 /// another bug; it still returns false, so a test can add what it saw (`#expect(arrived, "\(screen)")`). In the

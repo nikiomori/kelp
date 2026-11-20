@@ -27,14 +27,17 @@ import Testing
     try Git.run(["checkout", "-qb", "pr-7"], cwd: repo, remotes: .none)
     try "theirs\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     try Git.run(["commit", "-qam", "pr"], cwd: repo, remotes: .none)
-    let head = try Git.run(["rev-parse", "HEAD"], cwd: repo, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines)
+    let head = try Git.run(["rev-parse", "HEAD"], cwd: repo, remotes: .none).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     try Git.run(["update-ref", "refs/kelp/pr/7", head], cwd: repo, remotes: .none)
     try Git.run(["checkout", "-q", "main"], cwd: repo, remotes: .none)
     #expect(!Git.holdsPullRequest(repo, remotes: .none))
     try Git.run(["checkout", "-qb", "on-top", "pr-7"], cwd: repo, remotes: .none)
     try Git.run(["branch", "-D", "pr-7"], cwd: repo, remotes: .none)
     #expect(Git.holdsPullRequest(repo, remotes: .none))
-    #expect(Git.holdsPullRequest(repo, at: "on-top", remotes: .none) && !Git.holdsPullRequest(repo, at: "main", remotes: .none))
+    #expect(
+        Git.holdsPullRequest(repo, at: "on-top", remotes: .none)
+            && !Git.holdsPullRequest(repo, at: "main", remotes: .none))
     try Git.run(["update-ref", "refs/remotes/origin/main", head], cwd: repo, remotes: .none)
     #expect(!Git.holdsPullRequest(repo, remotes: .none))
     #expect(try Git.run(["for-each-ref", "refs/kelp/pr/"], cwd: repo, remotes: .none).isEmpty)   // merged and pushed: dropped
@@ -52,7 +55,8 @@ import Testing
     #expect(!Git.holdsPullRequest(repo, remotes: .none))
 }
 
-/// An Undo that puts back some files and is refused for others says so, not that nothing was put back.
+/// An Undo that puts back some files and is refused for others says so, not that nothing was put back. Tried again,
+/// with nothing left it can put back, it says git's reason, not that some went back.
 @Test func anUndoPutBackInPartSaysHowMuch() throws {
     let repo = try tempRepo()
     try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
@@ -61,4 +65,5 @@ import Testing
     try "later\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // changed since: refused
     #expect(throws: Git.PartlyPutBack.self) { try Git.putBack(repo, patch: back, hunk: false, remotes: .none) }
     #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "new\n")
+    #expect(throws: GitError.self) { try Git.putBack(repo, patch: back, hunk: false, remotes: .none) }
 }

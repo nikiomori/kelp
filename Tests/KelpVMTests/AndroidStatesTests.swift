@@ -5,12 +5,11 @@ import Testing
 
 @testable import KelpVM
 
-/// The Android runtime's states on the stand-in SDK, its clock moved past the idle limits: in the serialized suite, as
-/// each names its SDK by ANDROID_HOME.
+/// The Android runtime's states on the stand-in SDK, its clock moved past the idle limits: in the serialized suite.
 extension AndroidRuntimeOnAStandIn {
     /// Idle past `pauseAfter`, its CPU stops (`emu avd stop`); a start goes on from there (`emu avd start`), the same
     /// emulator.
-    @Test(.timeLimit(.minutes(1))) func idleItPausesAndAStartGoesOn() async throws {
+    @Test(.timeLimit(minutes: 1)) func idleItPausesAndAStartGoesOn() async throws {
         let (vm, sdk, putAway) = try android()
         defer { putAway() }
         #expect(await ask(vm, .start) == nil)
@@ -26,7 +25,7 @@ extension AndroidRuntimeOnAStandIn {
     }
 
     /// Paused past `sleepAfter`, it saves its snapshot and quits: asleep, no emulator left; the next start boots again.
-    @Test(.timeLimit(.minutes(1))) func pausedLongItSleepsAndTheNextStartBoots() async throws {
+    @Test(.timeLimit(minutes: 1)) func pausedLongItSleepsAndTheNextStartBoots() async throws {
         let (vm, sdk, putAway) = try android()
         defer { putAway() }
         #expect(await ask(vm, .start) == nil)
@@ -45,7 +44,7 @@ extension AndroidRuntimeOnAStandIn {
     }
 
     /// A start that comes while the pause is under way is answered running: it goes on, not paused under that command.
-    @Test(.timeLimit(.minutes(1))) func aStartWhileItPausesKeepsItRunning() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStartWhileItPausesKeepsItRunning() async throws {
         let (vm, sdk, putAway) = try android(adb: #"*"avd stop"*) sleep 0.5 ;;"#)
         defer { putAway() }
         #expect(await ask(vm, .start) == nil)
@@ -58,7 +57,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// An emulator that quits as it boots fails the start that waited, and leaves the machine where the next start
     /// boots it again.
-    @Test(.timeLimit(.minutes(1))) func anEmulatorThatQuitsAsItBootsCanBeStartedAgain() async throws {
+    @Test(.timeLimit(minutes: 1)) func anEmulatorThatQuitsAsItBootsCanBeStartedAgain() async throws {
         let once = #"[ -e "$ANDROID_AVD_HOME.quit" ] || { touch "$ANDROID_AVD_HOME.quit"; exit 1; }"#
         let (vm, sdk, putAway) = try android(booting: once)
         defer { putAway() }
@@ -71,7 +70,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// A boot that never finishes fails once its time is up, and its emulator is ended with it: none left holding the
     /// AVD.
-    @Test(.timeLimit(.minutes(1))) func aBootThatNeverFinishesEndsItsEmulator() async throws {
+    @Test(.timeLimit(minutes: 1)) func aBootThatNeverFinishesEndsItsEmulator() async throws {
         let (vm, sdk, putAway) = try android(adb: "*getprop*) ;;")
         defer { putAway() }
         let answer = Task { await ask(vm, .start) }
@@ -86,7 +85,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// A stop quits the emulator and forgets its snapshot (the next start boots afresh), then kelp-vm ends; a machine
     /// with a snapshot starts out asleep.
-    @Test(.timeLimit(.minutes(1))) func aStopForgetsTheSnapshot() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStopForgetsTheSnapshot() async throws {
         let (vm, sdk, putAway) = try android()
         defer { putAway() }
         let snapshot = vm.folder.appendingPathComponent("avd/phone.avd/snapshots/default_boot")
@@ -104,16 +103,14 @@ extension AndroidRuntimeOnAStandIn {
     }
 }
 
-/// A stand-in machine, and how to put it away: its emulator ended, its SDK removed, ANDROID_HOME as it was.
+/// A stand-in machine, and how to put it away: its emulator ended and its SDK removed.
 @MainActor private func android(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL, () -> Void) {
-    let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
     let (vm, sdk) = try standIn(booting: booting, adb: adb)
     return (
         vm, sdk,
         {
             // still ours: not a number some other process has since
             if let pid = try? emulatorPid(sdk), Subprocess.parent(pid) == getpid() { kill(pid, SIGTERM) }
-            if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") }
             try? FileManager.default.removeItem(at: sdk)
         }
     )

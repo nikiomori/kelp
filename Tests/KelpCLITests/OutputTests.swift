@@ -86,16 +86,47 @@ import Testing
     #expect(jsonOrText("dark") == .string("dark") && jsonOrText("{oops") == .string("{oops"))
 }
 
-/// A flag takes the word after it out of the arguments, so what's left are the command's own; a flag with nothing
-/// after it is no flag.
-@Test func aFlagTakesItsValueOutOfTheArguments() {
-    let was = args
-    defer { args = was }
-    args = ["query", "--db", "shop", "select 1", "--json"]
-    #expect(flag("--db") == "shop" && has("--json") && !has("--json"))
-    #expect(args == ["query", "select 1"])
-    args = ["query", "--db"]
-    #expect(flag("--db") == nil && args == ["query", "--db"])
+/// Tests that set the process's one `args`: one at a time.
+@Suite(.serialized) struct Arguments {
+    /// A flag takes the word after it out of the arguments, so what's left are the command's own; a flag with nothing
+    /// after it is no flag.
+    @Test func aFlagTakesItsValueOutOfTheArguments() {
+        let was = args
+        defer { args = was }
+        args = ["query", "--db", "shop", "select 1", "--json"]
+        #expect(flag("--db") == "shop" && has("--json") && !has("--json"))
+        #expect(args == ["query", "select 1"])
+        args = ["query", "--db"]
+        #expect(flag("--db") == nil && args == ["query", "--db"])
+    }
+
+    /// `kelp browser <action> …`: the words after the action become its parameters, flags wherever they stand.
+    @Test func aBrowserActionsWordsBecomeItsParameters() {
+        let was = args
+        defer { args = was }
+        let rows: [(BrowserAction, [String], [String: JSONValue])] = [
+            (.open, ["localhost:3000", "--shared"], ["url": "http://localhost:3000", "shared": true]),
+            (.open, ["example.com"], ["url": "https://example.com", "shared": false]),
+            (.click, ["e2"], ["ref": "e2"]),
+            (.press, ["Enter", "e3"], ["key": "Enter", "ref": "e3"]),
+            (.drag, ["e1", ".list li"], ["ref": "e1", "onto": ".list li"]),
+            (.scroll, [], ["to": "down"]),
+            (.type, ["e4", "--submit", "hello", "world"], ["ref": "e4", "text": "hello world", "submit": true]),
+            (.eval, ["1", "+", "2"], ["js": "1 + 2"]),
+            (.screenshot, ["/tmp/a/../s.png"], ["path": "/tmp/s.png"]),
+            (.record, ["stop"], ["stop": true]),
+            (.wait, ["--text", "Done", "--timeout", "2.5"], ["text": "Done", "timeout": .double(2.5)]),
+            (.network, ["--clear"], ["clear": true]),
+            (.snapshot, ["--find", "Buy", "e5"], ["find": "Buy", "ref": "e5"]),
+            (.dialog, ["accept", "my", "name"], ["answer": "accept", "text": "my name"]),
+            (.viewport, ["390x844"], ["size": "390x844"]),
+            (.back, [], [:])
+        ]
+        for (action, words, expected) in rows {
+            args = words
+            #expect(Main.browserParams(action) == expected, "\(action) \(words)")
+        }
+    }
 }
 
 /// `kelp commit add`: the files, and each -m a paragraph of the message, as git joins them.

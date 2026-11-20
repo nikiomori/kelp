@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -149,7 +150,7 @@ import WorkbenchKit
         """#
     let specs = try JSONDecoder().decode([LanguageSpec].self, from: Data(json.utf8))
     #expect(
-        specs[0]
+        try #require(specs.first)
             == LanguageSpec(
                 id: "python", extensions: ["py"],
                 server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright")))
@@ -209,12 +210,13 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 /// Wherever a template puts a placeholder (bare, in quotes, in $(…), in a comment, in a here-document), a value with
 /// $(…), backticks, quotes or a newline never runs, in zsh (Shell.run) or sh.
 @Test func aValueInAShellTemplateNeverRuns() throws {
-    let marker = NSTemporaryDirectory() + "kelp-pwned-\(UUID().uuidString.prefix(6))"
+    let marker = tmp().path + "/kelp-pwned-\(UUID().uuidString.prefix(6))"
     let evil = "x\nEOF\ntouch \(marker)\n$(touch \(marker)) `touch \(marker)`; touch \(marker) \" ' \\ end"
     let templates = [
         "printf %s ${v}", "printf %s \"${v}\"", "printf %s '${v}'", "printf %s \"PR: ${v}!\"",
         "printf %s \"$(printf %s ${v})\"", "printf %s ${v}#${v}", "# don't\nprintf %s ${v}", "true # ${v}",
-        "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF"
+        "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF",
+        "printf %s '$(' && (true) && printf %s ${v}"   // a $( in quotes opens nothing, so its ) closes nothing
     ]
     for shell in ["/bin/zsh", "/bin/sh"] {
         for t in templates {
@@ -225,6 +227,36 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
             }
         }
     }
+}
+
+/// A value in a string another shell runs as code (`sh -c '…'`, eval, a here-document fed to sh, ssh's command for the
+/// host, python -c) stays data there too: that shell expands it from the environment, quoted, instead of reading it as
+/// its own code.
+@Test func aValueInANestedShellStaysData() throws {
+    func fill(_ template: String, _ value: String) -> String {
+        ShellTemplate.fill(template, named: ["title": value]) { $0 == "title" ? value : nil }
+    }
+    let shapes = [
+        #"sh -c 'printf %s ${title}'"#, #"bash -lc 'printf %s ${title}'"#, #"eval 'printf %s ${title}'"#,
+        #"/bin/sh -c 'printf %s ${title}'"#, #"env bash -c 'printf %s ${title}'"#, #"sh -c "printf %s ${title}""#,
+        #"/bin/bash -c "printf %s ${title}""#, "sh <<EOF\nprintf %s ${title}\nEOF",
+        "cat <<EOF | sh\nprintf %s ${title}\nEOF",
+        #"ssh -o x=y host 'printf %s ${title}'"#, #"ssh host "printf %s ${title}""#, #"ssh host printf %s ${title}"#,
+        #"ssh -o x=y host 'cd /' \; printf %s ${title}"#,
+        #"printf %s "$KELP_title""#, #"sh -c 'printf %s "$KELP_title"'"#,
+        #"python3 -c 'import os; print(os.environ["KELP_title"], end="")'"#
+    ]
+    // ssh is a stand-in that joins the words after the host into one command line for sh, as ssh does for a host.
+    let shim = "ssh() { [ \"$1\" = -o ] && shift 2; shift; sh -c \"$*\"; }; "
+    for template in shapes {
+        #expect(try sh("/bin/zsh", shim + fill(template, "x$(echo PWNED)")) == "x$(echo PWNED)", "\(template)")
+    }
+    // Bare after `sh -c` or `eval`, the value is the script's one word, not its code.
+    for template in ["sh -c ${title}", "eval ${title}"] {
+        #expect(try !sh("/bin/zsh", fill(template, "echo PWNED")).contains("PWNED"), "\(template)")
+    }
+    // An ordinary single-quoted string still reads the value as text in it.
+    #expect(fill("echo 'Issue: ${title}'", "x").hasSuffix(#"echo 'Issue: '"${KELP_V1}"''"#))
 }
 
 @Test func reorderingInsideAGroupDropsWhereTheBarShows() throws {
@@ -302,6 +334,8 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(newChatScreen(in: a, current: nil, rows: rows) == own)
     let branch = Worktree(repoId: a.id, branch: "feat", path: "/wt", createdAt: t)
     #expect(newChatScreen(in: a, current: nil, rows: [branch]) == branch)   // no workspace: still somewhere
+    let shelved = Worktree(repoId: a.id, branch: "old", path: "/old", archived: true, createdAt: t)
+    #expect(newChatScreen(in: a, current: nil, rows: [shelved, branch]) == branch)   // never an archived one
 }
 
 /// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; workspaces (in the project's

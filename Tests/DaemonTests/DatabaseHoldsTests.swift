@@ -104,7 +104,7 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
         WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 900)
         SELECT printf('%.*c', 40000, 'x') FROM n
         """
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "more than Kelp reads") {
         try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: big))
     }
     var rows = DatabaseRows()
@@ -146,7 +146,7 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
 
 /// The schema's row counts have a time of their own: past it a table shows no count, but its columns all the same.
 @Test func aSQLiteSchemaCountsOnlyWhileItHasTime() async throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    let dir = tmp().appendingPathComponent(UUID().uuidString).path
     defer { try? FileManager.default.removeItem(atPath: dir) }
     let path = try ordersDB(in: dir)
     let c = fileConnection(path, .sqlite)
@@ -192,6 +192,6 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     do {
         _ = try await MySQLWire.open(DatabaseConnection(database: db), handshake: 0.5)
         Issue.record("a server that never greeted was connected")
-    } catch { #expect("\(error)".contains("No answer from silent")) }
+    } catch { #expect((error as? DatabaseFailure)?.message.contains("didn't finish logging in") == true, "\(error)") }
     #expect(Date().timeIntervalSince(started) < 5)
 }

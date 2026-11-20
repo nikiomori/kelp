@@ -275,6 +275,5 @@ import os
         let (d, c, _) = try daemon()
         defer { d.stop() }
         _ = try await c.call(EditorNextEditStop())   // none running: nothing to stop
-        _ = EditorNextEditStart()   // starts the real llama-server: the app's Turn On, not a test's
     }
 }

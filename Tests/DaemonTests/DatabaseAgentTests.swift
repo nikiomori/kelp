@@ -62,7 +62,7 @@ import Testing
     let w = try await world()
     defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
-    let folder = NSTemporaryDirectory() + "kelp-lib-\(UUID().uuidString)"
+    let folder = tmp().path + "/kelp-lib-\(UUID().uuidString)"
     try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
     let path = (folder as NSString).appendingPathComponent("gis.sqlite3")
     let queue = try DatabaseQueue(path: path)

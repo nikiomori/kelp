@@ -29,21 +29,20 @@ extension AppOfItsOwn {
         #expect(await panel.move({ [FileMove(from: a, to: b)] }, undo: "Move").value.count == 1)
         #expect(there(b) && !there(a))
         undo.undo()
-        #expect(try await waitFor(5) { there(a) })
+        #expect(try await waitFor { there(a) })
         #expect(there(a) && !there(b))
         undo.redo()
-        #expect(try await waitFor(5) { there(b) })
+        #expect(try await waitFor { there(b) })
         #expect(there(b) && !there(a))
 
         #expect(await panel.trash({ [b] }, undo: "Move to Trash").value.count == 1)
         #expect(!there(b))
         undo.undo()
-        #expect(try await waitFor(5) { there(b) })
-        #expect(there(b))
+        #expect(try await waitFor { there(b) })
 
         _ = await panel.move({ [FileMove(from: rig.repo + "/none.txt", to: rig.repo + "/other.txt")] }, undo: "Nothing")
             .value
-        #expect(try await waitFor(5) { undo.undoActionName != "Nothing" })
+        #expect(try await waitFor { undo.undoActionName != "Nothing" })
         #expect(undo.undoActionName == "Move")   // it failed: ⌘Z undoes the step before it
     }
 
@@ -66,10 +65,10 @@ extension AppOfItsOwn {
         undo.undo()
         // The rename's step is still there to undo: one ⌘Z took it too if it isn't, whenever its file comes back.
         #expect(undo.undoActionName == "Rename")
-        #expect(try await waitFor(4) { there("c.txt") })
+        #expect(try await waitFor { there("c.txt") })
         #expect(there("b.txt") && !there("a.txt"))
         undo.undo()
-        #expect(try await waitFor(4) { there("a.txt") && !there("b.txt") })   // and it is the rename's
+        #expect(try await waitFor { there("a.txt") && !there("b.txt") })   // and it is the rename's
     }
 
     /// A file dropped from Finder is copied in under Finder's "name copy" when the name is taken, and ⌘Z puts the copy in
@@ -84,10 +83,10 @@ extension AppOfItsOwn {
         try "from Finder\n".write(toFile: outside, atomically: true, encoding: .utf8)
         panel.copy([outside], into: rig.repo, undo: "Copy")
         let copy = rig.repo + "/f copy.txt"
-        #expect(try await waitFor(4) { FileManager.default.fileExists(atPath: copy) })
+        #expect(try await waitFor { FileManager.default.fileExists(atPath: copy) })
         #expect(try String(contentsOfFile: copy, encoding: .utf8) == "from Finder\n")
         undo.undo()
-        #expect(try await waitFor(4) { !(FileManager.default.fileExists(atPath: copy)) })
+        #expect(try await waitFor { !FileManager.default.fileExists(atPath: copy) })
         #expect(
             !FileManager.default.fileExists(atPath: copy) && FileManager.default.fileExists(atPath: rig.repo + "/f.txt")
         )
@@ -105,10 +104,10 @@ extension AppOfItsOwn {
         @MainActor func names() -> [String] {
             (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name }
         }
-        #expect(try await waitFor(4) { !(names() != ["f.txt"]) })
+        #expect(try await waitFor { names() == ["f.txt"] })
         #expect(names() == ["f.txt"])
         try rig.write("g.txt", "new\n")
-        #expect(try await waitFor(5) { !(names() != ["f.txt", "g.txt"]) })
+        #expect(try await waitFor { names() == ["f.txt", "g.txt"] })
         #expect(names() == ["f.txt", "g.txt"])
         panel.viewDidDisappear()
     }
@@ -127,15 +126,15 @@ extension AppOfItsOwn {
         @MainActor func names() -> [String] {
             (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name }
         }
-        #expect(try await waitFor(5) { names() == ["build", ".gitignore", "f.txt"] })
+        #expect(try await waitFor { names() == ["build", ".gitignore", "f.txt"] })
         let build = try #require(panel.outline.item(atRow: 0) as? FileNode)
         #expect(build.ignored && build.children?.isEmpty == true)
         panel.outline.expandItem(build)
-        #expect(try await waitFor(5) { names().contains("a.o") })
+        #expect(try await waitFor { names().contains("a.o") })
         #expect(names() == ["build", "a.o", ".gitignore", "f.txt"])
         #expect(await panel.create(in: rig.repo + "/build", undo: "New File").value == rig.repo + "/build/untitled")
         panel.reloadTree()
-        #expect(try await waitFor(5) { names().contains("untitled") })
+        #expect(try await waitFor { names().contains("untitled") })
         #expect(names() == ["build", "a.o", "untitled", ".gitignore", "f.txt"])
         panel.viewDidDisappear()
     }
@@ -153,7 +152,7 @@ extension AppOfItsOwn {
         rig.show(panel, 300, 500)
         panel.worktree = rig.workspace
         panel.reloadTree()
-        #expect(try await waitFor(4) { !(panel.outline.numberOfRows == 0) })
+        #expect(try await waitFor { panel.outline.numberOfRows != 0 })
         panel.outline.expandItem(nil, expandChildren: true)
         let file = (0..<panel.outline.numberOfRows).first {
             (panel.outline.item(atRow: $0) as? FileNode)?.path == "sub/a.txt"
@@ -178,8 +177,7 @@ extension AppOfItsOwn {
 
         let new = try #require(onNothing.items.first { $0.title == "New File" })
         onNothing.performActionForItem(at: onNothing.index(of: new))
-        #expect(try await waitFor(4) { FileManager.default.fileExists(atPath: rig.repo + "/untitled") })
-        #expect(FileManager.default.fileExists(atPath: rig.repo + "/untitled"))
+        #expect(try await waitFor { FileManager.default.fileExists(atPath: rig.repo + "/untitled") })
         #expect(!FileManager.default.fileExists(atPath: rig.repo + "/sub/untitled"))
     }
 }
@@ -199,7 +197,7 @@ extension AppOfItsOwn {
         @MainActor func row(_ path: String) -> Int? {
             (0..<panel.outline.numberOfRows).first { (panel.outline.item(atRow: $0) as? FileNode)?.path == path }
         }
-        #expect(try await waitFor(4) { !(row("sub") == nil) })
+        #expect(try await waitFor { row("sub") != nil })
         let subRow = try #require(row("sub"))
         let sub = try #require(panel.outline.item(atRow: subRow) as? FileNode)
         panel.outline.expandItem(sub)
@@ -208,7 +206,7 @@ extension AppOfItsOwn {
         panel.view.window?.layoutIfNeeded()   // the rows on show have their cells
         let cell = panel.outline.view(atColumn: 0, row: top, makeIfNecessary: true)
         try rig.write("sub/b.txt", "b\n")
-        #expect(try await waitFor(5) { !(row("sub/b.txt") == nil) })
+        #expect(try await waitFor { row("sub/b.txt") != nil })
         #expect(row("sub").map { panel.outline.item(atRow: $0) as? FileNode } == sub)
         #expect(panel.outline.isItemExpanded(sub) && row("sub/b.txt") == (row("sub/a.txt") ?? 0) + 1)
         #expect(panel.outline.selectedRow == row("top.txt"))

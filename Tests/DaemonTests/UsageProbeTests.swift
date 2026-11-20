@@ -71,7 +71,7 @@ import Testing
     let probe = AgentUsage.PlanProbe(
         agent: "grok", command: "grok", every: 1800, ready: { $0.contains("never") }, parse: { _ in [] })
     let argv = ["/bin/bash", "-c", "trap '' HUP TERM; echo $$ > \(pidFile); while :; do sleep 0.1; done"]
-    Thread.detachNewThread { _ = AgentUsage.probe(probe, argv: argv, cwd: NSTemporaryDirectory(), open: open) }
+    Thread.detachNewThread { _ = AgentUsage.probe(probe, argv: argv, cwd: tmp().path, open: open) }
     let readPid = {
         (try? String(contentsOfFile: pidFile, encoding: .utf8)).flatMap {
             Int32($0.trimmingCharacters(in: .whitespacesAndNewlines))

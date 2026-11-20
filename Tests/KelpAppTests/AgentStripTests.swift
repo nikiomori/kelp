@@ -100,38 +100,38 @@ private func session(
     #expect(shows(done, "all"))
 }
 
-@MainActor @Test func theStripSitsAtTheFootOfTheScreenAndGoesWithTheQuestion() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
-    _ = NSApplication.shared
-    let strip = AgentStrip(app: rig.app)
-    strip.front = { false }   // behind another app, whatever another test brings forward
-    strip.animates = false
-    strip.start()
-    #expect(!strip.isShowing)
-    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    #expect(try await waitFor(5) { strip.isShowing })
-    #expect(strip.isShowing)
-    let f = try #require(strip.frame), area = try #require(NSScreen.main?.visibleFrame)
-    #expect(f.height == StripButton.stripHeight)
-    #expect(f.width > 100)   // the pill's words are in it
-    #expect(abs(f.midX - area.midX) < 1)
-    let asked = try #require(rig.app.sessions.first)
-    strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
-    #expect(strip.hiddenUntil != nil)
-    strip.hide(until: nil)
-    #expect(try await waitFor(5) { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
-    strip.later(asked.id)   // put off: it stops calling
-    #expect(try await waitFor(5) { !(strip.isShowing) })
-    #expect(!strip.isShowing)
-    var again = asked
-    again.statusAt = Date()   // the agent asks something else
-    rig.app.sessions = [again]
-    #expect(try await waitFor(5) { strip.isShowing })
-    #expect(strip.isShowing)
-    rig.app.sessions = []
-    #expect(try await waitFor(5) { !(strip.isShowing) })
-    #expect(!strip.isShowing)
+extension StripPlaceTests {
+    @Test func theStripSitsAtTheFootOfTheScreenAndGoesWithTheQuestion() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        _ = NSApplication.shared
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
+        strip.start()
+        #expect(!strip.isShowing)
+        rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
+        #expect(try await waitFor { strip.isShowing })
+        let f = try #require(strip.frame), area = try #require(NSScreen.main?.visibleFrame)
+        #expect(f.height == StripButton.stripHeight)
+        #expect(f.width > 100)   // the pill's words are in it
+        #expect(abs(f.midX - area.midX) < 1)
+        let asked = try #require(rig.app.sessions.first)
+        strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
+        #expect(strip.hiddenUntil != nil)
+        strip.hide(until: nil)
+        #expect(try await waitFor { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
+        strip.later(asked.id)   // put off: it stops calling
+        #expect(try await waitFor { !strip.isShowing })
+        #expect(!strip.isShowing)
+        var again = asked
+        again.statusAt = Date()   // the agent asks something else
+        rig.app.sessions = [again]
+        #expect(try await waitFor { strip.isShowing })
+        rig.app.sessions = []
+        #expect(try await waitFor { !strip.isShowing })
+        #expect(!strip.isShowing)
+    }
 }
 
 @MainActor @Test func thePillSaysWhatACommandIsAndTheCardKeepsItWhole() {
@@ -220,28 +220,30 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(card.question == "Allow npm test?")
 }
 
-/// News under the pointer doesn't move the tiles: the pill stays where it was until the pointer leaves.
-@MainActor @Test func theStripStandsStillUnderThePointer() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
-    _ = NSApplication.shared
-    let strip = AgentStrip(app: rig.app)
-    strip.front = { false }   // behind another app, whatever another test brings forward
-    strip.animates = false
-    var other = rig.workspace
-    other.id = "other-workspace"
-    rig.app.worktrees.append(other)
-    strip.start()
-    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?", at: 5)]
-    #expect(try await waitFor(5) { strip.isShowing })
-    let before = try #require(strip.frame)
-    strip.hoverStrip(true)
-    // An older question elsewhere: it would open into the pill.
-    rig.app.sessions.append(session(other.id, .waiting, summary: "Which port, 3000 or 8080?", at: 1))
-    #expect(try await waitFor(5) { strip.deferred })   // the news came, and was put off
-    #expect(strip.frame == before)
-    strip.hoverStrip(false)
-    #expect(try await waitFor(5) { strip.frame != before })
+extension StripPlaceTests {
+    /// News under the pointer doesn't move the tiles: the pill stays where it was until the pointer leaves.
+    @Test func theStripStandsStillUnderThePointer() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        _ = NSApplication.shared
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
+        var other = rig.workspace
+        other.id = "other-workspace"
+        rig.app.worktrees.append(other)
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?", at: 5)]
+        #expect(try await waitFor { strip.isShowing })
+        let before = try #require(strip.frame)
+        strip.hoverStrip(true)
+        // An older question elsewhere: it would open into the pill.
+        rig.app.sessions.append(session(other.id, .waiting, summary: "Which port, 3000 or 8080?", at: 1))
+        #expect(try await waitFor { strip.deferred })   // the news came, and was put off
+        #expect(strip.frame == before)
+        strip.hoverStrip(false)
+        #expect(try await waitFor { strip.frame != before })
+    }
 }
 
 /// The card answers what the agent waits on: a permission, one of its question's answers, or a line at its prompt.
@@ -267,16 +269,18 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.permission("Allow a routine, \(routine)?") == ("Allow this routine?", routine))
 }
 
-/// A tile's menu starts with its own agent: what it says, then what can be done to it from here; the strip's own below.
-@MainActor @Test func aTilesMenuIsAboutItsAgentFirst() throws {
-    _ = testHome
-    let app = AppModel(builtins: Builtins.all)
-    app.sessions = [session("w", .error, summary: "Build failed")]
-    let strip = AgentStrip(app: app)
-    let item = try #require(StripModel.items(app.sessions, workspaces: [("w", "kelp", nil)]).first)
-    let titles = strip.menu(for: item).items.map(\.title)
-    #expect(titles.prefix(5) == ["kelp — Build failed", "Open in Kelp", "Continue", "Later", "Mute Notifications"])
-    #expect(titles.contains("Hide Strip") && titles.contains("Strip Settings…"))
+extension StripPlaceTests {
+    /// A tile's menu starts with its own agent: what it says, then what can be done to it from here; the strip's own below.
+    @Test func aTilesMenuIsAboutItsAgentFirst() throws {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all)
+        app.sessions = [session("w", .error, summary: "Build failed")]
+        let strip = AgentStrip(app: app)
+        let item = try #require(StripModel.items(app.sessions, workspaces: [("w", "kelp", nil)]).first)
+        let titles = strip.menu(for: item).items.map(\.title)
+        #expect(titles.prefix(5) == ["kelp — Build failed", "Open in Kelp", "Continue", "Later", "Mute Notifications"])
+        #expect(titles.contains("Hide Strip") && titles.contains("Strip Settings…"))
+    }
 }
 
 /// A throw has a way only when fast, and a slant counts as one; a swipe's way is the fingers', whichever way scrolling goes.
@@ -354,22 +358,24 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(light != nil && light != fill(.darkAqua))
 }
 
-/// A refresh for nothing it shows (Kelp coming to the front with the strip set to stay, a screen's other change) lays
-/// nothing out, and a move to another place doesn't measure the same tiles again.
-@MainActor @Test func theStripIsMeasuredOnlyWhenItsTilesChange() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
-    _ = NSApplication.shared
-    let strip = AgentStrip(app: rig.app)
-    strip.front = { false }   // behind another app, whatever another test brings forward
-    strip.animates = false
-    strip.start()
-    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    #expect(try await waitFor(5) { strip.isShowing })
-    let measured = strip.measures
-    for _ in 0..<3 { strip.refresh() }
-    strip.put(appearing: false)
-    #expect(strip.measures == measured)
-    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow rm -rf build?")]
-    #expect(try await waitFor(5) { strip.measures == measured + 1 })
+extension StripPlaceTests {
+    /// A refresh for nothing it shows (Kelp coming to the front with the strip set to stay, a screen's other change) lays
+    /// nothing out, and a move to another place doesn't measure the same tiles again.
+    @Test func theStripIsMeasuredOnlyWhenItsTilesChange() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        _ = NSApplication.shared
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
+        #expect(try await waitFor { strip.isShowing })
+        let measured = strip.measures
+        for _ in 0..<3 { strip.refresh() }
+        strip.put(appearing: false)
+        #expect(strip.measures == measured)
+        rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow rm -rf build?")]
+        #expect(try await waitFor { strip.measures == measured + 1 })
+    }
 }

@@ -35,12 +35,11 @@ func tempRepo() throws -> String {
         try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: false, remotes: .none)
     }
     try ".env.local\n".write(toFile: repo + "/.git/info/exclude", atomically: true, encoding: .utf8)
-    try "local\n".write(toFile: p + "/.env.local", atomically: true, encoding: .utf8)   // ignored: no check sees it
+    let local = "local \(UUID())\n"   // this test's own, among every test's in the Trash
+    try local.write(toFile: p + "/.env.local", atomically: true, encoding: .utf8)   // ignored: no check sees it
     try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: true, remotes: .none)
     // What git didn't see went to the Trash with the folder, not away for good.
-    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-    let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("feat-x/.env.local") }
-    #expect(!kept.isEmpty)
+    #expect(inTheTrash("feat-x/.env.local", holding: local))
     #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none)).contains("feat-x"))
     #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]")))
     #expect(try Git.linkedWorktrees(repo, remotes: .none).isEmpty)
@@ -348,16 +347,16 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     try Git.run(["config", "diff.upper.textconv", "tr a-z A-Z <"], cwd: repo, remotes: .none)
     let before = try String(contentsOfFile: repo + "/f.txt", encoding: .utf8)
     try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try "new\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
+    let new = "new \(UUID())\n"   // this test's own, among every test's in the Trash
+    try new.write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
     let back = try Git.discard(repo, files: ["f.txt", "n.txt"], remotes: .none)
     #expect(
         try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == before
             && !FileManager.default.fileExists(atPath: repo + "/n.txt"))
-    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-    #expect(try FileManager.default.subpathsOfDirectory(atPath: trash).contains { $0.hasSuffix("/n.txt") })
+    #expect(inTheTrash("/n.txt", holding: new))
     try Git.putBack(repo, patch: back, hunk: false, remotes: .none)
     #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == "mine\n")
-    #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "new\n")
+    #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == new)
 }
 
 @Test func commitAllTakesNewFilesButNotConflicts() throws {
@@ -410,11 +409,15 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(new.filter { $0.tooLarge == true }.count == 4 && new.filter { !$0.hunks.isEmpty }.count == 8)
 }
 
+/// A big new file isn't read, here or in a remote project on its host.
 @Test func untrackedBigFilesArentRead() throws {
-    let repo = try tempRepo()
+    let repo = try Paths.real(tempRepo()) ?? ""
     try Data(repeating: 0x61, count: 1_200_000).write(to: URL(fileURLWithPath: repo + "/big.log"))
-    let d = try Git.diff(repo, source: .unstaged, file: "big.log", remotes: .none)
-    #expect(d.count == 1 && d[0].binary && d[0].hunks.isEmpty)
+    let there = try standIn(for: repo)
+    for (path, remotes) in [(repo, Remotes.none), (there.folder, there.remotes)] {
+        let d = try Git.diff(path, source: .unstaged, file: "big.log", remotes: remotes)
+        #expect(d.count == 1 && d[0].binary && d[0].hunks.isEmpty, "\(path)")
+    }
 }
 
 @Test func onlyEventsThatMoveGitStatusCount() {
@@ -477,9 +480,10 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(r.command([]) == r.command(nil))
 }
 
+/// A host is a plain name: not an ssh option, no spaces, nor a folder ("..", "a/b") a remote's path could be read from.
 @Test func onlyPlainHostNamesFollowSsh() {
     for ok in ["box", "me@box", "10.0.0.2", "box.example.com"] { #expect(RemoteHost.isHost(ok), "\(ok)") }
-    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb"] {
+    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb", ".", "..", "a/b", "../x"] {
         #expect(!RemoteHost.isHost(bad), "\(bad.debugDescription)")
     }
 }
@@ -515,15 +519,14 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 
 @Test func sharedFoldersNeverLinkOutsideTheProject() throws {
     let repo = try tempRepo(), wt = try tempRepo()
-    try FileManager.default.createDirectory(atPath: repo + "/node_modules", withIntermediateDirectories: true)
+    // The project holds an etc and a ~ folder too: "/etc" and "~/x" are still refused, by their names.
+    for dir in ["node_modules", "etc", "~/x"] {
+        try FileManager.default.createDirectory(atPath: repo + "/" + dir, withIntermediateDirectories: true)
+    }
     Git.linkShared(["node_modules", "../outside", "/etc", "a/../../b", "~/x"], repo: repo, worktree: wt)
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/node_modules")) != nil)
     #expect(!FileManager.default.fileExists(atPath: (wt as NSString).deletingLastPathComponent + "/outside"))
-    #expect(!FileManager.default.fileExists(atPath: wt + "/etc"))
-}
-
-@Test func aHostCantNameAFolderOutsideRemote() {
-    for bad in [".", "..", "a/b", "../x"] { #expect(!RemoteHost.isHost(bad), "\(bad)") }
+    #expect(!FileManager.default.fileExists(atPath: wt + "/etc") && !FileManager.default.fileExists(atPath: wt + "/~"))
 }
 
 @Test func anUntrackedSymlinkIsShownNotFollowed() throws {
@@ -570,7 +573,7 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 /// name came from: none reaches git (a file named by --output= stays as it was).
 @Test func revisionsThatReadAsOptionsAreRefusedEverywhere() throws {
     let repo = try tempRepo()
-    let victim = NSTemporaryDirectory() + "victim-\(UUID().uuidString).txt"
+    let victim = tmp().path + "/victim-\(UUID().uuidString).txt"
     try "keep\n".write(toFile: victim, atomically: true, encoding: .utf8)
     let evil = "--output=" + victim
     #expect(throws: GitError.self) { _ = try Git.log(repo, base: evil, remotes: .none) }
@@ -578,7 +581,7 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(throws: GitError.self) { _ = try Git.diff(repo, source: .commit(evil), remotes: .none) }
     #expect(throws: GitError.self) { _ = try Git.commitFiles(repo, commit: evil, remotes: .none) }
     #expect(throws: GitError.self) { try Git.renameBranch(repo, from: "main", to: evil, remotes: .none) }
-    let into = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wt-\(UUID().uuidString)")
+    let into = tmp().appendingPathComponent("wt-\(UUID().uuidString)")
     #expect(throws: GitError.self) {
         _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: [], remotes: .none)
     }

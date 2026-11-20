@@ -57,7 +57,8 @@ jobs:
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
       # SwiftPM keys its manifest cache by the whole environment, and a runner's differs in every step (GITHUB_SHA, the
       # step's own files): every `swift` compiled each package's manifest again, 12 s on three cores. This one is the same,
-      # so a variable a build or a test run needs is named here: nothing else of the workflow's reaches them.
+      # so a variable a build or a test run needs is named here: nothing else of the workflow's reaches them. KELP_TEST_SLOW:
+      # the tests' waits and limits twice as long on a 3-core runner (the Thread Sanitizer job's run says 4 itself).
       - name: swift with the same environment every time
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
@@ -65,7 +66,8 @@ jobs:
           #!/bin/sh
           exec env -i HOME="$HOME" USER="$USER" SHELL="$SHELL" TMPDIR="$TMPDIR" PATH="$PATH" CI=true \\
             IgnoreFileSystemDeviceInodeChanges=$IgnoreFileSystemDeviceInodeChanges \\
-            SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH=$SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH /usr/bin/swift "\$@"
+            SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH=$SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH KELP_TEST_SLOW=2 \\
+            /usr/bin/swift "\$@"
           EOF
           chmod +x "$RUNNER_TEMP/bin/swift"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

@@ -159,40 +159,44 @@ private func assistant(
     #expect(UsageIndex.block(hours, now: date("2026-10-18T22:30:00Z"))?.end == date("2026-10-19T03:00:00Z"))
 }
 
-@Test func pricingMath() {
+/// A model id finds its price by family, the specific ids before their fallback (Fable 5.1's cheaper cache reads, Opus
+/// 5.5's own rates, "[1m]" the same model); a model with none (a router path, an open model) costs nothing.
+@Test func aModelIdFindsItsPrice() {
+    func row(_ match: String) -> Pricing? { Pricing.table.first { $0.match == match }?.price }
+    let rows: [(String, String?)] = [
+        ("claude-opus-5-5", "opus-5-5"), ("claude-opus-5-5[1m]", "opus-5-5"), ("claude-opus-4-8", "opus"),
+        ("claude-sonnet-5-5", "sonnet-5-5"), ("claude-sonnet-5", "sonnet"), ("claude-sonnet-4-6", "sonnet-4"),
+        ("claude-fable-5-1", "fable-5-1"), ("claude-fable-5", "fable"), ("claude-haiku-5-5", "haiku-5"),
+        ("claude-haiku-4-5", "haiku"), ("gpt-5.1-codex-mini", "-mini"), ("gpt-5.2-codex", "gpt-5.2"),
+        ("gpt-5.5", "gpt-5"), ("gpt-5.6-terra", "gpt-5.6-terra"), ("gpt-6-luna", "gpt-6-luna"),
+        ("openrouter/free", nil), ("llama-3", nil)
+    ]
+    for (model, match) in rows { #expect(Pricing.of(model) == match.flatMap(row), "\(model)") }
     let m = TokenCounts(input: 1_000_000, output: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000)
-    #expect(abs(Pricing.cost(model: "claude-opus-5-5", tokens: m) - 29.2) < 1e-9)
-    #expect(
-        abs(Pricing.cost(model: "claude-opus-5-5[1m]", tokens: TokenCounts(input: 500, output: 100)) - 0.004) < 1e-12)
-    #expect(Pricing.cost(model: "claude-opus-4-8", tokens: TokenCounts(input: 1_000_000)) == 5)
-    #expect(Pricing.of("claude-opus-5-5")?.cacheRead == 0.2 && Pricing.of("openrouter/free") == nil)
-    #expect(Pricing.cost(model: "claude-sonnet-4-6", tokens: TokenCounts(input: 1_000_000)) == 3)
-    #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(input: 1_000_000)) == 2)
-    #expect(Pricing.cost(model: "claude-fable-5-1", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.25)
-    #expect(Pricing.cost(model: "claude-fable-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 1)
-    #expect(Pricing.cost(model: "claude-haiku-4-5", tokens: TokenCounts(input: 1_000_000)) == 1)
-    #expect(Pricing.cost(model: "gpt-5.1-codex-mini", tokens: TokenCounts(input: 1_000_000)) == 0.25)
-    #expect(Pricing.cost(model: "gpt-5.2-codex", tokens: TokenCounts(output: 1_000_000)) == 14)
-    #expect(Pricing.cost(model: "gpt-5.5", tokens: TokenCounts(input: 1_000_000)) == 1.25)
     #expect(Pricing.cost(model: "llama-3", tokens: m) == 0)
-    #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.1)
-    #expect(Pricing.cost(model: "claude-sonnet-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.2)
-    #expect(Pricing.cost(model: "gpt-5.6-terra", tokens: TokenCounts(input: 1_000_000)) == 2)
-    #expect(Pricing.cost(model: "gpt-6-luna", tokens: TokenCounts(output: 1_000_000)) == 0.5)
-    // An hour's write is twice the input rate, 8 on Opus 5.5 where five minutes' is 5.
-    let write = TokenCounts(cacheWrite: 1_000_000)
-    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write) == 5)
-    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write, hourWrites: 1_000_000) == 8)
-    // Haiku 5.5 past 100K of prompt pays five times every rate, the cache counted in the prompt.
-    let long = TokenCounts(output: 1000, cacheRead: 100_001)
-    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * (0.0005 + 0.00100001)) < 1e-12)
+}
+
+/// A call costs its tokens at its model's rates, per million. A cache write kept for an hour costs twice the input
+/// rate, not the five-minute rate; past Haiku 5.5's long prompt (the cache counted in it) every rate is five times.
+@Test func pricingMath() throws {
+    let opus = try #require(Pricing.of("claude-opus-5-5"))
+    let m = TokenCounts(input: 1_000_000, output: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000)
     #expect(
-        abs(Pricing.cost(model: "claude-haiku-5-5", tokens: TokenCounts(output: 1000, cacheRead: 100_000)) - 0.0015)
-            < 1e-12)
+        abs(
+            Pricing.cost(model: "claude-opus-5-5", tokens: m)
+                - (opus.input + opus.output + opus.cacheWrite + opus.cacheRead)) < 1e-9)
+    let write = TokenCounts(cacheWrite: 1_000_000)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write) == opus.cacheWrite)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write, hourWrites: 1_000_000) == 2 * opus.input)
+    let haiku = try #require(Pricing.of("claude-haiku-5-5"))
+    let long = TokenCounts(output: 1000, cacheRead: haiku.longPrompt + 1)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * haiku.cost(long)) < 1e-12)
+    let atLimit = TokenCounts(output: 1000, cacheRead: haiku.longPrompt)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: atLimit) - haiku.cost(atLimit)) < 1e-12)
 }
 
 @Test func aCodexChatsLastReplyIsItsFolders() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let root = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
     let start = Date(), f = DateFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
@@ -352,7 +356,7 @@ private func assistant(
 }
 
 @Test func claudeSessionsForOneFolder() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let root = tmp().appendingPathComponent(UUID().uuidString)
     let dir = root.appendingPathComponent("-work-my-app")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let line =
@@ -375,7 +379,7 @@ private func assistant(
 }
 
 @Test func usageIndexReadsOnlyWhatsNew() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ui-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("ui-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let f = dir.appendingPathComponent("s.jsonl")
     func line(_ id: String, _ ts: String, _ out: Int) -> String {
@@ -411,6 +415,21 @@ private func assistant(
         UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) {
             $0 + $1.tally.tokens.output
         } == 42)
+    // A line still being written waits, after the lines before it are read; once it ends, it counts once.
+    func total() -> Int {
+        UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) {
+            $0 + $1.tally.tokens.output
+        }
+    }
+    let e = Data(line("e", now, 100).utf8), half = e.count / 2
+    let k = try FileHandle(forWritingTo: f)
+    try k.seekToEnd()
+    try k.write(contentsOf: Data((line("f", now, 1) + "\n").utf8) + e[..<half])
+    #expect(total() == 43)
+    try k.write(contentsOf: e[half...] + Data("\n".utf8))
+    try k.close()
+    #expect(total() == 143)
+    #expect(total() == 143)
 }
 
 @Test func timesAndDaysReadTheWayTranscriptsWriteThem() throws {
@@ -570,7 +589,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 }
 
 @Test func aSubagentsJournalHasItsStepsAndReport() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let url = try write(
         dir, "agent-a.jsonl",
@@ -591,7 +610,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 }
 
 @Test func aSubagentWithoutAHandbackReportsItsLastWords() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let url = try write(
         dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
@@ -600,7 +619,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 
 /// The index is megabytes and some log always grew: it reaches the disk once, then every few minutes.
 @Test func theUsageIndexIsNotRewrittenOnEveryRead() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let f = dir.appendingPathComponent("s.jsonl"), cache = dir.appendingPathComponent("cache.json")
@@ -618,15 +637,16 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 
 /// What a chat spent on a page: its calls in the page's time, each once, priced.
 @Test func aChatsSpendingBetweenTwoTimesCountsEachCallOnce() throws {
-    let f = FileManager.default.temporaryDirectory.appendingPathComponent("spent-\(UUID().uuidString).jsonl")
+    let f = tmp().appendingPathComponent("spent-\(UUID().uuidString).jsonl")
     defer { try? FileManager.default.removeItem(at: f) }
     func line(_ id: String, _ ts: String, _ out: Int) -> String {
         #"{"cwd":"/p","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"input_tokens":100,"#
             + #""output_tokens":\#(out),"cache_read_input_tokens":1000}},"type":"assistant","timestamp":"\#(ts)"}"#
     }
     try [
-        line("a", "2026-11-10T10:00:00.000Z", 50), line("a", "2026-11-10T10:00:00.000Z", 50),
-        line("b", "2026-11-10T10:05:00.000Z", 70), line("c", "2026-11-10T12:00:00.000Z", 900)
+        line("z", "2026-11-10T09:00:00.000Z", 900), line("a", "2026-11-10T10:00:00.000Z", 50),
+        line("a", "2026-11-10T10:00:00.000Z", 50), line("b", "2026-11-10T10:05:00.000Z", 70),
+        line("c", "2026-11-10T12:00:00.000Z", 900)
     ].joined(separator: "\n").write(to: f, atomically: true, encoding: .utf8)
     let from = try #require(ISO8601DateFormatter().date(from: "2026-11-10T09:59:00Z")).timeIntervalSince1970
     let spent = ClaudeUsage.spent(transcript: f, from: from, to: from + 3600)

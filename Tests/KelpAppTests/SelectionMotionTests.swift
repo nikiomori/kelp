@@ -8,7 +8,7 @@ import Testing
 @MainActor @Test func theChosenPanelsPillMovesToTheNextIcon() {
     let capsule = CapsuleStack(), first = NSButton(), second = NSButton()
     let window = onScreen(capsule)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     capsule.frame = NSRect(x: 0, y: 0, width: 100, height: 26)
     for button in [first, second] {
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -28,7 +28,7 @@ import Testing
 @MainActor @Test func aSelectionFadesFromRowToRow() {
     for row in [SidebarRowView(frame: .zero), ListRowView()] as [NSTableRowView] {
         let window = onScreen(row)
-        defer { withExtendedLifetime(window) {} }
+        defer { offScreen(window) }
         row.isSelected = true
         #expect(row.layer?.animation(forKey: kCATransition) != nil)   // a transition's key, whatever it was added as
     }
@@ -61,7 +61,7 @@ import Testing
 @MainActor @Test func aReadDoneMarkFadesWhereItStood() {
     let parent = NSView(), mark = StatusMark()
     let window = onScreen(mark, in: parent)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     mark.status = .done
     #expect(!mark.isHidden)
     mark.unread = false
@@ -75,7 +75,7 @@ import Testing
 @MainActor @Test func theContextRingFillsOnTheScale() {
     let meter = ContextMeter()
     let window = onScreen(meter)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     meter.usage = .init(used: 120_000, window: 200_000)
     meter.usage = .init(used: 160_000, window: 200_000)
     let fill = meter.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.last
@@ -88,7 +88,7 @@ import Testing
     let parent = NSView(), capsule = CapsuleStack()
     parent.wantsLayer = true
     let window = onScreen(capsule, in: parent)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     let button = NSButton()
     capsule.addArrangedSubview(button)
     capsule.frame = NSRect(x: 0, y: 0, width: 60, height: 26)
@@ -99,19 +99,20 @@ import Testing
     #expect(capsule.layer?.sublayers?.contains { $0.superlayer === capsule.layer && $0.delegate == nil } != true)
 }
 
-/// A working agent keeps its ring when the Mac asks for less motion: the ring stands still, and no symbol takes its
-/// place (three dots in a circle are the "more" button).
-@MainActor @Test func aWorkingMarkKeepsItsRingWithoutMotion() {
-    let mark = StatusMark()
-    let window = onScreen(mark, reduced: true)
-    defer {
-        Motion.pinned = false
-        withExtendedLifetime(window) {}
+extension OneAtATime {
+    /// A working agent keeps its ring when the Mac asks for less motion: the ring stands still, and no symbol takes its
+    /// place (three dots in a circle are the "more" button).
+    @Test func aWorkingMarkKeepsItsRingWithoutMotion() {
+        let mark = StatusMark()
+        let window = onScreen(mark, reduced: true)
+        defer { offScreen(window) }
+        mark.status = .working
+        let ring = mark.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first {
+            !$0.isHidden && $0.strokeEnd == 0.75
+        }
+        #expect(ring != nil)
+        #expect(ring?.animationKeys()?.isEmpty ?? true)
+        let symbols = mark.subviews.compactMap { $0 as? NSImageView }
+        #expect(symbols.allSatisfy { $0.isHidden })
     }
-    mark.status = .working
-    let ring = mark.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first { !$0.isHidden && $0.strokeEnd == 0.75 }
-    #expect(ring != nil)
-    #expect(ring?.animationKeys()?.isEmpty ?? true)
-    let symbols = mark.subviews.compactMap { $0 as? NSImageView }
-    #expect(symbols.allSatisfy { $0.isHidden })
 }

@@ -117,7 +117,7 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     let made = try await c.call(FilesCreate(path: here + "/docs/a b.md", text: "hi\n"))
     #expect(made == here + "/docs/a b.md")
     #expect(try String(contentsOfFile: there + "/docs/a b.md", encoding: .utf8) == "hi\n")
-    await #expect(throws: RPCError.self) { try await c.call(FilesCreate(path: made, text: "over")) }
+    await expectRefusal(says: "is taken") { try await c.call(FilesCreate(path: made, text: "over")) }
     #expect(try String(contentsOfFile: there + "/docs/a b.md", encoding: .utf8) == "hi\n", "not written over")
     #expect(try await c.call(FilesCreate(path: made, text: "x", unique: true)) == here + "/docs/a b 2.md")
     #expect(try await c.call(FilesCreate(path: here + "/src", folder: true)) == here + "/src")
@@ -244,7 +244,7 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     let (d, c, _) = try daemon()
     defer { d.stop() }
     #expect(try await c.call(RemoteHostKey(host: "-oProxyCommand=x")) == nil)
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "not trusted") {
         try await c.call(RemoteTrustHost(host: "-oProxyCommand=x", fingerprint: "SHA256:x"))
     }
 }
@@ -348,6 +348,8 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(try Git.run(["branch", "--show-current"], cwd: back.cwd, remotes: .none) == "fix-2\n", "fix is taken here")
 
     let other = try await c.call(RepoAdd(path: try makeRepo()))
-    await #expect(throws: RPCError.self) { _ = try await c.call(SessionMoveAcross(id: back.id, repoId: other.id)) }
+    await expectRefusal(says: "isn't a copy of this project") {
+        _ = try await c.call(SessionMoveAcross(id: back.id, repoId: other.id))
+    }
     for id in [there.id, back.id] { _ = try await c.call(SessionKill(id: id)) }
 }

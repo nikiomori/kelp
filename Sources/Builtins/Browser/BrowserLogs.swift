@@ -128,7 +128,7 @@ final class AgentDrive {
     var subagent: String?
     /// When the user last clicked or typed in the page while it was theirs.
     var userAt = Date.distantPast
-    private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
+    private(set) var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
     /// Whether the user handed the page back within `seconds`. It is true at once when the agent already has the page.
     func handedBack(within seconds: TimeInterval) async -> Bool {

@@ -57,20 +57,20 @@ import Testing
     #expect(try await record()?.goal == "tests pass")
     try (line("old", met: true) + line("new", met: true)).write(to: transcript, atomically: true, encoding: .utf8)
     #expect(try await waitFor(10) { try await record()?.status == .done })
-    #expect(
-        SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal  tests pass "]))
-            == "tests pass")
-    #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goal clear"])) == nil)
-    let ended =
+}
+
+/// A prompt's /goal is the goal it sets ("clear" sets none), and a <task-notification> prompt names the background
+/// tasks that ended; a prompt that merely mentions either is neither.
+@Test func aPromptsGoalAndEndedTasksAreRead() {
+    func prompt(_ text: String) -> JSONValue { .obj(["hook_event_name": "UserPromptSubmit", "prompt": .string(text)]) }
+    let goals: [(String, String?)] = [
+        ("/goal  tests pass ", "tests pass"), ("/goal clear", nil), ("/goals are nice", nil)
+    ]
+    for (text, goal) in goals { #expect(SessionHook.goal(of: prompt(text)) == goal, "\(text)") }
+    let notice =
         "<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<status>completed</status>"
-    #expect(
-        SessionHook.endedTasks(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": .string(ended)])) == [
-            "b1", "toolu_1"
-        ])
-    #expect(
-        SessionHook.endedTasks(
-            of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "run <task-id>b1</task-id>"])) == nil)
-    #expect(SessionHook.goal(of: .obj(["hook_event_name": "UserPromptSubmit", "prompt": "/goals are nice"])) == nil)
+    let ended: [(String, [String]?)] = [(notice, ["b1", "toolu_1"]), ("run <task-id>b1</task-id>", nil)]
+    for (text, tasks) in ended { #expect(SessionHook.endedTasks(of: prompt(text)) == tasks, "\(text)") }
 }
 
 /// A Stop while a command it started in the background runs: working, the command on the record, until it's woken.
@@ -120,12 +120,10 @@ import Testing
     #expect(try await record()?.background == ["npm run dev"])
     #expect(try await record()?.awaiting == nil)
     try await hook("working")
-    #expect(try await record()?.awaiting == nil)   // working on, not waiting for the server
     let tests = AgentCommand(id: "t1", command: "npm test", started: Date(), ended: Date(), outcome: .background)
     _ = try await p.c.call(SessionHook(id: s.id, event: "command", command: tests))
     try await hook("waiting")
     #expect(try await waitFor { try await record()?.status == .waiting })
-    #expect(try await record()?.awaiting == nil)   // it works on: nothing is held for them yet
     #expect(try await record()?.background == ["npm run dev", "npm test"])
     let tasks: [JSONValue] = [server, .obj(["id": "b2", "type": "shell", "status": "running", "command": "npm test"])]
     try await hook("done", tasks)

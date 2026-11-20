@@ -119,9 +119,16 @@ import Testing
     await #expect(throws: (any Error).self) {
         _ = try await w.c.call(AddonsEntry(worktreeId: wt.id, key: "server:none"))
     }
-    for key in ["skill:sales:call-prep", "server:context7", "skill:no-such-skill"] {
-        await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsTrash(worktreeId: wt.id, key: key)) }
-        await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsLink(worktreeId: wt.id, key: key)) }
+    // A plugin's skill (plugin:skill) and a server aren't the person's own; a skill of theirs that isn't there fails too.
+    let notOwn = "only a skill in your own folders"
+    for (key, says) in [("skill:sales:call-prep", notOwn), ("server:context7", notOwn), ("skill:no-such-skill", nil)] {
+        let trash = await #expect(throws: RPCError.self) {
+            _ = try await w.c.call(AddonsTrash(worktreeId: wt.id, key: key))
+        }
+        let link = await #expect(throws: RPCError.self) {
+            _ = try await w.c.call(AddonsLink(worktreeId: wt.id, key: key))
+        }
+        if let says { #expect([trash, link].allSatisfy { $0?.message.contains(says) == true }, "\(key)") }
     }
     await #expect(throws: (any Error).self) {
         _ = try await w.c.call(AddonsInstall(worktreeId: wt.id, source: "not a place"))

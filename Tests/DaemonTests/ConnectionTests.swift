@@ -55,7 +55,7 @@ import os
 
 /// A `kelp browser` request asked of Kelp's window ends when that window hangs up, not a minute later: nobody is left to
 /// answer it.
-@Test(.timeLimit(.minutes(1))) func aBrowserRequestEndsWhenItsWindowGoes() async throws {
+@Test(.timeLimit(minutes: 1)) func aBrowserRequestEndsWhenItsWindowGoes() async throws {
     var sv: [Int32] = [0, 0]
     #expect(socketpair(AF_UNIX, SOCK_STREAM, 0, &sv) == 0)
     Unix.noSigPipe(sv[0])

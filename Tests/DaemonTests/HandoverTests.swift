@@ -123,7 +123,7 @@ private let turnEnd = String(decoding: (try? JSONEncoder().encode(TurnEnd())) ??
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let started = Date()
     await #expect(throws: RPCError.self) { try await SessionHook(id: s.id, event: nil).send(socket: d.socketPath) }
-    #expect(Date().timeIntervalSince(started) < 1)
+    #expect(Date().timeIntervalSince(started) < testSlowness)   // a second, where a wait for the next kelpd takes ten
 
     d.offloads.close()   // how an update starts
     await #expect(throws: RPCError.updating) { try await c.call(SessionHook(id: s.id, event: "waiting")) }

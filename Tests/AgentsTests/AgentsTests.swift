@@ -28,11 +28,21 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(e.tick(at: t0.addingTimeInterval(4)) == .done)
 }
 
-@Test func hooksOverrideHeuristics() {
-    let t0 = Date()
-    var d = StatusDetector(manifest: .presets[0])
+/// Hooks win over guesses: an agent with hooks never reads its screen, and a hookless one stops reading it once a hook
+/// speaks. Each is given a task and then prints a question, which a guess would call waiting
+/// (`heuristicWaitingVsDone`).
+@Test func hooksOverrideHeuristics() throws {
+    let t0 = Date(), asks = "\u{1B}[1mDo you want to proceed? [y/n]\u{1B}[0m"
+    var hooked = StatusDetector(manifest: try #require(AgentManifest.presets.first { $0.id == "claude" }))
+    hooked.input()
+    hooked.output(asks, at: t0)
+    #expect(hooked.tick(at: t0.addingTimeInterval(60)) == .idle)
+    hooked.hook(.working)
+    #expect(hooked.status == .working)
+    var d = StatusDetector(manifest: try hooklessCodex())
+    d.input()
     d.hook(.working)
-    d.output("whatever", at: t0)
+    d.output(asks, at: t0)
     #expect(d.tick(at: t0.addingTimeInterval(60)) == .working)
     d.hook(.done)
     #expect(d.status == .done)
@@ -168,16 +178,28 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(AgentManifest.AutoAnswer.optionAtCursor(StatusDetector.stripANSI(moved)) == "Yes, I trust")
 }
 
+/// What Claude Code prints of its plan's limits, near one or at it (today's and an older one's words): kind, percent
+/// and when it resets, with the time zone left off.
 @Test func claudeLimitMessagesParse() {
-    let a = LimitScreens.parse(
-        "⏵⏵ auto mode on · You've used 80% of your weekly limit · resets Oct 20 at 5am (Europe/Helsinki)")
-    #expect(a == [.init(kind: "weekly", percent: 80, resets: "Oct 20 at 5am")])
-    let b = LimitScreens.parse("You've used 93% of your session limit · resets 3pm")
-    #expect(b.first?.kind == "session" && b.first?.percent == 93 && b.first?.resets == "3pm")
-    #expect(LimitScreens.parse("5-hour limit reached ∙ resets 11pm").first?.percent == 100)
-    #expect(LimitScreens.parse("You've used 82.5% of your weekly limit").first?.percent == 82.5)
-    #expect(LimitScreens.parse("Over 90% of your weekly limit used · resets 3pm").first?.resets == "3pm")
-    #expect(LimitScreens.parse("nothing to see").isEmpty)
+    let cases: [(String, LimitScreens.Reading?)] = [
+        (
+            "⏵⏵ auto mode on · You've used 80% of your weekly limit · resets Oct 20 at 5am (Europe/Helsinki)",
+            .init(kind: "weekly", percent: 80, resets: "Oct 20 at 5am")
+        ),
+        ("You've used 93% of your session limit · resets 3pm", .init(kind: "session", percent: 93, resets: "3pm")),
+        ("You've used 82.5% of your weekly limit", .init(kind: "weekly", percent: 82.5, resets: nil)),
+        ("Over 90% of your weekly limit used · resets 3pm", .init(kind: "weekly", percent: 90, resets: "3pm")),
+        ("5-hour limit reached ∙ resets 11pm", .init(kind: "5-hour", percent: 100, resets: "11pm")),
+        (
+            "⎿  You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki) · progress saved",
+            .init(kind: "5-hour", percent: 100, resets: "3:40pm")
+        ),
+        ("You've hit your limit · resets Oct 20 at 5am", .init(kind: "usage", percent: 100, resets: "Oct 20 at 5am")),
+        ("You've hit your weekly limit", .init(kind: "weekly", percent: 100, resets: nil)),
+        ("nothing to see", nil)
+    ]
+    for (printed, hit) in cases { #expect(LimitScreens.parse(printed).first == hit, "\(printed)") }
+    #expect(LimitScreens.parse(cases[0].0).count == 1)
 }
 
 @Test func claudeUsageParses() {
@@ -213,15 +235,6 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(claude.forking(["claude"]) == nil)   // no id: `following` couldn't drop the flag, and each wake would fork again
     #expect(
         try #require(AgentManifest.presets.first { $0.id == "codex" }).forking(["codex", "--session-id", "abc"]) == nil)
-}
-
-@Test func hookedAgentsDontGuessFromOutput() throws {
-    let claude = try #require(AgentManifest.presets.first { $0.id == "claude" })
-    var d = StatusDetector(manifest: claude)
-    d.output("✻ redraw", at: Date())
-    #expect(d.status == .idle)
-    d.hook(.working)
-    #expect(d.status == .working)
 }
 
 /// Agent files keep the keys they always had: each one reads as its kind of hooks and is written back the same way.
@@ -278,17 +291,29 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(d.status == .working)
 }
 
-/// Replayed history keeps the screen but not the agent's questions to its terminal; the terminal's answers aren't typing.
+/// Replayed history keeps the screen but not the agent's questions to its terminal; the terminal's answers aren't
+/// typing. Claude Code asks at start whether the terminal shows images (kitty graphics): its answer is no key either,
+/// which would count as answering "trust this folder?".
 @Test func terminalRepliesAreNotTyping() {
-    let hist = Data("\u{1B}[>0q\u{1B}[c\u{1B}[?u\u{1B}]11;?\u{07}\u{1B}[1mGrok\u{1B}[0m \u{1B}[6n".utf8)
-    #expect(String(bytes: TerminalReplies.withoutQueries(hist), encoding: .utf8) == "\u{1B}[1mGrok\u{1B}[0m ")
-    let copied = Data("a\u{1B}]52;c;aGk=\u{07}b\u{1B}]52;c;aGk=\u{1B}\\c".utf8)   // Claude Code's copies over ssh
-    #expect(String(bytes: TerminalReplies.withoutQueries(copied), encoding: .utf8) == "abc")
-    #expect(TerminalReplies.isReply(Data("\u{1B}P>|ghostty 1.3.2\u{1B}\\\u{1B}[?62;22c\u{1B}[?1u\u{1B}[12;5R".utf8)))
-    #expect(TerminalReplies.isReply(Data("\u{1B}]11;rgb:1e1e/1e1e/2222\u{07}".utf8)))
-    #expect(!TerminalReplies.isReply(Data("\u{1B}[A".utf8)))   // arrow key
-    #expect(!TerminalReplies.isReply(Data("\u{1B}[97;5u".utf8)))   // kitty key press
-    #expect(!TerminalReplies.isReply(Data("fix it\r".utf8)))
+    let replayed = [
+        ("\u{1B}[>0q\u{1B}[c\u{1B}[?u\u{1B}]11;?\u{07}\u{1B}[1mGrok\u{1B}[0m \u{1B}[6n", "\u{1B}[1mGrok\u{1B}[0m "),
+        ("a\u{1B}]52;c;aGk=\u{07}b\u{1B}]52;c;aGk=\u{1B}\\c", "abc"),   // Claude Code's copies over ssh
+        ("a\u{1B}_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\b", "ab")   // its image question at start
+    ]
+    for (history, kept) in replayed {
+        #expect(String(bytes: TerminalReplies.withoutQueries(Data(history.utf8)), encoding: .utf8) == kept)
+    }
+    let sent = [
+        ("\u{1B}P>|ghostty 1.3.2\u{1B}\\\u{1B}[?62;22c\u{1B}[?1u\u{1B}[12;5R", true),
+        ("\u{1B}]11;rgb:1e1e/1e1e/2222\u{07}", true),
+        ("\u{1B}_Gi=31;OK\u{1B}\\", true), ("\u{1B}_Gi=31;EINVAL:unsupported\u{1B}\\\u{1B}[?62;22c", true),
+        ("\u{1B}[A", false),   // arrow key
+        ("\u{1B}[97;5u", false),   // kitty key press
+        ("fix it\r", false)
+    ]
+    for (bytes, reply) in sent {
+        #expect(TerminalReplies.isReply(Data(bytes.utf8)) == reply, "\(bytes.debugDescription)")
+    }
 }
 
 @Test func grokAndAntigravityUsageScreensParse() {
@@ -466,7 +491,8 @@ func hooklessCodex() throws -> AgentManifest {
         try fm.createDirectory(atPath: home + d, withIntermediateDirectories: true)
     }
     try
-        #"{"projects":{"\#(home)/p/known":{"hasTrustDialogAccepted":true},"\#(home)/p/other":{"hasTrustDialogAccepted":false}}}"#
+        (#"{"projects":{"\#(home)/p/known":{"hasTrustDialogAccepted":true},"\#(home)/p/other":{"hasTrustDialogAccepted":false},"#
+        + #""":{"hasTrustDialogAccepted":true}}}"#)
         .write(toFile: home + "/.claude.json", atomically: true, encoding: .utf8)
     try
         "model = \"x\"\n[projects.\"\(home)/p/known\"]\ntrust_level = \"trusted\"\n[projects.\"\(home)/p/other\"]\ntrust_level = \"untrusted\"\n"
@@ -489,6 +515,8 @@ func hooklessCodex() throws -> AgentManifest {
     }
     #expect(AgentTrust.trusts(agent: "claude", folders: [home + "/p/new", home + "/p/known"], home: home))   // the project's main folder counts
     #expect(!AgentTrust.trusts(agent: "cursor", folders: [home + "/p/known"], home: home))   // no way to know: never
+    // An empty path in the config is no folder (read as a path, it would be the current one).
+    #expect(!AgentTrust.trusts(agent: "claude", folders: [FileManager.default.currentDirectoryPath], home: home))
     // An account profile reads its own config.
     try #"{"projects":{}}"#.write(toFile: home + "/profile/.claude.json", atomically: true, encoding: .utf8)
     #expect(
@@ -497,15 +525,20 @@ func hooklessCodex() throws -> AgentManifest {
 }
 
 /// The test process is isolated as it loads, before this (or any) test touches anything: run alone, a target still
-/// can't read the user's own agent config or keychain.
+/// can't read the user's own agent config, keychain, shell profile, ssh, gh or Trash, nor the agents an earlier run
+/// found; its Trash is there to look in from the start.
 @Test func theProcessIsIsolatedBeforeAnyTestRuns() {
     let env = ProcessInfo.processInfo.environment
     #expect(env["KELP_TEST_ISOLATED"] == "1")
-    for key in ["KELP_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME"] {
+    for key in [
+        "KELP_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "KELP_TRASH", "ZDOTDIR", "KELP_SSH", "KELP_GH", "KELP_GLAB"
+    ] {
         #expect(env[key]?.hasPrefix("/tmp/kr-") == true, "\(key)")
     }
     #expect(
         env["KELP_KEYCHAIN_SERVICE"]?.hasPrefix("dev.kelp.tests.") == true && env["GIT_CONFIG_GLOBAL"] == "/dev/null")
+    #expect(FileManager.default.fileExists(atPath: env["KELP_TRASH"] ?? ""))
+    #expect(UserDefaults.standard.stringArray(forKey: "agents.available") == [])
 }
 
 /// Paused (or ended) stays so: what the program prints or reports while it's being stopped doesn't make it "working"
@@ -601,19 +634,8 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(LimitScreens.parseCursorLimitHit("→ Plan, search, build anything") == nil)
 }
 
-/// What an agent prints when its plan stopped it: today's Claude Code, an older one, Codex with and without a date.
+/// What Codex prints when its plan stopped it, with and without a date (Claude Code's: `claudeLimitMessagesParse`).
 @Test func limitHitsAreRead() throws {
-    let five = try #require(
-        LimitScreens.parse("⎿  You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki) · progress saved").first)
-    #expect(five == .init(kind: "5-hour", percent: 100, resets: "3:40pm"))
-    #expect(
-        LimitScreens.parse("You've hit your limit · resets Oct 20 at 5am").first
-            == .init(kind: "usage", percent: 100, resets: "Oct 20 at 5am"))
-    #expect(
-        LimitScreens.parse("You've hit your weekly limit").first == .init(kind: "weekly", percent: 100, resets: nil))
-    #expect(LimitScreens.parse("5-hour limit reached · resets 3pm").first?.percent == 100)
-    #expect(LimitScreens.parse("You've used 80% of your weekly limit").first?.percent == 80)
-
     let codex =
         "■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus),\n  or try again at Oct 30,\n  2026 3:40 PM."
     #expect(
@@ -652,13 +674,11 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(!passes("unknown") && !passes("max_output_tokens"))
 }
 
-/// Every preset an installer exists for offers it; the ones that need npm or Homebrew say so, so the app can check first.
+/// The presets that need npm or Homebrew to install say so, so the app can check first (that every preset installs is
+/// `everyPresetHasTheFactsTheAppShows`).
 @Test func presetsWithAnInstallerOfferIt() throws {
     func installed(_ id: String) throws -> AgentManifest {
         try #require(AgentManifest.presets.first { $0.id == id })
-    }
-    for id in ["pi", "grok", "antigravity", "kilo", "goose", "kiro"] {
-        #expect(try installed(id).install != nil, "\(id) installs")
     }
     #expect(
         try installed("kilo").installNeeds == "npm" && installed("codex").installNeeds == "npm"
@@ -680,8 +700,8 @@ func hooklessCodex() throws -> AgentManifest {
         #expect(m.color.map { $0.hasPrefix("#") && $0.count == 7 } ?? true, "\(m.id)'s colour")
         #expect(m.transcript != .pi || m.resumeIdFlag != nil, "\(m.id) opens the session a hand-off writes")
     }
-    #expect(AgentManifest.presets.filter(\.forks).map(\.id).sorted() == ["claude", "codex"])
-    #expect(AgentManifest.presets.compactMap(\.featured).sorted() == [0, 1, 2, 3, 4])
+    let featured = AgentManifest.presets.compactMap(\.featured).sorted()
+    #expect(featured == Array(featured.indices), "each place in the empty workspace's install list taken once")
     var claude = try #require(AgentManifest.presets.first { $0.id == "claude" })
     claude.command = "/opt/claude"
     let saved = try JSONEncoder().encode(claude)

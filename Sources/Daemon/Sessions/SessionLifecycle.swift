@@ -62,7 +62,7 @@ extension Sessions {
             defer { live.letGone(id) }
             hangUpStreams(ls)   // the check found none; one attached just after ends too
             ls.markHibernated()
-            Self.waitGone(ls.pty.terminate())   // SIGKILL after 2 s for what ignores the hangup: a wake must not start a second copy
+            Self.waitGone(ls.pty.terminate())   // SIGKILL after `PTY.grace` for what ignores the hangup: a wake must not start a second copy
             publishLast(ls)
         }
     }
@@ -320,7 +320,7 @@ extension Sessions {
         if comesBack {
             Log.session.attempt("keeping what \(ls.snapshot.id) hadn't typed") { try store.owe(ls.takeOwed()) }
         }
-        return ls.pty.terminate()   // SIGKILL after 2 s for what ignores the hangup, which waitGone waits for
+        return ls.pty.terminate()   // SIGKILL after `PTY.grace` for what ignores the hangup, which waitGone waits for
     }
 
     /// Gives the session the input that waited in the store while it didn't run.

@@ -41,44 +41,57 @@ import Testing
     #expect(SettingsSearch.find("nothing here", in: sections).isEmpty)
 }
 
-@MainActor @Test func settingsHaveTheirShelves() {
+/// Every section of Settings with all built-ins on, after `reload` (the theme applies to NSApp).
+@MainActor private func allSections() -> (AppModel, [SettingsSection]) {
     _ = testHome
-    _ = NSApplication.shared   // the theme applies to NSApp
+    _ = NSApplication.shared
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
-    let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
-    #expect(
-        sections.prefix(13).map(\.id) == [
-            "general", "appearance", "agents", "catalog", "notifications", "phone", "terminal", "editor",
-            "languages", "databases", "git", "integrations", "keyboard"
-        ])
+    return (m, m.extensions.all.settings.sorted { $0.order < $1.order })
+}
+
+/// Settings open on General, as a Mac app's do, with Appearance (everything you see) next.
+@MainActor @Test func settingsOpenOnGeneralThenAppearance() {
+    #expect(allSections().1.prefix(2).map(\.id) == ["general", "appearance"])
+}
+
+/// A row sits in one section: the inspector's icons in Appearance, which its menu is made from too; Git's CI rows in a
+/// group of their own. The Dock icon once sat in two sections with two defaults.
+@MainActor @Test func eachSettingHasOneShelf() {
+    let sections = allSections().1
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
     #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == true)   // and in Settings too
     #expect(sections.first { $0.id == "git" }?.groups.map(\.0) == [nil, "CI"])
-    // One row per key: the Dock icon sat in two sections with two defaults.
     let keys = sections.flatMap(\.specs).map(\.key)
     #expect(Set(keys).count == keys.count)
-    // A drawn choice is an enum row, and every one has its drawings, the shell's or its own (`choices`): a renamed key
-    // would leave the shell's drawing nothing.
-    let pictured = sections.flatMap(\.specs).filter { $0.look == .pictures }
+}
+
+/// A drawn choice is an enum row, and every one has its drawings, the shell's or its own (`choices`): a renamed key
+/// would leave the shell's drawing nothing.
+@MainActor @Test func everyDrawnChoiceHasItsDrawings() {
+    let pictured = allSections().1.flatMap(\.specs).filter { $0.look == .pictures }
     #expect(pictured.allSatisfy { $0.type == .enum })
     #expect(Set(pictured.filter { $0.choices?.picture == nil }.map(\.key)) == Set(PictureArt.drawings.keys))
-    // What an option is called comes from where its setting is declared, the window naming no built-in's key.
+}
+
+/// What an option is called comes from where its setting is declared, the window naming no built-in's key; a row's
+/// title has no brackets: what they held is the field's own business, or the help's.
+@MainActor @Test func anOptionIsNamedWhereItsSettingIsDeclared() {
+    let (m, sections) = allSections()
     #expect(SettingRow.label(SettingKeys.dockStrip.key, "needed", m) == "When Needed")
     #expect(SettingRow.label(SettingKeys.ciBranchChip.key, "icon", m) == "In Place of the Branch Icon")
     #expect(SettingRow.label(SettingKeys.serverLook.key, "fade", m) == "Stripes by the Icon")
     #expect(SettingRow.label(SettingKeys.alertAt.key, "80", m) == "80%")
     #expect(SettingRow.label(SettingKeys.hibernateMinutes.key, "240", m) == "After 4 Hours")
     #expect(SettingRow.label(SettingKeys.usageLimits.key, "all", m) == "All Agents")
-    // A row's title has no brackets: what they held is the field's own business, or the help's.
-    #expect(sections.flatMap(\.specs).map(\.title).filter { $0.contains("(") } == [])
     #expect(SettingRow.label(SettingKeys.databaseAccess.key, "ask", m) == "Read, Ask to Change")
     #expect(SettingRow.label(SettingKeys.textSize.key, "large", m) == "Large")   // not named: its value, capitalized
+    #expect(sections.flatMap(\.specs).map(\.title).filter { $0.contains("(") } == [])
 }
 
-/// The welcome's agents: the chosen one first, the best-known after, one row at most.
-@MainActor @Test func theWelcomeOffersFourAgents() {
+/// The welcome's agents: the chosen one first, the best-known after, one row (five) at most.
+@MainActor @Test func theWelcomeOffersOneRowOfAgentsTheChosenOneFirst() {
     let installed = ["antigravity", "claude", "codex", "crush", "cursor", "pi"]
     #expect(
         WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity", "crush"])

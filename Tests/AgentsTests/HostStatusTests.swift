@@ -1,12 +1,13 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Agents
 
 /// A host's hooks, run as Claude Code runs them, with a stand-in for tmux and for `ps` naming fd 3 as the agent's tty.
 @Test func aHostsHooksWriteThroughTmuxAndKeepTheReport() throws {
-    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let bin = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: bin) }
     let kept = bin.appendingPathComponent("kept"), tty = bin.appendingPathComponent("tty")
@@ -82,7 +83,7 @@ import Testing
 /// Codex on a host gets its hooks as they're written, through every shell on the way: the one ssh runs, the login
 /// shell, tmux's for the pane and the pane's own. And the whole command still fits in one tmux message.
 @Test func aHostsCodexGetsItsHooksThroughEveryShell() throws {
-    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let bin = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: bin) }
     let got = bin.appendingPathComponent("argv")

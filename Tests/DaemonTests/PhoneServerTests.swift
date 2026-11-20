@@ -114,6 +114,7 @@ private func freePort() throws -> Int {
     let opened = n
     var request = URLRequest(url: try #require(URL(string: base + "/api/call")))
     request.httpMethod = "POST"
+    request.timeoutInterval = 10 * testSlowness   // an event that never comes fails the read below, not hangs it
     request.httpBody = try JSONEncoder().encode([
         "mac": "x", "device": device,
         "box": try PhoneSeal.seal(

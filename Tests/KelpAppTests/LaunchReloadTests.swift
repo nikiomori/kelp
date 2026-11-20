@@ -19,7 +19,7 @@ extension OneAtATime {
             to: folder.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
         _ = try await rig.client.call(SettingsSet(key: SettingKeys.disabledExtensions.key, value: .array([])))
         let reg = rig.app.extensions, key = SettingKeys.disabledExtensions.key
-        #expect(try await waitFor(5) { rig.app.settings.values[key] != nil })   // its event
+        #expect(try await waitFor { rig.app.settings.values[key] != nil })   // its event
         rig.app.settings.apply([:])   // as at launch: not read yet
         await mainActorTurns()
         reg.reload()   // applicationDidFinishLaunching's
@@ -27,7 +27,7 @@ extension OneAtATime {
         #expect(try await waitFor(10) { reg.tools["sh"] == true })
         // The first trust record (`ExtensionTrust.adopt`) is saved, and its answer comes before the answer to a call
         // made after it (both answered in order): what adopt does with it has run by then.
-        #expect(try await waitFor(5) { rig.app.uiState[ExtensionFiles.extensionTrustKey] != nil })
+        #expect(try await waitFor { rig.app.uiState[ExtensionFiles.extensionTrustKey] != nil })
         _ = try await rig.client.call(ClientEvents(events: true))
         await mainActorTurns()
         #expect(reg.revision == 2)

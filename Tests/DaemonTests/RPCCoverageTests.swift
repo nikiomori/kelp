@@ -380,7 +380,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func emptyChatFoldersGoOnceNoSessionWorksInThem() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("kscr-\(UUID().uuidString)")
+    let root = tmp().appendingPathComponent("kscr-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }
     let chats = ScratchChats(root: root)
     let kept = try chats.newChat(), empty = try chats.newChat(), result = try chats.newChat()
@@ -574,7 +574,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { d.stop() }
     _ = try await client(w.root).call(GitUndoDiscard(id: wt.id, undo: "u"))
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
-    #expect((try? FileManager.default.contentsOfDirectory(atPath: d.sourceControl.discards.path))?.isEmpty != false)
+    #expect((try? FileManager.default.contentsOfDirectory(atPath: d.sourceControl.discards.path))?.isEmpty == true)
 }
 
 @Test func discardHunkOnlyWhatWasShown() async throws {

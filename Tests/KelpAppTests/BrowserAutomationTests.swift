@@ -12,7 +12,7 @@ import WorkbenchKit
 
 /// `kelp browser` on a real page, off screen: the snapshot lists what's shown with refs, typing and a click reach the
 /// page's own code, and a ref the page no longer has says so.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserDrivesAPage() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserDrivesAPage() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     #expect(tab.agent && tab.uri == "agentweb:about:blank")
     tab.web.loadHTMLString(
@@ -48,14 +48,14 @@ import WorkbenchKit
 }
 
 /// An agent's page keeps what it logged from its first script on, and its fetch calls, failed ones too.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserKeepsConsoleAndRequests() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserKeepsConsoleAndRequests() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         "<script>console.log('hi', {a: 1})</script><p>x</p>", baseURL: URL(string: "http://127.0.0.1:9/"))
     _ = try await tab.browse(.info, .object([:]))
     _ = try await tab.browse(
         .eval, .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
-    #expect(try await waitFor(5) { (tab.drive?.logs ?? []).contains { $0.contains("boom") } })
+    #expect(try await waitFor { (tab.drive?.logs ?? []).contains { $0.contains("boom") } })
 
     let log = try #require(try await tab.browse(.console, .object(["clear": .bool(true)])).string)
     #expect(
@@ -68,7 +68,7 @@ import WorkbenchKit
 
 /// Keys do what the browser would (Tab moves on, Enter clicks), a hover reaches the page's handler, a scroll moves
 /// the page.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserPressesHoversAndScrolls() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserPressesHoversAndScrolls() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         """
@@ -105,8 +105,8 @@ import WorkbenchKit
 }
 
 /// Back goes to the page a click left; opening the page it shows, or reload, loads it again.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserGoesBack() async throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-back-\(UUID().uuidString)")
+@MainActor @Test(.timeLimit(minutes: 1)) func browserGoesBack() async throws {
+    let dir = tmp().appendingPathComponent("kelp-back-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     try Data(#"<a href="two.html">Two</a>"#.utf8).write(to: dir.appendingPathComponent("one.html"))
@@ -142,8 +142,8 @@ import WorkbenchKit
 
 /// An extension's page runs its own scripts, and markup it shows from elsewhere (an issue's title through innerHTML) runs
 /// none: `kelp.exec` is one call away from it.
-@MainActor @Test(.timeLimit(.minutes(1))) func anExtensionPageRunsNoScriptFromMarkupItShows() async throws {
-    let folder = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+@MainActor @Test(.timeLimit(minutes: 1)) func anExtensionPageRunsNoScriptFromMarkupItShows() async throws {
+    let folder = tmp().appendingPathComponent(
         "ext-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
@@ -152,17 +152,15 @@ import WorkbenchKit
     <div id="d"></div><script src="app.js"></script><script>
     window.own = 1;
     document.getElementById('d').innerHTML = '<img src="nothing.png" onerror="window.pwned = 1">';
+    document.querySelector('#d img').addEventListener('error', () => { window.failed = 1 });
     </script>
     """.write(to: folder.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
     let page = ExtWebController(page: folder.appendingPathComponent("index.html"), folder: folder, app: AppModel())
     _ = page.view
     let web = try #require(page.web)
-    #expect(try await waitFor(5) { !(try await web.evaluateJavaScript("window.own === 1") as? Bool != true) })
-    // The image has failed to load: its error handler would have run.
-    #expect(
-        try await waitFor(5) {
-            try await web.evaluateJavaScript("document.querySelector('#d img').complete") as? Bool == true
-        })
+    #expect(try await waitFor { !(try await web.evaluateJavaScript("window.own === 1") as? Bool != true) })
+    // The image has failed to load: its error handler, set before the page's own, would have run.
+    #expect(try await waitFor { try await web.evaluateJavaScript("window.failed === 1") as? Bool == true })
     #expect(
         try await web.evaluateJavaScript("window.own === 1 && window.fromFile === 1 && !!window.kelp") as? Bool == true)
     #expect(try await web.evaluateJavaScript("window.pwned === undefined") as? Bool == true)
@@ -177,78 +175,82 @@ import WorkbenchKit
     #expect(!BrowserTab.pageMarkup("<p>```\nnow outside</p>").contains("```"))
 }
 
-/// The page's questions on an agent's page: answered as `dialog` said ahead (once), else no; each in the action's answer.
-/// A file (the CLI read it) goes into a hidden field through the button over it; typing goes a key at a time; a form's `title` (its input
-/// named title) doesn't break the snapshot; a page the user took over refuses what would change it.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserAnswersQuestionsUploadsAndTypesKeys() async throws {
-    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
-    tab.web.loadHTMLString(
-        """
-        <form><input name="title" type="hidden"></form>
-        <button onclick="out.textContent = 'c ' + confirm('Delete?')">Delete</button>
-        <button onclick="out.textContent = 'p ' + prompt('Name?')">Rename</button>
-        <input id="name" maxlength="4" oninput="keys.textContent = +keys.textContent + 1"><span id="keys">0</span>
-        <button onclick="f.click()">Choose</button><input id="f" type="file" hidden><p id="out"></p>
-        <input type="password" value="hunter2">
-        """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse(.info, .object([:]))
-    func eval(_ js: String) async throws -> JSONValue { try await tab.browse(.eval, .object(["js": .string(js)])) }
-    func act(_ a: String, _ args: [String: JSONValue]) async throws -> JSONValue {
-        try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
+extension OneAtATime {
+    /// The page's questions on an agent's page: answered as `dialog` said ahead (once), else no; each in the action's answer.
+    /// A file (the CLI read it) goes into a hidden field through the button over it; typing goes a key at a time; a form's `title` (its input
+    /// named title) doesn't break the snapshot; a page the user took over refuses what would change it.
+    @Test(.timeLimit(minutes: 1)) func browserAnswersQuestionsUploadsAndTypesKeys() async throws {
+        let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+        tab.web.loadHTMLString(
+            """
+            <form><input name="title" type="hidden"></form>
+            <button onclick="out.textContent = 'c ' + confirm('Delete?')">Delete</button>
+            <button onclick="out.textContent = 'p ' + prompt('Name?')">Rename</button>
+            <input id="name" maxlength="4" oninput="keys.textContent = +keys.textContent + 1"><span id="keys">0</span>
+            <button onclick="f.click()">Choose</button><input id="f" type="file" hidden><p id="out"></p>
+            <input type="password" value="hunter2">
+            """, baseURL: URL(string: "http://localhost/"))
+        _ = try await tab.browse(.info, .object([:]))
+        func eval(_ js: String) async throws -> JSONValue { try await tab.browse(.eval, .object(["js": .string(js)])) }
+        func act(_ a: String, _ args: [String: JSONValue]) async throws -> JSONValue {
+            try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
+        }
+
+        let page = try #require(try await act("snapshot", [:]).string)
+        #expect(page.contains(#"- button "Delete" [ref=e1]"#) && page.contains(#"- button "Choose" [ref=e4]"#))
+        #expect(!page.contains("hunter2") && page.contains("••••••"))   // a password's value stays in the page
+        #expect(
+            try await act("snapshot", ["find": .string("renam")]).string?.contains(#"- button "Rename" [ref=e2]"#)
+                == true)
+
+        let asked = try await act("click", ["ref": .string("e1")])
+        #expect(asked["dialogs"]?.array?.first?.string?.hasPrefix(#"confirm "Delete?" → dismissed"#) == true)
+        #expect(try await eval("out.textContent") == .string("c false"))
+        _ = try await act("dialog", ["answer": .string("accept"), "text": .string("Ann")])
+        _ = try await act("click", ["ref": .string("e2")])
+        #expect(try await eval("out.textContent") == .string("p Ann"))
+        _ = try await act("click", ["ref": .string("e2")])   // the answer was used once
+        #expect(try await eval("out.textContent") == .string("p null"))
+
+        #expect(try await act("type", ["ref": .string("e3"), "text": .string("abcdef")])["shows"] == .string("abcd"))
+        #expect(
+            try await eval("[document.getElementById('name').value, +keys.textContent]")
+                == .array([.string("abcd"), .int(4)]))
+        #expect(
+            try await act("snapshot", ["ref": .string("e3")]).string?.contains(#"- textbox [ref=e3]: "abcd""#) == true)
+
+        _ = try await act("snapshot", [:])
+        let note: JSONValue = .object([
+            "name": .string("note.txt"), "type": .string("text/plain"), "data": .string("aGVsbG8=")
+        ])   // hello
+        _ = try await act("upload", ["ref": .string("e4"), "files": .array([note])])
+        #expect(
+            try await eval("[f.files[0].name, f.files[0].size, f.files[0].type]")
+                == .array([.string("note.txt"), .int(5), .string("text/plain")]))
+
+        tab.drive?.takenOver = true
+        BrowserTab.handBackWait = 0.3
+        defer { BrowserTab.handBackWait = UIBrowser.wait - 10 }
+        await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
+        // The user may be signing in: what the page holds is theirs until they hand it back.
+        await #expect(throws: RPCError.self) { try await act("snapshot", [:]) }
+        await #expect(throws: RPCError.self) { try await act("screenshot", [:]) }
+        _ = try await act("info", [:])
+        // Handed back while a command waits: it goes on.
+        BrowserTab.handBackWait = 10
+        let waiting = Task { try await act("snapshot", [:]) }
+        try await waitFor { tab.drive?.waiters.isEmpty == false }
+        tab.drive?.takenOver = false
+        #expect(try await waiting.value.string?.contains("[ref=e1]") == true)
+        // One that acts doesn't act once it's handed back: told the daemon didn't answer in time, the agent would do it twice.
+        _ = try await eval("out.textContent = 'untouched'")
+        tab.drive?.takenOver = true
+        let clicking = Task { try await act("click", ["ref": .string("e1")]) }
+        try await waitFor { tab.drive?.waiters.isEmpty == false }
+        tab.drive?.takenOver = false
+        await #expect(throws: RPCError.self) { try await clicking.value }
+        #expect(try await eval("out.textContent") == .string("untouched"))
     }
-
-    let page = try #require(try await act("snapshot", [:]).string)
-    #expect(page.contains(#"- button "Delete" [ref=e1]"#) && page.contains(#"- button "Choose" [ref=e4]"#))
-    #expect(!page.contains("hunter2") && page.contains("••••••"))   // a password's value stays in the page
-    #expect(
-        try await act("snapshot", ["find": .string("renam")]).string?.contains(#"- button "Rename" [ref=e2]"#) == true)
-
-    let asked = try await act("click", ["ref": .string("e1")])
-    #expect(asked["dialogs"]?.array?.first?.string?.hasPrefix(#"confirm "Delete?" → dismissed"#) == true)
-    #expect(try await eval("out.textContent") == .string("c false"))
-    _ = try await act("dialog", ["answer": .string("accept"), "text": .string("Ann")])
-    _ = try await act("click", ["ref": .string("e2")])
-    #expect(try await eval("out.textContent") == .string("p Ann"))
-    _ = try await act("click", ["ref": .string("e2")])   // the answer was used once
-    #expect(try await eval("out.textContent") == .string("p null"))
-
-    #expect(try await act("type", ["ref": .string("e3"), "text": .string("abcdef")])["shows"] == .string("abcd"))
-    #expect(
-        try await eval("[document.getElementById('name').value, +keys.textContent]")
-            == .array([.string("abcd"), .int(4)]))
-    #expect(try await act("snapshot", ["ref": .string("e3")]).string?.contains(#"- textbox [ref=e3]: "abcd""#) == true)
-
-    _ = try await act("snapshot", [:])
-    let note: JSONValue = .object([
-        "name": .string("note.txt"), "type": .string("text/plain"), "data": .string("aGVsbG8=")
-    ])   // hello
-    _ = try await act("upload", ["ref": .string("e4"), "files": .array([note])])
-    #expect(
-        try await eval("[f.files[0].name, f.files[0].size, f.files[0].type]")
-            == .array([.string("note.txt"), .int(5), .string("text/plain")]))
-
-    tab.drive?.takenOver = true
-    BrowserTab.handBackWait = 0.3
-    defer { BrowserTab.handBackWait = UIBrowser.wait - 10 }
-    await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
-    // The user may be signing in: what the page holds is theirs until they hand it back.
-    await #expect(throws: RPCError.self) { try await act("snapshot", [:]) }
-    await #expect(throws: RPCError.self) { try await act("screenshot", [:]) }
-    _ = try await act("info", [:])
-    // Handed back while a command waits: it goes on.
-    BrowserTab.handBackWait = 10
-    let waiting = Task { try await act("snapshot", [:]) }
-    try await Task.sleep(for: .milliseconds(300))
-    tab.drive?.takenOver = false
-    #expect(try await waiting.value.string?.contains("[ref=e1]") == true)
-    // One that acts doesn't act once it's handed back: told the daemon didn't answer in time, the agent would do it twice.
-    _ = try await eval("out.textContent = 'untouched'")
-    tab.drive?.takenOver = true
-    let clicking = Task { try await act("click", ["ref": .string("e1")]) }
-    try await Task.sleep(for: .milliseconds(300))
-    tab.drive?.takenOver = false
-    await #expect(throws: RPCError.self) { try await clicking.value }
-    #expect(try await eval("out.textContent") == .string("untouched"))
 }
 
 /// The user let the agent into their logged-in browser for one site: while it drives the page it stays on that site.
@@ -271,10 +273,10 @@ import WorkbenchKit
 }
 
 /// The user's tab, once taken to another site (by the user, after the agent left it), isn't the agent's to drive there.
-@MainActor @Test(.timeLimit(.minutes(1))) func aSharedTabOnAnotherSiteIsntDriven() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func aSharedTabOnAnotherSiteIsntDriven() async throws {
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     tab.web.loadHTMLString("<p>mail</p>", baseURL: URL(string: "https://mail.other.com/"))
-    #expect(try await waitFor(5) { !(tab.web.url?.host != "mail.other.com") })
+    #expect(try await waitFor { tab.web.url?.host == "mail.other.com" })
     await #expect(throws: RPCError.self) { try await tab.browse(.snapshot, .object([:])) }
 }
 
@@ -311,7 +313,7 @@ import WorkbenchKit
 
 /// A link with `download` on an agent's page: the file lands in Kelp's temporary folder, and the click's answer says
 /// where once it's there (it was cancelled without a word).
-@MainActor @Test(.timeLimit(.minutes(1))) func anAgentsPageDownloadsAFile() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func anAgentsPageDownloadsAFile() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     let name = "kelp-test-\(UUID().uuidString.prefix(6)).txt"
     tab.web.loadHTMLString(
@@ -340,7 +342,7 @@ import WorkbenchKit
 
 /// `viewport`: the page lays out at the size the agent asked for (a phone's media queries match), and `reset` gives the
 /// pane's size back (off screen: a laptop's).
-@MainActor @Test(.timeLimit(.minutes(1))) func anAgentSetsThePagesSize() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func anAgentSetsThePagesSize() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString("<p>hi</p>", baseURL: URL(string: "http://localhost/"))
     _ = try await tab.browse(.info, .object([:]))
@@ -358,7 +360,7 @@ import WorkbenchKit
 /// What an action did comes back with it, and a person's limits hold: a button under a dialog isn't clicked (one under
 /// its own label is), a click that changed nothing says so, and what the click brought shows as `[new]` in the next
 /// snapshot. Transparent text isn't on the page; a long page keeps its end.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserSaysWhatAnActionDidAndWhatCovers() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserSaysWhatAnActionDidAndWhatCovers() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         """
@@ -406,7 +408,7 @@ import WorkbenchKit
 
 /// A select takes an option's text, any case, or the one its text starts with, and a wrong one lists them; a date field
 /// refuses a date in another format; a frame of the page's own site is read and driven.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserPicksOptionsChecksDatesAndReadsFrames() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserPicksOptionsChecksDatesAndReadsFrames() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         """
@@ -423,7 +425,7 @@ import WorkbenchKit
         return ""
     }
     #expect(
-        try await waitFor(5) {
+        try await waitFor {
             try await act("eval", ["js": .string("document.querySelector('iframe').contentDocument.body.innerText")])
                 == .string("Inside")
         })
@@ -455,7 +457,7 @@ import WorkbenchKit
 
 /// `drag`: what the page makes draggable gets a browser's drag events and must take the drop (a list that sets
 /// `draggable` when pressed, as SortableJS does, too); anything else follows the pointer; files land on a drop zone.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserDragsAndDrops() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserDragsAndDrops() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         """
@@ -563,14 +565,14 @@ import WorkbenchKit
 
 /// A window the user's page opens comes up as a tab of its own holding the web view WebKit made, so the page it opened
 /// keeps its `window.opener` (a sign-in popup posts back to it).
-@MainActor @Test(.timeLimit(.minutes(1))) func browserOpensAPagesWindowAsATab() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserOpensAPagesWindowAsATab() async throws {
     let app = AppModel()
     let tab = BrowserTab(uri: "about:blank#opener", app: app)
     tab.web.loadHTMLString("<p>opener</p>", baseURL: URL(string: "https://example.com/"))
-    #expect(try await waitFor(5) { !tab.web.isLoading && tab.web.url != nil })
+    #expect(try await waitFor { !tab.web.isLoading && tab.web.url != nil })
     BrowserTab.opened = [:]
     _ = try await tab.web.evaluateJavaScript("window.open('about:blank', '_blank'); 1")
-    #expect(try await waitFor(5) { !BrowserTab.opened.isEmpty })
+    #expect(try await waitFor { !BrowserTab.opened.isEmpty })
     let (key, popup) = try #require(BrowserTab.opened.first)
     let opened = BrowserTab(uri: key, app: app)
     #expect(opened.web === popup && BrowserTab.opened.isEmpty)
@@ -578,7 +580,7 @@ import WorkbenchKit
 }
 
 /// A local address that failed loads again by itself once the screen serves its port.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserRetriesWhenTheDevServerStarts() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserRetriesWhenTheDevServerStarts() async throws {
     let app = AppModel()
     app.workbench.workspaceId = "w1"
     let tab = BrowserTab(uri: "http://localhost:9/app", app: app)
@@ -591,14 +593,14 @@ import WorkbenchKit
 
 /// `kelp browser record`: a GIF whose frames are the page's changes (a page that sits still adds none), an MP4 that plays
 /// as long as it was recorded, nothing at all while the user has the page, and a file type it can't write said so.
-@MainActor @Test(.timeLimit(.minutes(1))) func browserRecordsThePage() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func browserRecordsThePage() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [], backing: .buffered, defer: false)
     window.contentView = tab.view
     tab.web.loadHTMLString("<body style='background: red'>", baseURL: nil)
     _ = try await tab.browse(.info, .object([:]))
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-rec-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-rec-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     func record(_ name: String, while act: () async throws -> Void) async throws -> URL {
@@ -609,12 +611,14 @@ import WorkbenchKit
         #expect(tab.recordButton.isHidden)
         return URL(fileURLWithPath: try #require(done["path"]?.string))
     }
+    /// Long enough for a few frames at 10 a second.
+    func frames() async throws { try await Task.sleep(for: .milliseconds(400 * testSlowness)) }
     let colours = {
         for colour in ["green", "blue"] {
-            try await Task.sleep(for: .milliseconds(400))
+            try await frames()
             _ = try await tab.browse(.eval, .object(["js": .string("document.body.style.background = '\(colour)'")]))
         }
-        try await Task.sleep(for: .milliseconds(400))
+        try await frames()
     }
     let gif = try #require(CGImageSourceCreateWithURL(try await record("page.gif", while: colours) as CFURL, nil))
     #expect(CGImageSourceGetCount(gif) == 3)
@@ -623,11 +627,19 @@ import WorkbenchKit
     #expect(try await movie.load(.duration).seconds > 1)
     #expect(try await movie.loadTracks(withMediaType: .video).count == 1)
 
+    // The user's page: a recording starts (and only one), and the page changes as they use it, but no frame is taken.
     tab.drive?.takenOver = true
-    await #expect(throws: RPCError.self) { _ = try await record("theirs.gif", while: colours) }
+    func start(_ name: String) async throws {
+        _ = try await tab.browse(.record, .object(["path": .string(dir.appendingPathComponent(name).path)]))
+    }
+    try await start("theirs.gif")
+    await #expect(throws: RPCError.self) { try await start("again.gif") }   // already recording
+    _ = try await tab.web.evaluateJavaScript("document.body.style.background = 'green'")
+    try await frames()
+    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["stop": .bool(true)])) }   // nothing
     tab.drive?.takenOver = false
-    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["path": .string("/tmp/x.webm")])) }
-    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["stop": .bool(true)])) }
+    await #expect(throws: RPCError.self) { try await start("x.webm") }
+    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["stop": .bool(true)])) }   // none on
 }
 
 /// A screenshot's PNG is encoded and written off the main thread, at the picture's own pixels.
@@ -637,7 +649,7 @@ import WorkbenchKit
         rect.fill()
         return true
     }
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-shot-\(UUID().uuidString).png")
+    let url = tmp().appendingPathComponent("kelp-shot-\(UUID().uuidString).png")
     defer { try? FileManager.default.removeItem(at: url) }
     let picture = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
     // Called from the main actor, written off it: a writer that refuses on the main thread writes it all the same.
@@ -651,10 +663,10 @@ import WorkbenchKit
 
 /// `kelp browser ask`: the page is the user's while the agent's question is on it; Done (allow) gives it back, any other
 /// answer leaves it theirs. The strip says which.
-@MainActor @Test(.timeLimit(.minutes(1))) func anAgentsQuestionHandsItsPageToTheUser() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func anAgentsQuestionHandsItsPageToTheUser() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString("<button>Go</button>", baseURL: URL(string: "https://example.com/"))
-    try await waitFor(5) { !tab.web.isLoading }
+    try await waitFor { !tab.web.isLoading }
     tab.watch()
     _ = try await tab.browse(.ask, .object(["text": .string("Sign in"), "session": .string("s1")]))
     #expect(tab.drive?.takenOver == true && tab.stripLook().button == "Done")
@@ -668,7 +680,7 @@ import WorkbenchKit
 
 /// A subagent that opens a page gets one of its own in the agent's page tab, the row over it switching; what it does
 /// before that, and what the page's first driver does, goes to the tab's own page. Its page goes when it ends.
-@MainActor @Test(.timeLimit(.minutes(1))) func aSubagentsPageIsItsOwnInTheAgentsTab() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func aSubagentsPageIsItsOwnInTheAgentsTab() async throws {
     let app = AppModel()
     var session = Session(cwd: "/", command: "claude")
     session.status = .working
@@ -693,12 +705,12 @@ import WorkbenchKit
 
     session.subagents = [:]
     app.sessions = [session]
-    try await waitFor(5) { host.pageSet.pages.isEmpty }
+    try await waitFor { host.pageSet.pages.isEmpty }
     #expect(!host.title.hasSuffix(" +1"))
 }
 
 /// A subagent drove the tab first, then the agent itself opened a page: a pill each, and each brings its own page.
-@MainActor @Test(.timeLimit(.minutes(1))) func theAgentsPageHasItsOwnPillWhenASubagentCameFirst() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func theAgentsPageHasItsOwnPillWhenASubagentCameFirst() async throws {
     let app = AppModel()
     var session = Session(cwd: "/", command: "claude")
     session.status = .working
@@ -718,7 +730,7 @@ import WorkbenchKit
 }
 
 /// A page sees Safari's user agent, not WebKit's bare one, or sites serve it their unknown-browser layout.
-@MainActor @Test(.timeLimit(.minutes(1))) func aPageSeesSafarisUserAgent() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func aPageSeesSafarisUserAgent() async throws {
     let tab = BrowserTab(uri: "about:blank", app: AppModel())
     let ua = try #require(try await tab.web.evaluateJavaScript("navigator.userAgent") as? String)
     #expect(ua.contains(" Version/") && ua.hasSuffix(" Safari/605.1.15"))

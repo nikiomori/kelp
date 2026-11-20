@@ -69,7 +69,7 @@ extension OneAtATime {
         e.textView.setSelectedRange(NSRange(location: 8, length: 0))
         e.textView.insertText("foo foo", replacementRange: e.textView.selectedRange())
         #expect(e.textView.findMarks.count == 1)   // not yet
-        #expect(try await waitFor(5) { e.textView.findMarks.count == 3 })
+        #expect(try await waitFor { e.textView.findMarks.count == 3 })
     }
 }
 

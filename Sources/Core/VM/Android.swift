@@ -11,8 +11,10 @@ public enum AndroidSDK {
         return candidates.map { URL(fileURLWithPath: $0) }
             .first { FileManager.default.isExecutableFile(atPath: $0.appendingPathComponent("emulator/emulator").path) }
     }
-    public static var adb: String? { root.map { $0.appendingPathComponent("platform-tools/adb").path } }
-    public static var emulator: String? { root.map { $0.appendingPathComponent("emulator/emulator").path } }
+    public static var adb: String? { root.map(adb(in:)) }
+    public static var emulator: String? { root.map(emulator(in:)) }
+    public static func adb(in root: URL) -> String { root.appendingPathComponent("platform-tools/adb").path }
+    public static func emulator(in root: URL) -> String { root.appendingPathComponent("emulator/emulator").path }
     public static var avdmanager: String? {
         root.map { $0.appendingPathComponent("cmdline-tools/latest/bin/avdmanager").path }
             .flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil }
