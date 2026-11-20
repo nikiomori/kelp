@@ -48,12 +48,12 @@ struct CardView: View {
                         .foregroundStyle(.secondary)
                     }
                     if !agent.summary.isEmpty {
-                        Text(Self.linked(agent.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                        Text(Self.linked(agent.summary)).font(.ui(TextSize.row)).foregroundStyle(.secondary)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let goal = agent.goal {
-                        Text("Goal: \(goal)").font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(3)
+                        Text("Goal: \(goal)").font(.ui(TextSize.row)).foregroundStyle(.secondary).lineLimit(3)
                     }
                     if let quietSince = agent.quietSince, agent.status == .working {
                         Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(
