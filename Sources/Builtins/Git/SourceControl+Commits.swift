@@ -189,13 +189,11 @@ extension SourceControlController {
         }
     }
 
-    /// The card's buttons and files.
+    /// The card's buttons.
     func cardAction(_ commit: GraphCommit, _ action: CommitCardView.Action) {
         switch action {
         case .open: act(.open, on: commit)
         case .checkOut: act(.checkOut, on: commit)
-        case .file(let path):
-            if let wid = worktreeId { app.workbench.open(DiffTab.uri(wid, file: path, commit: commit.hash)) }
         case .menu(let button):
             let menu = NSMenu()
             addCommitItems(commit, to: menu)

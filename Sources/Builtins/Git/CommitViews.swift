@@ -12,10 +12,11 @@ final class CommitCell: NSTableCellView, Hoverable {
     private let subject = NSTextField(labelWithString: ""), graph = GraphView()
     /// The grey "!" before the words of a breaking change ("feat!:").
     private let bang = NSTextField(labelWithString: "!")
-    /// The caption line: the type and scope, then the age ("fix · l10n · 11h ago").
+    /// The caption line: the type, then the age ("fix · 11h ago").
     private let meta = NSTextField.label("", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
-    /// "· ↑ not pushed" at the caption line's end. The arrow lands and pulses with pushes.
-    private let up = NSImageView(), unpushed = NSStackView()
+    /// "· ↑ 5 not pushed" at the caption line's end, on the newest commit not pushed only: said once, not on each
+    /// row. The arrow lands and pulses with pushes.
+    private let up = NSImageView(), unpushed = NSStackView(), words = NSTextField(labelWithString: "")
     private let caption = NSStackView()
     private var badges: [NSView] = [], refs: [String]?
     private var graphWidth: NSLayoutConstraint?
@@ -48,8 +49,8 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.symbolConfiguration = .chrome(Metrics.iconTiny)
         up.contentTintColor = .secondaryLabelColor
         let dot = NSTextField.label("·", font: .ui(TextSize.caption), color: .secondaryLabelColor)
-        let words = NSTextField.label(
-            String(localized: "not pushed"), font: .ui(TextSize.caption), color: .secondaryLabelColor)
+        words.font = .ui(TextSize.caption)
+        words.textColor = .secondaryLabelColor
         for view in [dot, up, words] as [NSView] {
             view.setContentCompressionResistancePriority(.init(260), for: .horizontal)
             unpushed.addArrangedSubview(view)
@@ -82,11 +83,11 @@ final class CommitCell: NSTableCellView, Hoverable {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `pushed` is nil without a remote, and a commit not pushed yet says so at the end of its caption. A commit that
-    /// just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
+    /// `pushed` is nil without a remote; `unpushedCount` is given to the newest commit not pushed, which says how
+    /// many. A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
     func show(
-        _ commit: GraphCommit, graphWidth width: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
-        arrivesAfter arrival: Double? = nil
+        _ commit: GraphCommit, graphWidth width: CGFloat, isHead: Bool, pushed: Bool?, unpushedCount: Int? = nil,
+        landsAfter delay: Double? = nil, arrivesAfter arrival: Double? = nil
     ) {
         shown += 1
         let ticket = shown, parsedSubject = CommitSubject(commit.subject), notPushed = pushed == false
@@ -107,13 +108,16 @@ final class CommitCell: NSTableCellView, Hoverable {
         bang.isHidden = !parsedSubject.breaking
         meta.stringValue = [Self.kind(parsedSubject, merge: commit.parents.count > 1), Self.relative(commit.date)]
             .compactMap { $0 }.joined(separator: " · ")
-        unpushed.isHidden = !notPushed && delay == nil
+        unpushed.isHidden = unpushedCount == nil
+        if let unpushedCount { words.stringValue = String(localized: "\(unpushedCount) not pushed") }
         if let delay {
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + delay) { [weak self] in
                 if self?.shown == ticket { self?.land() }
             }
         }
         showBadges(commit.refs)
+        // A branch's chip and "↑ 4 not pushed" fill the line: the type and age, in the card, would only show as "…".
+        meta.isHidden = unpushedCount != nil && !commit.refs.isEmpty
         // The card (CommitCard) shows all this to the pointer, and VoiceOver reads it here.
         let when = Date(timeIntervalSince1970: commit.date).formatted(date: .abbreviated, time: .shortened)
         setAccessibilityHelp(
@@ -122,11 +126,10 @@ final class CommitCell: NSTableCellView, Hoverable {
                 + (notPushed ? "\n" + String(localized: "Not pushed yet") : ""))
     }
 
-    /// The caption's word for the commit's type: "fix", "feat · l10n", "merge" for a merge with no type, and nil for a
+    /// The caption's word for the commit's type: "fix", "merge" for a merge with no type, and nil for a
     /// plain subject.
     static func kind(_ commitSubject: CommitSubject, merge: Bool) -> String? {
-        guard let type = commitSubject.type else { return merge ? "merge" : nil }
-        return [type, commitSubject.scope].compactMap { $0 }.joined(separator: " · ")
+        commitSubject.type ?? (merge ? "merge" : nil)   // the scope is in the card: the row keeps to the type
     }
 
     /// Stops what the row did for the commit it showed before: its arrival, or its arrow's landing or pulse.

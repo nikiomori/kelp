@@ -302,9 +302,12 @@ extension SourceControlController {
     private func commitCell(_ outline: NSOutlineView, _ commit: GraphCommit) -> CommitCell {
         let cell = outline.makeView(withIdentifier: CommitCell.id, owner: nil) as? CommitCell ?? CommitCell()
         let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(commit.hash)
+        // "↑ N not pushed" is said once, on the newest of them (and the newest one landing says it lands).
+        let first = commits.first { unpushed.contains($0.hash) || landing[$0.hash] != nil }?.hash == commit.hash
         cell.show(
             commit, graphWidth: Self.graphWidth(commit), isHead: commit.hash.hasPrefix(info?.head ?? "\u{0}"),
-            pushed: pushed, landsAfter: landing[commit.hash], arrivesAfter: arriving[commit.hash])
+            pushed: pushed, unpushedCount: first ? max(unpushed.count, landing.count) : nil,
+            landsAfter: first ? landing[commit.hash] : nil, arrivesAfter: arriving[commit.hash])
         cell.pulse(syncing?.push == true)
         cell.onHover = { [weak self, weak cell] on in
             if let self, let cell { self.card.hover(on, commit: commit, pushed: pushed, over: cell) }

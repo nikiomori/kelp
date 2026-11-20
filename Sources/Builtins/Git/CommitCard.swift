@@ -4,7 +4,7 @@ import DesignKit
 import KelpKit
 
 /// The card a commit shows while the pointer rests on its row, in place of a tooltip. It has the whole subject and
-/// body, who made the commit and when, its files, how big the change is, the hash to copy, and buttons to open its
+/// body, who made the commit and when, how big the change is, the hash to copy, and buttons to open its
 /// changes, check it out, or show the commit's menu. It stays while the pointer is on it.
 @MainActor
 final class CommitCard {
@@ -16,8 +16,6 @@ final class CommitCard {
     var load: (@MainActor (String) async -> CommitDetails?)?
     /// Loads the author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
-    /// Loads the files the commit changed. The card waits for them with the details, so it doesn't grow once up.
-    var files: (@MainActor (String) async -> [FileChange]?)?
     /// What a button or a file in the card asks for. The card goes first, except for the menu, which it holds.
     var onAction: (@MainActor (GraphCommit, CommitCardView.Action) -> Void)?
 
@@ -29,22 +27,18 @@ final class CommitCard {
     /// at once.
     func hover(_ on: Bool, commit graphCommit: GraphCommit, pushed: Bool?, over row: NSView) {
         guard on else {
-            card.closeSoon()
+            card.closeSoon(unlessInside: true)   // on the way to the card, or in it: it stays
             return
         }
         guard !(card.isShown && shown == graphCommit.hash) else {
             card.cancel()
             return
         }
-        let loading = Task {
-            async let details = detailsOf(graphCommit.hash)
-            async let changed = files?(graphCommit.hash)
-            return await (details, changed)
-        }
+        let loading = Task { await detailsOf(graphCommit.hash) }
         card.open { [weak self] in
-            let (loaded, changed) = await loading.value
+            let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
-            self.show(graphCommit, details: loaded, files: changed ?? nil, pushed: pushed, over: row)
+            self.show(graphCommit, details: loaded, pushed: pushed, over: row)
         }
     }
 
@@ -58,13 +52,14 @@ final class CommitCard {
     }
 
     private func show(
-        _ commit: GraphCommit, details commitDetails: CommitDetails?, files: [FileChange]?, pushed: Bool?,
-        over row: NSView
+        _ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, over row: NSView
     ) {
         let email = commitDetails?.email.lowercased() ?? ""
         let view = CommitCardView(
-            commit, details: commitDetails, files: files, pushed: pushed, picture: pictures[email])
-        view.onInside = { [weak self] inside in if inside { self?.card.cancel() } else { self?.card.closeSoon() } }
+            commit, details: commitDetails, pushed: pushed, picture: pictures[email])
+        view.onInside = { [weak self] inside in
+            if inside { self?.card.cancel() } else { self?.card.closeSoon(unlessInside: true) }
+        }
         view.onAction = { [weak self] action in
             if case .menu = action {} else { self?.close() }
             self?.onAction?(commit, action)
@@ -85,24 +80,21 @@ final class CommitCard {
     }
 }
 
-/// The card's content: the type and scope, the subject and the body, then who and when, the files, how big, the hash,
+/// The card's content: the type and scope, the subject and the body, then who and when, how big, the hash,
 /// and the commit's actions.
 final class CommitCardView: NSView {
-    /// What the card's buttons ask for: the commit's changes, one file's, a check-out, or the menu at the ⋯ button.
+    /// What the card's buttons ask for: the commit's changes, a check-out, or the menu at the ⋯ button.
     enum Action {
-        case open, file(String), checkOut, menu(NSView)
+        case open, checkOut, menu(NSView)
     }
     var onInside: ((Bool) -> Void)?
     var onAction: ((Action) -> Void)?
-    /// The most files listed; the rest are "N more", which opens the commit's changes.
-    static let fileRows = 5
     static let width: CGFloat = 320
     /// The author's picture, or the author's initial until it comes (or when the forge has none).
     let avatar = NSImageView()
 
     init(
-        _ commit: GraphCommit, details commitDetails: CommitDetails?, files: [FileChange]?, pushed: Bool?,
-        picture: NSImage?
+        _ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, picture: NSImage?
     ) {
         super.init(frame: .zero)
         let size = TextSize.of(18)
@@ -153,7 +145,6 @@ final class CommitCardView: NSView {
             rows.append(badges)
         }
         rows.append(Self.meta(commit, avatar: avatar))
-        if let files, !files.isEmpty { rows.append(fileList(files, lines: commitDetails?.lines ?? [])) }
         rows.append(Self.footer(commit, details: commitDetails))
         rows.append(actions())
         let stack = NSStackView(views: rows)
@@ -210,41 +201,6 @@ final class CommitCardView: NSView {
         let row = NSStackView(views: views)
         row.spacing = Metrics.gap
         return row
-    }
-
-    /// The commit's first files, each with its lines added and removed; a click opens that file's change. The rest are
-    /// "N more", which opens all of the commit's changes.
-    private func fileList(_ files: [FileChange], lines: [FileLines]) -> NSView {
-        let counts = Dictionary(lines.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
-        var views: [NSView] = files.prefix(Self.fileRows).map { file in
-            let title = NSMutableAttributedString(
-                string: file.path,
-                attributes: [.font: NSFont.uiMono(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor])
-            if let count = counts[file.path], count.added + count.removed > 0 {
-                title.append(NSAttributedString(string: "  "))
-                title.append(GitFolders.changes(added: count.added, removed: count.removed))
-            }
-            let button = PointerButton(title: "") { [weak self] in self?.onAction?(.file(file.path)) }
-            button.attributedTitle = title
-            button.alignment = .left
-            button.lineBreakMode = .byTruncatingMiddle   // the file's name and its counts are at the ends
-            button.padding = Metrics.gapTight
-            button.toolTip = file.path
-            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            return button
-        }
-        if files.count > Self.fileRows {
-            views.append(
-                PointerButton.link(
-                    String(localized: "\(files.count - Self.fileRows) more"), font: .ui(TextSize.caption)
-                ) { [weak self] in self?.onAction?(.open) })
-        }
-        let list = NSStackView(views: views)
-        list.orientation = .vertical
-        list.alignment = .leading
-        list.spacing = 0
-        for view in views { view.widthAnchor.constraint(lessThanOrEqualTo: list.widthAnchor).isActive = true }
-        return list
     }
 
     /// Open Changes, the card's one main action, then Check Out… and the commit's menu under ⋯.
@@ -347,7 +303,7 @@ final class CommitCardView: NSView {
         let field = NSTextField(wrappingLabelWithString: string)
         field.font = font
         field.textColor = color
-        field.isSelectable = false
+        field.isSelectable = true   // a part of the message can be selected and copied
         field.maximumNumberOfLines = lines
         field.cell?.truncatesLastVisibleLine = true
         field.preferredMaxLayoutWidth = width - 2 * Metrics.inset

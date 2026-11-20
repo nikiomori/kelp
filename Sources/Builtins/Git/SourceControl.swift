@@ -131,13 +131,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             else { return nil }
             return NSImage(data: data)
         }
-        commitCard.files = { [weak self] hash in
-            guard let self, let wid = self.worktreeId else { return nil }
-            if let known = self.commitFiles[hash] { return known }
-            let files = await self.app.quiet(GitCommitFiles(id: wid, commit: hash))
-            if wid == self.worktreeId { self.commitFiles[hash] = files }
-            return files
-        }
         commitCard.onAction = { [weak self] in self?.cardAction($0, $1) }
         return commitCard
     }()

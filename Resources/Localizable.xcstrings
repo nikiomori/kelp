@@ -36646,16 +36646,6 @@
         }
       }
     },
-    "not pushed": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "не отправлен"
-          }
-        }
-      }
-    },
     "Git: Open Commit Changes": {
       "localizations": {
         "ru": {
@@ -36742,6 +36732,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Git: Копировать сообщение коммита"
+          }
+        }
+      }
+    },
+    "%lld not pushed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не отправлено: %lld"
           }
         }
       }
