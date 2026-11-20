@@ -336,5 +336,8 @@ final class AddonSwitch: NSSwitch {
 @MainActor
 final class AddonCell: NSStackView, Hoverable {
     var hovered: [NSView] = []
-    func setHover(_ on: Bool) { for view in hovered { view.isHidden = !on } }
+    func setHover(_ on: Bool) {
+        if !hovered.isEmpty { crossfade() }   // the Open button fades in and out, as every list's row actions do
+        for view in hovered { view.isHidden = !on }
+    }
 }

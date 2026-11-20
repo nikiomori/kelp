@@ -253,7 +253,7 @@ final class StripLine {
             fillIcon()
             let line = NSMutableAttributedString(
                 string: item.name,
-                attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
+                attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.labelColor])
             line.append(
                 NSAttributedString(
                     string: "  " + StripModel.brief(item.words ?? ""),

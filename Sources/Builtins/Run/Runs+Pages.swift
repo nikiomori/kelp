@@ -100,10 +100,43 @@ extension Runs {
 
     /// ⇧⌘O opens the main page of the workspace on screen.
     func openPage() {
-        guard let wid = app.workbench.workspaceId, let page = pages(wid).first else {
-            NSSound.beep()
-            return
+        guard let front = frontPage else { return NSSound.beep() }
+        open(front.page, in: front.workspace)
+    }
+
+    // MARK: the page capsule's right-click, for its page, and as commands for the page on screen
+
+    /// The main page of the workspace on screen, the one the title bar's page capsule shows.
+    var frontPage: (page: ServedPage, workspace: String)? {
+        guard let wid = app.workbench.workspaceId, let page = pages(wid).first else { return nil }
+        return (page, wid)
+    }
+
+    /// Opens the page in the default browser, outside Kelp.
+    func openOutside(_ page: ServedPage, in wid: String) {
+        Task {
+            if let url = await PageActions(app).reach(page, in: wid).flatMap({ URL(string: $0.url) }) {
+                PreviewLinks.openOutside(url)
+            }
         }
-        open(page, in: wid)
+    }
+
+    func copyAddress(_ page: ServedPage, in wid: String) { Task { await PageActions(app).copy(page, in: wid) } }
+
+    /// Whether the page is a host's port forwarded to this Mac, which Stop Forwarding takes back.
+    func forwarded(_ page: ServedPage) -> Bool { page.host != nil && page.forwarded }
+
+    func stopForwarding(_ page: ServedPage, in wid: String) {
+        Task {
+            if await app.call(PortsUnforward(worktreeId: wid, port: page.remotePort)) != nil {
+                app.watchAgain(.ports, wid)
+            }
+        }
+    }
+
+    /// Stops the process that serves the page, when it runs on this Mac.
+    func stopServer(_ page: ServedPage, in wid: String) {
+        guard let pid = page.pid else { return NSSound.beep() }
+        Task { await PageActions(app).stop(pid: pid, in: wid) }
     }
 }

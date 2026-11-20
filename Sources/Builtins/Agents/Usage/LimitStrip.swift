@@ -114,6 +114,9 @@ final class LimitStrip: NSView {
         // any button hides.
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
         row.setVisibilityPriority(.init(rawValue: 400), for: handOff)
+        // Below required, or the stack squeezes the buttons and never detaches them; above the words', so they're cut
+        // before.
+        row.setClippingResistancePriority(.defaultHigh - 1, for: .horizontal)
         pin(FloatingCard(row))
     }
 

@@ -125,11 +125,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         read.setViews(now.map { AddonSheetParts.read($0, in: self) } ?? [], in: .top)
         read.isHidden = now == nil
         add.isEnabled = now != nil
-        // The sheet grows or shrinks smoothly from its top edge, which hangs from the window's title bar.
-        let content = NSSize(width: Metrics.sheetWidth, height: window.contentView?.fittingSize.height ?? 0)
-        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: content))
-        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
-        window.setFrame(frame, display: true, animate: window.isVisible && !Motion.reduced)
+        SheetForm.fit(window)   // grows or shrinks smoothly from its top edge, as every sheet that grows does
     }
 
     @objc private func scopeChanged() { show() }

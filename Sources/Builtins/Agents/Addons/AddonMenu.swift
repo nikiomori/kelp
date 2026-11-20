@@ -180,9 +180,10 @@ struct AddonMenu {
     /// up to that agent, not Kelp.
     func run(_ command: String, _ title: String) { app.workbench.starter?.run(command: command, title: title) }
 
+    /// Asks before what the menu can't undo (Move to Trash, Uninstall, Remove): each destroys, so its button is red.
     func confirm(_ question: String, _ detail: String, action: String, then: @escaping @MainActor () -> Void) {
         Task {
-            if await DesignKit.confirm(question, detail: detail, action: action) { then() }
+            if await DesignKit.confirm(question, detail: detail, action: action, destructive: true) { then() }
         }
     }
 

@@ -115,6 +115,7 @@ struct UsageReportView: View {
         // What arrives later (the figures, then the months) comes in with `appear`, never at once.
         .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: usage != nil)
         .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: year.isEmpty)
+        .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: failed)   // the failure line fades
     }
 
     /// The tab's bar, as every page has one: its name, where the figures come from, and the span's picker at the
@@ -204,7 +205,7 @@ struct UsageReportView: View {
                         byCost = $0 == 0
                     }
                 )
-                .controlSize(.small).fixedSize().accessibilityLabel(Text("Show"))
+                .controlSize(.small).fixedSize()
             }
             Chart {
                 ForEach(records, id: \.self) { record in

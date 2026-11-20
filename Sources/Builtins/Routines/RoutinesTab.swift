@@ -24,6 +24,9 @@ struct RoutinesView: View {
     }
     @State private var picked: String?   // the picked run's id
 
+    /// Whether the daemon has said what routines there are: until then, none isn't "No Routines".
+    private var read: Bool { app.latest(RoutinesEvent.self) != nil }
+
     var routines: [Routine] { app.latest(RoutinesEvent.self)?.routines.filter { $0.repoId == repoId } ?? [] }
     var runs: [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
 
@@ -33,7 +36,9 @@ struct RoutinesView: View {
             VStack(spacing: 0) {
                 header(week, list)
                 Divider()
-                if list.isEmpty {
+                if !read {
+                    LoadingPage(String(localized: "Reading the routines…"))
+                } else if list.isEmpty {
                     EmptyState(String(localized: "No Routines"), symbol: "clock.arrow.circlepath") {
                         Text("An agent on a schedule: triage new issues every morning, run the tests every night.")
                     } actions: {
@@ -54,6 +59,7 @@ struct RoutinesView: View {
                     }
                 }
             }
+            .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: read)   // the list fades in once read
         }
     }
 
@@ -66,8 +72,10 @@ struct RoutinesView: View {
             if let project = app.repo(repoId)?.name {
                 Text(project).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             }
-            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
-                .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            if read {   // no count before the list has come
+                Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
+                    .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            }
             Spacer()
             // With no routines, the button is under No Routines instead.
             if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }
