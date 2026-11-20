@@ -36735,16 +36735,6 @@
           }
         }
       }
-    },
-    "%lld not pushed": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "не отправлено: %lld"
-          }
-        }
-      }
     }
   },
   "version": "1.0"
