@@ -21,7 +21,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         /// Two rows are equal when they print the same figures. A new measure every two seconds mostly moves a digit
         /// no one sees, so such a row is not drawn again.
         static func == (lhs: Row, rhs: Row) -> Bool {
-            lhs.session == rhs.session && lhs.processes == rhs.processes && (lhs.cpu > 80) == (rhs.cpu > 80)
+            lhs.session == rhs.session && lhs.processes == rhs.processes
                 && ActivityController.percent(lhs.cpu) == ActivityController.percent(rhs.cpu)
                 && bytes(lhs.memory) == bytes(rhs.memory)
         }
@@ -163,7 +163,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(bytes(entry.memory))")
         cost.font = .uiDigits(TextSize.caption)
         cost.alignment = .right
-        cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor
+        cost.textColor = .secondaryLabelColor   // grey even when busy: orange is for what waits for you; the number says it
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
         let stop = IconButton(.symbol("stop.fill"), tip: tip) { AgentActions(app).stop([session.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
