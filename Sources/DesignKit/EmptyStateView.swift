@@ -114,7 +114,7 @@ public final class EmptyStateView: NSView {
             raw.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
         }
         return
-            "<html><head><meta name='color-scheme' content='light dark'></head><body style='margin:0;font:13px -apple-system;"
+            "<html><head><meta name='color-scheme' content='light dark'></head><body style='margin:0;font:\(Int(TextSize.of(TextSize.body).rounded()))px -apple-system;"
             + "color:-apple-system-secondary-label;display:flex;height:100vh;align-items:center;justify-content:center;text-align:center'>"
             + "<div style='margin:0 \(Int(Metrics.inset) + 4)px \(2 * Int(Metrics.emptyLift))px'>"
             + "<div style='font-weight:600;color:-apple-system-label;margin-bottom:\(Int(Metrics.gap))px'>\(esc(title))</div>\(esc(text))</div></body></html>"

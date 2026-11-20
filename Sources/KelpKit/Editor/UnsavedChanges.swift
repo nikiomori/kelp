@@ -14,10 +14,10 @@ enum UnsavedChanges {
             : quitting
                 ? String(localized: "You have \(edited.count) files with unsaved changes. Save them before quitting?")
                 : String(localized: "You have \(edited.count) files with unsaved changes. Save them before closing?")
-        alert.informativeText = String(localized: "Your changes will be lost if you don't save them.")
+        alert.informativeText = String(localized: "Your changes will be lost if you don’t save them.")
         alert.addButton(withTitle: edited.count == 1 ? String(localized: "Save") : String(localized: "Save All"))
         if canCancel { alert.addButton(withTitle: String(localized: "Cancel")) }
-        alert.addButton(withTitle: String(localized: "Don't Save"))
+        alert.addButton(withTitle: String(localized: "Don’t Save"))
         return alert
     }
 

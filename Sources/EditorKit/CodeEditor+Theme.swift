@@ -165,6 +165,7 @@ extension CodeEditor {
         wrap(wrapsHere ?? Self.current.wrapLines || alwaysWraps)
         colored = nil
         colorVisible()
+        if stickyTop != nil { refreshSticky(restyled: true) }   // rows shown were made in the old look
         tv.needsDisplay = true
     }
 

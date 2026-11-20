@@ -13,10 +13,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     let view = NSView()
     private let part = CapsuleSegments(
-        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")], target: nil,
-        action: nil)
+        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")],
+        name: String(localized: "Show"))
     private let search = NSSearchField()
     private let stack = NSStackView()
+    private let empty = EmptyStateView()
     static let width: CGFloat = 264
 
     /// What the column shows. The tab sets these as its table, selection or runs change.
@@ -60,6 +61,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         column.spacing = 0
         for v in [find, scroll] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         view.pin(column)
+        empty.place(in: view, under: top)
         view.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
     }
 
@@ -78,6 +80,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         for v in stack.arrangedSubviews { v.removeFromSuperview() }
         let which = Part(rawValue: part.selectedSegment) ?? .table
         search.superview?.isHidden = which != .row
+        empty.show(nil)
         switch which {
         case .table: tablePart()
         case .row: rowPart()
@@ -88,7 +91,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Table
 
     private func tablePart() {
-        guard let table else { return add(note(String(localized: "No table shown"))) }
+        guard let table else { return empty.show(String(localized: "No Table Shown"), symbol: "tablecells") }
         add(field(String(localized: "Name"), table.name, mono: true))
         if table.kind == "view" { add(field(String(localized: "Kind"), String(localized: "View"))) }
         if let rows = table.rows { add(field(String(localized: "Rows"), "≈ " + rows.formatted())) }
@@ -114,7 +117,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Row
 
     private func rowPart() {
-        guard let row else { return add(note(String(localized: "No row selected"))) }
+        guard let row else { return empty.show(String(localized: "No Row Selected"), symbol: "list.bullet.rectangle") }
         let find = search.stringValue.lowercased()
         var shown = 0
         for (i, name) in row.columns.enumerated() where find.isEmpty || name.lowercased().contains(find) {
@@ -123,7 +126,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             add(rowField(i, name, value, column))
             shown += 1
         }
-        if shown == 0 { add(note(String(localized: "No matching fields"))) }
+        if shown == 0 { empty.show(String(localized: "No Matching Fields"), symbol: "magnifyingglass") }
     }
 
     private func rowField(_ index: Int, _ name: String, _ value: String?, _ column: DatabaseSchema.Column?) -> NSView {
@@ -139,13 +142,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
         if let ref = column?.references, let value, case let target = ref.split(separator: "."), target.count == 2 {
-            let link = PointerButton(title: "\(value) → \(target[0])") { [weak self] in
+            let words = "\(value) → \(target[0])"
+            let link = PointerButton.link(words, font: .uiMono(TextSize.caption)) { [weak self] in
                 self?.onFollow(String(target[0]), String(target[1]), value)
             }
-            link.contentTintColor = .linkColor
-            link.font = .uiMono(TextSize.caption)
             link.lineBreakMode = .byTruncatingMiddle
-            link.underlinesOnHover = true
             parts.append(link)
         }
         let multiline =
@@ -179,7 +180,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Agent
 
     private func agentPart() {
-        if runs.isEmpty { add(note(String(localized: "No agent has run anything on it"))) }
+        if runs.isEmpty {
+            empty.show(
+                String(localized: "No Agent Runs"), symbol: "clock.arrow.circlepath",
+                text: String(localized: "What agents run on this table shows here."))
+        }
         for run in runs.prefix(20) {
             let sql = PointerButton(title: run.sql.split(whereSeparator: \.isNewline).joined(separator: " ")) {
                 [weak self] in self?.onRun(run)
@@ -228,10 +233,6 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         box.edgeInsets = NSEdgeInsets(
             top: Metrics.gapWide, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         return box
-    }
-
-    private func note(_ s: String) -> NSView {
-        padded(NSTextField.label(s, font: .ui(TextSize.row), color: .secondaryLabelColor))
     }
 
     private func small(_ s: String) -> NSTextField {

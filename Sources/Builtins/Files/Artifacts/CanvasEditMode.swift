@@ -66,7 +66,8 @@ enum CanvasEditMode {
           ];
           function fill() {
             const e = at.e, id = idOf(e), out = [];
-            const path = [], up = K.el('button', 'kelp-pill', '↑ ' + L.parent);
+            const path = [], up = K.el('button', 'kelp-pill', L.parent);
+            up.insertAdjacentHTML('afterbegin', \(CanvasChrome.Glyph.up.js));
             for (let p = e.parentElement; p && p !== e.ownerDocument.body && path.length < 3; p = p.parentElement)
               path.unshift(idOf(p) || p.tagName.toLowerCase());
             up.onclick = () => {

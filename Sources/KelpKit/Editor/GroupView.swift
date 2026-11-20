@@ -7,7 +7,7 @@ final class GroupView: NSView {
     let groupId: String
     let strip = TabStrip()
     private let container = NSView()
-    private let hint = GroupView.dropHint()
+    private let hint = DropHint()
     private weak var shown: NSView?
     private let veil = Veil()
     private let ring = EdgeGlow(radius: Metrics.radiusSM, spread: 14)
@@ -88,18 +88,6 @@ final class GroupView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Where a dropped tab will go (here and at the editor area's outer edges): accent fill, accent border.
-    static func dropHint() -> NSView {
-        let hint = NSView()
-        hint.wantsLayer = true
-        hint.isHidden = true
-        hint.layer?.backgroundColor = NSColor.fillTint(.themeAccent).cgColor
-        hint.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
-        hint.layer?.borderWidth = 1
-        hint.layer?.cornerRadius = Metrics.radiusSM
-        return hint
-    }
-
     func show(_ content: NSView?) {
         guard content !== shown || content?.superview !== container else { return }
         // Remove the old view only if it's still here, because a tab moved to another group took its view along.
@@ -140,17 +128,7 @@ final class GroupView: NSView {
     private func showHint(_ edge: NSRectEdge?) {
         var hintFrame = container.frame.insetBy(dx: 6, dy: 6)
         if let edge { hintFrame = hintFrame.share(1 / 2, from: edge) }
-        // The hint fades in where it's needed, then glides from half to whole, as the drop's insertion mark does.
-        if hint.isHidden {
-            hint.frame = hintFrame
-            hint.fadeIn()
-        } else if hint.frame != hintFrame {   // every move of the pointer comes here
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Motion.duration(Motion.fast)
-                ctx.timingFunction = Motion.soft
-                hint.animator().frame = hintFrame
-            }
-        }
+        hint.show(hintFrame)
     }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -160,7 +138,7 @@ final class GroupView: NSView {
             return .copy
         }
         if let outer = outerEdge(sender) {
-            hint.isHidden = true
+            hint.hide()
             showOuterHint?(outer)
             return .move
         }
@@ -169,11 +147,11 @@ final class GroupView: NSView {
         return .move
     }
     override func draggingExited(_ sender: NSDraggingInfo?) {
-        hint.isHidden = true
+        hint.hide()
         showOuterHint?(nil)
     }
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        hint.isHidden = true
+        hint.hide()
         showOuterHint?(nil)
         guard let id = sender.draggingPasteboard.string(forType: .kelpTab) else {
             let files = Workbench.files(sender)
@@ -200,5 +178,57 @@ extension NSRect {
         let across = edge == .minX || edge == .maxX ? width : height
         return divided(atDistance: across * fraction, from: CGRectEdge(rawValue: UInt32(edge.rawValue)) ?? .minXEdge)
             .slice
+    }
+}
+
+/// Where a dropped tab will go (in a pane and at the editor area's outer edges): accent fill, accent border. It fades in
+/// where it's needed, glides from half to whole as the drop's insertion mark does, and fades out in two thirds of that.
+@MainActor
+final class DropHint: NSView {
+    private var leaving = false
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        isHidden = true
+        layer?.borderWidth = 1
+        layer?.cornerRadius = Metrics.radiusSM
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func show(_ place: NSRect) {
+        leaving = false
+        if isHidden {
+            frame = place
+            // Coloured as it shows, so it has the theme's accent and the appearance as they are now.
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                layer?.backgroundColor = NSColor.fillTint(.themeAccent).cgColor
+                layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
+            }
+        } else if frame != place {   // every move of the pointer comes here
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.duration(Motion.fast)
+                ctx.timingFunction = Motion.soft
+                animator().frame = place
+            }
+        }
+        fadeIn()
+    }
+
+    func hide() {
+        guard !isHidden, !leaving else { return }
+        leaving = true
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = Motion.duration(Motion.fast * 2 / 3)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                animator().alphaValue = 0
+            },
+            completionHandler: { [weak self] in
+                MainActor.assumeIsolated {   // AppKit runs the completion on the main thread
+                    guard let self, self.leaving else { return }
+                    self.isHidden = true
+                    self.leaving = false
+                }
+            })
     }
 }

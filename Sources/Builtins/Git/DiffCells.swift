@@ -147,20 +147,14 @@ extension DiffViewController {
         }
     }
 
-    // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
+    // MARK: keyboard: ⌥→/⌥← files. The steps between changes and comments are Git's commands (`GitBuiltin`), so their
+    // keys are the bindings'.
     func key(_ event: NSEvent) -> Bool {
         if event.keyCode == 49, event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) {
             return flipSelectedComment()
         }
         guard event.modifierFlags.contains(.option) else { return false }
-        let comments = event.modifierFlags.contains(.shift)
         switch event.keyCode {
-        case 125:
-            jump(1, comments: comments)
-            return true
-        case 126:
-            jump(-1, comments: comments)
-            return true
         case 124:
             files.selectRowIndexes([min(files.selectedRow + 1, diffs.count - 1)], byExtendingSelection: false)
             return true
@@ -170,10 +164,17 @@ extension DiffViewController {
         default: return false
         }
     }
+    /// "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments", with the keys the bindings have, as the menus show them.
+    var stepsTip: String {
+        let key = { [app] in app.extensions.keyText($0) ?? "" }
+        let changes = key("git.previousChange") + " " + key("git.nextChange")
+        let comments = key("git.previousComment") + " " + key("git.nextComment")
+        return String(localized: "\(changes) changes, \(comments) comments")
+    }
     @objc func nextChange() { jump(1) }
     @objc func prevChange() { jump(-1) }
     /// Jumps to the next (or previous) change or comment, and says which of how many it is.
-    private func jump(_ dir: Int, comments: Bool = false) {
+    func jump(_ dir: Int, comments: Bool = false) {
         let idx = rows.indices.filter {
             switch rows[$0] {
             case .comment: comments
@@ -259,7 +260,7 @@ extension DiffViewController {
         }
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-        stack.fill = .fillSelected
+        stack.fill = .fillRest
         return stack
     }
 

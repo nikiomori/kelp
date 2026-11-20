@@ -70,7 +70,7 @@ struct PictureTile<Art: View>: View {
                 art.frame(height: Self.height)
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
                     .cardEdge(selected: on)
-                Text(name).font(.ui(TextSize.caption)).fontWeight(on ? .semibold : .regular).foregroundStyle(
+                Text(name).font(.ui(TextSize.caption)).fontWeight(on ? .medium : .regular).foregroundStyle(
                     on ? .primary : .secondary
                 ).lineLimit(1)
             }

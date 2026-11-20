@@ -81,7 +81,7 @@ struct ServerSide: View {
     private func tmuxRow(_ tmux: HostStats.TmuxSession) -> SectionList.Row {
         let app = app, session = tmux.session.flatMap(app.session)
         var row = SectionList.Row(id: "tmux " + tmux.name, title: session.map(app.catalog.displayName) ?? tmux.name)
-        row.icon = SectionList.symbol("moon")
+        row.icon = SectionList.symbol("terminal")   // a tmux session is a terminal; the moon is a paused agent
         row.detail =
             session == nil
             ? String(localized: "Not started by this Kelp · \(tmux.name)")

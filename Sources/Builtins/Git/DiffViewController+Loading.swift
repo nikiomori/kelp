@@ -18,6 +18,8 @@ struct DiffLoads {
     var builds = 0
     /// What the diff on screen was read from. A git event that leaves it as it was reads nothing.
     var basis: GitDiff.Basis?
+    /// The `asking` whose diff is on screen, so a failed read of the same one keeps it.
+    var shown: Int?
     /// How many reads ran so far, so tests can see a burst of events make one more read, not one each.
     var reads = 0
     /// How many diffs were coloured so far. An answer the same as the diff on screen isn't coloured again.
@@ -89,7 +91,7 @@ extension DiffViewController {
             let log = await app.call(GitLog(id: wid, all: true)) ?? []
             let commits = log.prefix(30).map { ("\($0.hash)  \($0.subject)", $0.hash) }
             if let hash = await pick(
-                String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"), width: 360)
+                String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"))
             {
                 commitHash = hash
             } else {
@@ -106,13 +108,17 @@ extension DiffViewController {
             words = [:]
             files.reloadData()
             table.reloadData()
-            showState(error: nil, nothing: String(localized: "No agent on this screen"))
+            showState(error: nil, nothing: String(localized: "No Agent on This Screen"))
             return
         }
         if single == nil { await readTurns(sourcePicked == .turn ? agent : nil) }
         let asked = loads.asking, request = diffRequest()
         loads.basis = request.basis(app.latest(GitEvent.self, app.gitKey(wid)))
         let result = await app.tryCall(request)
+        // A failed read of the diff on screen keeps it, and says so over it.
+        if let error = result.error, !diffs.isEmpty, loads.shown == asked, asked == loads.asking {
+            return failureBar.show(error)
+        }
         let newDiffs = result.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
         // The files' letters and the comments; when the diff failed, its error already says so.
@@ -142,6 +148,7 @@ extension DiffViewController {
         // Rows, cell tags and the hunk buttons all index `diffs`, so they change together, once every answer is in.
         guard asked == loads.asking, wid == worktreeId else { return }
         loads.builds += 1   // rows that a layout change is still building are the old diff's
+        loads.shown = asked
         if let spans {
             position.stringValue = ""
             syntax = spans
@@ -164,6 +171,7 @@ extension DiffViewController {
     /// `nothing` ("No Changes") for an empty diff. The bar counts files only when there are some, not "0 files".
     func showState(error: String?, nothing: String = String(localized: "No Changes")) {
         loading.show(nil)
+        failureBar.show(nil)
         if let error {
             empty.showError(
                 String(localized: "Couldn’t Read the Changes"), text: error, fix: FixRecipes.fix(for: error)?.command,

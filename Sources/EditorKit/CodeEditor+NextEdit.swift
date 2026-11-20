@@ -225,7 +225,11 @@ extension CodeEditor {
         let pill = nextEdit.pill ?? JumpPill()
         if pill.superview !== tv { tv.addSubview(pill) }
         nextEdit.pill = pill
-        pill.label = String(localized: "to line \(shown.proposal.lines.lowerBound + 1)")
+        let line = shown.proposal.lines.lowerBound + 1, label = String(localized: "to line \(line)")
+        if pill.isHidden || pill.label != label {
+            announce(String(localized: "Next edit on line \(line). Tab goes there."))
+        }
+        pill.label = label
         let string = tv.string as NSString
         let end = tv.caretRect(at: MultiCursor.lineEnd(string, tv.selectedRange().location))
         let size = pill.fitting
@@ -257,16 +261,17 @@ struct NextEditState {
 final class JumpPill: NSView {
     var label = "" { didSet { needsDisplay = true } }
     /// Read at each use, so the pill follows Text size. The pill is one line of text tall plus the key cap's inset
-    /// above and below (18 pt at the normal size), and the key cap is as wide as it is tall.
+    /// above and below (18 pt at the normal size), and the key cap is as wide as it is tall, with its radius inside
+    /// the pill's.
     private var font: NSFont { .ui(TextSize.caption) }
     private var height: CGFloat { ceil(Self.lines.defaultLineHeight(for: font)) + 2 * Self.inset }
-    private static let lines = NSLayoutManager(), inset: CGFloat = 2.5   // the key cap's from the pill's edge
+    private static let lines = NSLayoutManager(), inset: CGFloat = 2   // the key cap's from the pill's edge
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     var fitting: NSSize {
         let width = (label as NSString).size(withAttributes: [.font: font]).width
-        return NSSize(width: ceil(2 + height + 6 + width + 9), height: height)
+        return NSSize(width: ceil(Self.inset + height + Metrics.gap + width + Metrics.gapWide), height: height)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -279,13 +284,14 @@ final class JumpPill: NSView {
         outline.stroke()
         let inset = Self.inset
         let cap = NSRect(x: inset, y: inset, width: height, height: height - 2 * inset)
-        let capPath = NSBezierPath(roundedRect: cap, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
+        let radius = bounds.height / 2 - inset   // concentric with the pill's ends
+        let capPath = NSBezierPath(roundedRect: cap, xRadius: radius, yRadius: radius)
         NSColor.separatorColor.setStroke()
         capPath.stroke()
         let ink: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
         let tab = "⇥" as NSString, tabSize = tab.size(withAttributes: ink)
         tab.draw(at: NSPoint(x: cap.midX - tabSize.width / 2, y: cap.midY - tabSize.height / 2), withAttributes: ink)
         let text = label as NSString, textSize = text.size(withAttributes: ink)
-        text.draw(at: NSPoint(x: cap.maxX + 6, y: bounds.midY - textSize.height / 2), withAttributes: ink)
+        text.draw(at: NSPoint(x: cap.maxX + Metrics.gap, y: bounds.midY - textSize.height / 2), withAttributes: ink)
     }
 }

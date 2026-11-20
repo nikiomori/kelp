@@ -31,8 +31,8 @@ open class PointerButton: NSButton {
     public var padding: CGFloat = 0 { didSet { invalidateIntrinsicContentSize() } }
     /// The fill the button rests on (nil for none); hover and press go a step past it.
     public var restFill: NSColor? { didSet { showFill() } }
-    /// Makes the button a link (a port, "Open Source Control"), with no fill; under the pointer its words are
-    /// underlined, as links are.
+    /// Makes the button a link, with no fill; under the pointer its words are underlined, as links are. A link is
+    /// made with `PointerButton.link`.
     public var underlinesOnHover = false { didSet { showFill() } }
     /// For a quiet glyph that brightens under the pointer (the sidebar row's "+"): its tint at rest and under the
     /// pointer. Nil keeps `contentTintColor`.
@@ -103,7 +103,7 @@ open class PointerButton: NSButton {
         guard !underlinesOnHover else {
             let words = NSMutableAttributedString(
                 string: title,
-                attributes: [.font: font ?? .ui(TextSize.body), .foregroundColor: contentTintColor ?? .linkColor])
+                attributes: [.font: font ?? .ui(TextSize.body), .foregroundColor: contentTintColor ?? .emphasis])
             if hovering && isEnabled {
                 words.addAttribute(
                     .underlineStyle, value: NSUnderlineStyle.single.rawValue,
@@ -125,6 +125,16 @@ open class PointerButton: NSButton {
 }
 
 extension PointerButton {
+    /// A link (a port, the table a key points at): words in the accent colour (`emphasis`: the text colour under
+    /// Graphite, whose grey read as a disabled label) with no plate, underlined under the pointer. Every link is drawn
+    /// this way; SwiftUI's is `.buttonStyle(.kelpLink)`.
+    public static func link(_ title: String, font: NSFont, action: @escaping () -> Void) -> PointerButton {
+        let button = PointerButton(title: title, action: action)
+        button.font = font
+        button.underlinesOnHover = true
+        return button
+    }
+
     /// The small button that takes the place of a row's icon under the pointer: a chat's ✕, or the fold of a project,
     /// a group or a server. It is round, as on a tab, starts hidden, and its row gives it the slot's 16 pt.
     public static func slot(action: @escaping () -> Void) -> PointerButton {

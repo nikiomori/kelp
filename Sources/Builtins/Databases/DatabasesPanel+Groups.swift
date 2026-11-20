@@ -214,7 +214,7 @@ extension DatabasesPanel {
                     String(localized: "Forget \(dbs.count) databases?"),
                     detail: String(
                         localized: "Their addresses and passwords leave Kelp. Projects that use them keep theirs."),
-                    action: String(localized: "Forget"))
+                    action: String(localized: "Forget"), destructive: true)
             else { return }
             for db in dbs {
                 guard await app.call(DatabaseRemove(worktreeId: wid, name: db.name, library: true)) != nil else {

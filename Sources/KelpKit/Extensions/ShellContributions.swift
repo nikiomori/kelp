@@ -89,8 +89,8 @@ package struct FolderCI {
     /// CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
     /// The pull request of the folder's branch, shown beside the folder: "#12" in the colour of its state, its tooltip,
-    /// and the tab a click opens.
-    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String)?
+    /// the tab a click opens, and its page on the forge, which a ⌘-click opens in the browser.
+    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String, page: URL?)?
     /// Makes a CI mark in the built-in's look (12 pt) for a row, the branch chip or a tile. It returns the view and a
     /// function that shows a state in it. `spelled` means the row is under the pointer, and the function returns how
     /// much wider than 12 pt the mark then is.
@@ -107,7 +107,7 @@ package struct FolderCI {
         line: @escaping @MainActor (String) -> String?,
         open: @escaping @MainActor (String) -> Void,
         menu: @escaping @MainActor (NSMenu, String?) -> Void,
-        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, uri: String)?,
+        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, uri: String, page: URL?)?,
         mark: @escaping @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat),
         card: @escaping @MainActor (String) -> AnyView?,
         carded: @escaping @MainActor (String?) -> Void

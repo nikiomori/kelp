@@ -47,6 +47,13 @@ extension OneAtATime {
         #expect(started == 2 && lsp.trusted(root))
         #expect(followed.withLock { $0 } && !lsp.asks(root, rust))   // the bar that asked goes: it stayed, as if nothing was done
         #expect(lsp.summary(root, rust) == nil)   // no server asked for yet: the status bar names none
+        // A server the daemon says stopped is named, as stopped (red), until the daemon says it runs again.
+        app.land(LSPServerEvent(root: root, command: "rust-analyzer", failed: true))
+        #expect(
+            lsp.summary(root, rust) == ServerSummary(title: "rust-analyzer", missing: false, stopped: ["rust-analyzer"])
+        )
+        app.land(LSPServerEvent(root: root, command: "rust-analyzer", failed: false))
+        #expect(lsp.summary(root, rust) == nil)
         #expect(lsp.whenTrusted(root) { started += 1 } && started == 2)   // trusted from now on: no waiting
         #expect(!lsp.trusted(Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }

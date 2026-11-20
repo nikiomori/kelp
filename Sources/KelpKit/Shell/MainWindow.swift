@@ -26,13 +26,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private(set) var inFocusMode = false {
         didSet { app.workbench.inFocusMode = inFocusMode }
     }
-    private lazy var bar = WindowBar(app: app)
+    lazy var bar = WindowBar(app: app)
     private lazy var updatePill = UpdatePill(app: app)
     /// While the update pill shows, the sidebar's toggle stays clear of it (a hidden view still holds constraints).
     private lazy var clearOfPill = sidebarToggle.leadingAnchor.constraint(
         greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
+    /// Where the sidebar's toggle may start: after the traffic lights, or at the window's edge where they stood while
+    /// the sidebar is put away (`followLights`). The toggle follows the sidebar's column as it opens and closes, and
+    /// the workspace's name follows the toggle, so both move once, with the column, and never while the sidebar only
+    /// slides in at the edge.
+    var toggleFloor: NSLayoutConstraint?
+    /// Where the update pill starts: on the same floor as the toggle, so with the sidebar away it stands at the
+    /// window's edge too, and the toggle and the name after it.
+    var pillFloor: NSLayoutConstraint?
+    /// The traffic lights' right end and left start, in the window.
+    var lightsEnd: CGFloat = 69, lightsStart: CGFloat = 12
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
-    private let sidebarToggle = NSButton.titlebar(
+    let sidebarToggle = NSButton.titlebar(
         "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
     private let inspectorToggle = NSButton.titlebar(
         "sidebar.trailing", String(localized: "Inspector"), tip: String(localized: "Show or hide the inspector"))
@@ -71,10 +81,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         root.addChild(split)
         wireToggles()
         root.view.pin(split.view)
-        // The inspector's toggle goes under its floater, because on the floater's corner it stood half on its border.
-        // The sidebar's toggle stays over its floater, beside the traffic lights, which are over everything anyway.
+        // The toggles go under their floaters: the inspector's stood half on its floater's border, and the sidebar's,
+        // at the window's edge while the sidebar is away, would stand on the traffic lights of a sidebar sliding in,
+        // which covers it as Dia's does. The update pill stands there too, so it goes under as well.
         let parts = [
-            bar, left.floater, inspectorToggle, right.floater, updatePill, sidebarToggle, left.edge, right.edge
+            bar, sidebarToggle, updatePill, left.floater, inspectorToggle, right.floater, left.edge, right.edge
         ]
         for part in parts {
             part.translatesAutoresizingMaskIntoConstraints = false
@@ -83,7 +94,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         left.floater.attach(leading: true)
         right.floater.attach(leading: false)
         for side in sides { side.edge.onEnter = { [weak self, unowned side] in self?.peek(side) } }
-        let lights = created.standardWindowButton(.zoomButton).map { $0.convert($0.bounds, to: nil).maxX } ?? 69
+        let lights = measureLights(created)
+        let floor = sidebarToggle.leadingAnchor.constraint(
+            greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12)
+        toggleFloor = floor
+        let pillFloor = updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12)
+        self.pillFloor = pillFloor
         // The bar lies over the editor area only, because the sidebar and the inspector both run the window's full
         // height. With the sidebar away, the bar runs under the traffic lights. With the inspector away, it runs under
         // the inspector's toggle.
@@ -95,12 +111,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             // The bar is as tall as the title bar, so the traffic lights and the toggles share a centre line. The
             // sidebar's toggle is in the sidebar's top right corner, or after the traffic lights while the sidebar is
             // away.
-            sidebarToggle.leadingAnchor.constraint(
-                greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12),
+            floor,
             sidebarToggle.trailingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: -8).withPriority(
                 600),
             sidebarToggle.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
-            updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12),
+            pillFloor,
             updatePill.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
             // The workspace's name starts over the editor area, or after the sidebar's toggle while the sidebar is
             // away.
@@ -110,7 +125,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             inspectorToggle.centerYAnchor.constraint(equalTo: sidebarToggle.centerYAnchor),
             left.edge.leadingAnchor.constraint(equalTo: root.view.leadingAnchor),
             left.edge.widthAnchor.constraint(equalToConstant: 4),
-            left.edge.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            // From the window's top: with the sidebar away, its corner is where the traffic lights were.
+            left.edge.topAnchor.constraint(equalTo: root.view.topAnchor),
             left.edge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor),
             right.edge.trailingAnchor.constraint(equalTo: root.view.trailingAnchor),
             right.edge.widthAnchor.constraint(equalToConstant: 4),
@@ -128,11 +144,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         } changed: { [weak self] _ in
             self?.updateTitle()
         }
-        track(owner: self) {
-            app.updates.ready != nil
-        } changed: { [weak self] in
-            self?.clearOfPill.isActive = $0
-        }
+        followPill(app)
         track(owner: self) {
             app.themes.look
         } changed: { [weak self] look in
@@ -148,7 +160,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 app.settings[setting]
             } changed: { [weak self, unowned side] in
                 self?.setAutoHide(side, $0)
-                toggle.menu = self?.autoHideMenu(title, setting, $0)
+                // The sidebar's button itself switches its auto-hide (decision 109): no menu for the same thing.
+                toggle.menu = side === self?.left ? nil : self?.autoHideMenu(title, setting, $0)
             }
         }
     }
@@ -187,6 +200,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let menu = NSMenu(), app = app
         menu.add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
         return menu
+    }
+    /// Makes room for the update pill while an update is ready.
+    private func followPill(_ app: AppModel) {
+        track(owner: self) {
+            app.updates.ready != nil
+        } changed: { [weak self] in
+            self?.makeRoom(forPill: $0)
+        }
+    }
+    /// Moves the sidebar's toggle and the workspace's name over for the update pill, or back once it's gone.
+    private func makeRoom(forPill shown: Bool) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(shown ? Motion.base : Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: shown ? .easeOut : .easeIn)
+            ctx.allowsImplicitAnimation = true
+            clearOfPill.isActive = shown
+            window?.contentView?.layoutSubtreeIfNeeded()
+        }
+    }
+    /// Notes where the traffic lights start and end in `window`, and returns their end.
+    private func measureLights(_ window: NSWindow) -> CGFloat {
+        let edge = { (type: NSWindow.ButtonType, side: (NSRect) -> CGFloat) in
+            window.standardWindowButton(type).map { side($0.convert($0.bounds, to: nil)) }
+        }
+        lightsEnd = edge(.zoomButton, \.maxX) ?? 69
+        lightsStart = edge(.closeButton, \.minX) ?? 12
+        return lightsEnd
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -252,12 +292,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         inspector.show(panel: panel, keys: keys)
     }
+    /// The sidebar button and ⌘0 put the sidebar away so that it still comes in at the window's left edge, as Dia's
+    /// does (decision 109): hidden and auto-hide are one state, the setting, not two ways to the same thing. A sidebar
+    /// left collapsed by an older Kelp opens first.
     @objc func toggleSidebarPanel() {
         if inFocusMode { return togglePeek(left) }
-        if left.autoHide { return togglePin(left) }
-        slide([(left, !left.item.isCollapsed)])
+        if !left.autoHide, left.item.isCollapsed { return slide([(left, false)]) }
+        app.settings.set(SettingKeys.sidebarAutoHide, !left.autoHide)
     }
-    var sidebarShown: Bool { !left.item.isCollapsed || peeking === left }
+    /// Whether View's item hides the sidebar, by what choosing it does: a sidebar put away that peeks gets docked by
+    /// it, so it says Show (`toggleSidebarPanel`).
+    var sidebarShown: Bool { inFocusMode ? peeking === left : !left.autoHide && !left.item.isCollapsed }
     var inspectorShown: Bool { !right.item.isCollapsed || peeking === right }
 
     /// Leaves focus mode when quitting, so the panels come back first. Otherwise the split's autosave would start the
@@ -287,7 +332,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             floatWidths()
             slide(sides.map { ($0, true) }) { [weak self] in self?.place() }
         }
-        for toggle in [sidebarToggle, inspectorToggle] { fade(toggle, hidden: inFocusMode) }
+        fade(inspectorToggle, hidden: inFocusMode)   // the sidebar's stays, at the window's edge (`followLights`)
+        followLights()
     }
     func windowDidBecomeKey(_ notification: Notification) { app.workbench.mainWindowBecameKey() }
 

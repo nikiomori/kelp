@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The agent's turns, newest first, beside the "Agent's Last Turn" source. The daemon keeps where each turn started
+/// The agent's turns, newest first, beside the "Agent’s Last Turn" source. The daemon keeps where each turn started
 /// (`SessionTurns`), so any turn can be read again. Each turn is named by the prompt that started it.
 extension DiffViewController {
     /// The id of the turn picked, or nil for the last one.

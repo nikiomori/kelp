@@ -133,13 +133,14 @@ private struct Meter: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
                 if arrows { arrow("arrow.down", Metrics.iconLarge, said: String(localized: "Received")) }
-                Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
+                Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
                     .foregroundStyle(ServerReading.strained(share ?? 0) ? ServerReading.strainedColor : .primary)
                 if arrows { arrow("arrow.up", Metrics.iconSmall, said: String(localized: "Sent")) }
                 Text(detail).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             }
             if let trend, trend.count > 1 {
-                Trend(points: trend, strained: ServerReading.strained(share ?? 0)).frame(height: 28)
+                // Two caption lines tall, and taller with Text size, as the numbers over it grow.
+                Trend(points: trend, strained: ServerReading.strained(share ?? 0)).frame(height: TextSize.of(28))
             } else if let share {
                 ProgressView(value: min(1, share)).progressViewStyle(.linear).controlSize(.small)
                     .tint(ServerReading.strained(share) ? ServerReading.strainedColor : .secondary).padding(

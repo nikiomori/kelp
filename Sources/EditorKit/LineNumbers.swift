@@ -93,16 +93,36 @@ final class LineNumbers: NSRulerView {
                 plateFill = 0
             }
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.fast
+                context.duration = Motion.duration(Motion.fast)
                 animator().plateFill = hoverLine == nil ? 0 : 1
             }
         }
     }
+    /// The line whose change bar is under the pointer. The bar gets the hover grey and says what a click does, and the
+    /// chevron then has none, because the click goes to the bar. The grey fades as the chevron's does, and stays on
+    /// while the pointer moves along one change.
+    private var barLine: Int? {
+        didSet {
+            guard barLine != oldValue else { return }
+            toolTip = barLine == nil ? nil : String(localized: "Show Change")
+            if let barLine, editor?.changeMark(onLine: barLine)?.lines.contains(barShown ?? -1) != true {
+                barShown = barLine
+                barFill = 0
+            }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.duration(Motion.fast)
+                animator().barFill = barLine == nil ? 0 : 1
+            }
+        }
+    }
+    /// A line of the change whose bar has the grey, and how far it has faded in (the animator steps it).
+    private var barShown: Int?
+    @objc private dynamic var barFill: CGFloat = 0 { didSet { needsDisplay = true } }
     /// The line whose chevron has the grey, and how far it has faded in (the animator steps it).
     private var plateLine: Int?
     @objc private dynamic var plateFill: CGFloat = 0 { didSet { needsDisplay = true } }
     override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
-        key == "plateFill" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
+        key == "plateFill" || key == "barFill" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
     }
     private static let chevron: CGFloat = 14
     private static let barInset: CGFloat = 1, barWidth: CGFloat = 3, barHit: CGFloat = 8
@@ -126,8 +146,13 @@ final class LineNumbers: NSRulerView {
     override func mouseExited(with event: NSEvent) {
         hovering = false
         hoverLine = nil
+        barLine = nil
     }
-    override func mouseMoved(with event: NSEvent) { hoverLine = lineStart(at: event)?.location }
+    override func mouseMoved(with event: NSEvent) {
+        let line = lineStart(at: event)
+        barLine = line.flatMap { changeLine(at: event, start: $0) }
+        hoverLine = barLine == nil ? line?.location : nil
+    }
     /// The change bars are only drawn, so VoiceOver hears how many there are as the gutter's value.
     override func accessibilityValue() -> Any? {
         guard let count = editor?.changeMarks.count, count > 0 else { return nil }
@@ -159,7 +184,8 @@ final class LineNumbers: NSRulerView {
         let row = lm.defaultLineHeight(for: font) + CodeEditor.lineExtra
         func draw(_ number: Int, at frag: NSRect, start: Int) {
             if let mark = editor.changeMark(onLine: number) {
-                drawChange(mark, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag))
+                let fill = barShown.map { mark.lines.contains($0) } == true ? barFill : 0
+                drawChange(mark, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag), fill: fill)
             }
             let text = NSAttributedString(
                 string: "\(number + 1)",
@@ -231,7 +257,17 @@ final class LineNumbers: NSRulerView {
             .height
     }
 
-    private func drawChange(_ mark: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat) {
+    private func drawChange(_ mark: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat, fill: CGFloat) {
+        // Square, as the bar is, because each of a change's lines draws its own piece of it.
+        if fill > 0 {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.cgContext.setAlpha(fill)
+            NSColor.fillHover.setFill()
+            (mark.kind == .removed
+                ? NSRect(x: 0, y: y - Self.barHit / 2, width: Self.barHit, height: Self.barHit)
+                : NSRect(x: 0, y: y, width: Self.barHit, height: height)).fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
         switch mark.kind {
         case .added: NSColor.textGreen.setFill()
         case .changed: NSColor.textOrange.setFill()
@@ -254,15 +290,20 @@ final class LineNumbers: NSRulerView {
     /// left, on a change's bar, it shows that change.
     override func mouseDown(with event: NSEvent) {
         guard let editor, let line = lineStart(at: event) else { return }
-        let across = convert(event.locationInWindow, from: nil).x
-        let number = editor.lineIndex.line(at: line.location, in: editor.textView.string as NSString)
-        if across <= Self.barHit, let mark = editor.changeMark(onLine: number) {
+        if let number = changeLine(at: event, start: line), let mark = editor.changeMark(onLine: number) {
             let clicked = convert(event.locationInWindow, from: nil).y
             editor.onChangeMark?(
                 mark, NSRect(x: 0, y: clicked - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
             return
         }
         editor.toggleFold(line: line)
+    }
+
+    /// The 0-based number of the line starting at `start`, when the pointer is on its change bar at the far left.
+    private func changeLine(at event: NSEvent, start: NSRange) -> Int? {
+        guard let editor, convert(event.locationInWindow, from: nil).x <= Self.barHit else { return nil }
+        let number = editor.lineIndex.line(at: start.location, in: editor.textView.string as NSString)
+        return editor.changeMark(onLine: number) != nil ? number : nil
     }
 
     /// The line beside the pointer.

@@ -288,7 +288,7 @@ extension Workbench {
             where error.code == RepoAdd.notARepository.code
         {
             let alert = NSAlert()
-            alert.messageText = String(localized: "“\((path as NSString).lastPathComponent)” isn't a Git repository")
+            alert.messageText = String(localized: "“\((path as NSString).lastPathComponent)” isn’t a Git repository")
             alert.informativeText = String(
                 localized: "Initialize Git to see changes, diffs and branches here, or open the folder without it.")
             alert.addButton(withTitle: String(localized: "Initialize Git"))

@@ -22,6 +22,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let next = NSButton()
     private var parsed: DatabaseAddress?
     private let tiles = NSStackView()
+    /// When the line saying Kelp looks for other apps' connections came up, so it stays at least `LoadingView.held`.
+    private var lookingSince: Date?
     /// The pane shown after the first one, kept alive while it shows.
     private var pane: AnyObject?
 
@@ -59,11 +61,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         window.makeFirstResponder(first)
     }
 
-    /// Sizes the sheet as tall as what it shows and always at its own width, because fittingSize alone comes out
-    /// narrower.
-    func fit() {
-        window.setContentSize(NSSize(width: Self.width, height: window.contentView?.fittingSize.height ?? 0))
-    }
+    /// Sizes the sheet as tall as what it shows (`SheetForm.fit`): each pane is a `SheetForm.stack`.
+    func fit() { SheetForm.fit(window) }
 
     // MARK: The first pane
 
@@ -89,23 +88,22 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         tiles.alignment = .leading
         tiles.spacing = 2
         layTiles("")
-        let later = PointerButton(
-            title: String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle — ask for one")
-        ) {
+        let ask = ClosureButton(title: String(localized: "Ask for One")) {
             if let url = URL(string: "https://github.com/nikiomori/kelp/issues/new") { PreviewLinks.openOutside(url) }
         }
-        later.font = .ui(TextSize.caption)
-        later.contentTintColor = .tertiaryLabelColor
-        later.underlinesOnHover = true
+        ask.bezelStyle = .push
+        ask.controlSize = .small
+        let later = NSStackView(
+            views: [Self.small(String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle.")), ask])
+        later.spacing = Metrics.gapWide
 
+        found.arrangedSubviews.forEach { $0.removeFromSuperview() }   // Back comes here again: read afresh
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
-        foundTitle.isHidden = true
-        let file = PointerButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
-        file.contentTintColor = .linkColor
-        file.font = .ui(TextSize.row)
-        file.underlinesOnHover = true
+        foundTitle.isHidden = true   // until a row comes, or the reads take long enough to say they look
+        let file = ClosureButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
+        file.bezelStyle = .push
         next.title = String(localized: "Continue")
         next.isEnabled = false
         let buttons = buttons(file, next, target: self, action: #selector(continued))
@@ -116,8 +114,27 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         Task { await fillFound() }
     }
 
-    /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read.
+    /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read. They are
+    /// this Mac's own files and daemon, so the line that says it looks shows only past a second (`whileSlow`), and
+    /// then stays at least `LoadingView.held`.
     private func fillFound() async {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        let words = Self.small(String(localized: "Looking for other apps’ connections…"))
+        let looking = NSStackView(views: [spinner, words])
+        looking.spacing = Metrics.gap
+        looking.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: Metrics.gap, right: 0)
+        lookingSince = nil
+        let slow = whileSlow { [weak self] in
+            guard let self else { return }
+            lookingSince = .now
+            found.addArrangedSubview(looking)
+            foundTitle.isHidden = false
+            looking.fadeIn()
+            if pane == nil { fit() }
+        }
         let sources = await app.quiet(DatabaseImportSources()) ?? []
         for source in sources where source.count > 0 {
             let engines = source.engines.map(\.displayName).joined(separator: ", ")
@@ -125,7 +142,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 FoundRow(
                     icon: DatabaseLook.appIcon(source.id), title: source.name,
                     detail: String(localized: "\(source.count) connections · \(engines)"), trailing: nil
-                ) { [weak self] in self?.openImport(source, file: nil) })
+                ) { [weak self] in self?.openImport(source, file: nil) }, above: looking)
         }
         let running = await app.quiet(DatabaseContainers()) ?? []
         for server in running {
@@ -136,15 +153,28 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                     detail: "\(server.image) · \(String(localized: "port")) \(port)", trailing: String(localized: "Use")
                 ) { [weak self] in
                     self?.openForm(DatabaseAddress(database: server.database), container: server.container)
-                })
+                }, above: looking)
         }
+        slow.cancel()
+        if let since = lookingSince {
+            let left = LoadingView.held - Date.now.timeIntervalSince(since)
+            if left > 0 {
+                do { try await Task.sleep(for: .seconds(left)) } catch { return }
+            }
+        }
+        looking.removeFromSuperview()
         foundTitle.isHidden = found.arrangedSubviews.isEmpty
         if pane == nil { fit() }
     }
 
-    private func add(_ row: FoundRow) {
-        found.addArrangedSubview(row)
+    private func add(_ row: FoundRow, above looking: NSView) {
+        row.isHidden = true
+        let end = found.arrangedSubviews.count
+        found.insertArrangedSubview(row, at: found.arrangedSubviews.firstIndex(of: looking) ?? end)
         row.widthAnchor.constraint(equalTo: found.widthAnchor).isActive = true
+        foundTitle.isHidden = false
+        row.fadeIn()
+        if pane == nil { fit() }
     }
 
     func controlTextDidChange(_ notification: Notification) { read() }
@@ -193,7 +223,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 : String(localized: "No password in it: the next step asks.")
         let text = NSMutableAttributedString(
             string: "\(db.engine.displayName) · \(db.database ?? db.name)\n",
-            attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
         text.append(
             NSAttributedString(
                 string: place + ssl + (key.isEmpty ? "" : "\n" + key),
@@ -280,7 +310,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     static func mark() -> NSImageView {
         let mark = NSImageView(image: .symbol(DatabaseLook.symbol))
-        mark.symbolConfiguration = .init(pointSize: Metrics.iconMenu, weight: .regular)
+        mark.symbolConfiguration = .chrome(Metrics.iconMenu)
         mark.contentTintColor = .secondaryLabelColor
         return mark
     }
@@ -323,6 +353,7 @@ final class FoundRow: PointerControl {
             end = DatabaseSheet.small(trailing)
         } else {
             let chevron = NSImageView(image: .symbol("chevron.right"))
+            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
             chevron.contentTintColor = .tertiaryLabelColor
             end = chevron
         }
@@ -332,7 +363,7 @@ final class FoundRow: PointerControl {
         stack.alignment = .centerY
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
         pin(stack)
-        heightAnchor.constraint(equalToConstant: Metrics.rowTwoLine + 4).isActive = true
+        heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowTwoLine)).isActive = true
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)

@@ -20,10 +20,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     let view = NSView()
     private let part = CapsuleSegments(
-        labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")], target: nil,
-        action: nil)
+        labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")],
+        name: String(localized: "Show"))
     private let search = NSSearchField()
-    let list = NSTableView()
+    let list = KeyTable()
+    private let empty = EmptyStateView()
+    /// The section a click just folded or opened, whose new chevron turns from where it pointed.
+    private var turning: String?
     private let schemaPicker = NSPopUpButton()
     private var rows: [Row] = []
     private var folded: Set<String> = [String(localized: "Functions")]
@@ -69,6 +72,10 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         list.doubleAction = #selector(doubleClicked)
         list.menu = NSMenu()
         list.menu?.delegate = self
+        list.onReturn = { [weak self] in   // ↑ ↓ pick a row, and Return does what its click does
+            guard let self else { return }
+            activate(list.selectedRow)
+        }
         list.setDraggingSourceOperationMask(.copy, forLocal: false)
         schemaPicker.controlSize = .small
         schemaPicker.target = self
@@ -91,6 +98,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         column.spacing = 0
         for v in [find, scroll, foot] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         view.pin(column)
+        empty.place(in: view, under: find)
         // The column is as wide as the user drags it. The tab's split keeps that width per Mac, 280 until then.
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
     }
@@ -150,6 +158,19 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         rows = out
         list.reloadData()
         select()
+        let matches = out.contains {
+            switch $0 {
+            case .newQuery, .section: false
+            default: true
+            }
+        }
+        if part.selectedSegment == 2, runs.isEmpty {
+            empty.show(
+                String(localized: "No History Yet"), symbol: "clock.arrow.circlepath",
+                text: String(localized: "What agents and you run on this database shows here."))
+        } else {
+            empty.show(!find.isEmpty && !matches ? String(localized: "No Matches") : nil, symbol: "magnifyingglass")
+        }
     }
 
     private func select() {
@@ -173,6 +194,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
         case .run, .saved: TextSize.of(Metrics.rowTwoLine)
+        case .section: TextSize.of(Metrics.rowSection)
         default: TextSize.of(Metrics.row)
         }
     }
@@ -184,18 +206,18 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         switch rows[row] {
         case .section(let title, let count, let open):
-            let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
-            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-            chevron.contentTintColor = .secondaryLabelColor
-            let capsule = CountCapsule()   // the title and capsule every list's section has, as the panel's do
-            capsule.text = count.formatted()
-            return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: 6)
+            let heading = SectionHeading(title, count: count, open: open)
+            if turning == title, let chevron = heading.chevron {   // turns from where it pointed once laid out
+                turning = nil
+                Task { chevron.turn(from: open ? .pi / 2 : -.pi / 2) }
+            }
+            return heading
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
             let name = NSTextField.label(
                 table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(TextSize.caption))
             name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": these names differ at their ends
-            let row = line([icon, name, NSView()], inset: 20)
+            let row = line([icon, name, NSView()], inset: Metrics.inset + Metrics.indentStep)
             row.toolTip = [table.name, table.rows.map { String(localized: "\($0) rows") }, table.comment].compactMap {
                 $0
             }
@@ -204,11 +226,11 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case .function(let name):
             let label = NSTextField.label(name, font: .uiMono(TextSize.caption))
             label.lineBreakMode = .byTruncatingMiddle
-            return line([symbol("function"), label, NSView()], inset: 20)
+            return line([symbol("function"), label, NSView()], inset: Metrics.inset + Metrics.indentStep)
         case .newQuery:
             return line(
                 [symbol("plus"), NSTextField.label(String(localized: "New Query"), font: .ui(TextSize.row)), NSView()],
-                inset: 8)
+                inset: Metrics.inset)
         case .saved(let query):
             return twoLines(symbol("doc.text"), query.name, query.sql)
         case .run(let run):
@@ -234,7 +256,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
-        let row = line([icon, words, NSView()], inset: 8)
+        let row = line([icon, words, NSView()], inset: Metrics.inset)
         row.toolTip = top + "\n" + under
         return row
     }
@@ -242,7 +264,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     private func line(_ views: [NSView], inset: CGFloat) -> NSView {
         let stack = NSStackView(views: views)
         stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: 8)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.insetTrailing)
         return stack
     }
     private func symbol(_ name: String) -> NSImageView {
@@ -255,11 +277,14 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     // MARK: Clicks
 
     /// A click opens a table in the tab itself, in place of the one shown; a double click keeps it in a tab of its own.
-    @objc private func clicked() {
-        guard rows.indices.contains(list.clickedRow) else { return }
-        switch rows[list.clickedRow] {
+    @objc private func clicked() { activate(list.clickedRow) }
+
+    private func activate(_ row: Int) {
+        guard rows.indices.contains(row) else { return }
+        switch rows[row] {
         case .section(let title, _, _):
             if folded.remove(title) == nil { folded.insert(title) }
+            turning = title
             reload()
         case .table(let table): onTable(table.name, NSEvent.modifierFlags.contains(.command))
         case .newQuery: onNewQuery()
@@ -297,7 +322,17 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(query) }
             menu.add(String(localized: "Copy SQL")) { copyText(query.sql) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(query) }
+            menu.add(String(localized: "Forget…")) { [weak self] in
+                Task {
+                    guard
+                        await confirm(
+                            String(localized: "Forget \(query.name)?"),
+                            detail: String(localized: "This can’t be undone."),
+                            action: String(localized: "Forget"), destructive: true)
+                    else { return }
+                    self?.onForget(query)
+                }
+            }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
             if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change can be put back

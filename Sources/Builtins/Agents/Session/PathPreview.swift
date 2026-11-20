@@ -14,7 +14,10 @@ enum TerminalPaths {
     /// Turns a path an agent printed ("Sources/App.swift:12:5", "~/x.md", or "a/src/x.ts" from a diff) into an existing
     /// file and its line, looked up from `cwd`, or from the one folder in `elsewhere` (the other projects) that has the
     /// file, since an agent may name another project's files.
-    static func resolve(_ token: String, cwd: String, elsewhere: [String] = []) -> (path: String, line: Int?)? {
+    /// It stats files, so it may run off the main thread.
+    nonisolated static func resolve(
+        _ token: String, cwd: String, elsewhere: [String] = []
+    ) -> (path: String, line: Int?)? {
         guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // Ghostty opens URLs itself
         let (named, line) = split(token)
         let raw = (named as NSString).expandingTildeInPath
@@ -28,9 +31,19 @@ enum TerminalPaths {
         return found.count == 1 ? found.first.map { ($0, line) } : nil   // a file found in two projects is ambiguous
     }
 
+    /// What ⌘-click opens of `tokens` (the readings of a word in the terminal), as the pill under ⌘ shows it: the file
+    /// and its line. Nil when none is a file here; a remote project's path isn't looked up on its host for this.
+    /// It stats files, so it may run off the main thread.
+    nonisolated static func shown(_ tokens: [String], cwd: String, elsewhere: [String] = []) -> String? {
+        guard let found = tokens.lazy.compactMap({ resolve($0, cwd: cwd, elsewhere: elsewhere) }).first else {
+            return nil
+        }
+        return (found.path as NSString).abbreviatingWithTildeInPath + (found.line.map { ":\($0)" } ?? "")
+    }
+
     /// Returns the path when it is a regular file, not a folder, a pipe or a device, because reading a pipe or a device
     /// to preview it would block.
-    private static func file(_ path: String, in dir: String) -> String? {
+    private nonisolated static func file(_ path: String, in dir: String) -> String? {
         let abs = path.hasPrefix("/") ? path : (dir as NSString).appendingPathComponent(path)
         var st = stat()
         return stat(abs, &st) == 0 && st.st_mode & S_IFMT == S_IFREG ? (abs as NSString).standardizingPath : nil
@@ -56,7 +69,7 @@ enum TerminalPaths {
 
     /// Splits a printed path into the path and its line: "file://" taken off, then the "." that ends a sentence
     /// (Ghostty's links take it) and the "@" of an agent's mention ("@src/x.ts"), then ":12:5" after the path.
-    private static func split(_ token: String) -> (path: String, line: Int?) {
+    private nonisolated static func split(_ token: String) -> (path: String, line: Int?) {
         var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
         while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }
         if text.hasPrefix("@") { text.removeFirst() }
@@ -119,6 +132,10 @@ extension TerminalPaths {
 final class PathPreview {
     private let app: AppModel
     private let popover = NSPopover()
+    /// The preview being read, shown only once its lines (and its changes) are in, so the card opens at its height.
+    private var pending: PreviewModel?
+    /// Counts the words asked about, so a lookup that ends after the pointer moved on is dropped.
+    private var asked = 0
     init(app: AppModel) {
         self.app = app
         popover.behavior = .semitransient
@@ -129,17 +146,28 @@ final class PathPreview {
     /// closes the popover.
     func show(_ tokens: [String], rect: NSRect, in view: NSView, cwd: String, worktree: String?) {
         let projects = app.repos.map(\.path)
-        guard let found = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first
-        else {
-            popover.close()
-            return
+        asked += 1
+        let ask = asked
+        Task {
+            // The lookup stats files in every project: off the main thread, so a slow volume doesn't stall the window.
+            let found = await Task.detached {
+                tokens.lazy.compactMap { TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }.first
+            }.value
+            guard asked == ask else { return }   // the pointer moved on meanwhile
+            guard let found else {
+                pending = nil
+                popover.close()
+                return
+            }
+            let model = PreviewModel(path: found.path, line: found.line, cwd: cwd, app: app)
+            pending = model
+            await model.load(worktree: worktree)
+            guard pending === model, view.window != nil else { return }   // the pointer moved on meanwhile
+            let host = NSHostingController(rootView: PathPreviewView(model: model))
+            host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
+            popover.contentViewController = host
+            popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
         }
-        let model = PreviewModel(path: found.path, line: found.line, cwd: cwd, app: app)
-        let host = NSHostingController(rootView: PathPreviewView(model: model))
-        host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
-        popover.contentViewController = host
-        popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
-        model.load(worktree: worktree)
     }
 }
 
@@ -170,29 +198,27 @@ final class PreviewModel {
 
     /// Loads the preview. The file is read off the main thread, because a hover over a path on a slow volume mustn't
     /// stall the window.
-    func load(worktree: String?) {
+    func load(worktree: String?) async {
         let path = path, line = line
-        Task {
-            if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
-                image = await Task.detached { FileManager.default.contents(atPath: path) }.value.flatMap {
-                    NSImage(data: $0)
-                }
-                return
+        if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
+            image = await Task.detached { FileManager.default.contents(atPath: path) }.value.flatMap {
+                NSImage(data: $0)
             }
-            lines = await Task.detached { Self.excerpt(path, around: line) }.value
-            guard let worktree else { return }
-            // When the file has uncommitted changes, show those instead: the hunk that holds the line asked about,
-            // or else the first hunk.
-            let diff = await app.quiet(GitDiff(id: worktree, source: .all, file: path))
-            guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
-            let hunk =
-                hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
-            changed = true
-            lines = hunk.lines.prefix(16).enumerated().map { index, diffLine in
-                Line(
-                    id: index, number: diffLine.newLine ?? diffLine.oldLine, text: diffLine.text,
-                    mark: diffLine.kind == .add ? "+" : diffLine.kind == .del ? "-" : " ")
-            }
+            return
+        }
+        let excerpt = await Task.detached { Self.excerpt(path, around: line) }.value
+        // When the file has uncommitted changes, show those instead: the hunk that holds the line asked about, or else
+        // the first hunk.
+        guard let worktree, let hunks = await app.quiet(GitDiff(id: worktree, source: .all, file: path))?.first?.hunks,
+            !hunks.isEmpty
+        else { return lines = excerpt }
+        let hunk =
+            hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
+        changed = true
+        lines = hunk.lines.prefix(16).enumerated().map { index, diffLine in
+            Line(
+                id: index, number: diffLine.newLine ?? diffLine.oldLine, text: diffLine.text,
+                mark: diffLine.kind == .add ? "+" : diffLine.kind == .del ? "-" : " ")
         }
     }
 
@@ -222,7 +248,7 @@ struct PathPreviewView: View {
                 }
                 Spacer(minLength: 8)
                 if model.changed {
-                    Text("Changed").font(.ui(TextSize.caption, weight: .medium)).foregroundStyle(Color.textOrange)
+                    Text("Changed").font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
                 }
             }
             if let img = model.image {

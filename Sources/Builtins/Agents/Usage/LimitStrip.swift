@@ -85,6 +85,8 @@ final class LimitStrip: NSView {
             label.lineBreakMode = .byTruncatingTail
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
+        detail.lineBreakMode = .byWordWrapping   // a sentence isn't cut in the middle: it takes a second line
+        detail.maximumNumberOfLines = 2
         let words = NSStackView(views: [title, detail])
         words.orientation = .vertical
         words.alignment = .leading
@@ -112,6 +114,9 @@ final class LimitStrip: NSView {
         // any button hides.
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
         row.setVisibilityPriority(.init(rawValue: 400), for: handOff)
+        // Below required, or the stack squeezes the buttons and never detaches them; above the words', so they're cut
+        // before.
+        row.setClippingResistancePriority(.defaultHigh - 1, for: .horizontal)
         pin(FloatingCard(row))
     }
 
@@ -122,13 +127,15 @@ final class LimitStrip: NSView {
 
     private func update() {
         let now = Date()
-        guard window != nil, let session = app.session(id), let hit = session.limitHit, hit.at != dismissed else {
+        // Out of the window it only stops watching, so a tab shown again doesn't greet the user with the strip rising.
+        guard window != nil else { return showing(false) }
+        guard let session = app.session(id), let hit = session.limitHit, hit.at != dismissed else {
+            if !isHidden, let superview { leaveGhost(in: superview) }   // goes as it came, in two thirds of the time
             isHidden = true
             showing(false)
             return
         }
-        isHidden = false
-        showing(true)
+        let arriving = isHidden
         title.stringValue = LimitStop.title(app.catalog.displayName(session), session, now: now)
         detail.stringValue = LimitStop.detail(session, now: now)
         let reset = hit.resetAt, waiting = session.continueAt != nil, passed = reset.map { $0 <= now } ?? false
@@ -149,6 +156,10 @@ final class LimitStrip: NSView {
             ? String(localized: "Continue")
             : reset.map { String(localized: "Continue at \(LimitStop.clock($0, now: now))") } ?? ""
         cancel.isHidden = !waiting
+        showing(true)
+        guard arriving else { return }
+        isHidden = false
+        comeIn()   // filled in first, so it rises at its height
     }
 
     /// Returns how full each agent's fullest plan limit is.

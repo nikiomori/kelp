@@ -31,7 +31,7 @@ public struct SectionList: NSViewRepresentable {
         public var trailing: String?
         /// A worded action at the row's end. With `onHover` it stands in `trailing`'s place only under the pointer.
         public var button: Action?, onHover = false
-        /// Where the row leads, written in the accent colour at its end.
+        /// Where the row leads: a link at its end (`PointerButton.link`).
         public var link: Action?
         /// What a click does, and what Return or a double click does (the click's, when it has none of its own).
         public var click: (@MainActor () -> Void)?, open: (@MainActor () -> Void)?
@@ -147,10 +147,15 @@ public struct SectionList: NSViewRepresentable {
                 return [.section(section, open: open)] + (open ? rows : [])
             }
             guard old.map(\.key) == lines.map(\.key) else {
+                // A few rows that came or went (a port, a fold of two) move the others instead of jumping them.
                 let chosen = old.indices.contains(table.selectedRow) ? old[table.selectedRow].key : nil
-                table.reloadData()
-                if let row = lines.firstIndex(where: { $0.key == chosen }) {
-                    table.selectRowIndexes([row], byExtendingSelection: false)
+                let places = table.rowPlaces { old.indices.contains($0) ? old[$0].key : nil }
+                let was = Set(old.map(\.key)), now = Set(lines.map(\.key))
+                table.reloadSettling(from: places, came: now.subtracting(was), gone: was.subtracting(now), lineKey) {
+                    table.reloadData()
+                    if let row = lines.firstIndex(where: { $0.key == chosen }) {
+                        table.selectRowIndexes([row], byExtendingSelection: false)
+                    }
                 }
                 return
             }
@@ -159,6 +164,8 @@ public struct SectionList: NSViewRepresentable {
             table.noteHeightOfRows(withIndexesChanged: moved)   // a row may have gained or lost its second line
             table.reloadData(forRowIndexes: moved, columnIndexes: [0])
         }
+
+        private func lineKey(_ row: Int) -> String? { lines.indices.contains(row) ? lines[row].key : nil }
 
         private func row(_ id: String) -> Row? {
             for case .row(let row) in lines where row.id == id { return row }
@@ -175,8 +182,14 @@ public struct SectionList: NSViewRepresentable {
         }
         /// Folds the section, or opens it again.
         func fold(_ id: String) {
-            if closed.remove(id) == nil { closed.insert(id) }
+            let opens = closed.remove(id) != nil
+            if !opens { closed.insert(id) }
             show(sections)
+            // The new heading's chevron turns from what the old one showed, once it has a size.
+            guard let row = lines.firstIndex(where: { $0.key == "s " + id }) else { return }
+            table.layoutSubtreeIfNeeded()
+            (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SectionHeading)?.chevron?
+                .turn(from: opens ? .pi / 2 : -.pi / 2)
         }
         @objc func opened() {
             guard lines.indices.contains(table.actedRow), case .row(let row) = lines[table.actedRow] else { return }
@@ -216,23 +229,10 @@ public struct SectionList: NSViewRepresentable {
         }
 
         private func heading(_ section: Section, open: Bool) -> NSView {
-            let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
-            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-            chevron.contentTintColor = .secondaryLabelColor
-            let title = NSTextField.label(
-                section.title, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-            var views: [NSView] = [chevron, title]
-            if !section.rows.isEmpty {
-                let capsule = CountCapsule()
-                capsule.text = section.rows.count.formatted()
-                views.append(capsule)
-            }
-            let cell = Cell(views + [NSView()])
-            cell.setAccessibilityElement(true)
-            cell.setAccessibilityRole(.button)
-            cell.setAccessibilityLabel(section.title)
-            cell.setAccessibilityHelp(open ? String(localized: "Collapse") : String(localized: "Expand"))
-            return cell
+            let heading = SectionHeading(
+                section.title, count: section.rows.isEmpty ? nil : section.rows.count, open: open)
+            heading.onPress = { [weak self] in self?.fold(section.id) }
+            return heading
         }
 
         private func cell(_ row: Row) -> NSView {
@@ -261,10 +261,9 @@ public struct SectionList: NSViewRepresentable {
                 quiet = label
             }
             if let link = row.link {
-                let button = PointerButton(title: link.title) { [weak self] in self?.row(id)?.link?.run() }
-                button.attributedTitle = NSAttributedString(
-                    string: link.title,
-                    attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.emphasis])
+                let button = PointerButton.link(link.title, font: .uiDigits(TextSize.caption)) { [weak self] in
+                    self?.row(id)?.link?.run()
+                }
                 button.toolTip = link.tip
                 views.append(button)
             }
@@ -323,7 +322,8 @@ public struct SectionList: NSViewRepresentable {
         required init?(coder: NSCoder) { fatalError("not from a nib") }
 
         func setHover(_ on: Bool) {
-            guard let shown else { return }
+            guard let shown, shown.isHidden == on else { return }
+            crossfade()
             shown.isHidden = !on
             quiet?.isHidden = on
         }

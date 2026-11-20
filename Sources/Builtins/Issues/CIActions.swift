@@ -26,7 +26,7 @@ struct CIActions {
             guard
                 await confirm(
                     String(localized: "Cancel “\(run.title)”?"),
-                    detail: String(localized: "What's running stops now. You can start the run again."),
+                    detail: String(localized: "What’s running stops now. You can start the run again."),
                     action: String(localized: "Cancel Run"))
             else { return }
             act(CIRunCancel(worktreeId: worktree, run: run.id), said: String(localized: "Cancelling the run"))

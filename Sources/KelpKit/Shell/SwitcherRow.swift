@@ -39,7 +39,7 @@ struct SwitcherRow {
         let said = lead.flatMap { $0.rowLine(mode: "always", children: app.children(of: $0.id)) }
         var row = SwitcherRow(name: Self.name(title, place: place, badges: said == nil ? badges : []))
         if let lead {
-            let mark = StatusMark(size: Metrics.iconLarge)
+            let mark = StatusMark(size: 14)   // as Quick Open's rows have it
             mark.status = lead.shownStatus
             mark.unread = app.liveChats(in: worktree.id).contains { $0.shownStatus == lead.shownStatus && $0.unread }
             mark.follow(lead)

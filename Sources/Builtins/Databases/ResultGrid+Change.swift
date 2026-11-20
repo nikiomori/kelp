@@ -5,8 +5,9 @@ import DesignKit
 /// Shows the rows of a run that changed something in the grid, with each value an update changed as it was and as it
 /// becomes.
 extension ResultGrid {
-    /// A character's width in the cells' 12 pt mono face, for the column widths estimated from the values' lengths.
-    static let charWidth: CGFloat = 7.5
+    /// A character's width in the cells' mono face, as Text size and the row density have it, for the column widths
+    /// estimated from the values' lengths.
+    var charWidth: CGFloat { ("0" as NSString).size(withAttributes: [.font: font]).width }
 
     /// Marks the rows as a change's. The columns that changed (`changed`, by index) widen to hold both values.
     func show(change: RowChange?, changed: [Int]) {
@@ -15,7 +16,7 @@ extension ResultGrid {
             guard let index = Int(column.identifier.rawValue), changed.contains(index), let before = change?.before
             else { continue }
             let was = before.prefix(60).map { ($0.indices.contains(index) ? $0[index] : nil)?.count ?? 4 }.max() ?? 0
-            column.width = min(480, column.width + CGFloat(was + 3) * Self.charWidth)
+            column.width = min(480, column.width + CGFloat(was + 3) * charWidth)
         }
         table.reloadData()
     }

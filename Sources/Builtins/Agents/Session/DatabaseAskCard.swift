@@ -13,9 +13,9 @@ import KelpKit
 @MainActor
 final class DatabaseAskCard: NSView {
     private let app: AppModel, session: String, worktree: String
-    private let title = NSTextField.label("", font: .ui(TextSize.body, weight: .semibold))
+    private let title = NSTextField(wrappingLabelWithString: "")
     private let sql = NSTextField(wrappingLabelWithString: "")
-    private let detail = NSTextField(labelWithString: "")
+    private let detail = NSTextField(wrappingLabelWithString: "")
     private let preview = ChangePreview()
     private lazy var showButton = NSButton(title: "", target: self, action: #selector(showRows))
     private var asking: DatabaseRun?
@@ -25,13 +25,19 @@ final class DatabaseAskCard: NSView {
         self.session = session
         self.worktree = worktree
         super.init(frame: .zero)
-        let mark = NSImageView(image: .symbol("cylinder.split.1x2"))
+        let mark = NSImageView(image: .symbol("cylinder.split.1x2", String(localized: "Database")))
+        mark.symbolConfiguration = .chrome(Metrics.segmentPoint)   // as the limit strip's, beside the same title
         mark.contentTintColor = .textOrange
         sql.font = .uiMono(TextSize.caption)
         sql.textColor = .secondaryLabelColor
         sql.maximumNumberOfLines = 3
         sql.lineBreakMode = .byTruncatingTail
         detail.font = .ui(TextSize.row)
+        title.font = .ui(TextSize.body, weight: .semibold)
+        // Both are sentences: they aren't cut in the middle, they take another line.
+        title.maximumNumberOfLines = 2
+        detail.maximumNumberOfLines = 3
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let deny = NSButton(title: String(localized: "Deny"), target: self, action: #selector(denied))
         let allow = NSButton(title: String(localized: "Allow"), target: self, action: #selector(allowed))
         for button in [showButton, deny, allow] { button.bezelStyle = .push }   // none takes Return, the terminal does
@@ -45,7 +51,7 @@ final class DatabaseAskCard: NSView {
         stack.spacing = Metrics.gap
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
-        for view in [sql, buttons] {
+        for view in [head, sql, detail, buttons] {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         }
         pin(FloatingCard(stack))
@@ -64,15 +70,22 @@ final class DatabaseAskCard: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Fills the card in before it comes in, so it doesn't grow when the rows arrive. It goes the way a row does.
     private func show(_ run: DatabaseRun?) {
         asking = run
-        isHidden = run == nil
-        guard let run else { return }
-        sql.stringValue = run.sql
-        say(run, nil)
+        guard let run else {
+            if !isHidden, let superview { leaveGhost(in: superview) }
+            isHidden = true
+            return
+        }
         Task { [weak self, app, worktree] in
             let rows = await app.quiet(DatabaseResultRead(worktreeId: worktree, id: run.id)) ?? nil
-            if self?.asking?.id == run.id { self?.say(run, rows) }
+            guard let self, self.asking?.id == run.id else { return }
+            self.sql.stringValue = run.sql
+            self.say(run, rows)
+            guard self.isHidden else { return }
+            self.isHidden = false
+            self.comeIn()
         }
     }
 

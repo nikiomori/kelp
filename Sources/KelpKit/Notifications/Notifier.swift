@@ -99,9 +99,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             guard let routine = event.routines.first(where: { $0.id == run.routineId }) else { continue }
             let content = UNMutableNotificationContent()
             content.title = String(
-                localized: "\(routine.name) didn't run at \(run.due.formatted(date: .omitted, time: .shortened))")
+                localized: "\(routine.name) didn’t run at \(run.due.formatted(date: .omitted, time: .shortened))")
             content.body = String(
-                localized: "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.")
+                localized: "The Mac was asleep or Kelp wasn’t running. Run Now is on its Routines tab.")
             content.userInfo = ["uri": "routines:\(routine.repoId)"]
             alert { [self] in deliver("missed-\(run.id)", content) }
         }

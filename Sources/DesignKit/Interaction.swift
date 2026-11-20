@@ -115,8 +115,8 @@ extension NSView {
 
     /// For a view about to go in a change that can't animate it. A picture of the view stays where it stood, over
     /// `parent`, and fades over `duration`, drifting `drift` points up the screen (down when negative). Call it before
-    /// the view is removed or redrawn.
-    public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.appear, drift: CGFloat = 0) {
+    /// the view is removed or redrawn. A row comes in over `appear` and goes over `base`, about two thirds of it.
+    public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.base, drift: CGFloat = 0) {
         guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
             let picture = bitmapImageRepForCachingDisplay(in: bounds)
         else { return }
@@ -172,10 +172,16 @@ extension NSView {
     }
 
     /// Shows work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again
-    /// and again, and nil stops it. Nothing runs under Reduce Motion, because the words on the panel's button say it.
+    /// and again, and nil stops it. Nothing runs under Reduce Motion, because the words on the panel's button say it;
+    /// switched while it runs, the shade stops or starts.
     public func flow(up: Bool?) {
         wantsLayer = true
         guard let layer else { return }
+        if up != nil, layer.value(forKey: "flowFollows") == nil {
+            layer.setValue(true, forKey: "flowFollows")
+            followReduceMotion(#selector(flowMotionChanged))
+        }
+        layer.setValue(up, forKey: "flowUp")   // what `flowMotionChanged` carries on with
         guard let up, !Motion.reduced else {
             layer.mask = nil
             return
@@ -195,6 +201,8 @@ extension NSView {
         band.add(animation, forKey: "flow")
         layer.mask = band
     }
+
+    @objc private func flowMotionChanged() { flow(up: layer?.value(forKey: "flowUp") as? Bool) }
 
     /// `transform` about the view's middle, because a layer-backed view's anchor is its corner.
     private func aboutCentre(_ transform: CATransform3D) -> CATransform3D {
@@ -316,5 +324,14 @@ extension NSTableView {
         }
         reload()
         if moves { settleRows(from: places, key, new: came) }
+    }
+}
+
+extension NSEvent {
+    /// Whether this is a click with exactly `keys` held, as the design system reads them: ⌘ alone does the same thing
+    /// in another place, ⌥ alone another action of the same place, ⇧ beside.
+    public func isClick(with keys: NSEvent.ModifierFlags) -> Bool {
+        [.leftMouseDown, .leftMouseUp].contains(type)
+            && modifierFlags.intersection([.command, .shift, .option, .control]) == keys
     }
 }

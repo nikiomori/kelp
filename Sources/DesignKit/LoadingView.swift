@@ -27,8 +27,10 @@ public final class LoadingView: NSView {
     /// True while the view is on screen and not on its way out.
     public var showing: Bool { !isHidden && leaving == nil }
 
-    public init(rows: Bool = false) {
-        skeleton = rows ? SkeletonRows() : nil
+    /// `rowHeight` is the list's own rows' (`Metrics.row` or `Metrics.rowTwoLine`), so the shapes give way to rows of
+    /// their size and number.
+    public init(rows: Bool = false, rowHeight: CGFloat = Metrics.rowTwoLine) {
+        skeleton = rows ? SkeletonRows(rowHeight: rowHeight) : nil
         super.init(frame: .zero)
         if let skeleton {
             pin(skeleton)
@@ -62,8 +64,8 @@ public final class LoadingView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows the view with `text` ("Loading…") and, with `detail`, what it waits for. Nil hides it and stops the
-    /// spinner.
+    /// Shows the view with `text` (what it reads: "Reading the databases…") and, with `detail`, what it waits for. Nil
+    /// hides it and stops the spinner.
     public func show(_ text: String?, detail: String? = nil) {
         line.stringValue = text ?? ""
         setAccessibilityLabel(text)
@@ -133,8 +135,9 @@ public final class LoadingView: NSView {
     override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// The rows a list will show, as shapes: a mark and two lines per row (`Metrics.rowTwoLine`), as many as fit, with a
-/// light passing over them every `Motion.breathe` (still under Reduce Motion).
+/// The rows a list will show, as shapes: a mark and a line per row, or two in a list of two-line rows (`rowHeight`,
+/// grown with Text size), as many as fit, with a light passing over them every `Motion.breathe` (still under Reduce
+/// Motion).
 @MainActor
 final class SkeletonRows: NSView {
     private let bars = CAShapeLayer()
@@ -145,8 +148,11 @@ final class SkeletonRows: NSView {
     /// The light's band, wholly left of the rows.
     private static let before: [NSNumber] = [-0.4, -0.2, 0]
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    private let rowHeight: CGFloat
+
+    init(rowHeight: CGFloat) {
+        self.rowHeight = rowHeight
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.addSublayer(bars)
         light.mask = lightMask
@@ -154,6 +160,7 @@ final class SkeletonRows: NSView {
         light.endPoint = CGPoint(x: 1, y: 0.5)
         light.locations = Self.before   // so under Reduce Motion, where it's still, it stays off the rows
         layer?.addSublayer(light)
+        followReduceMotion(#selector(motionChanged))
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -163,18 +170,21 @@ final class SkeletonRows: NSView {
         super.layout()
         let path = CGMutablePath(), inset = Metrics.inset, room = bounds.width - 2 * inset
         let line = Metrics.gapWide, under = Metrics.gap   // the height of a name's line, and of its second line
-        let mark = Metrics.iconSmall
+        let mark = Metrics.iconSmall, row = TextSize.of(rowHeight)   // the rows they stand for grow too
+        let twoLines = rowHeight >= Metrics.rowTwoLine
         var top: CGFloat = Metrics.gap
-        for width in Self.widths where top + Metrics.rowTwoLine <= bounds.height {
-            let middle = top + Metrics.rowTwoLine / 2
+        for width in Self.widths where top + row <= bounds.height {
+            let middle = top + row / 2
             path.addEllipse(in: CGRect(x: inset, y: middle - mark / 2, width: mark, height: mark))
             let x = inset + mark + Metrics.gapWide, text = max(0, room - mark - Metrics.gapWide)
-            let first = CGRect(x: x, y: middle - line - Metrics.lineGap / 2, width: text * width, height: line)
+            let first = CGRect(
+                x: x, y: twoLines ? middle - line - Metrics.lineGap / 2 : middle - line / 2, width: text * width,
+                height: line)
             let second = CGRect(x: x, y: middle + Metrics.lineGap, width: text * width * 0.6, height: under)
-            for bar in [first, second] {
+            for bar in twoLines ? [first, second] : [first] {
                 path.addRoundedRect(in: bar, cornerWidth: bar.height / 2, cornerHeight: bar.height / 2)
             }
-            top += Metrics.rowTwoLine
+            top += row
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)   // otherwise plain sublayers would ease into their new shape
@@ -200,8 +210,13 @@ final class SkeletonRows: NSView {
         }
     }
 
+    private var shimmering = false
+    /// Reduce Motion switched on or off while the rows show stops or starts the light.
+    @objc private func motionChanged() { shimmer(shimmering) }
+
     /// The light passes over the rows while they show; nothing moves under Reduce Motion.
     func shimmer(_ on: Bool) {
+        shimmering = on
         light.removeAnimation(forKey: "shimmer")
         guard on, !Motion.reduced else { return }
         // A band a third as wide as the rows, moving from wholly left of them to wholly right.
@@ -219,13 +234,33 @@ final class SkeletonRows: NSView {
 /// The same view for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, in
 /// the middle of a page.
 public struct LoadingLine: View {
-    private let text: String
-    public init(_ text: String) { self.text = text }
+    private let text: String, size: CGFloat
+    /// `size` is the text's role: body on a page, caption in a card.
+    public init(_ text: String, size: CGFloat = TextSize.body) {
+        self.text = text
+        self.size = size
+    }
     public var body: some View {
         HStack(spacing: Metrics.gap) {
-            ProgressView().controlSize(.small)
-            Text(text).font(.ui(TextSize.body)).foregroundStyle(.secondary)
+            ProgressView().controlSize(size < TextSize.body ? .mini : .small)
+            Text(text).font(.ui(size)).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// A page's first read in SwiftUI: nothing for a second, then `LoadingLine` in the page's middle, as `LoadingView.wait`
+/// does (the latency rule: own work shows its wait only after a second, so a quick read doesn't flicker).
+public struct LoadingPage: View {
+    private let text: String
+    @State private var slow = false
+    public init(_ text: String) { self.text = text }
+    public var body: some View {
+        LoadingLine(text).opacity(slow ? 1 : 0)
+            .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .task {
+                do { try await Task.sleep(for: .seconds(LoadingView.patience)) } catch { return }
+                withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { slow = true }
+            }
     }
 }
 

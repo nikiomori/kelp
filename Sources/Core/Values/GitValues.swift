@@ -189,10 +189,23 @@ public struct CommitDetails: Codable, Sendable, Equatable {
     public var body: String
     public var email: String
     public var files: Int, added: Int, removed: Int
-    public init(body: String, email: String, files: Int, added: Int, removed: Int) {
+    /// Each file's lines added and removed, by its path after the commit (a binary file counts none).
+    public var lines: [FileLines]?
+    public init(body: String, email: String, files: Int, added: Int, removed: Int, lines: [FileLines]? = nil) {
         self.body = body
         self.email = email
         self.files = files
+        self.added = added
+        self.removed = removed
+        self.lines = lines
+    }
+}
+
+/// How many lines a commit added to and removed from one file.
+public struct FileLines: Codable, Sendable, Equatable {
+    public var path: String, added: Int, removed: Int
+    public init(path: String, added: Int, removed: Int) {
+        self.path = path
         self.added = added
         self.removed = removed
     }

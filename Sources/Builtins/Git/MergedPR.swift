@@ -55,13 +55,13 @@ struct MergedPR {
             Banner.show(
                 String(
                     localized:
-                        "An agent is at work in the folder, so it stays on \(worktree.branch). The project's menu can switch it later."
+                        "An agent is at work in the folder, so it stays on \(worktree.branch). The project’s menu can switch it later."
                 ), title: title)
         case .uncommitted(let count):
             Banner.show(
                 String(
                     localized:
-                        "\(count) files not committed on \(worktree.branch). The project's menu can switch it later."),
+                        "\(count) files not committed on \(worktree.branch). The project’s menu can switch it later."),
                 title: title)
         }
     }

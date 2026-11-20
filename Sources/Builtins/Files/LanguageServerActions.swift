@@ -44,7 +44,7 @@ struct LanguageServerActions {
                     LSPRename(root: root, path: place.path, line: place.line, column: place.column, name: name))
             else { return }
             guard !files.isEmpty else {
-                return Banner.show(String(localized: "The language server can't rename this."))
+                return Banner.show(String(localized: "The language server can’t rename this."))
             }
             if files.count > 1 {
                 guard

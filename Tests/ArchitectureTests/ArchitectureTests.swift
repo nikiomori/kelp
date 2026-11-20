@@ -215,7 +215,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +3, nothing new: a `package internal(set)` is counted too (`inFocusMode`, `page`, `byKey`), as it is surface.
     // 2026-11-19: making every one internal and putting back what the compiler asked for took none away: the built-ins
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
-    #expect(declared == 375, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
+    // names the site a ⌘-click opens (`CIRunLook.clickTip`).
+    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -310,8 +312,8 @@ func codeOnly(_ s: String) -> String {
             l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 390, "lines over 120: \(over120)")
-    #expect(over120 >= 390, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 374, "lines over 120: \(over120)")
+    #expect(over120 >= 374, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -462,7 +464,7 @@ func codeOnly(_ s: String) -> String {
         "DesignKit/HoverPopover.swift": (1, "the hover delay before a popover shows"),
         "DesignKit/Latency.swift": (1, "`whileSlow`: a spinner only once a wait passes a second"),
         "DesignKit/LoadingView.swift": (
-            3, "when the loading note shows, how long it can stay, and its least time on screen"
+            4, "when the loading note (and a SwiftUI page's `LoadingPage`) shows, how long it can stay, its least time"
         ),
         "KelpKit/App/AppDelegate.swift": (
             2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
@@ -503,13 +505,16 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Databases/DatabaseTab+Table.swift": (
             1, "a read says Reading… only past half a second: a quick one doesn't flicker"
         ),
-        "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (
-            3, "a read shows past 150 ms and stays 400 ms, so a quick one doesn't flicker; a changed row's light fades"
-        ),
+        "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (2, "a read shows past 150 ms and stays 400 ms"),
         "Builtins/Databases/DatabaseTab+Opening.swift": (
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),
-        "KelpKit/Extensions/ExtListView.swift": (1, "an extension's own refresh interval for its command's list"),
+        "KelpKit/Extensions/ExtListView.swift": (1, "an extension's refresh interval"),
+        "KelpKit/Extensions/ExtListView+Rows.swift": (1, "a row's shown busy spinner stays 0.4 s"),
+        "KelpKit/Sidebar/HoverCardViews.swift": (1, "a card's shown wait stays 0.4 s, so a quick read doesn't flicker"),
+        "Builtins/Files/EditorStatusBar.swift": (1, "a shown \"Finding the definition…\" stays 0.4 s"),
+        "Builtins/Files/Disk/DiskFoot.swift": (1, "a measure on this Mac shows its wait only after a second"),
+        "Builtins/Databases/DatabaseSheet.swift": (1, "a shown look for other apps' connections stays 0.4 s"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (
             1, "an extension's own refresh interval for its panel's badge command"
         ),
@@ -748,7 +753,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
-        "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
+        "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
         "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
     let all = try matches(
@@ -901,7 +906,7 @@ func codeOnly(_ s: String) -> String {
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
     let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
-    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 22, "opacities")
+    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 20, "opacities")
     // The editor's too: a fold's plate and its dots.
     exactly(
         try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: ["Sources/EditorKit"]), 2,

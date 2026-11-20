@@ -56,7 +56,7 @@ final class WindowBar: NSView {
     /// The CI mark and its place, from the CI built-in (`FolderCI`). Without that built-in the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// The branch's pull request, from the CI built-in (`FolderCI`). Without that built-in there is no PR chip.
-    var prMark: (title: NSAttributedString, tip: String, uri: String)? {
+    var prMark: (title: NSAttributedString, tip: String, uri: String, page: URL?)? {
         badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
     }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
@@ -125,7 +125,7 @@ final class WindowBar: NSView {
             icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16),
             context.centerYAnchor.constraint(equalTo: centerYAnchor),
             search.centerYAnchor.constraint(equalTo: centerYAnchor),
-            search.heightAnchor.constraint(equalToConstant: TextSize.barCapsule), wide, center,
+            wide, center,
             search.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             search.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
             back.widthAnchor.constraint(equalToConstant: 24), forward.widthAnchor.constraint(equalToConstant: 24),
@@ -267,7 +267,7 @@ final class WindowBar: NSView {
         pr.isHidden = badge == nil
         if let badge {
             pr.attributedTitle = badge.title
-            pr.toolTip = badge.tip
+            pr.toolTip = badge.tip + "\n" + SidebarCell.onGitHub
         }
     }
 
@@ -292,7 +292,7 @@ final class WindowBar: NSView {
     /// there (or after the counts). With no upstream, it shows only what publishing would push.
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
-        let font = NSFont.ui(TextSize.row), count = NSFont.uiDigits(TextSize.row, weight: .semibold)
+        let font = NSFont.ui(TextSize.row)
         let title = NSMutableAttributedString(
             string: info.current ?? info.head ?? "HEAD",
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
@@ -302,9 +302,8 @@ final class WindowBar: NSView {
             title.append(.signed(arrow, commits, size: TextSize.row, color: color))
         }
         if dirty {
-            title.append(
-                NSAttributedString(
-                    string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor]))
+            title.append(NSAttributedString(string: "  ", attributes: [.font: font]))
+            title.append(SidebarCell.dot(shared: false))   // the sidebar's changes dot, drawn
         }
         let running = syncing, ci = self.ci?.state, atEnd = self.ci?.atEnd == true,
             inPlace = ci != nil && !atEnd && running == nil

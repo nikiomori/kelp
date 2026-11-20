@@ -50,14 +50,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// The session reviewing this diff, if one was started here (`DiffReviewWith`).
     var reviewer: String?
     let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
-    /// The agent's turns, listed with "Agent's Last Turn" (`DiffTurns`).
+    /// The agent's turns, listed with "Agent’s Last Turn" (`DiffTurns`).
     let turnPop = NSPopUpButton()
-    /// The turn picker and Undo Turn…, shown with "Agent's Last Turn" when the agent has turns kept.
+    /// The turn picker and Undo Turn…, shown with "Agent’s Last Turn" when the agent has turns kept.
     lazy var turnBar = NSStackView(views: [turnPop, undoTurnButton()])
     /// "Change 3 of 17" after a step between changes, or the comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(
-        previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
+        previous: app.extensions.hint(String(localized: "Previous Change"), "git.previousChange"),
+        next: app.extensions.hint(String(localized: "Next Change"), "git.nextChange"),
         target: self, action: #selector(stepped(_:)))
     let files = NSTableView()
     let table = DiffTable()
@@ -123,15 +124,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         source.addItems(withTitles: DiffSource.allCases.map(\.title))
         source.item(at: DiffSource.tidy.rawValue)?.isHidden = true
         source.item(at: DiffSource.turn.rawValue)?.toolTip = String(
-            localized: "What changed since the agent's last prompt, even with other agents in the same folder")
+            localized: "What changed since the agent’s last prompt, even with other agents in the same folder")
         source.target = self
         source.action = #selector(sourceChanged)
         status.font = .ui(TextSize.caption)
         status.textColor = .secondaryLabelColor
         position.font = .uiDigits(TextSize.caption)
         position.textColor = .secondaryLabelColor
-        position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
-        pathLabel.lineBreakMode = .byTruncatingHead
+        position.toolTip = stepsTip
+        pathLabel.lineBreakMode = .byTruncatingTail   // name, then folder: the folder is cut first
         pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let fs = files.plainList("file")
@@ -183,7 +184,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         self.split = split
         fileList = fs
         buildBar()
-        view = stacked(bar, split)
+        view = stacked(failureBar.under(bar), split)
         empty.place(in: view, under: bar)
         loading.place(in: view, under: bar)
         track(owner: self) { [app] in
@@ -218,6 +219,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// Where the diff stands while it's on its way, when there is none, or when git couldn't read it (`showState`).
     let empty = EmptyStateView(), loading = LoadingView()
     lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
+    /// Says over the diff on screen that reading it again failed, which keeps it (`loadOnce`).
+    lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     var split: NSSplitView?
     var fileList: NSView?
     var positioned = false
@@ -382,9 +385,9 @@ enum DiffSource: Int, CaseIterable {
         case .uncommitted: String(localized: "Uncommitted")
         case .unstaged: String(localized: "Unstaged")
         case .staged: String(localized: "Staged")
-        case .branch: String(localized: "Branch vs base")
+        case .branch: String(localized: "Branch vs Base")
         case .commit: String(localized: "Commit…")
-        case .turn: String(localized: "Agent's Last Turn")
+        case .turn: String(localized: "Agent’s Last Turn")
         case .tidy: String(localized: "Before Tidy Up")
         }
     }

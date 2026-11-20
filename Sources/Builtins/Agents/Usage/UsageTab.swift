@@ -23,6 +23,9 @@ struct UsageReportView: View {
     @State var agentOrder = AgentOrder(by: .cost, ascending: false)
     enum AgentSort: String { case agent, tokens, cost }
     struct AgentOrder: Equatable { var by: AgentSort, ascending: Bool }
+    /// What the models' and the projects' tables are sorted by, as the agents'.
+    @State var modelOrder = AgentOrder(by: .cost, ascending: false)
+    @State var projectOrder = AgentOrder(by: .cost, ascending: false)
     @State var byCost = true
     @State var selected: String?
     /// The project the page is narrowed to (a name from the span's projects).
@@ -36,7 +39,6 @@ struct UsageReportView: View {
     /// The read has gone on for a second: only then does the spinner show.
     @State private var slow = false
     @State private var failed: String?
-    @State private var showSources = false
     /// The days of the last year, for the months view (read once per project, after the span's days).
     @State private var year: [UsageAgents.Day] = []
     @State private var yearFor: String?
@@ -74,27 +76,20 @@ struct UsageReportView: View {
             VStack(alignment: .leading, spacing: Metrics.inset) {
                 period
                 // A read that fails over figures already shown leaves them there, with one line saying so.
-                if let failed, usage != nil {
-                    HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
-                        Text("Couldn’t read the usage: \(failed)").font(.ui(TextSize.caption))
-                            .foregroundStyle(.secondary)
-                        Button(String(localized: "Try Again")) { Task { await load() } }
-                            .controlSize(.small).font(.ui(TextSize.row))
-                    }
-                }
+                if let failed, usage != nil { FailureLine(failed) { Task { await load() } } }
                 // Until the first read is in, a spinner and a line saying what it waits for stand where the figures
                 // will, once the read has taken a second.
                 if usage == nil, slow, failed == nil {
                     LoadingLine(String(localized: "Reading the agents’ logs…"))
                         .frame(maxWidth: .infinity).padding(.vertical, Metrics.blockGap)
                 }
-                // The figures fill in as the logs are read.
-                if usage != nil, !lines.isEmpty { kpis() }
+                // The figures fill in as the logs are read, fading in while the table moves down to make room.
+                if usage != nil, !lines.isEmpty { kpis().transition(.opacity) }
                 if !lines.isEmpty { table(lines) }
             }
             if let usage, !usage.days.isEmpty {
                 detail(usage)
-                if !year.isEmpty { months }
+                if !year.isEmpty { months.transition(.opacity) }
                 HStack(alignment: .top, spacing: Metrics.blockGap) {
                     groups(
                         String(localized: "By Model"), sel.flatMap(agent)?.models ?? usage.models, all: $allModels,
@@ -117,6 +112,10 @@ struct UsageReportView: View {
             }
             if usage != nil { footnote }
         }
+        // What arrives later (the figures, then the months) comes in with `appear`, never at once.
+        .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: usage != nil)
+        .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: year.isEmpty)
+        .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: failed)   // the failure line fades
     }
 
     /// The tab's bar, as every page has one: its name, where the figures come from, and the span's picker at the
@@ -124,11 +123,12 @@ struct UsageReportView: View {
     private var bar: some View {
         ContentBar {
             Text("Usage").font(.ui(TextSize.body, weight: .semibold))
-            Text("From each agent's own logs and /usage on this Mac").font(.ui(TextSize.caption))
+            Text("From each agent’s own logs and /usage on this Mac").font(.ui(TextSize.caption))
                 .foregroundStyle(.secondary).lineLimit(1)
             Spacer()
             Segments(
                 labels: [String(localized: "7 Days"), String(localized: "30 Days"), String(localized: "90 Days")],
+                name: String(localized: "Period"),
                 selection: Binding {
                     Self.spans.firstIndex(of: range) ?? 1
                 } set: {
@@ -160,17 +160,11 @@ struct UsageReportView: View {
         }
     }
 
-    /// The footnote line. A link in it shows which agents are read and what is left out.
+    /// The footnote line. The ⓘ beside it says which agents are read and what is left out.
     private var footnote: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Metrics.gap) {
             Text("Prices are API list prices: a plan bills differently.")
-            Button("Which agents are counted") { showSources.toggle() }
-                .buttonStyle(.link)
-                .popover(isPresented: $showSources, arrowEdge: .top) {
-                    Text(Self.sources)
-                        .font(.ui(TextSize.caption)).fixedSize(horizontal: false, vertical: true)
-                        .frame(width: 340, alignment: .leading).padding(Metrics.inset)
-                }
+            HelpMark(text: Self.sources)
         }
         .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
     }
@@ -178,10 +172,10 @@ struct UsageReportView: View {
     /// Whose logs are read, and what the figures leave out.
     static let sources = String(
         localized: """
-            Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
+            Read from each agent’s own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
             Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
-            disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost far \
-            less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
+            disk; Droid, Goose, Hermes and Kiro keep only a session’s. Tokens include reads from the cache, which cost far \
+            less than fresh input. Prices are list prices (Grok’s, pi’s and OpenCode’s as they report them); a subscription bills \
             differently, and "—" is a model without one.
             """)
 
@@ -204,13 +198,14 @@ struct UsageReportView: View {
                 Spacer()
                 Segments(
                     labels: [String(localized: "Cost"), String(localized: "Tokens")],
+                    name: String(localized: "Measure"),
                     selection: Binding {
                         byCost ? 0 : 1
                     } set: {
                         byCost = $0 == 0
                     }
                 )
-                .controlSize(.small).fixedSize().accessibilityLabel(Text("Show"))
+                .controlSize(.small).fixedSize()
             }
             Chart {
                 ForEach(records, id: \.self) { record in
@@ -270,7 +265,7 @@ struct UsageReportView: View {
         .font(.ui(TextSize.caption))
         .frame(minWidth: 180)
         .padding(Metrics.gapWide)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metrics.radiusLG, style: .continuous))
     }
 
     /// The last 12 months, a bar for each, for all agents or only the chosen one, with the total over the 12 months.

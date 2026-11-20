@@ -14,15 +14,15 @@ extension FileTab {
         let trust = TrustBar.make(
             project: (root as NSString).lastPathComponent,
             notNow: { [weak self] in self.map { LSPManager.of(app).notNow($0.root) } },
-            trust: { [weak self] in
-                guard let root = self?.root else { return }
-                Task { await LSPManager.of(app).trust(root) }
-            })
+            trust: { [weak self] in self?.trustProject() })
         trust.isHidden = true
         track(owner: self) { [weak self] in
             self.map { LSPManager.of(app).asks($0.root, $0.language) } ?? false
-        } changed: { [weak trust] in
-            trust?.isHidden = !$0
+        } changed: { [weak trust] asks in
+            guard let trust, trust.isHidden == asks else { return }
+            // It comes and goes as a dissolve over the tab, the code moving with it, not in one frame.
+            trust.superview?.superview?.crossfade(asks ? Motion.base : Motion.fast)
+            trust.isHidden = !asks
         }
         let column = NSStackView(views: [crumbs, trust])
         column.orientation = .vertical
@@ -30,6 +30,15 @@ extension FileTab {
         column.detachesHiddenViews = true
         for part in [crumbs, trust] { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         return column
+    }
+
+    /// Whether the project isn't trusted to run this file's language server or formatter (Trust This Project acts
+    /// only then).
+    var restricted: Bool { !remote && LSPManager.of(app).restricts(root, language) }
+
+    /// Trusts the file's project to run its language servers and formatters, as the trust bar's Trust does.
+    func trustProject() {
+        Task { [app, root] in await LSPManager.of(app).trust(root) }
     }
 
     /// Returns the merge conflicts bar shown over `editor`. Its label follows the caret.
@@ -53,7 +62,8 @@ extension FileTab {
         let container = NSView(), empty = EmptyStateView()
         empty.place(in: container)
         empty.showError(
-            String(localized: "File not found — it was moved or deleted."), text: nil, buttons: [close, files])
+            String(localized: "File Not Found"), text: String(localized: "It was moved or deleted."),
+            buttons: [close, files])
         return container
     }
 }

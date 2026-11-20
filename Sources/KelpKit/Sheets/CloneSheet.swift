@@ -55,7 +55,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Clone a Repository"))
         title.font = .ui(TextSize.body, weight: .semibold)
-        field.placeholderString = "https://github.com/owner/repo or git@…"
+        field.placeholderString = String(localized: "https://github.com/owner/repo or git@…")
         field.delegate = self
         dest.delegate = self
         dest.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -75,6 +75,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         buttons.spacing = Metrics.gapWide
         window?.contentView = SheetForm.stack(
             [title, grid, bar, status, buttons], wide: [bar, status, buttons], width: Metrics.sheetWidth)
+        SheetForm.fit(window)
         window?.initialFirstResponder = field
     }
 
@@ -140,6 +141,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         choose.isEnabled = !on
         go.isEnabled = !on
         bar.isHidden = !on
+        SheetForm.fit(window)   // the bar comes and goes smoothly
         if on {
             bar.isIndeterminate = true
             bar.startAnimation(nil)

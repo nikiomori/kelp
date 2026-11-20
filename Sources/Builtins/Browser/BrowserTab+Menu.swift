@@ -32,16 +32,7 @@ extension BrowserTab {
         menu.addItem(pageSizes())
         menu.addItem(.separator())
         menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.reloadPage(fromOrigin: true) }
-        menu.add(String(localized: "Copy Screenshot")) { [weak self] in
-            self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit calls back on the main thread
-                MainActor.assumeIsolated {
-                    guard let img else { return }
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.writeObjects([img])
-                    Banner.show(String(localized: "Screenshot copied"))
-                }
-            }
-        }
+        menu.add(String(localized: "Copy Screenshot")) { [weak self] in self?.copyScreenshot() }
         if recording == nil {
             menu.add(String(localized: "Record Video")) { [weak self] in self?.recordFromMenu(gif: false) }
             menu.add(String(localized: "Record GIF")) { [weak self] in self?.recordFromMenu(gif: true) }
@@ -56,6 +47,17 @@ extension BrowserTab {
             keyEquivalent: "")
         tip.isEnabled = false
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+    }
+
+    func copyScreenshot() {
+        web.takeSnapshot(with: nil) { img, _ in   // WebKit calls back on the main thread
+            MainActor.assumeIsolated {
+                guard let img else { return }
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects([img])
+                Banner.show(String(localized: "Screenshot copied"))
+            }
+        }
     }
 
     /// ⋯ › Page Size: shows the page at the size of a phone, a tablet or a laptop, to check its layout there, or
@@ -76,7 +78,7 @@ extension BrowserTab {
             .state = viewport == size ? .on : .off
         }
         if let viewport, !sizes.contains(where: { $0.1 == viewport }) {
-            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent's)")) {}.state = .on
+            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent’s)")) {}.state = .on
         }
         let item = NSMenuItem(title: String(localized: "Page Size"), action: nil, keyEquivalent: "")
         item.submenu = menu

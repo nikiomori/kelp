@@ -126,8 +126,8 @@ enum CanvasEdit {
             if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];
             const rows = [];
             marks.forEach((m, i) => {
-              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib', '×');
-              x.title = L.remove;
+              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib');
+              x.innerHTML = \(CanvasChrome.Glyph.xmark.js); x.title = L.remove;
               x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
               head.append(el('span', 'kelp-num', String(i + 1)), el('span', 'kelp-grow kelp-what', m.target
                 + (m.text ? ' «' + m.text + '»' : '')), x);
@@ -150,7 +150,9 @@ enum CanvasEdit {
             if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
             const rows = issues.map(t => {
               const r = el('div', 'kelp-row kelp-issue');
-              r.append(el('span', 'kelp-mark-warn', '!'), el('span', 'kelp-grow', t));
+              const mark = el('span', 'kelp-mark-warn');
+              mark.innerHTML = \(CanvasChrome.Glyph.warning.js);
+              r.append(mark, el('span', 'kelp-grow', t));
               return r;
             });
             const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');
@@ -224,7 +226,8 @@ enum CanvasEdit {
           let at = -1, quiet = null;
           // A strip at the foot while presenting: where you are, ‹ ›, and how to end; it fades when the pointer rests.
           const strip = el('div', 'kelp-strip');
-          const back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib', '›');
+          const back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
+          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
           const where = el('span', 'kelp-where');
           back.onclick = () => { at = Math.max(at - 1, 0); present(); };
           next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); };
@@ -286,7 +289,7 @@ enum CanvasEdit {
           box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-issue { align-items: flex-start; }
         .kelp-mark-warn { width: 14px; height: 14px; border-radius: 4px; color: var(--k-text-orange);
-          font: 700 10px/14px -apple-system, sans-serif; text-align: center;
+          display: flex; align-items: center; justify-content: center;
           box-shadow: 0 0 0 1px var(--k-orange); margin-top: 1px; }
         .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 999px; padding: 1px 8px; font: inherit;
           font-weight: 500; background: var(--k-rest); color: inherit; opacity: 0; }

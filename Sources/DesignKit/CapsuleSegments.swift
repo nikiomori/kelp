@@ -19,7 +19,8 @@ public final class CapsuleSegments: NSControl {
     /// The segments as VoiceOver knows them, made once per set of words, so its cursor stays on the one chosen.
     private var choices: [Choice] = []
 
-    public init(labels: [String], target: AnyObject? = nil, action: Selector? = nil) {
+    /// `name` is what VoiceOver calls the group ("Mode", "Place"): a radio group without one is heard as nothing.
+    public init(labels: [String], name: String, target: AnyObject? = nil, action: Selector? = nil) {
         words = labels
         super.init(frame: .zero)
         self.target = target
@@ -32,8 +33,8 @@ public final class CapsuleSegments: NSControl {
         rebuild()
         setAccessibilityElement(true)
         setAccessibilityRole(.radioGroup)
+        setAccessibilityLabel(name)
     }
-    public convenience init() { self.init(labels: []) }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
     // MARK: What it says

@@ -13,6 +13,17 @@ extension Builtins {
         icon: "server.rack"
     ) { app in
         return Contributions(
+            // What the server's tab in front does from its bar and its ⋯ menu.
+            commands: [
+                serverCommand(app, "servers.terminal", "Open Terminal on Server") {
+                    ServerActions.runOnServer(app, $0)
+                },
+                serverCommand(app, "servers.htop", "Open htop on Server") { ServerActions.openHtop(app, $0) },
+                serverCommand(
+                    app, "servers.disconnect", "Disconnect Server…",
+                    when: { app.latest(HostEvent.self, $0)?.stats.connected == true }
+                ) { ServerActions.disconnectServer(app, $0) }
+            ],
             tabs: [
                 TabProvider(
                     schemes: ["host"], make: { serverTab(uri: $0, app: app) },
@@ -36,5 +47,22 @@ extension Builtins {
                 section: { AnyView(ServerSection(app: app, host: $0, close: $1)) },
                 listed: { ServerHeaders.watchHosts($0, app) })
         )
+    }
+}
+
+extension Builtins {
+    /// A command for the server whose tab is in front, enabled while `when` holds for it; elsewhere it beeps.
+    fileprivate static func serverCommand(
+        _ app: AppModel, _ id: String, _ title: String, when: @escaping @MainActor (String) -> Bool = { _ in true },
+        _ run: @escaping @MainActor (String) -> Void
+    ) -> CommandSpec {
+        @MainActor func front() -> String? {
+            guard let uri = app.workbench.focusedContent?.uri, TabURI.scheme(uri) == "host" else { return nil }
+            return TabURI.body(uri)
+        }
+        return CommandSpec(id: id, title: title, enabled: { front().map { when($0) } ?? false }) { _ in
+            guard let host = front() else { return NSSound.beep() }
+            run(host)
+        }
     }
 }

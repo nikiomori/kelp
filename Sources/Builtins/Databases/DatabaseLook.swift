@@ -102,7 +102,7 @@ enum DatabaseLook {
     /// One line on what agents may do with the database.
     static func meaning(_ access: DatabaseInfo.Access) -> String {
         switch access {
-        case .hidden: String(localized: "Agents don't see it.")
+        case .hidden: String(localized: "Agents don’t see it.")
         case .read: String(localized: "Agents read it; a change is refused.")
         case .ask: String(localized: "Agents read it; each change waits for your Allow.")
         case .free: String(localized: "Agents read and change it without asking.")

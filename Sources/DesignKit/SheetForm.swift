@@ -7,7 +7,8 @@ import AppKit
 public enum SheetForm {
     /// The names and their fields. Fields stretch to the end once `stack` lays the grid out.
     public static func grid(_ rows: [(String, NSView)]) -> NSGridView {
-        let grid = NSGridView(views: rows.map { [NSTextField(labelWithString: $0.0), $0.1] })
+        // Names in `body`, as the sheet's other words and its fields, growing with Text size.
+        let grid = NSGridView(views: rows.map { [NSTextField.label($0.0, font: .ui(TextSize.body)), $0.1] })
         grid.column(at: 0).xPlacement = .trailing
         grid.column(at: 0).width = Metrics.formLabel
         grid.rowAlignment = .firstBaseline
@@ -37,5 +38,27 @@ public enum SheetForm {
             }
         }
         return stack
+    }
+
+    /// Sizes a sheet to its `stack` after parts show or hide. It grows or shrinks smoothly from its top edge, which
+    /// hangs from the window's title bar: at once before it shows and under Reduce Motion. Call it once the stack is
+    /// the sheet's content, and after each change.
+    public static func fit(_ window: NSWindow?) {
+        guard let window, let stack = window.contentView as? NSStackView else { return }
+        // Below the window's own priority, so new parts don't snap the sheet taller: the frame below grows it.
+        stack.setClippingResistancePriority(.windowSizeStayPut - 10, for: .vertical)
+        let width = window.contentRect(forFrameRect: window.frame).width
+        var frame = window.frameRect(
+            forContentRect: NSRect(x: 0, y: 0, width: width, height: stack.fittingSize.height))
+        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+        guard frame != window.frame else { return }
+        guard window.isVisible else { return window.setFrame(frame, display: true) }
+        // Grows on `base`; closes up in about two thirds of that, easing in, as what leaves does.
+        let shrinks = frame.height < window.frame.height
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(shrinks ? Motion.base * 2 / 3 : Motion.base)
+            if shrinks { context.timingFunction = CAMediaTimingFunction(name: .easeIn) }
+            window.animator().setFrame(frame, display: true)
+        }
     }
 }

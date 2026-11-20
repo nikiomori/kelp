@@ -13,6 +13,7 @@ final class PortsView: NSView {
     var onOpen: ((String) -> Void)?
     private let list = NSHostingView(rootView: SectionList([]))
     private let empty = EmptyStateView()
+    private let loading = LoadingView()
     private var shown: [ServedPage]?
     private let app: AppModel
 
@@ -34,7 +35,8 @@ final class PortsView: NSView {
             list.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * side), fill
         ])
         empty.place(in: self)
-        showEmpty(true)
+        loading.place(in: self)
+        list.isHidden = true
         track(owner: self) { [weak self] in
             self?.pages
         } changed: { [weak self] in
@@ -56,6 +58,12 @@ final class PortsView: NSView {
         guard wid != ports.key else { return }
         ports.key = wid
         shown = nil
+        // Until the daemon's first answer, an empty list would read as nothing running: the wait says it is coming.
+        if let wid, app.latest(PortsEvent.self, wid) == nil {
+            loading.wait(String(localized: "Reading the ports…"))
+        } else {
+            loading.show(nil)
+        }
         show(pages)
     }
     private let ports: Watched
@@ -63,18 +71,27 @@ final class PortsView: NSView {
     private func showEmpty(_ none: Bool) {
         list.isHidden = none
         empty.show(
-            none ? String(localized: "Running on This Screen") : nil, symbol: "network",
+            none ? String(localized: "Nothing Running on This Screen") : nil, symbol: "network",
             text: String(
                 localized:
-                    "Servers you start in this screen's terminals and agents show up here. Or type an address above."))
+                    "Servers you start in this screen’s terminals and agents show up here. Or type an address above."))
     }
 
     private var pages: [ServedPage]? {
-        ports.key.map { ServedPages.list(printed: [], ports: app.latest(PortsEvent.self, $0)?.ports ?? []) }
+        ports.key.flatMap { app.latest(PortsEvent.self, $0) }.map { ServedPages.list(printed: [], ports: $0.ports) }
     }
 
     private func show(_ found: [ServedPage]?) {
         guard let wid = ports.key, let found, found != shown else { return }
+        if loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+            Task {
+                await loading.settled()
+                loading.show(nil)
+                show(pages)
+            }
+            return
+        }
+        loading.show(nil)
         shown = found
         let rows = found.map { row($0, workspace: wid) }
         list.rootView = SectionList([

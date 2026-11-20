@@ -42,6 +42,37 @@ public struct PointerButtonStyle: ButtonStyle {
     }
 }
 
+/// SwiftUI's link, as `PointerButton.link` draws it in AppKit: words in the accent colour with no plate, underlined
+/// under the pointer, dipping when pressed. For a `Link` or a `Button`: `.buttonStyle(.kelpLink)`.
+public struct KelpLinkStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Linked(configuration: configuration) }
+
+    private struct Linked: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+        @State private var size = CGSize.zero
+        var body: some View {
+            configuration.label
+                .foregroundStyle(Color(nsColor: .emphasis))
+                .underline(hovering)
+                .contentShape(Rectangle())
+                .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
+                .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
+                .onHover { hovering = $0 }
+                .onGeometryChange(for: CGSize.self) {
+                    $0.size
+                } action: {
+                    size = $0
+                }
+        }
+    }
+}
+
+extension ButtonStyle where Self == KelpLinkStyle {
+    public static var kelpLink: KelpLinkStyle { KelpLinkStyle() }
+}
+
 /// A card that is a choice (a theme). When pressed it dips a little, and under the pointer it tells its label, whose
 /// tile brightens its own edge (`cardEdge`). A ring of the style's own went round the caption too, and with the tile's
 /// it made two lines.
@@ -120,5 +151,5 @@ private struct PointerMenu: ViewModifier {
 
 extension Animation {
     /// A press dipping and coming back, in SwiftUI (AppKit's is `pressBounce`), in the time a press takes there.
-    @MainActor static var pressSpring: Animation { .spring(response: Motion.press, dampingFraction: 0.6) }
+    @MainActor public static var pressSpring: Animation { .spring(response: Motion.press, dampingFraction: 0.6) }
 }

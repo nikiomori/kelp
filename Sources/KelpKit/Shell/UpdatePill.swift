@@ -15,11 +15,13 @@ final class UpdatePill: PointerButton {
         padding = 8
         restFill = .fillRest
         isHidden = true
-        heightAnchor.constraint(equalToConstant: TextSize.barCapsule).isActive = true
+        let height = heightAnchor.constraint(equalToConstant: TextSize.barCapsule)
+        height.isActive = true
         onClick = { Task { await app.updates.install(app) } }
         track(owner: self) {
             app.themes.chromeText
         } changed: { [weak self] _ in
+            height.constant = TextSize.barCapsule   // the capsule grows with its text
             self?.showWords()
         }
         track(owner: self) {
@@ -45,7 +47,7 @@ final class UpdatePill: PointerButton {
         toolTip = String(localized: "Kelp \(update.version) is ready. Click to restart.")
         menu = update.notes.map { url in
             let notesMenu = NSMenu()
-            notesMenu.add(String(localized: "What's New")) { PreviewLinks.openOutside(url) }
+            notesMenu.add(String(localized: "What’s New")) { PreviewLinks.openOutside(url) }
             return notesMenu
         }
     }

@@ -143,7 +143,7 @@ struct UsageView: View {
                 // the row's edges, so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(
-                    RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(
+                    RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(
                         hovered == row.id ? Color(nsColor: .fillHover) : .clear)
                 )
                 .padding(.horizontal, -4).padding(.vertical, -2)
@@ -170,8 +170,8 @@ struct UsageView: View {
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(
-                    used.flatMap { usedRow in
+                .accessibilityLabel(   // a row per agent reads its own; one row reads them all, as its card shows
+                    (all ? [row] : used).flatMap { usedRow in
                         usedRow.lines.map {
                             String(
                                 localized: "\(usedRow.fullName) \($0.label): \(Int(($0.used * 100).rounded()))% used")
@@ -243,7 +243,7 @@ struct UsageView: View {
         }
     }
 
-    private static func label(_ kind: String) -> String {
+    static func label(_ kind: String) -> String {
         kind == "session"
             ? String(localized: "5 hours")
             : kind == "week"

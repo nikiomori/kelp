@@ -45,7 +45,7 @@ final class Updates: NSObject {
         Banner.show(
             String(localized: "Kelp updated to \(current)"),
             action: update.notes.map { url in
-                (String(localized: "What's New"), { @MainActor in PreviewLinks.openOutside(url) })
+                (String(localized: "What’s New"), { @MainActor in PreviewLinks.openOutside(url) })
             })
     }
 
@@ -63,7 +63,7 @@ final class Updates: NSObject {
         let alert = NSAlert()
         alert.messageText = String(localized: "Updating ends running agents")
         alert.informativeText = String(
-            localized: "Kelp isn't allowed to run in the background, so macOS ends its agents when it quits.")
+            localized: "Kelp isn’t allowed to run in the background, so macOS ends its agents when it quits.")
         alert.addButton(withTitle: String(localized: "Later"))   // Return keeps the agents running
         alert.addButton(withTitle: String(localized: "Open Login Items"))
         alert.addButton(withTitle: String(localized: "Update Anyway")).hasDestructiveAction = true

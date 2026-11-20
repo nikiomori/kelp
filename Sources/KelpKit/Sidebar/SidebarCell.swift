@@ -143,6 +143,7 @@ final class SidebarCell: NSTableCellView {
         title.lineBreakMode = .byTruncatingTail
         trailing.font = .uiDigits(TextSize.caption, weight: .regular)
         trailing.textColor = .secondaryLabelColor
+        trailing.lineBreakMode = .byTruncatingTail
         // Not the cell's textField: the source list would restyle it, drawing a project's name as a grey group heading
         // and a selected row's name in bold, which here means "something new". Type-select reads the name from the
         // controller instead.
@@ -280,7 +281,7 @@ final class SidebarCell: NSTableCellView {
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip =
                 missing
-                ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
+                ? String(localized: "\(repo?.path ?? "") isn’t there anymore. Right-click › Locate… if it moved.")
                 : repo.map(app.projectPlace)
             say([title.stringValue, toolTip])
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,
@@ -332,11 +333,14 @@ final class SidebarCell: NSTableCellView {
             let quiet =
                 session.shownStatus == .working
                 ? session.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
+            let waited = [.waiting, .error].contains(session.shownStatus)
             trailing.stringValue =
-                [.waiting, .error].contains(session.shownStatus)
+                waited
                 ? shortAgo(session.statusAt ?? session.createdAt)
                 : app.arrangement.parked[sid].flatMap { app.arrangement.isParked(sid) ? Parking.until($0) : nil }
                     ?? quiet ?? picked
+            // On a narrow sidebar the waited time keeps its room; the rest gives way to the name first.
+            trailing.setContentCompressionResistancePriority(waited ? .defaultHigh : .init(240), for: .horizontal)
             alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // a parked chat is dimmed, as the canvas draws it
             showMarkButton(sid)
             family.show(

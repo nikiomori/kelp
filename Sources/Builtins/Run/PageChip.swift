@@ -86,30 +86,18 @@ final class PageChip: ChipCapsule, WindowBarItem {
     }
 
     /// The right-click menu: what a click doesn't do. A page that came from a run's printed address may have no
-    /// process on this Mac, because it may run on a host.
+    /// process on this Mac, because it may run on a host. Each item is also a command for the page on screen.
     private func menu(_ look: Look) -> NSMenu {
-        let actions = NSMenu(), app = app, page = PageActions(app)
-        if look.page.isWeb {
-            actions.add(String(localized: "Open in Browser")) {
-                Task {
-                    if let url = await page.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) }) {
-                        PreviewLinks.openOutside(url)
-                    }
-                }
-            }
+        let actions = NSMenu(), runs = runs, page = look.page, wid = look.workspace
+        if page.isWeb {
+            actions.add(String(localized: "Open in Browser")) { runs.openOutside(page, in: wid) }
         }
-        actions.add(String(localized: "Copy Address")) { Task { await page.copy(look.page, in: look.workspace) } }
-        if look.page.host != nil, look.page.forwarded {
-            actions.add(String(localized: "Stop Forwarding")) {
-                Task {
-                    if await app.call(PortsUnforward(worktreeId: look.workspace, port: look.page.remotePort)) != nil {
-                        app.watchAgain(.ports, look.workspace)
-                    }
-                }
-            }
+        actions.add(String(localized: "Copy Address")) { runs.copyAddress(page, in: wid) }
+        if runs.forwarded(page) {
+            actions.add(String(localized: "Stop Forwarding")) { runs.stopForwarding(page, in: wid) }
         }
-        if let pid = look.page.pid {
-            actions.add(String(localized: "Stop")) { Task { await page.stop(pid: pid, in: look.workspace) } }
+        if page.pid != nil {
+            actions.add(String(localized: "Stop")) { runs.stopServer(page, in: wid) }
         }
         return actions
     }

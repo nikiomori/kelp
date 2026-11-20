@@ -5,6 +5,7 @@ import DesignKit
 import KelpKit
 import Markdown
 import Quartz
+import WorkbenchKit
 
 extension FilesPanel {
     // MARK: rename in place
@@ -83,8 +84,10 @@ extension FilesPanel {
             if outline.isItemExpanded(node) { outline.collapseItem(node) } else { outline.expandItem(node) }
             return
         }
-        // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C).
-        openFile(node.path, focus: false)
+        // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C). With ⌥ it opens beside, in a
+        // split (in a list ⌘ and ⇧ pick several rows).
+        let beside = NSApp.currentEvent?.modifierFlags.contains(.option) == true
+        app.workbench.open(TabURI.file(root + "/" + node.path), split: beside ? .right : nil, focus: false)
     }
     /// Adds a file the way Finder adds a new folder: "untitled" appears with its name selected, and once a name is
     /// typed, the file opens.
@@ -171,5 +174,31 @@ extension FilesPanel {
         }
         let path = URL(fileURLWithPath: root).appendingPathComponent(node.path).path
         trash({ [path] }, undo: String(localized: "Move to Trash"))
+    }
+
+    /// Lists the files now, then calls `done`. The panel's own operations use this to select or rename what they made,
+    /// because the daemon's push only follows a moment later. Otherwise the tree follows what's pushed.
+    func reloadTree(then done: (() -> Void)? = nil) {
+        guard let current = worktree else {
+            nodes = []
+            outline.reloadData()
+            return
+        }
+        Task {
+            let result = await app.tryCall(FilesList(id: current.id))
+            // What the operation made or moved may be in an open ignored folder, which the listing doesn't cover, so
+            // those folders are read again.
+            for folder in opened.keys {
+                let entries = await app.quiet(FilesIgnored(id: current.id, folder: folder + "/"))
+                guard worktree?.id == current.id else { return }
+                opened[folder] = entries   // a folder that's gone returns nil, which removes it from `opened`
+            }
+            treeBase = nil   // the ignored folders were just read, so build a whole tree with them
+            let event = FilesEvent(
+                worktree: current.id, paths: result.value, ignored: await app.quiet(FilesIgnored(id: current.id)),
+                error: result.error)
+            await listed(event)?.value
+            done?()
+        }
     }
 }

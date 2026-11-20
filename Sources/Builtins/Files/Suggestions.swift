@@ -117,7 +117,7 @@ final class Suggestions {
         guard
             let key = await askSecret(
                 String(localized: "API Key for \(Self.cloudName(cloud, model: ""))"),
-                detail: String(localized: "It's stored in your login keychain, not in settings.json."),
+                detail: String(localized: "It’s stored in your login keychain, not in settings.json."),
                 action: String(localized: "Save"), placeholder: String(localized: "Paste the key")),
             !key.isEmpty
         else { return }
@@ -275,8 +275,11 @@ final class Suggestions {
     private func showCard(from button: NSView, language: String) {
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+        let host = NSHostingController(
             rootView: SuggestionsCard(suggestions: self, language: language) { popover.close() })
+        host.sizingOptions = .preferredContentSize   // the popover grows and shrinks to what the card shows
+        popover.contentViewController = host
+        popover.animates = !Motion.reduced
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 }

@@ -26,8 +26,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// With no rows, the list gives way to this, in the middle, with the button that helps (show all, sign in).
     let emptyView = EmptyStateView()
     let loadingView = LoadingView(rows: true)
-    lazy var refresh = IconButton(
-        .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
+    /// ⋯ last in the bar, with Refresh in it as in every panel's.
+    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) { [weak self] in
+        self?.showMore()
+    }
     let table = NSTableView()
     let detail = NSStackView()
     var shown: Source { Source(rawValue: source.selectedTag()) ?? .pulls }
@@ -47,6 +49,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     var lastOpened: String?
     /// PRs that changed since their tab was last opened, which get a dot on the row.
     var unseen: Set<Int> = []
+    /// Where the project's pull requests and issues are, for the rows' "⌘-click: open on GitHub".
+    var site = "GitHub"
     private(set) var repoId: String?
     private var projectOwner: String?
     /// Bumped by every reload and every filter menu built, so a reply for an older one (another project, list or
@@ -69,6 +73,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let ts = table.plainList("t")
         table.dataSource = self
         table.target = self
+        table.action = #selector(clicked)
         table.doubleAction = #selector(keepOpened)
         table.delegate = self
         table.menu = NSMenu()
@@ -186,6 +191,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else { return }
         Task {
             let forge = await app.quiet(GitHubForge(repoId: repoId))   // the list's own load says what failed
+            site = forge == "gitlab" ? "GitLab" : "GitHub"
             source.menu?.item(withTag: Source.pulls.rawValue)?.title =
                 forge == "gitlab" ? String(localized: "Merge Requests") : Source.pulls.title
         }
@@ -287,19 +293,19 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             table.reloadData()
             source.isHidden = true
             filter.isHidden = true   // there is nothing to choose among yet
-            showEmpty(String(localized: "Select a project"))
+            showEmpty(String(localized: "Select a Project"))
             return
         }
         source.isHidden = false
         let slow = showWait(quietly: quietly)
-        // When the user asked, over rows it keeps showing, Refresh answers the click at once.
-        if !quietly, !rows.isEmpty { refresh.busy = true }
+        // When the user asked, over rows it keeps showing, ⋯ answers Refresh at once.
+        if !quietly, !rows.isEmpty { more.busy = true }
         let src = shown, filterIndex = filter.indexOfSelectedItem
         let picked = quietly ? row(at: table.selectedRow).flatMap(Self.number) : nil
         Task {
             defer {
                 slow?.cancel()
-                if gen == reloads { refresh.busy = false }
+                if gen == reloads { more.busy = false }
             }
             var rows: [Row] = []
             do {

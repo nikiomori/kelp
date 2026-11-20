@@ -51,7 +51,7 @@ final class NoProject: NSObject {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.prompt = String(localized: "Start Chat")
-        panel.message = String(localized: "The agent works in this folder. It isn't added as a project.")
+        panel.message = String(localized: "The agent works in this folder. It isn’t added as a project.")
         Task {
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
             app.workbench.newChat(repo: repo.id, cwd: url.path)

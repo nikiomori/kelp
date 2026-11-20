@@ -66,20 +66,23 @@ extension FileTab {
         }
     }
 
-    /// Opens the definition of the symbol at the cursor as a tab, as the language server finds it (a beep if none).
-    func jumpToDefinition() {
+    /// Opens the definition of the symbol at the cursor as a tab (`beside`: in a split to the right), as the language
+    /// server finds it, or says there is none. A lookup over a second says so in the status bar.
+    func jumpToDefinition(beside: Bool = false) {
         guard let editor, let (line, column) = editor.cursor else { return }
-        let filePath = path, projectRoot = root, app = app
+        let filePath = path, projectRoot = root, app = app, bar = statusBar
         Task {
+            let slow = whileSlow { bar?.showFinding() }
             await lspCaughtUp()
-            guard
-                let loc = await LSPManager.of(app).definition(
-                    root: projectRoot, path: filePath, line: line, column: column)
-            else {
-                NSSound.beep()
+            let found = await LSPManager.of(app).definition(
+                root: projectRoot, path: filePath, line: line, column: column)
+            slow.cancel()
+            await bar?.found()
+            guard let loc = found else {
+                Banner.show(String(localized: "No definition found."))
                 return
             }
-            app.workbench.open(TabURI.file(loc.path, line: loc.line))
+            app.workbench.open(TabURI.file(loc.path, line: loc.line), split: beside ? .right : nil)
         }
     }
 }
@@ -133,7 +136,7 @@ extension FileTab {
         guard result.code == 0 else {
             let why = (result.stderr.isEmpty ? result.stdout : result.stderr).split(separator: "\n").prefix(2).joined(
                 separator: "\n")
-            Banner.show(String(localized: "Couldn't format \(title): \(why)"), style: .error)
+            Banner.show(String(localized: "Couldn’t format \(title): \(why)"), style: .error)
             return
         }
         guard editor.text == text, result.stdout != text, !result.stdout.isEmpty || text.isEmpty else { return }   // typed meanwhile, or nothing to do

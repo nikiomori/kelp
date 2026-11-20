@@ -22,8 +22,14 @@ struct AgentPageCard: View {
         if let shown = pages.first(where: { $0.id == picked }) ?? Self.latest(pages) {
             VStack(alignment: .leading, spacing: 6) {
                 head(shown.page)
-                picture(shown.id, height: 150).onTapGesture { show(shown.id) }
-                    .task(id: shown.page.steps.last?.at) { await take(shown.id) }
+                Button {
+                    show(shown.id)
+                } label: {
+                    picture(shown.id, height: 150)
+                }
+                .buttonStyle(PointerCardStyle())
+                .accessibilityLabel(String(localized: "Show Page"))
+                .task(id: shown.page.steps.last?.at) { await take(shown.id) }
                 if pages.count > 1 { others(pages, shown: shown.id) }
                 ForEach(Array(shown.page.steps.enumerated()), id: \.offset) { _, step in
                     HStack(spacing: 6) {
@@ -52,10 +58,10 @@ struct AgentPageCard: View {
     }
 
     private func head(_ page: AgentPages.Page) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Metrics.lineGap) {
             HStack(spacing: 6) {
                 Text(page.title.isEmpty ? URL(string: page.url)?.host ?? page.url : page.title)
-                    .font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
+                    .sectionTitle().lineLimit(1)   // a card's part is headed as a popover's section is
                 Spacer(minLength: 8)
                 Text(Self.place(page.url)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                     .truncationMode(.middle)
@@ -87,19 +93,21 @@ struct AgentPageCard: View {
         return host + (parsed.port.map { ":\($0)" } ?? "") + (parsed.path == "/" ? "" : parsed.path)
     }
 
-    /// The page's picture, its top part, `width` wide (the card's width for nil); grey until one is taken.
+    /// The page's picture, its top part, `width` wide (the card's width for nil); grey until one is taken, and then
+    /// the picture fades in. Its edge brightens under the pointer, as a choice tile's does (`PointerCardStyle`).
     @ViewBuilder private func picture(_ id: String, width: CGFloat? = nil, height: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS)
+        let shape = RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
         Group {
             if let image = pictures[id] {
-                Image(nsImage: image).resizable().scaledToFill()
+                Image(nsImage: image).resizable().scaledToFill().transition(.opacity)
             } else {
-                Color(nsColor: .fillRest)
+                Color(nsColor: .fillRest).transition(.opacity)
             }
         }
+        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: pictures[id] != nil)
         .frame(minWidth: width, maxWidth: width ?? .infinity, minHeight: height, maxHeight: height, alignment: .top)
         .clipShape(shape)
-        .overlay(shape.stroke(Color(nsColor: .separatorColor)))
+        .cardEdge(selected: false)
         .contentShape(shape)
     }
 
@@ -112,7 +120,7 @@ struct AgentPageCard: View {
                     } label: {
                         picture(other.id, width: 84, height: 52)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PointerCardStyle())
                     .accessibilityLabel(other.page.title.isEmpty ? other.page.url : other.page.title)
                     .task(id: other.page.steps.last?.at) { await take(other.id) }
                     Text(
@@ -132,7 +140,7 @@ struct AgentPageCard: View {
             Button(shown.page.holder == .agent ? String(localized: "Take Over") : String(localized: "Hand Back")) {
                 AgentPages.of(app).handle(shown.id)?.hold(shown.page.holder == .agent)
             }
-            .controlSize(.small)
+            .buttonStyle(BarButtonStyle())   // one system button in a card; the second is a word on the grey plate
         }
     }
 

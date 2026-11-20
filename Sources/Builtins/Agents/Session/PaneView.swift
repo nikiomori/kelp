@@ -100,6 +100,7 @@ final class PaneView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private lazy var preview = PathPreview(app: app)
+    private lazy var linkPill = LinkPill(in: self, above: endedSlot)
 
     private static func terminal(_ session: Session) -> GhosttyTerminalView {
         let kelp = Bundle.main.bundleURL.appendingPathComponent(
@@ -140,6 +141,12 @@ final class PaneView: NSView {
         terminal.onOpenPath = { token, flags in
             TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), workspace: wid, flags: flags, in: app)
         }
+        terminal.onPathAt = { tokens in
+            let dir = cwd(), roots = projects()
+            // The lookup stats files in every project: off the main thread, so a slow volume doesn't stall the window.
+            return await Task.detached { TerminalPaths.shown(tokens, cwd: dir, elsewhere: roots) }.value
+        }
+        terminal.onLinkHover = { [weak self] in self?.linkPill.show($0) }
         terminal.onHoverWord = { [weak self, weak terminal] tokens, rect in
             guard let self, let terminal else { return }
             self.preview.show(tokens, rect: rect, in: terminal, cwd: cwd(), worktree: wid)
@@ -147,7 +154,7 @@ final class PaneView: NSView {
     }
 
     private func buildEndedBar() {
-        endedLabel.font = .ui(TextSize.row, weight: .medium)   // the scale has no semibold at 12
+        endedLabel.font = .ui(TextSize.row)   // 500 is for what is selected
         restartButton.title = String(localized: "Restart")
         restartButton.target = self
         restartButton.action = #selector(restartTapped)

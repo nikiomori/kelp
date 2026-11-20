@@ -1,4 +1,5 @@
 // The start view's parts: its boxes, cards, rows and the Run group.
+import Agents
 import AppKit
 import Core
 import DesignKit
@@ -92,11 +93,45 @@ final class RunGroup: NSStackView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func show(_ run: [NewTabChoices.Action]) {
-        isHidden = run.isEmpty
-        let card = StartCard(rows: run.map(StartRow.init), columns: 2)
-        setViews([head, card], in: .top)
-        head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
-        card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+        settleInPage {
+            isHidden = run.isEmpty
+            let card = StartCard(rows: run.map(StartRow.init), columns: 2)
+            setViews([head, card], in: .top)
+            head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
+            card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+        }
+    }
+}
+
+extension NSView {
+    /// `settle` in the start page this view is a part of.
+    func settleInPage(_ change: () -> Void) {
+        guard let page = superview as? NSStackView else { return change() }
+        page.settle(change)
+    }
+}
+
+extension NSStackView {
+    /// Runs `change`, which shows, hides or resizes parts of the start page after the page was drawn (what comes late:
+    /// Templates from the file, Run, the plans). The parts after it slide to their new places (`Motion.appear`) instead
+    /// of jumping, and a part that wasn't there fades in.
+    func settle(_ change: () -> Void) {
+        guard window != nil else { return change() }
+        let before = arrangedSubviews.map { ($0, $0.isHidden, $0.placeInWindow) }
+        change()
+        superview?.layoutSubtreeIfNeeded()
+        for (view, wasHidden, place) in before where !view.isHidden {
+            guard wasHidden else {
+                view.slide(from: place)
+                continue
+            }
+            guard !Motion.reduced else { continue }
+            view.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.appear
+                view.animator().alphaValue = 1
+            }
+        }
     }
 }
 
@@ -130,7 +165,7 @@ final class StartRow: PointerControl {
         more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
         let key = NSTextField(labelWithString: shortcut ?? "")
         key.textColor = .secondaryLabelColor
-        key.font = .ui(TextSize.row)
+        key.font = .ui(TextSize.caption)   // a key hint
         let row = NSStackView(views: [icon, label, NSView(), more, key])
         row.spacing = Metrics.gapWide
         row.detachesHiddenViews = true
@@ -169,7 +204,7 @@ final class TemplateGroup: NSStackView {
         show(file: [])
         Task { [weak self] in
             let file = await LayoutTemplates(app: app).fromFile(worktree)
-            if !file.isEmpty { self?.show(file: file) }
+            if !file.isEmpty { self?.settleInPage { self?.show(file: file) } }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -202,5 +237,26 @@ final class TemplateGroup: NSStackView {
         setViews([head, card], in: .top)
         head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
         card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+    }
+}
+
+extension NSMenu {
+    /// The "N More" tile's menu: each agent, with its ⌘ stand-in "… in New Group" (a click on it is a ⌘-click, which
+    /// `start` reads as "in a new group"), then the Agent Catalog.
+    @MainActor static func moreAgents(
+        _ agents: [AgentManifest], icon: (String) -> NSImage?, start: @escaping @MainActor (String) -> Void,
+        catalog: @escaping @MainActor () -> Void
+    ) -> NSMenu {
+        let menu = NSMenu()
+        let alternates = NSMenuItem.noteColumn(agents.map { NSMenu.inNewGroup($0.name) })
+        for agent in agents {
+            let go: @MainActor () -> Void = { start(agent.id) }
+            let item = menu.add(agent.name, go)
+            item.show(icon(agent.id))
+            menu.addNewGroupAlternate(of: item, agent: agent.name, column: alternates, go)
+        }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Agent Catalog…"), catalog).show(.symbol("square.grid.2x2"))
+        return menu
     }
 }

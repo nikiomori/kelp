@@ -22,6 +22,27 @@ extension Builtins {
         return tab
     }
 
+    /// A command for a button on the bar over the agent's page in front (`ArtifactBar.button(for:)`), enabled while
+    /// the button shows there and can be pressed; elsewhere it beeps.
+    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String) -> CommandSpec {
+        let button: @MainActor () -> NSControl? = {
+            (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar?.button(for: id)
+        }
+        return CommandSpec(
+            id: id, title: title, enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
+        ) { _ in
+            guard let control = button(), !control.isHiddenOrHasHiddenAncestor, control.isEnabled else {
+                return NSSound.beep()
+            }
+            control.sendAction(control.action, to: control.target)
+        }
+    }
+
+    /// The project whose Disk Usage tab is in front.
+    fileprivate static func diskShown(_ app: AppModel) -> String? {
+        app.workbench.focusedContent.flatMap { TabURI.scheme($0.uri) == "disk" ? TabURI.body($0.uri) : nil }
+    }
+
     package static let files = Builtin(
         "kelp.files", "Files & Editor", "File tree, search and the code editor (tree-sitter, LSP).",
         icon: "doc.text", essential: true
@@ -45,6 +66,20 @@ extension Builtins {
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
                     markdown(app)?.cycleMode()
                 },
+                // What the bar over an agent's page does, as its buttons do.
+                artifactCommand(app, "artifact.present", "Artifact: Present"),
+                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version"),
+                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version"),
+                artifactCommand(app, "artifact.showLatest", "Artifact: Show Latest"),
+                artifactCommand(app, "artifact.restore", "Artifact: Restore"),
+                artifactCommand(app, "artifact.update", "Artifact: Update"),
+                CommandSpec(
+                    id: "disk.measureAgain", title: "Disk Usage: Measure Again",
+                    enabled: { diskShown(app).map { !disk.measuring.contains($0) } ?? false }
+                ) { _ in
+                    guard let repoId = diskShown(app) else { return NSSound.beep() }
+                    disk.measure(repoId, app: app, again: true)
+                },
                 // The formatting bar's commands, with GitHub's keys. They are enabled only in a Markdown file's editor.
                 cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },
                 cmd("markdown.italic", "Italic", "cmd+i") { markdown(app)?.italic() },
@@ -53,6 +88,11 @@ extension Builtins {
                 cmd("markdown.bullets", "Bulleted List") { markdown(app)?.bullets() },
                 cmd("markdown.numbered", "Numbered List") { markdown(app)?.numbered() },
                 cmd("markdown.tasks", "Task List") { markdown(app)?.tasks() },
+                cmd("markdown.table", "Table") { markdown(app)?.table() },
+                cmd("markdown.text", "Text") { markdown(app)?.heading(0) },
+                cmd("markdown.heading1", "Heading 1") { markdown(app)?.heading(1) },
+                cmd("markdown.heading2", "Heading 2") { markdown(app)?.heading(2) },
+                cmd("markdown.heading3", "Heading 3") { markdown(app)?.heading(3) },
                 cmd("editor.save", "Save", "cmd+s") {
                     guard let tab = app.workbench.focusedContent as? SavableTab else {
                         NSSound.beep()
@@ -77,6 +117,22 @@ extension Builtins {
                 cmd("editor.previousProblem", "Previous Problem", "shift+f8") {
                     CodeEditor.focused?.goToProblem(forward: false)
                 },
+                // A git change and a merge conflict in the file in front, as the gutter's card and the conflict bar
+                // offer them. No keys: ⌥↑ ⌥↓ move lines in the editor.
+                cmd("editor.nextChange", "Next Change") { CodeEditor.focused?.goToChange(forward: true) },
+                cmd("editor.previousChange", "Previous Change") { CodeEditor.focused?.goToChange(forward: false) },
+                cmd("editor.revertChange", "Revert Change") {
+                    fileTab(app)?.changeBars?.actOnChangeAtCursor(revert: true)
+                },
+                cmd("editor.stageChange", "Stage Change") {
+                    fileTab(app)?.changeBars?.actOnChangeAtCursor(revert: false)
+                },
+                cmd("editor.nextConflict", "Next Conflict") { fileTab(app)?.conflicts?.step(1) },
+                cmd("editor.previousConflict", "Previous Conflict") { fileTab(app)?.conflicts?.step(-1) },
+                cmd("editor.acceptCurrent", "Accept Current") { fileTab(app)?.conflicts?.accept(.current) },
+                cmd("editor.acceptIncoming", "Accept Incoming") { fileTab(app)?.conflicts?.accept(.incoming) },
+                cmd("editor.acceptBoth", "Accept Both") { fileTab(app)?.conflicts?.accept(.both) },
+                cmd("editor.trustProject", "Trust This Project") { fileTab(app)?.trustProject() },
                 cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {
                     let language = fileTab(app)?.editor?.languageId
                     let on = app.settings[SettingKeys.wordWrap, language: language]
@@ -91,10 +147,19 @@ extension Builtins {
                 cmd("files.findByName", "Find File by Name…") {
                     FilesPanel.shown(app) { $0.findByName() }
                 },
+                // The tree's own actions, on its selected row (or the folder it is in), as its ⋯ and right-click menus.
+                cmd("files.newFolder", "New Folder…") { FilesPanel.shown(app) { $0.newFolder() } },
+                cmd("files.newFromTemplate", "New from Template…") { FilesPanel.shown(app) { $0.newFromTemplate() } },
+                cmd("files.collapseAll", "Collapse All") { FilesPanel.shown(app) { $0.collapseAll() } },
+                cmd("files.rename", "Rename") { FilesPanel.shown(app) { $0.rename() } },
+                cmd("files.moveToTrash", "Move to Trash") { FilesPanel.shown(app) { $0.trashSelected() } },
                 cmd("editor.goToLine", "Go to Line…", "cmd+l") {
                     if fileTab(app) != nil { app.workbench.openQuickly(text: ":") }
                 },
                 cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
+                cmd("editor.jumpToDefinitionBeside", "Jump to Definition Beside") {
+                    fileTab(app)?.jumpToDefinition(beside: true)
+                },
                 // VS Code's Selection menu, enabled only in a code editor (AppDelegate.validateMenuItem). EditorBox
                 // explains how ⌘D, ⌘[ and ⌘] reach the editor first.
                 cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") {

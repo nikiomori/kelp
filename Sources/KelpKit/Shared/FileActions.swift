@@ -44,7 +44,7 @@ package struct FileActions {
         let titles = Self.distinct(live.map(\.displayTitle))
         let id = await pick(
             String(localized: "Send to which agent?"), from: Array(zip(titles, live.map(\.id))),
-            action: String(localized: "Send"), width: Metrics.alertAccessory)
+            action: String(localized: "Send"))
         return id.flatMap { id in live.first { $0.id == id } }
     }
 

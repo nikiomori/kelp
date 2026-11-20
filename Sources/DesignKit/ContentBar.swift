@@ -2,12 +2,15 @@ import SwiftUI
 
 /// `Bar.content` in SwiftUI: a tab's toolbar, 32 pt (scaled with the text size), with small controls, a little room
 /// between them, and a flexible space where the content puts a `Spacer`. The line under it is the tab's (`Divider()`).
+/// A page gives its name `.layoutPriority(1)`, so the grey facts beside it give way first.
 public struct ContentBar<Content: View>: View {
     private let content: Content
     public init(@ViewBuilder _ content: () -> Content) { self.content = content() }
 
     public var body: some View {
+        // One line: a long name is cut at its end rather than wrapping into a bar of one row.
         HStack(spacing: Metrics.gapWide) { content }
+            .lineLimit(1)
             .controlSize(.small)
             .buttonStyle(BarButtonStyle())
             .padding(.horizontal, Metrics.inset)

@@ -124,12 +124,16 @@ extension SidebarCell {
     @objc func openChanges() {
         if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
     }
+    /// Opens the PR's tab, and with ⌘ held its page in the browser. A ⌘-click on the CI mark opens the run's page
+    /// the same way (`FolderCI.open`).
     @objc func openPR() {
-        if let folder, let uri = app.extensions.all.ci?.pr(folder.id)?.uri {
-            app.workbench.open(uri, workspace: folder.id)
-        }
+        guard let folder, let mark = app.extensions.all.ci?.pr(folder.id) else { return }
+        if EditorArea.commandClick, let page = mark.page { return PreviewLinks.openOutside(page) }
+        app.workbench.open(mark.uri, workspace: folder.id)
     }
     @objc func openCI() { if let folder { app.extensions.all.ci?.open(folder.id) } }
+    /// The tooltip's line for a ⌘-click on the PR and CI marks.
+    static var onGitHub: String { String(localized: "⌘-click: open on \("GitHub")") }
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     func updateBadges() {
@@ -150,13 +154,13 @@ extension SidebarCell {
         }
         if let prBadge {
             pr.attributedTitle = prBadge.title
-            pr.toolTip = prBadge.tip
+            pr.toolTip = prBadge.tip + "\n" + Self.onGitHub
             pr.setAccessibilityLabel(prBadge.tip)
         }
         let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state
         ci.toolTip = folder.flatMap { app.extensions.all.ci?.line($0.id) }.map {
-            $0 + "\n" + String(localized: "Click to open CI Runs")
+            [$0, String(localized: "Click to open CI Runs"), Self.onGitHub].joined(separator: "\n")
         }
         ci.setAccessibilityLabel(ci.toolTip)
         hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
@@ -170,13 +174,32 @@ extension SidebarCell {
         changes.padding = full == nil ? Metrics.iconGap : Metrics.gap
         changes.restFill = full == nil ? nil : .fillRest
     }
-    /// The grey changes dot, doubled ("••") when another folder changes the same files. That is a state to see, not a
-    /// call to answer, so its form tells it, not orange.
+    /// The grey changes dot, two dots 2 pt apart when another folder changes the same files. That is a state to see,
+    /// not a call to answer, so its form tells it, not orange. It is drawn (`circle.fill`), not a typed "•", so it is
+    /// round and the same size in every look's typeface. The window bar's branch shows it too. One string per kind is
+    /// kept while the font stays, so a row that redraws with no change doesn't take a new title.
     static func dot(shared: Bool) -> NSAttributedString {
         let font = NSFont.ui(TextSize.row, weight: .semibold)
-        return NSAttributedString(
-            string: shared ? "••" : "•", attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
+        if let made = madeDots[shared], made.attribute(.font, at: 0, effectiveRange: nil) as? NSFont == font {
+            return made
+        }
+        let size = TextSize.of(Metrics.gap), text = NSMutableAttributedString()
+        for _ in 0..<(shared ? 2 : 1) {
+            let dot = NSTextAttachment()
+            dot.image = NSImage.symbol("circle.fill").withSymbolConfiguration(
+                .init(pointSize: Metrics.iconTiny, weight: Metrics.iconWeight))
+            // On the letters' middle: an attachment stands on the baseline otherwise.
+            dot.bounds = NSRect(x: 0, y: (font.capHeight - size) / 2, width: size, height: size)
+            text.append(NSAttributedString(attachment: dot))
+        }
+        if shared { text.addAttribute(.kern, value: Metrics.iconGap, range: NSRange(location: 0, length: 1)) }
+        text.addAttributes(
+            [.font: font, .foregroundColor: NSColor.secondaryLabelColor],
+            range: NSRange(location: 0, length: text.length))
+        madeDots[shared] = text
+        return text
     }
+    private static var madeDots: [Bool: NSAttributedString] = [:]
 
     /// Shows the badges only while the name fits beside them, so they step aside before the name truncates. Left to
     /// itself, the stack squeezes the name instead ("kdrde…  +2 −1").

@@ -15,12 +15,42 @@ extension TasksViewController {
         case .linear, .jira, .item: return TextSize.of(Metrics.rowTwoLine)
         }
     }
-    func tableView(_ tableView: NSTableView, shouldSelectRow index: Int) -> Bool { row(at: index) != nil }
+    /// A heading isn't picked. A ⌘-click leaves the pick as it was, because it opens the row's page (`clicked`), not
+    /// its tab.
+    func tableView(_ tableView: NSTableView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet {
+        if NSApp.currentEvent?.isClick(with: .command) == true { return tableView.selectedRowIndexes }
+        return proposed.filteredIndexSet { row(at: $0) != nil }
+    }
+    /// A ⌘-click opens the row's page in the browser, where the user is signed in to the site; a plain click opens its
+    /// tab (on selection).
+    @objc func clicked() {
+        guard NSApp.currentEvent?.isClick(with: .command) == true, let url = row(at: table.clickedRow)?.url else {
+            return
+        }
+        Forge.open(url)
+    }
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row index: Int) -> NSView? {
         guard let row = row(at: index) else {
             if case .heading(let text) = lines[index] { return ForgeRows.heading(text) }
             return nil
         }
+        let view = cell(row)
+        // A ⌘-click opens the row's page (`clicked`), which its tooltip says.
+        let place =
+            switch row {
+            case .linear: "Linear"
+            case .jira: "Jira"
+            case .item: "GitHub"
+            case .pr, .issue: site
+            }
+        if row.url != nil {
+            view.toolTip = [view.toolTip, String(localized: "⌘-click: open on \(place)")].compactMap { $0 }
+                .joined(separator: "\n")
+        }
+        return view
+    }
+
+    private func cell(_ row: Row) -> NSView {
         switch row {
         case .pr(let pr):
             let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false
@@ -46,7 +76,7 @@ extension TasksViewController {
             case .issue(let issue): ("#\(issue.number)  \(issue.title)", "")
             }
         let t1 = NSTextField(labelWithString: title)
-        t1.font = .ui(TextSize.row, weight: .medium)   // a list's row, as a pull request's in Issues & PRs
+        t1.font = .ui(TextSize.row)   // a list's row, as a pull request's in Issues & PRs
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: sub)
         t2.font = .ui(TextSize.caption)

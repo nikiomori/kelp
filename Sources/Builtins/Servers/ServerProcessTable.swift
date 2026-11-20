@@ -315,7 +315,7 @@ final class PartCell: NSTableCellView {
         NSLayoutConstraint.activate([
             symbol.leadingAnchor.constraint(equalTo: leadingAnchor),
             symbol.widthAnchor.constraint(equalToConstant: Metrics.appIcon),
-            label.leadingAnchor.constraint(equalTo: symbol.trailingAnchor, constant: Metrics.lineGap * 2),
+            label.leadingAnchor.constraint(equalTo: symbol.trailingAnchor, constant: Metrics.gap),
             label.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }

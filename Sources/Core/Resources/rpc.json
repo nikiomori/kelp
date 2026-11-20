@@ -1118,6 +1118,13 @@
           "files" : {
             "type" : "integer"
           },
+          "lines" : {
+            "description" : "Each file's lines added and removed, by its path after the commit (a binary file counts none).",
+            "items" : {
+              "$ref" : "#/components/schemas/FileLines"
+            },
+            "type" : "array"
+          },
           "removed" : {
             "type" : "integer"
           }
@@ -1798,6 +1805,26 @@
         ],
         "type" : "object"
       },
+      "FileLines" : {
+        "description" : "How many lines a commit added to and removed from one file.",
+        "properties" : {
+          "added" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "removed" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "added",
+          "path",
+          "removed"
+        ],
+        "type" : "object"
+      },
       "FileMove" : {
         "description" : "One move, from `from` to `to`.",
         "properties" : {
@@ -1921,6 +1948,15 @@
 
         ],
         "type" : "object"
+      },
+      "GitCommitAct.Kind" : {
+        "enum" : [
+          "checkout",
+          "branch",
+          "cherryPick",
+          "revert"
+        ],
+        "type" : "string"
       },
       "GitDiff.Source" : {
         "description" : "What the diff is taken against. A name the daemon doesn't know is refused rather than read as `all`.",
@@ -3051,6 +3087,26 @@
           "id",
           "name",
           "toCategory"
+        ],
+        "type" : "object"
+      },
+      "LSPServerEvent" : {
+        "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "boolean"
+          },
+          "root" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "command",
+          "failed",
+          "root"
         ],
         "type" : "object"
       },
@@ -8561,6 +8617,47 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      }
+    },
+    {
+      "description" : "Acts on one commit of workspace `worktreeId`'s history: `checkout` puts HEAD on it with no branch, `branch` makes the branch `branch` there and switches to it, `cherryPick` applies it to the current branch, and `revert` adds a commit that undoes it. A conflict leaves the cherry-pick or revert under way, for Source Control's Merge section.",
+      "name" : "git.commitAct",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "branch",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "commit",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "op",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/GitCommitAct.Kind"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       }
     },
@@ -14653,6 +14750,13 @@
       "name" : "event.limits",
       "params" : {
         "$ref" : "#/components/schemas/LimitsEvent"
+      }
+    },
+    {
+      "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+      "name" : "event.lsp.server",
+      "params" : {
+        "$ref" : "#/components/schemas/LSPServerEvent"
       }
     },
     {

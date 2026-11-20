@@ -51,8 +51,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var finding: FindCard?
     /// The workspace's servers, watched while a local address failed, so the page loads again once its port is served.
     @ObservationIgnored lazy var serving = Watched(.ports, in: app)
-    /// How far the page has loaded, as a line under the bar while it loads.
-    @ObservationIgnored private let progress = NSView()
+    /// How far the page has loaded, as a line under the bar while it loads, its fill read when its layer updates.
+    @ObservationIgnored private let progress = FillStack()
     @ObservationIgnored private lazy var progressWidth = progress.widthAnchor.constraint(equalToConstant: 0)
     /// The page's size, set by the user (⋯ › Page Size) or the agent (`kelp browser viewport`). The page sits at that
     /// size at the top of the pane, centred across. Nil means the page fills the pane (`placeWeb`).
@@ -80,6 +80,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
+    @ObservationIgnored private let agentIcon = NSImageView(image: .symbol("cursorarrow.motionlines"))
     @ObservationIgnored private let agentButton = PointerButton()
     /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.
     @ObservationIgnored var recording: PageRecording?
@@ -105,7 +106,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     var toolTip: String? {
         page.url.map {
             agent
-                ? String(localized: "\($0.absoluteString)\nAn agent's page: cookies and storage of its own")
+                ? String(localized: "\($0.absoluteString)\nAn agent’s page: cookies and storage of its own")
                 : $0.absoluteString
         }
     }
@@ -152,8 +153,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
         body.pin(ports)
-        progress.wantsLayer = true
-        progress.layer?.backgroundColor = NSColor.themeAccent.cgColor
+        progress.fill = .themeAccent
         progress.alphaValue = 0
         progress.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(progress)
@@ -242,17 +242,15 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// Shows the agent's strip (an agent drove the page) in its current state.
     func showAgentBar() {
         if agentSlot.subviews.isEmpty {
-            let icon = NSImageView(image: .symbol("cursorarrow.motionlines"))
-            icon.contentTintColor = .themeAccent
+            agentIcon.symbolConfiguration = .chrome()
             agentLabel.font = .ui(TextSize.row)
-            agentLabel.textColor = .secondaryLabelColor
             agentLabel.lineBreakMode = .byTruncatingTail
             agentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             agentButton.padding = Metrics.gap
             agentButton.restFill = .fillRest
             agentButton.onClick = { [weak self] in self?.toggleTakeOver() }
-            agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
-            agentSlotHeight.isActive = false
+            agentSlot.pinBottom(Bar.content([agentIcon, agentLabel], [agentButton]))
+            agentSlot.reveal(agentSlotHeight, open: true)   // the page under it moves down, as the pages' row does
             watchUser()
         }
         let asked = drive?.asked?.text, takenOver = drive?.takenOver == true
@@ -260,7 +258,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let look = stripLook()
         agentLabel.stringValue =
             look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
-        agentLabel.textColor = takenOver ? .labelColor : .secondaryLabelColor
+        // The agent's question waits for the user, so it is orange, as on its row and in its card.
+        agentLabel.textColor = asked != nil ? .textOrange : takenOver ? .labelColor : .secondaryLabelColor
+        agentIcon.contentTintColor = asked != nil ? .textOrange : .secondaryLabelColor
         agentButton.title = look.button
         agentButton.toolTip = look.tip
     }
@@ -316,6 +316,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The line grows as the page loads and fades once it has.
     private func showProgress() {
         let width = progress.superview?.bounds.width ?? 0, loading = web.isLoading
+        progress.needsDisplay = true   // reads the accent again, which light/dark or a theme may have changed
         if loading, progress.alphaValue == 0 { progressWidth.constant = 0 }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(loading ? Motion.fast : Motion.disappear)

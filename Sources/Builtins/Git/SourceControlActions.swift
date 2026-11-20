@@ -68,7 +68,7 @@ extension SourceControlController {
             alert.messageText = String(localized: "Delete “\(name)”?")
             alert.informativeText = String(
                 localized:
-                    "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash."
+                    "Git doesn’t track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash."
             )
             alert.addButton(withTitle: String(localized: "Delete File")).hasDestructiveAction = true
         } else {
@@ -257,11 +257,16 @@ extension SourceControlController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
     }
 
-    /// Merges a workspace on its own branch (a worktree) into the project's base branch.
+    /// Merges a workspace on its own branch (a worktree) into the project's base branch, once asked (as a PR's merge).
     private func mergeIntoBase() {
-        guard let wid = worktreeId else { return }
+        guard let wid = worktreeId, let worktree = app.worktree(wid), let repo = app.repo(worktree.repoId) else {
+            return
+        }
         Task { @MainActor in
-            guard let outcome = await app.call(GitMerge(id: wid)) else { return }
+            let question = String(localized: "Merge \(worktree.branch) into \(repo.baseBranch)?")
+            guard await confirm(question, action: String(localized: "Merge")),
+                let outcome = await app.call(GitMerge(id: wid))
+            else { return }
             if outcome.merged {
                 Banner.show(String(localized: "Merged"))
                 // The base moved in the project's own folder, so the project's git status and this branch's are read
@@ -335,29 +340,7 @@ extension SourceControlController {
                 if index == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
                 menu.add(act.title) { act.run() }
             }
-        case .commit(let index):
-            let commit = commits[index]
-            let wid = worktreeId
-            menu.add(String(localized: "Open in Browser")) {
-                Task {
-                    guard let found = await app.call(GitWebPages(worktreeId: wid)),
-                        let url = (found?.commitURL(commit.hash)).flatMap(URL.init)
-                    else { return }
-                    PreviewLinks.openOutside(url)
-                }
-            }
-            menu.add(String(localized: "Send to Agent")) {
-                FileActions(app).sendToAgent(text: "commit \(commit.hash.prefix(10)) (\(commit.subject))")
-            }
-            menu.addItem(.separator())
-            let copies = NSMenu()
-            copies.add(String(localized: "Hash")) {
-                copyText(commit.hash)
-            }
-            copies.add(String(localized: "Message")) {
-                copyText(commit.subject)
-            }
-            menu.add(String(localized: "Copy"), submenu: copies)
+        case .commit(let index): addCommitItems(commits[index], to: menu)
         case .commitFile(let hash, let fileChange):
             menu.add(String(localized: "Open Changes")) { [weak self] in
                 if let worktree = self?.worktreeId {

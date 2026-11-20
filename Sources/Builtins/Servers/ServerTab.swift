@@ -51,7 +51,7 @@ struct ServerView: View {
 
     private var header: some View {
         ContentBar {
-            Text(host).font(.ui(TextSize.body, weight: .semibold))
+            Text(host).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             // A sentence is cut at its end, never in its middle.
             Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
@@ -69,7 +69,7 @@ struct ServerView: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().pointerMenu()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }
@@ -78,13 +78,13 @@ struct ServerView: View {
     private var offline: some View {
         let error = stats?.error
         return EmptyState(
-            error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can’t reach \(host)"),
+            error == nil ? String(localized: "Not Connected to \(host)") : String(localized: "Can’t Reach \(host)"),
             symbol: error == nil ? "server.rack" : "exclamationmark.triangle"
         ) {
             VStack(spacing: 8) {
                 Text(
                     error == nil
-                        ? String(localized: "Kelp connects when you ask: it doesn't dial a machine by itself.")
+                        ? String(localized: "Kelp connects when you ask: it doesn’t dial a machine by itself.")
                         : String(localized: "Check that the machine is on and on this network, then try again."))
                 if let error {
                     Text(error).font(.ui(TextSize.caption).monospaced()).foregroundStyle(.secondary).textSelection(

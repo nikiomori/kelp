@@ -104,6 +104,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         noResults.place(in: content, under: bar)
         loadError.place(in: content, under: bar)
+        loading.place(in: content, under: bar)
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: content.topAnchor),
             bar.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -245,31 +246,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private func watchShown() {
         filesWatch.key = shown ? worktree?.id : nil
         gitWatch.key = shown ? worktree.map { app.gitKey($0.id) } : nil
-    }
-
-    /// Lists the files now, then calls `done`. The panel's own operations use this to select or rename what they made,
-    /// because the daemon's push only follows a moment later. Otherwise the tree follows what's pushed.
-    func reloadTree(then done: (() -> Void)? = nil) {
-        guard let current = worktree else {
-            nodes = []
-            outline.reloadData()
-            return
-        }
-        Task {
-            let result = await app.tryCall(FilesList(id: current.id))
-            // What the operation made or moved may be in an open ignored folder, which the listing doesn't cover, so
-            // those folders are read again.
-            for folder in opened.keys {
-                let entries = await app.quiet(FilesIgnored(id: current.id, folder: folder + "/"))
-                guard worktree?.id == current.id else { return }
-                opened[folder] = entries   // a folder that's gone returns nil, which removes it from `opened`
-            }
-            treeBase = nil   // the ignored folders were just read, so build a whole tree with them
-            let event = FilesEvent(
-                worktree: current.id, paths: result.value, ignored: await app.quiet(FilesIgnored(id: current.id)),
-                error: result.error)
-            await listed(event)?.value
-            done?()
+        // Until the first listing, an empty tree would read as no files: the wait says they are on their way.
+        if shown, let id = worktree?.id, app.latest(FilesEvent.self, id) == nil {
+            loading.wait(String(localized: "Listing the files…"))
+        } else {
+            loading.show(nil)
         }
     }
 
@@ -281,14 +262,25 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         // Skips a listing for another workspace (the user switched meanwhile). It also skips while a name is being
         // edited in place, because a reload would end the rename, which reads the files after.
         guard let event, event.worktree == worktree?.id, renaming == nil else { return nil }
-        showLoadError(event.error)
+        if loading.showing {   // a wait on screen stays its moment, and then gives way to the listing
+            return Task {
+                await loading.settled()
+                loading.show(nil)
+                await listed(event)?.value
+            }
+        }
+        loading.show(nil)
+        // An empty folder says so in the error's place, without going and coming back on every listing.
+        if event.error == nil, event.paths?.isEmpty == true { showNoFiles() } else { showLoadError(event.error) }
         guard let paths = event.paths else { return nil }
         let ignored = event.ignored ?? []
         let same = isNarrowed && shownPaths.map { $0 == paths && $1 == event.ignored } == true
         shownPaths = (paths, event.ignored)
         listing += 1
         guard !isNarrowed else {
-            if !same { showTree(treeShown(paths, ignored: ignored), base: nil) }   // a few thousand rows at most
+            guard !same else { return nil }
+            showTree(treeShown(paths, ignored: ignored), base: nil)   // a few thousand rows at most
+            sayNoMatches(nodes.isEmpty)
             return nil
         }
         let ticket = listing, was = treeBase, opened = opened
@@ -370,6 +362,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// Says why the files couldn't be listed (a folder moved away, git refusing it), where the tree would be, instead
     /// of showing an empty tree.
     let loadError = EmptyStateView()
+    /// The rows to come, until the first listing is in, once it has taken a second.
+    let loading = LoadingView(rows: true, rowHeight: Metrics.row)
     /// Says that a search found nothing (and the tree is one click away), instead of showing an empty list.
     let noResults = EmptyStateView()
     let typing = Debounce()

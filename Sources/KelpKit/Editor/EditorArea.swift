@@ -233,12 +233,9 @@ final class EditorArea: NSViewController {
     }
 
     /// Where a tab dropped at the editor area's outer edge will go: half of the whole area along that side.
-    private let outerHint = GroupView.dropHint()
+    private let outerHint = DropHint()
     private func showOuterHint(_ edge: NSRectEdge?) {
-        guard let edge else {
-            outerHint.isHidden = true
-            return
-        }
+        guard let edge else { return outerHint.hide() }
         if outerHint.superview !== view { view.addSubview(outerHint, positioned: .above, relativeTo: nil) }
         let frame = view.bounds.insetBy(dx: 6, dy: 6)
         // The new pane's share once added: one more beside the panes already split along that side.
@@ -250,8 +247,7 @@ final class EditorArea: NSViewController {
                 2
             }
         }()
-        outerHint.frame = frame.share(1 / count, from: edge)
-        outerHint.isHidden = false
+        outerHint.show(frame.share(1 / count, from: edge))
     }
 
     /// View › Equalize Panes: every split back to equal shares.
@@ -270,6 +266,7 @@ final class EditorArea: NSViewController {
         let group = GroupView(groupId: gid, themes: app.themes)
         group.strip.onSelect = { [weak self] id in self?.select(id) }
         group.strip.onClose = { [weak self] id in self?.closeTab(id) }
+        group.strip.onCloseOthers = { [weak self] id in if let self { closeTabs(tabs(beside: id)) } }
         group.strip.onMenu = { [weak self] id in self?.tabMenu(id) }
         group.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
         group.strip.onNewAgent = { [weak self] in
@@ -415,10 +412,7 @@ final class EditorArea: NSViewController {
     }
 
     /// A click with ⌘ alone held, which does the same thing in another place (the design system's rule for ⌘).
-    static var commandClick: Bool {
-        guard let event = NSApp.currentEvent, [.leftMouseUp, .leftMouseDown].contains(event.type) else { return false }
-        return event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command
-    }
+    static var commandClick: Bool { NSApp.currentEvent?.isClick(with: .command) == true }
     /// What a click on an agent does (the button at the end of the tabs, "+", the empty screen): it starts here, and
     /// with ⌘ held (`elsewhere`) in a new group of this project.
     func startAgent(_ agent: String? = nil, prompt: String? = nil, elsewhere: Bool = EditorArea.commandClick) {

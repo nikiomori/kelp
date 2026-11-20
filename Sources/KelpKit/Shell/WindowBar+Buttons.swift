@@ -80,12 +80,11 @@ extension WindowBar {
     /// Shows the side-by-side button. While the workspace shows its agents side by side, the symbol is filled. A click
     /// shows them as tabs in one pane, and back. It appears only with two agents or more, and a right-click hides it
     /// (Settings › Window brings it back).
-    /// When on, it is the filled symbol in the accent colour (the label colour with Graphite), with no fill behind it.
-    /// When off, it is only the outline.
+    /// When on, it is the filled symbol, as the Keep Mac Awake cup shows it, with no colour: nothing waits for you
+    /// there. When off, it is only the outline.
     func showSideBySide(_ on: Bool) {
-        let image = NSImage.symbol(
+        sideBySide.image = NSImage.symbol(
             on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
-        sideBySide.image = on ? image.withSymbolConfiguration(.init(paletteColors: [.emphasis])) : image   // a recessed button ignores contentTintColor
         sideBySide.toolTip = app.extensions.hint(
             on
                 ? String(localized: "Agents side by side. Click to show them as tabs")
@@ -93,8 +92,10 @@ extension WindowBar {
     }
     @objc func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 
+    /// Opens the PR's tab, and with ⌘ held its page in the browser, as the sidebar row's mark does.
     @objc func openPR() {
-        guard let uri = prMark?.uri else { return }
-        app.workbench.open(uri, workspace: worktree?.id)
+        guard let mark = prMark else { return }
+        if EditorArea.commandClick, let page = mark.page { return PreviewLinks.openOutside(page) }
+        app.workbench.open(mark.uri, workspace: worktree?.id)
     }
 }

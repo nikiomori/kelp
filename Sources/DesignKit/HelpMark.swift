@@ -16,8 +16,8 @@ public struct HelpMark: View {
         .help(text)
         .accessibilityLabel(text)
         .popover(isPresented: $shown, arrowEdge: .bottom) {
-            Text(text).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading).padding(
-                Metrics.inset)
+            Text(text).font(.ui(TextSize.row)).fixedSize(horizontal: false, vertical: true)
+                .frame(width: Metrics.popoverWidth, alignment: .leading).padding(Metrics.inset)
         }
     }
 }

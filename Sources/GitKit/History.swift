@@ -107,11 +107,25 @@ extension Git {
         for line in (parts.count > 1 ? parts[1] : "").split(separator: "\n") {
             let fields = line.split(separator: "\t", maxSplits: 2)
             guard fields.count == 3 else { continue }
+            let added = Int(fields[0]) ?? 0, removed = Int(fields[1]) ?? 0
             details.files += 1
-            details.added += Int(fields[0]) ?? 0
-            details.removed += Int(fields[1]) ?? 0
+            details.added += added
+            details.removed += removed
+            let file = FileLines(path: renamed(fields[2]), added: added, removed: removed)
+            details.lines = (details.lines ?? []) + [file]
         }
         return details
+    }
+
+    /// The path after a rename as numstat writes it: "src/{a.txt => b.txt}" or "a.txt => b.txt" is "src/b.txt".
+    static func renamed(_ path: Substring) -> String {
+        guard let arrow = path.range(of: " => ") else { return String(path) }
+        guard let open = path[..<arrow.lowerBound].lastIndex(of: "{"),
+            let close = path[arrow.upperBound...].firstIndex(of: "}")
+        else { return String(path[arrow.upperBound...]) }
+        let joined = path[..<open] + path[arrow.upperBound..<close] + path[path.index(after: close)...]
+        // "src/{ => new}/f" leaves "src//f", and "{old => }/f" leaves "/f".
+        return joined.replacingOccurrences(of: "//", with: "/").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     /// Returns the branches and where HEAD is. Source Control reads this on every change in the folder, so one

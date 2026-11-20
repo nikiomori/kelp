@@ -13,8 +13,8 @@ package struct ProjectRuns {
     let bar: @MainActor () -> [any WindowBarItem]
     /// The Run menu's delegate, which puts the project's other commands between the menu's separators as it opens.
     let menu: any NSMenuDelegate
-    /// How a run's tab looks among the terminals: the symbol of its purpose in colour, and a glow of that colour. nil
-    /// for any other session.
+    /// How a run's tab looks among the terminals: the symbol of its purpose in grey, with no glow (a purpose's colour
+    /// lives in the Run menu while it runs). nil for any other session.
     let look: @MainActor (Session) -> (icon: NSImage?, glow: NSColor?)?
     /// The port after a tab's name.
     let port: @MainActor (Session) -> Int?

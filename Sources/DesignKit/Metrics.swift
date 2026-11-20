@@ -21,7 +21,7 @@ public enum Metrics {
     // Spacing
     public static let inset: CGFloat = 12   // a panel's edge to its content
     public static let insetTrailing: CGFloat = 8   // a bar's edge to its last icon
-    public static let indentStep: CGFloat = 12   // one outline level: the sidebar, the file tree, a group's rows
+    public static let indentStep: CGFloat = 12   // one outline level: the file tree, a group's rows (sidebar: 12)
     public static let gap: CGFloat = 6   // between a bar's controls; icon to label in a row
     public static let gapWide: CGFloat = 8   // between separate controls in a tab's bar, a banner, or a sheet's buttons
     public static let lineGap: CGFloat = 2   // between a row's two lines
@@ -72,6 +72,8 @@ public enum Metrics {
 
     // Sheets
     public static let sheetWidth: CGFloat = 480
+    public static let popoverWidth: CGFloat = 300   // a popover's text column (commit and sync take 320)
+    public static let codeCardWidth: CGFloat = 440   // a popover of code (docs, a change): lines read better wide
     public static let alertAccessory: CGFloat = 400   // the width of the fields a question sheet holds
     public static let formLabel: CGFloat = 96   // a field's name beside it, right-aligned
     public static let switcherWidth: CGFloat = 440   // the ⌃Tab switcher's card
@@ -87,8 +89,8 @@ extension NSImage.SymbolConfiguration {
 /// How long things move, and nothing under Reduce Motion.
 @MainActor
 public enum Motion {
-    // The 120 / 180 / 240 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300). Things come in on it, and
-    // what leaves goes in about two thirds of that, because nobody waits to watch it go.
+    // The 120 / 180 / 240 / 320 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300; 320 is `fold`). Things
+    // come in on it, and what leaves goes in about two thirds of that, because nobody waits to watch it go.
     public static let fast: TimeInterval = 0.12   // hover, icons moving, the picture of what went fading
     public static let base: TimeInterval = 0.18   // a panel sliding, Quick Open opening
     public static let slow: TimeInterval = 0.17   // a banner fading: two thirds of what it took to come in
@@ -121,6 +123,9 @@ public enum Motion {
     public static let hoverOpen: TimeInterval = 0.5
     public static let hoverOpenWarm: TimeInterval = 0.12
     public static let hoverClose: TimeInterval = 0.2
+    // How long after a card went the next still opens at `hoverOpenWarm`, so the pointer moving on to the next row
+    // isn't made to wait again.
+    public static let hoverWarm: TimeInterval = 0.8
 
     /// Whether to reduce motion, as the Mac says unless `pinned`.
     public static var reduced: Bool { pinned ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }

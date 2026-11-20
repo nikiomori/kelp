@@ -81,6 +81,7 @@ struct AgentsSettings: View {
         return VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                name: String(localized: "Show"),
                 selection: Binding {
                     show.rawValue
                 } set: {
@@ -98,7 +99,7 @@ struct AgentsSettings: View {
                 Section {
                     ForEach(have, id: \.id) { row($0) }
                 } header: {
-                    Text("Installed \(have.count)")
+                    Text("Installed \(have.count)").font(.ui(TextSize.body, weight: .semibold))
                 } footer: {
                     if !updates.isEmpty {
                         Text(
@@ -106,16 +107,16 @@ struct AgentsSettings: View {
                                 ? String(localized: "1 update available")
                                 : String(localized: "\(updates.count) updates available")
                         )
-                        .font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
+                        .font(.ui(TextSize.caption)).foregroundStyle(.secondary)   // an update is news: no colour
                     }
                 }
             }
-            if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
+            if !rest.isEmpty { TitledSection("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
             if have.isEmpty && rest.isEmpty {
                 EmptyState(
                     show == .installed
-                        ? String(localized: "No agent is installed yet.")
-                        : String(localized: "Every agent Kelp knows is installed."), symbol: "sparkles", lifted: false)
+                        ? String(localized: "No Agents Installed")
+                        : String(localized: "All Agents Installed"), symbol: "sparkles", lifted: false)
             }
         }
         .formStyle(.grouped)
@@ -164,10 +165,11 @@ struct AgentsSettings: View {
                     HStack(spacing: Metrics.gap) {
                         Text(manifest.name).foregroundStyle(have ? .primary : .secondary)
                         if updates.contains(where: { $0.id == manifest.id }) {
-                            // An update is news, which has no colour: orange is for what waits for the user.
-                            Circle().fill(Color.secondary).frame(width: Metrics.gap, height: Metrics.gap).help(
-                                "Update available"
-                            ).accessibilityLabel("Update available")
+                            // An update is news, which has no colour: orange is for what waits for the user. It is
+                            // a symbol, not a dot, because a grey dot in Settings says "connected".
+                            Image(systemName: "arrow.down.circle").font(.symbol(Metrics.iconSmall))
+                                .foregroundStyle(.secondary).help("Update available")
+                                .accessibilityLabel("Update available")
                         }
                     }
                     HStack(spacing: 0) {
@@ -187,7 +189,7 @@ struct AgentsSettings: View {
                     .fill(on ? Color(nsColor: .fillTint(.controlAccentColor)) : .clear).padding(-Metrics.gap)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerButtonStyle(flush: true))   // answers hover and press as Kelp's other rows do
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 

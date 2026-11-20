@@ -258,7 +258,8 @@ extension AppOfItsOwn {
     let error = CodeProblem(line: 9, column: 0, endLine: 9, endColumn: 1, isError: true, message: "wrong")
     let found = FilesPanel.problems(
         in: ["/p/a.swift": [warning], "/p/b.swift": [error], "/other/c.swift": [error]], root: "/p")
-    #expect(found.map(\.path) == ["b.swift", "a.swift"])
-    #expect(found.map(\.line) == [10, 2])
-    #expect(found[0].text == "✕ wrong" && found[1].text == "⚠ unused")
+    #expect(found.map(\.match.path) == ["b.swift", "a.swift"])
+    #expect(found.map(\.match.line) == [10, 2])
+    // The sign is drawn from isError, not typed into the text.
+    #expect(found.map(\.match.text) == ["wrong", "unused"] && found.map(\.isError) == [true, false])
 }

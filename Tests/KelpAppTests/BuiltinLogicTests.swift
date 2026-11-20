@@ -146,6 +146,10 @@ import os
     #expect(CIRunLook.words("completed", "failure") == "Failed")
     #expect(CIRunLook.words("in_progress", nil) == "Running")
     #expect(CIRunLook.words("queued", nil) == "Queued")
+    // A run waiting for someone's approval waits for you, as the sidebar's CI mark says: not "Failed", not grey.
+    #expect(CIRunLook.words("completed", "action_required") == "Waiting for approval")
+    #expect(CIRunLook.words("waiting", nil) == "Waiting for approval")
+    #expect((CIRunLook.mark("completed", "action_required") as? StatusMark)?.status == .waiting)
     #expect(CIRunLook.ago("not a date").isEmpty)
 }
 

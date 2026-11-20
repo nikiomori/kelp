@@ -165,7 +165,7 @@ extension UsageReportView {
 
     /// A cell's view at its column's edge, in a row's text: a name, a count or a cost has no size of its own, and the
     /// captions keep theirs.
-    private func cell(_ view: some View, trailing: Bool = false) -> AnyView {
+    func cell(_ view: some View, trailing: Bool = false) -> AnyView {
         AnyView(
             view.font(.ui(TextSize.row)).frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading))
     }

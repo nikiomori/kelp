@@ -5,12 +5,14 @@ import KelpKit
 import WorkbenchKit
 
 /// The Files panel's second list: the lines a search or a language server found, shown in place of the tree. A click
-/// or ↩ opens the line, and the row's menu offers what the editor offers for a line.
+/// or ↩ opens the line (⌥-click beside it), and the row's menu offers what the editor offers for a line.
 @MainActor
 final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let table = KeyTable()
     let scroll = NSScrollView()
     private(set) var matches: [SearchMatch] = []
+    /// For a list of problems: whether each row is an error or a warning, drawn as the status bar's signs.
+    private var errors: [Bool]?
     /// The workspace folder the matches' paths are in.
     var root = "/"
     private let app: AppModel
@@ -31,8 +33,9 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         scroll.isHidden = true
     }
 
-    func show(_ found: [SearchMatch]) {
+    func show(_ found: [SearchMatch], errors: [Bool]? = nil) {
         matches = found
+        self.errors = errors
         table.reloadData()
     }
 
@@ -46,7 +49,21 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(TextSize.caption)
         txt.lineBreakMode = .byTruncatingTail
-        let stack = NSStackView(views: [top, txt])
+        let line: NSView
+        if let errors, errors.indices.contains(row) {
+            let sign = NSImageView(
+                image: .symbol(
+                    errors[row] ? "xmark.circle" : "exclamationmark.triangle",
+                    errors[row] ? String(localized: "Error") : String(localized: "Warning")))
+            sign.symbolConfiguration = .chrome(Metrics.iconTiny)
+            sign.contentTintColor = errors[row] ? .textRed : .textOrange
+            let pair = NSStackView(views: [sign, txt])
+            pair.spacing = Metrics.gapTight
+            line = pair
+        } else {
+            line = txt
+        }
+        let stack = NSStackView(views: [top, line])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.lineGap
@@ -56,11 +73,13 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
 
     @objc private func openClicked() {
         let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
-        if matches.indices.contains(row) { open(matches[row]) }
+        // ⌥-click opens the line beside, in a split, as the row's Open to the Side does.
+        let beside = NSApp.currentEvent?.modifierFlags.contains(.option) == true
+        if matches.indices.contains(row) { open(matches[row], split: beside ? .right : nil) }
     }
 
-    private func open(_ match: SearchMatch) {
-        app.workbench.open(TabURI.file(root + "/" + match.path, line: match.line))
+    private func open(_ match: SearchMatch, split: SplitDirection? = nil) {
+        app.workbench.open(TabURI.file(root + "/" + match.path, line: match.line), split: split)
     }
 
     /// Builds the menu for a found line, with what the editor offers for a line.
@@ -69,9 +88,7 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         guard matches.indices.contains(table.clickedRow) else { return }
         let app = app, hit = matches[table.clickedRow], path = root + "/" + hit.path
         menu.add(String(localized: "Open")) { [weak self] in self?.open(hit) }
-        menu.add(String(localized: "Open to the Side")) {
-            app.workbench.open(TabURI.file(path, line: hit.line), split: .right)
-        }
+        menu.add(String(localized: "Open to the Side")) { [weak self] in self?.open(hit, split: .right) }
         menu.addItem(.separator())
         menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
         menu.add(String(localized: "Copy Path and Line")) {

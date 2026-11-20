@@ -70,8 +70,8 @@ enum PageMarks {
             if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];
             const rows = [];
             marks.forEach((m, i) => {
-              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib', '×');
-              x.title = L.remove;
+              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib');
+              x.innerHTML = \(CanvasChrome.Glyph.xmark.js); x.title = L.remove;
               x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
               head.append(el('span', 'kelp-num', String(i + 1)), el('span', 'kelp-grow kelp-what kelp-quote',
                 '«' + m.text + '»'), x);

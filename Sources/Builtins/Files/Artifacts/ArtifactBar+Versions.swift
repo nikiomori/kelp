@@ -20,6 +20,20 @@ extension ArtifactBar {
         }
     }
 
+    /// The bar's buttons that commands repeat (`Builtins.files`), by command id. A command runs only while its button
+    /// shows on the page in front and can be pressed (Present still counts while a narrow pane keeps it in ⋯).
+    func button(for id: String) -> NSControl? {
+        switch id {
+        case "artifact.present": present
+        case "artifact.olderVersion": back
+        case "artifact.newerVersion": forward
+        case "artifact.showLatest": latest
+        case "artifact.restore": restore
+        case "artifact.update": refresh
+        default: nil
+        }
+    }
+
     func step(_ by: Int) {
         let index = (shown ?? entries.count - 1) + by
         guard entries.indices.contains(index) else { return }

@@ -295,7 +295,7 @@ extension EditorArea {
         menu.addItem(.sectionHeader(title: String(localized: "Agents")))
         let notes = app.extensions.all.plans?.notes() ?? [:]
         let shown = agents.prefix(NewTabChoices.shown), rest = agents.dropFirst(NewTabChoices.shown)
-        func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat) {
+        func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat, alternates: CGFloat) {
             let item = menu.add(agent.name) { [weak self] in
                 focus()
                 self?.startAgent(agent.id)
@@ -310,17 +310,26 @@ extension EditorArea {
                 item.keyEquivalent = shortcut.key
                 item.keyEquivalentModifierMask = shortcut.mods.flags
             }
+            menu.addNewGroupAlternate(of: item, agent: agent.name, column: alternates) { [weak self] in
+                self?.startAgent(agent.id, elsewhere: true)
+            }
         }
-        let column = NSMenuItem.noteColumn(shown.map(\.name))
-        for agent in shown { agentItem(agent, in: menu, column: column) }
+        func columns(_ agents: some Collection<AgentManifest>) -> (CGFloat, CGFloat) {
+            (
+                NSMenuItem.noteColumn(agents.map(\.name)),
+                NSMenuItem.noteColumn(agents.map { NSMenu.inNewGroup($0.name) })
+            )
+        }
+        let (column, alternates) = columns(shown)
+        for agent in shown { agentItem(agent, in: menu, column: column, alternates: alternates) }
         if agents.isEmpty {
             // The start page's words, in a menu's Title Case.
             menu.addItem(withTitle: String(localized: "No Agent Found on This Mac"), action: nil, keyEquivalent: "")
                 .isEnabled = false
         }
         if !rest.isEmpty {
-            let sub = NSMenu(), column = NSMenuItem.noteColumn(rest.map(\.name))
-            for agent in rest { agentItem(agent, in: sub, column: column) }
+            let sub = NSMenu(), (column, alternates) = columns(rest)
+            for agent in rest { agentItem(agent, in: sub, column: column, alternates: alternates) }
             let item = menu.addItem(withTitle: String(localized: "Other Agents"), action: nil, keyEquivalent: "")
             item.show(.symbol("ellipsis.circle"))
             item.submenu = sub

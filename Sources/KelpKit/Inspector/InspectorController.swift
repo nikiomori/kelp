@@ -247,7 +247,7 @@ final class InspectorController: NSViewController {
         } else {
             empty.show(
                 none ? String(localized: "No Project Open") : nil, symbol: "folder",
-                text: String(localized: "A project's files, changes and runs show here."))
+                text: String(localized: "A project’s files, changes and runs show here."))
         }
     }
 
@@ -283,10 +283,12 @@ final class InspectorController: NSViewController {
             }
             counts[i].badge = badge
             if let badge, folded.contains(i) { folds.append(badge) }
-            buttons[i].toolTip =
-                badge.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) •" } ?? loc(p.title)
-            // VoiceOver hears the badge with the name: its number, or that the panel has something new.
+            // The tooltip and VoiceOver say the badge with the name: its number, or in words that the panel has
+            // something new.
             let said = badge.map { $0.count > 0 ? "\($0.count)" : String(localized: "Has changes") }
+            buttons[i].toolTip =
+                badge.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) — \(said ?? "")" }
+                ?? loc(p.title)
             buttons[i].setAccessibilityLabel([loc(p.title), said].compactMap(\.self).joined(separator: ", "))
         }
         // The » shows a dot when a folded panel has a badge, and the dot is red if any of those badges is an alert.

@@ -14,16 +14,19 @@ extension QuickOpen {
             NSSound.beep()
             return
         }
+        let app = self.app
+        let load = Task { await app.call(TmuxList(worktreeId: wid)) ?? [] }
+        // The rows wait for tmux's answer, so ↩ (which waits on `scoring`) attaches to what is listed, and the "new
+        // session" row doesn't move down when the sessions come in. Over ssh that can take a while: it's named at once.
         showOwn(
             String(localized: "Attach to a tmux session, or type a name for a new one"),
             keys: String(localized: "↑↓ Select    ↩ Attach    ⇧↩ Attach in a Split")
-        ) { [weak self] in self?.tmuxItems([], $0) ?? [] }
-        tmuxLoad = Task { [self] in
-            let found = await app.call(TmuxList(worktreeId: wid)) ?? []
-            guard !Task.isCancelled, own != nil else { return }
-            own = { [weak self] in self?.tmuxItems(found, $0) ?? [] }
-            filter()
+        ) { [weak self] in
+            let found = await load.value
+            return self?.tmuxItems(found, $0) ?? []
         }
+        tmuxLoad = load
+        setRows([], grouped: false, heading: String(localized: "Reading the tmux sessions…"))
     }
 
     /// Shows a built-in's list where the palette shows (Open Database). `rows` makes the rows from what's typed.

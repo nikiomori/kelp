@@ -181,7 +181,7 @@ extension SidebarController {
             menu.addItem(.separator())
             WorkspaceActions.addLocate(to: menu, path: repo.path)
             menu.addItem(.separator())
-            if RemoteHost.of(repo.path) == nil {
+            if WorkspaceActions.cleansWorktrees(repo) {
                 menu.add(String(localized: "Remove Clean Worktrees…")) {
                     WorkspaceActions(app).removeCleanWorktrees(repo)
                 }
@@ -197,6 +197,10 @@ extension SidebarController {
             AgentActions(app).addFork(to: menu, sid)
             AgentActions(app).addMove(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
+            // The chat's group, as ⌥-click on the row does (SidebarController+Outline), which the tip tells.
+            app.workbench.addWindowItems(
+                to: menu, workspace: app.session(sid)?.worktreeId,
+                tip: String(localized: "⌥-click the chat’s row: the same"))
             menu.addItem(.separator())
             if let session = app.session(sid),
                 NoProject.holds(app.worktree(session.worktreeId).flatMap { app.repo($0.repoId) })
@@ -257,7 +261,6 @@ extension SidebarController {
         menu.addChoiceMenu(SettingKeys.agentIcons, app, title: String(localized: "Agent Icons"))
         menu.addToggle(SettingKeys.gitBadges, app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
-        menu.addToggle(SettingKeys.sidebarAutoHide, app, title: String(localized: "Auto-Hide Sidebar"))
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)
     }
 

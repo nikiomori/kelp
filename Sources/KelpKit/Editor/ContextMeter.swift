@@ -78,6 +78,7 @@ final class ContextMeter: NSView {
             track.strokeColor = color.cgColor
             fill.strokeColor = color.cgColor
         }
-        fill.animate("strokeEnd", to: min(1, share), duration: Motion.base)
+        // Off screen it is drawn at once: a pie that comes into sight (a new tab, the hover card) doesn't fill up.
+        fill.animate("strokeEnd", to: min(1, share), duration: window == nil ? 0 : Motion.base)
     }
 }

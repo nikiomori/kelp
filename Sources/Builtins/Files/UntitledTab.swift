@@ -62,10 +62,10 @@ final class UntitledTab: SavableTab {
         let alert = NSAlert()
         alert.messageText = String(localized: "Do you want to save “\(title)”?")
         alert.informativeText = String(
-            localized: "It hasn't been saved yet, so its text will be lost if you don't save it.")
+            localized: "It hasn’t been saved yet, so its text will be lost if you don’t save it.")
         alert.addButton(withTitle: String(localized: "Save…"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.addButton(withTitle: String(localized: "Don't Save"))
+        alert.addButton(withTitle: String(localized: "Don’t Save"))
         switch await runSheet(alert) {
         case .alertFirstButtonReturn: return await save()
         case .alertThirdButtonReturn:
@@ -84,7 +84,7 @@ final class UntitledTab: SavableTab {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.message = String(
-            localized: "Name it with an extension for code (main.py, App.swift); without one it's a .txt file.")
+            localized: "Name it with an extension for code (main.py, App.swift); without one it’s a .txt file.")
         guard await runSheet(panel) == .OK, var url = panel.url else { return false }
         if url.pathExtension.isEmpty { url.appendPathExtension("txt") }
         // Writes over whatever is there, because the save panel already asked about replacing it.

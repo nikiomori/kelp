@@ -26,7 +26,7 @@ extension BrowserTab {
         designOn.toggle()
         designButton.state = designOn ? .on : .off
         designButton.restFill = designOn ? .fillSelected : nil   // on, it stays pressed in, as a toggle in a bar does
-        designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
+        designButton.contentTintColor = designOn ? .labelColor : .secondaryLabelColor
         // Watch the user's own clicks on the page as AppKit sees them, because a page can post a message without a
         // click but can't make a real click.
         if designOn, clickWatch == nil {
@@ -131,7 +131,7 @@ extension BrowserTab {
             Banner.show(
                 source.isEmpty
                     ? String(localized: "Element details copied")
-                    : String(localized: "Copied \(source) and the element's details"))
+                    : String(localized: "Copied \(source) and the element’s details"))
             return
         }
         guard let sid = app.workbench.lastSession else {

@@ -55,7 +55,7 @@ enum Snippets {
             do {
                 found += try read(text, path: path)
             } catch {
-                Banner.show(String(localized: "\(file) can't be read: \(error.localizedDescription)"), style: .error)
+                Banner.show(String(localized: "\(file) can’t be read: \(error.localizedDescription)"), style: .error)
             }
         }
         return found

@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 
 /// The card a commit shows while the pointer rests on its row, in place of a tooltip. It has the whole subject and
-/// body, who made the commit and when, how big the change is, and the hash to copy. It stays while the pointer is on
-/// it.
+/// body, who made the commit and when, how big the change is, the hash to copy, and buttons to open its
+/// changes, check it out, or show the commit's menu. It stays while the pointer is on it.
 @MainActor
 final class CommitCard {
     private let card = HoverPopover()
@@ -16,16 +16,20 @@ final class CommitCard {
     var load: (@MainActor (String) async -> CommitDetails?)?
     /// Loads the author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
+    /// What a button in the card asks for. The card goes first, except for the menu, which it holds.
+    var onAction: (@MainActor (GraphCommit, CommitCardView.Action) -> Void)?
+    /// The commit's menu, which a right-click on the card opens (Copy Message among it); on its words, their own menu.
+    var menu: (@MainActor (GraphCommit) -> NSMenu)?
 
     init() {
         card.onClose = { [weak self] in self?.shown = nil }
     }
 
-    /// Called when the pointer came onto or left a commit's row. A card already up follows the pointer to the next row
-    /// at once.
+    /// Called when the pointer came onto or left a commit's row. A card already up moves to another row only once the
+    /// pointer rests there: the card is taller than a row, and the way to its buttons crosses other rows.
     func hover(_ on: Bool, commit graphCommit: GraphCommit, pushed: Bool?, over row: NSView) {
         guard on else {
-            card.closeSoon()
+            card.closeSoon(unlessInside: true)   // on the way to the card, or in it: it stays
             return
         }
         guard !(card.isShown && shown == graphCommit.hash) else {
@@ -33,7 +37,7 @@ final class CommitCard {
             return
         }
         let loading = Task { await detailsOf(graphCommit.hash) }
-        card.open { [weak self] in
+        card.open(patientWhileShown: true) { [weak self] in
             let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
             self.show(graphCommit, details: loaded, pushed: pushed, over: row)
@@ -49,10 +53,20 @@ final class CommitCard {
         return loaded
     }
 
-    private func show(_ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, over row: NSView) {
+    private func show(
+        _ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, over row: NSView
+    ) {
         let email = commitDetails?.email.lowercased() ?? ""
-        let view = CommitCardView(commit, details: commitDetails, pushed: pushed, picture: pictures[email])
-        view.onInside = { [weak self] inside in if inside { self?.card.cancel() } else { self?.card.closeSoon() } }
+        let view = CommitCardView(
+            commit, details: commitDetails, pushed: pushed, picture: pictures[email])
+        view.onInside = { [weak self] inside in
+            if inside { self?.card.cancel() } else { self?.card.closeSoon(unlessInside: true) }
+        }
+        view.onAction = { [weak self] action in
+            if case .menu = action {} else { self?.close() }
+            self?.onAction?(commit, action)
+        }
+        view.menu = menu?(commit)
         let vc = NSViewController()
         vc.view = view
         vc.preferredContentSize = view.fittingSize
@@ -62,19 +76,29 @@ final class CommitCard {
         Task { [weak self, weak view] in
             guard let img = await self?.picture?(email) else { return }
             self?.pictures[email] = img
-            if self?.shown == commit.hash { view?.avatar.image = img }
+            guard self?.shown == commit.hash, let avatar = view?.avatar else { return }
+            avatar.crossfade()   // the initial dissolves into the picture
+            avatar.image = img
         }
     }
 }
 
-/// The card's content: the type and scope, the subject and the body, then who, when, how big, and the hash.
+/// The card's content: the type and scope, the subject and the body, then who and when, how big, the hash,
+/// and the commit's actions.
 final class CommitCardView: NSView {
+    /// What the card's buttons ask for: the commit's changes, a check-out, or the menu at the ⋯ button.
+    enum Action {
+        case open, checkOut, menu(NSView)
+    }
     var onInside: ((Bool) -> Void)?
+    var onAction: ((Action) -> Void)?
     static let width: CGFloat = 320
     /// The author's picture, or the author's initial until it comes (or when the forge has none).
     let avatar = NSImageView()
 
-    init(_ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, picture: NSImage?) {
+    init(
+        _ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, picture: NSImage?
+    ) {
         super.init(frame: .zero)
         let size = TextSize.of(18)
         avatar.image = picture ?? Self.initial(commit.author, size: size)
@@ -91,16 +115,19 @@ final class CommitCardView: NSView {
         if let head = Self.header(subject, merge: commit.parents.count > 1, unpushed: pushed == false) {
             rows.append(head)
         }
-        let title = Self.text(subject.text, font: .ui(TextSize.body, weight: .semibold), color: .labelColor, lines: 4)
-        if subject.breaking {   // a breaking change gets a red "!" before the words, as in the row
+        let title = Self.text(
+            subject.text, font: .ui(TextSize.heading, weight: .semibold), color: .labelColor, lines: 4)
+        if subject.breaking {   // a breaking change gets a grey "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
                 string: "! ",
-                attributes: [.font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.textRed])
+                attributes: [
+                    .font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor
+                ])
             breakingTitle.append(
                 NSAttributedString(
                     string: subject.text,
                     attributes: [
-                        .font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.labelColor
+                        .font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.labelColor
                     ]))
             title.attributedStringValue = breakingTitle
             title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + subject.text)
@@ -122,6 +149,7 @@ final class CommitCardView: NSView {
         }
         rows.append(Self.meta(commit, avatar: avatar))
         rows.append(Self.footer(commit, details: commitDetails))
+        rows.append(actions())
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -156,13 +184,13 @@ final class CommitCardView: NSView {
     private static func header(_ subject: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
         var views: [NSView] = []
         if let mark = CommitCell.mark(subject, merge: merge) {
-            let icon = NSImageView(image: .symbol(mark.symbol))
+            let icon = NSImageView(image: .symbol(mark))
             icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-            icon.contentTintColor = mark.color
+            icon.contentTintColor = .secondaryLabelColor
             let kind =
                 subject.type.map { [$0, subject.scope].compactMap { $0 }.joined(separator: " · ") }
                 ?? String(localized: "Merge commit")
-            views += [icon, label(kind, font: .ui(TextSize.caption, weight: .medium))]
+            views += [icon, label(kind, font: .ui(TextSize.caption))]
         }
         // The type and scope resist squeezing, so "Not pushed yet" gives way first.
         for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }
@@ -174,6 +202,28 @@ final class CommitCardView: NSView {
         }
         guard !views.isEmpty else { return nil }
         let row = NSStackView(views: views)
+        row.spacing = Metrics.gap
+        return row
+    }
+
+    /// Open Changes, the card's one main action, then Check Out… and the commit's menu under ⋯.
+    private func actions() -> NSView {
+        let open = ClosureButton(title: String(localized: "Open Changes")) { [weak self] in self?.onAction?(.open) }
+        open.bezelStyle = .push
+        open.controlSize = .small
+        // The card's one main action, in the accent colour (macOS 26's primary tint, and the bezel colour before it).
+        if #available(macOS 26, *) {
+            open.tintProminence = .primary
+        } else {
+            open.bezelColor = .controlAccentColor
+        }
+        let checkOut = TextButton(String(localized: "Check Out…")) { [weak self] in self?.onAction?(.checkOut) }
+        weak var more: IconButton?
+        let menu = IconButton(.symbol("ellipsis"), tip: String(localized: "More")) { [weak self] in
+            if let more { self?.onAction?(.menu(more)) }
+        }
+        more = menu
+        let row = NSStackView(views: [open, checkOut, menu, NSView()])
         row.spacing = Metrics.gap
         return row
     }
@@ -204,7 +254,7 @@ final class CommitCardView: NSView {
             sameYear
                 ? .dateTime.month(.abbreviated).day().hour().minute()
                 : .dateTime.month(.abbreviated).day().year().hour().minute())
-        let author = label(commit.author, font: .ui(TextSize.caption, weight: .medium))
+        let author = label(commit.author, font: .ui(TextSize.caption))
         author.textColor = .secondaryLabelColor
         author.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         let row = NSStackView(views: [
@@ -256,7 +306,7 @@ final class CommitCardView: NSView {
         let field = NSTextField(wrappingLabelWithString: string)
         field.font = font
         field.textColor = color
-        field.isSelectable = false
+        field.isSelectable = true   // a part of the message can be selected and copied (⌘C, or its right-click)
         field.maximumNumberOfLines = lines
         field.cell?.truncatesLastVisibleLine = true
         field.preferredMaxLayoutWidth = width - 2 * Metrics.inset

@@ -88,7 +88,8 @@ extension Runs {
                 let stop = menu.add(String(localized: "Stop \(row.name)")) { [weak self] in
                     Task { await self?.app.call(SessionKill(id: sid)) }
                 }
-                stop.show(Self.tinted("stop.fill", .systemRed))
+                // A template, in the text colour: stopping is an action, which has no colour of its own.
+                stop.show(NSImage.symbol("stop.fill").withSymbolConfiguration(.chrome()))
                 // An alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone.
                 stop.keyEquivalent = item.keyEquivalent
                 stop.keyEquivalentModifierMask = item.keyEquivalent.isEmpty ? .option : [.command, .option]
@@ -129,19 +130,20 @@ extension Runs {
         }
     }
 
-    /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue check
-    /// lint, red plane deploy, teal install. The Run menu shows the colour only on what runs; a run's tab shows the
-    /// symbol in grey. The rest are grey, chosen by name. ▶ in a green circle means it runs now.
+    /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue
+    /// checklist lint, red plane deploy, teal tray install. A thing or an action is drawn in outline, as commit types
+    /// are (decision 93), with no circle round it (a circle is a state's mark: the agent's done, an update); ▶ is
+    /// filled, as a start is. The Run menu shows the colour only on what runs, so colour says it runs now and
+    /// the symbol what for; a run's tab shows the symbol in grey. The rest are grey, chosen by name.
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
-        if row.running { return ("play.circle.fill", .systemGreen) }
         switch row.purpose {
-        case .install: return ("arrow.down.circle.fill", .systemTeal)
+        case .install: return ("square.and.arrow.down", .systemTeal)
         case .run: return ("play.fill", .systemGreen)
-        case .test: return ("flask.fill", .systemPurple)
-        case .build: return row.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
+        case .test: return ("flask", .systemPurple)
+        case .build: return row.kind == "lint" ? ("checklist", .systemBlue) : ("hammer", .systemOrange)
         case .deploy:
-            return (name.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
+            return (name.hasPrefix("rollback") ? "arrow.uturn.backward" : "paperplane", .systemRed)
         case .other:
             if row.file.contains("compose") || row.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
             let named: [(words: [String], symbol: String)] = [

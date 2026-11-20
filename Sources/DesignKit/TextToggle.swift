@@ -2,7 +2,12 @@ import AppKit
 
 /// An option named in a character or two ("Aa", ".*"), filled while on: a search's options.
 public final class TextToggle: PointerButton {
-    public var isOn = false { didSet { restFill = isOn ? .fillSelected : nil } }
+    public var isOn = false {
+        didSet {
+            restFill = isOn ? .fillSelected : nil
+            setAccessibilityValue(isOn)   // VoiceOver hears on or off, not only the fill
+        }
+    }
 
     public init(_ title: String, tip: String, action: @escaping () -> Void) {
         super.init(frame: .zero)
@@ -10,6 +15,8 @@ public final class TextToggle: PointerButton {
         font = .uiMono(TextSize.caption)
         toolTip = tip
         setAccessibilityLabel(tip)
+        setAccessibilityRole(.checkBox)
+        setAccessibilityValue(false)
         onClick = action
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)

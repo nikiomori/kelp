@@ -13,7 +13,7 @@ final class CIHistoryStrip: NSView {
     private let words = NSTextField(labelWithString: "")
     private let line = NSStackView()
     private var height: NSLayoutConstraint?
-    /// "green on #177", and "#177" for a panel too narrow for the words; the tooltip keeps the words.
+    /// "passed on #177", and "#177" for a panel too narrow for the words; the tooltip keeps the words.
     private var whole = "", short: String?, wholeWidth: CGFloat = 0
 
     init() {
@@ -36,20 +36,27 @@ final class CIHistoryStrip: NSView {
         let tall = history == nil ? 0 : TextSize.of(Metrics.row)
         if tall != height?.constant {   // it opens, so the runs under it move down rather than jump
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = window == nil ? 0 : Motion.duration(Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                // It comes at base easing out and goes in about two thirds of that, easing in.
+                ctx.duration = window == nil ? 0 : Motion.duration(tall > 0 ? Motion.base : Motion.fast)
+                ctx.timingFunction = CAMediaTimingFunction(name: tall > 0 ? .easeOut : .easeIn)
                 ctx.allowsImplicitAnimation = true
                 height?.animator().constant = tall
                 superview?.layoutSubtreeIfNeeded()
             }
         }
         guard let history else { return }
-        marks.setViews(history.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
+        // A ⌘-click opens the run on its site, as on the run's row (decision 112).
+        let shown = history.runs.map { r in
+            HistoryMark(r) { [weak self] in
+                if NSApp.currentEvent?.isClick(with: .command) == true { Forge.open(r.url) } else { self?.onPick?(r) }
+            }
+        }
+        marks.setViews(shown, in: .leading)
         whole =
             history.lastGreen.map { green in
-                green.number.map { String(localized: "green on #\($0)") }
-                    ?? String(localized: "green \(CIRunLook.ago(green.began)) ago")
-            } ?? (history.greenInARow > 1 ? String(localized: "\(history.greenInARow) green in a row") : "")
+                green.number.map { String(localized: "passed on #\($0)") }
+                    ?? String(localized: "passed \(CIRunLook.ago(green.began)) ago")
+            } ?? (history.greenInARow > 1 ? String(localized: "\(history.greenInARow) passed in a row") : "")
         short = history.lastGreen?.number.map { "#\($0)" }
         let probe = NSTextField(labelWithString: whole)
         probe.font = words.font
@@ -66,28 +73,39 @@ final class CIHistoryStrip: NSView {
     }
 }
 
-/// One run's mark, 8 × 12, in the colour of the run's mark: a passed run grey, as CI's mark in the sidebar is, and only
-/// a failed one red.
+/// One run's mark, 8 × 12: a passed run filled grey, as CI's mark in the sidebar is, and only a failed one red. A
+/// skipped or cancelled run is an empty grey outline, and one still waiting or running a dashed one, so they differ by
+/// shape rather than by a fainter grey.
 @MainActor
 private final class HistoryMark: PointerControl {
     private let color: NSColor
+    private let ring: CAShapeLayer?   // nil for a filled mark
 
     init(_ run: CIRuns.Run, pick: @escaping () -> Void) {
-        color =
+        let look: (color: NSColor, outline: Bool, dashed: Bool) =
             switch (run.status, run.conclusion) {
-            case ("completed", "success"?): .secondaryLabelColor
+            case ("completed", "success"?): (.secondaryLabelColor, false, false)
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
-                .quaternaryLabelColor
-            case ("completed", _): .systemRed
-            default: .tertiaryLabelColor
+                (.secondaryLabelColor, true, false)
+            case ("completed", _): (.systemRed, false, false)
+            default: (.secondaryLabelColor, true, true)
             }
+        let (outline, dashed) = (look.outline, look.dashed)
+        color = look.color
+        ring = outline ? CAShapeLayer() : nil
         super.init(frame: .zero)
         onClick = pick
         layer?.cornerRadius = Metrics.lineGap
+        if let ring {   // the dash and width of StatusStyle's dashed ring
+            ring.fillColor = nil
+            ring.lineWidth = 1.5
+            ring.lineDashPattern = dashed ? [2, 2.4] : nil
+            layer?.addSublayer(ring)
+        }
         let number = run.number.map { "#\($0) · " } ?? ""
         let said =
             number + CIRunLook.words(run.status, run.conclusion) + (run.timeWords(usual: nil).map { " · " + $0 } ?? "")
-        toolTip = said
+        toolTip = [said, CIRunLook.clickTip(run.url)].joined(separator: "\n")
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(said)
@@ -98,9 +116,20 @@ private final class HistoryMark: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    override func layout() {
+        super.layout()
+        guard let ring else { return }
+        ring.frame = bounds
+        let edge = bounds.insetBy(dx: ring.lineWidth / 2, dy: ring.lineWidth / 2)
+        ring.path = CGPath(
+            roundedRect: edge, cornerWidth: Metrics.lineGap, cornerHeight: Metrics.lineGap, transform: nil)
+    }
+
     override func showPointer(hovering: Bool, pressed: Bool) {
-        fadeBackground(
-            to: pressed ? color.withAlphaComponent(0.5) : hovering ? color.withAlphaComponent(0.75) : color,
-            held: pressed)
+        // An outline rests empty and fills faintly under the pointer; a filled mark fades as the pointer comes.
+        let rest: NSColor? = ring == nil ? color : nil
+        let hover = color.withAlphaComponent(ring == nil ? 0.75 : 0.25)
+        fadeBackground(to: pressed ? color.withAlphaComponent(0.5) : hovering ? hover : rest, held: pressed)
+        effectiveAppearance.performAsCurrentDrawingAppearance { ring?.strokeColor = color.cgColor }
     }
 }

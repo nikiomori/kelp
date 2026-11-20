@@ -23,8 +23,8 @@ extension Notifier {
                 Banner.show(
                     String(
                         localized:
-                            "Notifications for Kelp are turned off in System Settings, so you won't hear when an agent needs you."
-                    ), style: .error,
+                            "Notifications for Kelp are turned off in System Settings, so you won’t hear when an agent needs you."
+                    ), style: .info,
                     action: (
                         String(localized: "Open Settings"),
                         {
@@ -53,13 +53,13 @@ extension Notifier {
             if !off {
                 let content = UNMutableNotificationContent()
                 content.title = String(localized: "Kelp can reach you")
-                content.body = String(localized: "This is how you'll hear that an agent finished or needs you.")
+                content.body = String(localized: "This is how you’ll hear that an agent finished or needs you.")
                 content.sound = .default
                 do {
                     try await center.add(UNNotificationRequest(identifier: "kelp-test", content: content, trigger: nil))
                 } catch {
                     Banner.show(
-                        String(localized: "macOS didn't take the notification: \(error.localizedDescription)"),
+                        String(localized: "macOS didn’t take the notification: \(error.localizedDescription)"),
                         style: .error)
                 }
             }

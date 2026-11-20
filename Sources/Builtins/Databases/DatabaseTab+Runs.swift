@@ -129,17 +129,32 @@ extension DatabaseTab {
     }
 
     /// Runs the user's statement as the user's own, so a change runs without a question. Its error shows where the
-    /// rows would.
-    func query(_ sql: String, limit: Int = ResultGrid.shown) async -> QueryResult? {
+    /// rows would. A read of `table`'s rows that fails while its rows show keeps them, under a line with Try Again.
+    func query(_ sql: String, limit: Int = ResultGrid.shown, reading table: String? = nil) async -> QueryResult? {
         let (result, error) = await app.tryCall(
             DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
-        if let error {
+        let shown = table != nil && grid.source?.table == table && !grid.columns.isEmpty
+        failureBar.show(shown ? error : nil)
+        if let error, !shown {
             grid.show(columns: [], rows: [])
-            empty.showError(
-                String(localized: "\(address.name) said no"), text: error, buttons: askAbout(sql, said: error))
+            if table == nil {
+                empty.showError(
+                    String(localized: "\(address.name) Said No"), text: error, buttons: askAbout(sql, said: error))
+            } else {
+                empty.showError(
+                    String(localized: "Can’t Read \(address.name)"), text: error,
+                    buttons: [tryAgain()] + askAbout(sql, said: error))
+            }
             status.stringValue = ""
         }
         return result
+    }
+
+    /// Try Again under a read that failed: it reads what the tab shows again.
+    func tryAgain() -> NSButton {
+        let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.refresh() }
+        again.bezelStyle = .push
+        return again
     }
 
     /// The buttons under a statement the database refused: Ask <agent>, which puts the statement and what the

@@ -62,6 +62,7 @@ extension FileTab {
     /// Connects the editor's completion, hover and signature help to the language server, once the server has the file.
     func connectServer(to codeEditor: CodeEditor, root projectRoot: String, path filePath: String) {
         let app = app
+        codeEditor.onDefinition = { [weak self] in self?.jumpToDefinition(beside: $0) }   // ⌘-click, ⌥⌘-click
         codeEditor.completionProvider = { [weak self] line, col in
             await self?.lspCaughtUp()
             return await LSPManager.of(app).completion(root: projectRoot, path: filePath, line: line, column: col)

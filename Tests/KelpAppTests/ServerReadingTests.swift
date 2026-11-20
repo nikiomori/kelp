@@ -55,7 +55,7 @@ import Testing
 
 /// A server's line under its name and the tooltip: what it runs, or why there's nothing to say.
 @MainActor @Test func aServersLineSaysWhatItRunsOrWhyNot() throws {
-    #expect(serverLine(nil) == "Reading…")
+    #expect(serverLine(nil) == "Reading the server…")
     var stats = HostStats(host: "box", connected: false)
     #expect(serverLine(stats) == "Not connected. Opening it connects.")
     #expect(ServerHeader.details(stats) == "Not connected. Click to open the server, which connects.")

@@ -33,6 +33,7 @@ extension FilesPanel {
         // /private/tmp).
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })
+        replaceButton.isEnabled = false   // busy while the files are read, so a second click doesn't start again
         Task { @MainActor in
             var files: [ReplaceFile] = [], unread: [String] = [], failure: String?
             for name in names where !edited.contains(real(root + "/" + name)) {
@@ -54,9 +55,11 @@ extension FilesPanel {
                             matches: plan,
                             chosen: Set(plan.indices)))
                 } catch {
+                    replaceButton.isEnabled = true
                     return Banner.show(String(localized: "Not a valid pattern"), style: .error)
                 }
             }
+            replaceButton.isEnabled = true
             guard !files.isEmpty else {
                 let why = ReplaceFile.nothingWords(unread: unread, failure: failure)
                 return Banner.show(why, style: unread.isEmpty ? .info : .error)
@@ -170,19 +173,40 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         }
         let match = files[fileIndex].matches[matchIndex]
         box.state = files[fileIndex].chosen.contains(matchIndex) ? .on : .off
-        func line(_ sign: String, _ text: String, _ color: NSColor) -> NSTextField {
-            NSTextField.label(sign + text, font: .uiMono(TextSize.caption), color: color)
+        // As the diff draws them: the code in the text's colour on the line's tint, the changed part on the word's.
+        func line(_ sign: String, _ text: String, _ other: String, _ fill: NSColor, _ word: NSColor) -> NSTextField {
+            let font = NSFont.uiMono(TextSize.caption), field = NSTextField.label("", font: font)
+            let shown = NSMutableAttributedString(
+                string: sign, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
+            let code = NSMutableAttributedString(
+                string: text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
+            code.addAttribute(.backgroundColor, value: word, range: Self.changed(text, from: other))
+            shown.append(code)
+            field.attributedStringValue = shown
+            field.drawsBackground = true
+            field.backgroundColor = fill
+            return field
         }
         let lines = NSStackView(views: [
-            line("\(match.line) − ", match.before, .textRed), line("\(match.line) + ", match.after, .textGreen)
+            line("\(match.line) − ", match.before, match.after, .diffRemoved, .diffRemovedWord),
+            line("\(match.line) + ", match.after, match.before, .diffAdded, .diffAddedWord)
         ])
         lines.orientation = .vertical
-        lines.alignment = .leading
+        lines.alignment = .width   // the tint runs under the whole line, not only its words
         lines.spacing = Metrics.lineGap
         let out = NSStackView(views: [box, lines])
         out.alignment = .top
         out.edgeInsets = NSEdgeInsets(top: Metrics.lineGap, left: Metrics.inset, bottom: Metrics.lineGap, right: 0)
         return out
+    }
+
+    /// The part of `text` that `other` doesn't share: what is left between their common start and end (UTF-16).
+    private static func changed(_ text: String, from other: String) -> NSRange {
+        let mine = Array(text.utf16), theirs = Array(other.utf16), most = min(mine.count, theirs.count)
+        var start = 0, end = 0
+        while start < most, mine[start] == theirs[start] { start += 1 }
+        while end < most - start, mine[mine.count - 1 - end] == theirs[theirs.count - 1 - end] { end += 1 }
+        return NSRange(location: start, length: mine.count - start - end)
     }
 
     @objc private func toggled(_ box: NSButton) {

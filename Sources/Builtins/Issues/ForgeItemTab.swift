@@ -24,6 +24,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
     @ObservationIgnored private let barSlot = NSView()
     @ObservationIgnored private let empty = EmptyStateView()
     @ObservationIgnored private let loading = LoadingView()
+    @ObservationIgnored private lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     @ObservationIgnored var prView: GitHub.PRView?
     @ObservationIgnored var issueView: GitHub.IssueView?
     @ObservationIgnored var viewer: String?
@@ -55,7 +56,9 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         links = PreviewLinks(app: app)
         web.navigationDelegate = links
         web.setValue(false, forKey: "drawsBackground")
-        view = stacked(barSlot, web)
+        let top = NSView()
+        view = stacked(top, web)
+        top.pin(failureBar.under(barSlot))   // once self is whole, because the bar's Try Again reads it
         empty.place(in: view, under: barSlot)
         loading.place(in: view, under: barSlot)
         reload()
@@ -104,18 +107,22 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
     private func show(_ body: String) {
         loading.show(nil)
         empty.show(nil)
+        failureBar.show(nil)
         web.isHidden = false
-        let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        links.load(MarkdownHTML.page(body: body, baseURL: nil, dark: dark), baseURL: nil, in: web)
+        // Not pinned dark: the page follows `prefers-color-scheme`, which WebKit takes from the view, so it turns with
+        // the Mac's light and dark.
+        links.load(MarkdownHTML.page(body: body, baseURL: nil, dark: false), baseURL: nil, in: web)
         showBar()
     }
 
+    /// A failed read again keeps the page on screen, and says so over it; with no page yet, the error takes its place.
     private func failed(_ error: String?) {
         loading.show(nil)
+        if prView != nil || issueView != nil { return failureBar.show(error ?? "") }
         web.isHidden = true
         let open = ClosureButton(title: String(localized: "Open in Browser")) { [weak self] in self?.openInBrowser() }
         let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
-        empty.showError(String(localized: "Couldn't read #\(number)"), text: error ?? "", buttons: [again, open])
+        empty.showError(String(localized: "Couldn’t Read #\(number)"), text: error ?? "", buttons: [again, open])
         showBar()
     }
 

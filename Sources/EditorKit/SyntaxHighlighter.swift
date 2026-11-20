@@ -119,6 +119,19 @@ final class SyntaxHighlighter {
         colorBrackets(range, in: string, lm)
     }
 
+    /// The narrowest highlight over the character at `index` ("keyword.return", "comment"), or nil for none or while a
+    /// parse is still on its way (the tree would be of an older text).
+    func highlight(at index: Int, in string: NSString) -> String? {
+        guard !waiting, index < string.length, let tree, let root = tree.rootNode else { return nil }
+        let text: SwiftTreeSitter.Predicate.TextProvider = { piece, _ in
+            NSMaxRange(piece) <= string.length ? string.substring(with: piece) : nil
+        }
+        let cursor = query.execute(node: root, in: tree)
+        cursor.setRange(NSRange(location: index, length: 1))
+        return Array(cursor.resolve(with: .init(textProvider: text))).highlights()
+            .last { NSLocationInRange(index, $0.range) }?.name
+    }
+
     /// Paints the less specific highlights first, so a later, narrower one wins.
     private func paint(_ found: [NamedRange], at offset: Int, within range: NSRange, _ lm: NSLayoutManager) {
         for highlight in found {

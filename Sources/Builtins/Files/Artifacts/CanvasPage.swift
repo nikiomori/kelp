@@ -151,7 +151,7 @@ enum CanvasPage {
         do { _ = try JSONSerialization.jsonObject(with: Data(json.utf8)) } catch {
             return ((error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String) ?? error.localizedDescription
         }
-        return String(localized: "It isn't {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
+        return String(localized: "It isn’t {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
     private static func shell(body: String, dashboard: Bool = false) -> String {

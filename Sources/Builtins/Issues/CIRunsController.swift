@@ -51,7 +51,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var setup: Forge.Setup?
     private let webButton = IconButton(nil, tip: "", target: nil, action: nil)
     private var moreButton: NSButton?
-    private var pages: GitWebPages.Pages?
+    var pages: GitWebPages.Pages?
     lazy var jobPane: CIJobPane = {
         let pane = CIJobPane(app: app)
         pane.onChange = { [weak self] in self?.reload() }
@@ -236,7 +236,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             }
             workflows = event.result?.workflows ?? []
             workflowsButton.isHidden = workflows.isEmpty
-            show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
+            show(
+                note: runs.isEmpty ? String(localized: "No CI Runs Yet") : nil,
+                detail: String(localized: "No runs on \(branchName) yet."))
             clock.clear()
             history.show(CIRuns.history(allRuns))
             let reopen = { [self] (run: Item) in
@@ -294,15 +296,15 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// A run's jobs and the folds of their steps, top down, in the order they have to be opened.
     private func openBelow(_ run: Item) -> [Item] { (run.children ?? []).flatMap { [$0] + ($0.children ?? []) } }
 
-    /// With `failed`, `text` is the error and says what fixes it (`showForge`).
-    private func show(note text: String?, failed: Bool = false) {
+    /// With `failed`, `text` is the error and says what fixes it (`showForge`); else `detail` is the line under it.
+    private func show(note text: String?, detail: String? = nil, failed: Bool = false) {
         if failed, let text {
             setup = empty.showForge(
-                text, failed: String(localized: "Couldn't read the runs"), setupButton: setupButton,
+                text, failed: String(localized: "Couldn’t Read the Runs"), setupButton: setupButton,
                 checkAgain: checkAgain)
         } else {
             setup = nil
-            empty.show(text, symbol: "checkmark.seal")
+            empty.show(text, symbol: "checkmark.seal", text: detail)
         }
         // The runs and the log hide together, because the log's divider alone under the header drew a second line
         // there.

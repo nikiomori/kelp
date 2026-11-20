@@ -153,16 +153,19 @@ extension RowMarks {
     }
 
     /// Opens CI Runs for the folder in its workspace, and the panel opens a failed job's log by itself. Without the
-    /// panel, it opens the run's page.
+    /// panel, it opens the run's page. A ⌘-click opens that page in the browser instead (the same thing, elsewhere).
     func openCI(_ id: String) {
+        let runs = app.latest(CIEvent.self, id)?.result?.runs ?? []
+        let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first
+        if NSApp.currentEvent?.isClick(with: .command) == true, let page = run.flatMap({ URL(string: $0.url) }) {
+            return PreviewLinks.openOutside(page)
+        }
         if app.gitFolder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil {
             app.workbench.show(workspace: id)
         }
         if let panel = app.extensions.all.panels.first(where: { $0.role == .checks }) {
             app.workbench.showPanel(panel.id)
-        } else if let runs = app.latest(CIEvent.self, id)?.result?.runs,
-            let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first
-        {
+        } else if let run {
             app.workbench.open(run.url)
         }
     }

@@ -35,7 +35,9 @@ enum Preview {
             pdfView.displayMode = .singlePageContinuous
             return pdfView
         }
-        if isImage, let bytes, let image = NSImage(data: bytes) { return ImagePreview(image: image, url: url) }
+        if isImage, let bytes, let image = NSImage(data: bytes) {
+            return ImagePreview(image: image, url: url, bytes: bytes)
+        }
         let quickLookView = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
         quickLookView.previewItem = url as NSURL
         quickLookView.shouldCloseWithWindow = false
@@ -57,10 +59,17 @@ final class FollowedPreview {
     init(url: URL, app: AppModel) {
         shown = NSView()   // until the file is read
         view.pin(shown)
+        // A big PDF or video on a slow disk says it is coming, once that has taken a second.
+        let wait = LoadingView()
+        wait.place(in: view)
+        wait.wait(String(localized: "Reading the file…"))
         version = Watched(.file, in: app)
         version.key = url.path
         Task { [weak self] in
             let first = await Preview.view(for: url, app: app)
+            await wait.settled()
+            wait.show(nil)
+            wait.removeFromSuperview()
             self?.show(first)
         }
         track(owner: self) {
@@ -88,9 +97,12 @@ final class FollowedPreview {
 @MainActor
 final class ImagePreview: NSImageView {
     private let url: URL
+    /// The file's bytes as read off the main thread, which ⌘C writes, so a copy never reads a slow volume on a key.
+    private let bytes: Data?
 
-    init(image: NSImage, url: URL) {
+    init(image: NSImage, url: URL, bytes: Data? = nil) {
         self.url = url
+        self.bytes = bytes
         super.init(frame: .zero)
         // One pixel is one point, as in a browser. NSImage would size the image by the file's DPI, so a PNG without
         // 72-dpi metadata would come out huge.
@@ -128,9 +140,7 @@ final class ImagePreview: NSImageView {
         {
             item.setData(png, forType: .png)
         }
-        if let type = UTType(filenameExtension: url.pathExtension),
-            let data = FileManager.default.contents(atPath: url.path)
-        {
+        if let type = UTType(filenameExtension: url.pathExtension), let data = bytes {
             item.setData(data, forType: NSPasteboard.PasteboardType(type.identifier))
         }
         NSPasteboard.general.clearContents()

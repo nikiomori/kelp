@@ -16,9 +16,13 @@ extension SourceControlController {
     /// Sections fold through `collapsed`, not through the outline's own expansion state, which goes stale across
     /// reloads (a click then "expanded" a section that was already open).
     func rebuildChanges() {
-        let places = stagingPlaces()
+        // A row that comes or goes fades, and the rows around it move, also when an agent changed the file. The user's
+        // own staging and discarding moves the rows however many there are.
+        let staged = stagingPlaces()
+        var places = outline.rowPlaces(changeKey)
         if clearing {
             clearing = false
+            places = [:]
             outline.crossfade(Motion.base)
         }
         let before = Self.flat(roots)   // the nodes that are kept get filled again below
@@ -49,13 +53,29 @@ extension SourceControlController {
         }
         changeNodes = rows.kept
         roots = out
-        _ = show(outline, was: before, rows.redrawn)
+        let was = Set(before.map(Self.rowName)), now = Set(Self.flat(out).map(Self.rowName))
+        let came = now.subtracting(was), gone = was.subtracting(now)
+        let moves = outline.movesFor(came: came.count, gone: gone.count, from: places)
+        outline.reloadSettling(from: places, came: came, gone: gone, changeKey) {
+            _ = show(outline, was: before, rows.redrawn)
+        }
         let shown = outline.numberOfRows
-        let height = shown > 0 ? outline.rect(ofRow: shown - 1).maxY : 0
-        changesRoom?.constant = min(80, height)
-        changesHug?.constant = height
-        slideStaged(from: places)
+        changesRows = shown > 0 ? outline.rect(ofRow: shown - 1).maxY : 0
+        fitChanges(moving: moves || !staged.isEmpty)
+        if !moves { slideStaged(from: staged) }
     }
+
+    /// A change row's name across rebuilds. A file keeps its path when it's staged, so its row travels to its new
+    /// section.
+    private static func rowName(_ node: Node) -> String {
+        switch node.kind {
+        case .section(let section): "s \(section.rawValue)"
+        case .file(let file, _): file.path
+        case .note(let text): "n \(text)"
+        case .commit, .commitFile: ""
+        }
+    }
+    private func changeKey(_ row: Int) -> String? { (outline.item(atRow: row) as? Node).map(Self.rowName) }
 
     func rebuildGraph() {
         let before = Self.flat(graphRoots)
@@ -127,9 +147,55 @@ extension SourceControlController {
         let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
         graphHeight?.constant = min(saved ?? 0, (NSScreen.main?.visibleFrame.height ?? 800) / 2)
         graphHeight?.isActive = open && saved != nil
-        changesHug?.isActive = open && saved == nil
-        changesCap?.isActive = open && saved == nil
+        changesHug?.isActive = open   // the changes are as tall as their rows; the graph has the rest
+        changesCap?.isActive = false
+        fitChanges()
         graphClosed?.isActive = !open
+    }
+
+    /// Gives the changes their rows' height, up to what leaves the graph its least: the height it was dragged to, or
+    /// else half the room the two lists share. The graph takes the rest. Worked out from the lists' room as it stands,
+    /// so it never asks the window to grow. The changes keep at least their rows' height, up to 80 pt (`changesRoom`).
+    /// When `moving` (a few rows came or went), the changes grow or shrink to their new height and the graph moves with
+    /// them, rather than jump by a row.
+    func fitChanges(moving: Bool = false) {
+        guard changesMoving == 0 || moving else { return }   // each step of a move lays the panel out again
+        var wanted: [(NSLayoutConstraint?, CGFloat)] = [(changesRoom, min(80, changesRows))]
+        if changesHug?.isActive == true, let fit = changesFit() { wanted.append((changesHug, fit)) }
+        let changed = wanted.compactMap { constraint, value in
+            constraint.flatMap { abs($0.constant - value) > 0.5 ? ($0, value) : nil }
+        }
+        guard !changed.isEmpty else { return }
+        guard moving, view.window?.isVisible == true, !Motion.reduced else {
+            for (constraint, value) in changed { constraint.constant = value }
+            return
+        }
+        let grows = changesRows > outline.enclosingScrollView?.frame.height ?? 0
+        changesMoving += 1
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = grows ? Motion.appear : Motion.base   // what leaves goes in less time than what comes takes
+            ctx.timingFunction = CAMediaTimingFunction(name: grows ? .easeOut : .easeIn)
+            for (constraint, value) in changed { constraint.animator().constant = value }
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                guard let self else { return }
+                self.changesMoving -= 1
+                if self.changesMoving == 0 { self.fitChanges() }   // what changed while it moved
+            }
+        }
+    }
+
+    /// The changes' height: their rows', up to what leaves the graph its least, the height it was dragged to or else
+    /// half the room the two lists share.
+    private func changesFit() -> CGFloat? {
+        guard let changes = outline.enclosingScrollView, let graph = graphOutline.enclosingScrollView else {
+            return nil
+        }
+        let both = changes.frame.height + graph.frame.height
+        guard both > 0 else { return nil }
+        let saved = graphHeight?.isActive == true ? graphHeight?.constant : nil   // the dragged height
+        let least = min(saved ?? both / 2, max(0, both - 80))
+        return max(min(changesRows, both - least), min(80, changesRows))
     }
 
     func resizeGraph(by dy: CGFloat) {
@@ -137,9 +203,8 @@ extension SourceControlController {
             let graph = graphOutline.enclosingScrollView
         else { return }
         gh.constant = min(max(60, graph.frame.height + dy), changes.frame.height + graph.frame.height - 80)
-        changesHug?.isActive = false
-        changesCap?.isActive = false
         gh.isActive = true
+        fitChanges()   // the changes still hug their rows: dragging never opens empty room
         UserDefaults.standard.set(gh.constant, forKey: "scm.graphHeight")
     }
 
@@ -172,7 +237,8 @@ extension SourceControlController {
     func outlineView(_ outline: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         switch (item as? Node)?.kind {
         case .section?, .note?: TextSize.of(Metrics.rowSection)
-        case .commit?: CommitCell.lineHeight
+        case .commit(let index)?:
+            commits.indices.contains(index) ? CommitCell.height(commits[index].refs) : CommitCell.lineHeight
         default: TextSize.of(Metrics.row)
         }
     }
@@ -265,13 +331,15 @@ extension SourceControlController {
     @objc func clicked(_ outline: NSOutlineView) {
         card.close()
         guard let node = outline.item(atRow: outline.actedRow) as? Node else { return }
+        // ⌥-click opens a file beside, in a split (in a list ⌘ and ⇧ pick several rows).
+        let split: SplitDirection? = NSApp.currentEvent?.modifierFlags.contains(.option) == true ? .right : nil
         switch node.kind {
         case .section(let section): toggle(section)
-        case .file(let file, let section): open(file, section)
+        case .file(let file, let section): open(file, section, split: split)
         case .commit(let index): toggle(commit: commits[index].hash)
         case .commitFile(let hash, let fileChange):
             if let worktree = worktreeId {
-                app.workbench.open(DiffTab.uri(worktree, file: fileChange.path, commit: hash))
+                app.workbench.open(DiffTab.uri(worktree, file: fileChange.path, commit: hash), split: split)
             }
         case .note: break
         }
@@ -305,18 +373,20 @@ extension SourceControlController {
 
 // MARK: status letters (VS Code's colors)
 extension SourceControlController {
-    func open(_ file: FileChange, _ section: Section) {
+    func open(_ file: FileChange, _ section: Section, split: SplitDirection? = nil) {
         guard let worktree = worktreeId else { return }
         if section == .merge {
-            openFile(file)
+            openFile(file, split: split)
             return
         }
         // When a review beside it shows the file, the review scrolls there instead.
         if DiffViewController.reveal(file.path, worktree: worktree) { return }
-        app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged))
+        app.workbench.open(
+            DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged), split: split)
     }
-    func openFile(_ file: FileChange) {
-        if let worktree = app.worktree(worktreeId) { app.workbench.open(TabURI.file(worktree.path + "/" + file.path)) }
+    func openFile(_ file: FileChange, split: SplitDirection? = nil) {
+        guard let worktree = app.worktree(worktreeId) else { return }
+        app.workbench.open(TabURI.file(worktree.path + "/" + file.path), split: split)
     }
 
     static func letter(_ file: FileChange, _ section: Section) -> (String, NSColor) {

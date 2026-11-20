@@ -11,6 +11,22 @@ enum CanvasChrome {
         var light: String, dark: String, both: String, fit: String, zoomOut: String, zoomIn: String
     }
 
+    /// A glyph for a button on the page, drawn as the window's symbols are, not typed (a font's × ‹ › − + ↑ look unlike
+    /// the symbols beside them): a 12 pt box, a 1.3 pt stroke in the text's colour.
+    enum Glyph: String {
+        case xmark = "M3.5 3.5l5 5M8.5 3.5l-5 5", minus = "M2.5 6h7", plus = "M2.5 6h7M6 2.5v7"
+        case back = "M7.5 2.5 4 6l3.5 3.5", forward = "M4.5 2.5 8 6l-3.5 3.5", up = "M6 9.5v-7M3 5.5l3-3 3 3"
+        /// `exclamationmark.triangle`: what the check found wrong.
+        case warning = "M6 1.6 10.9 10.2H1.1ZM6 4.9v2.3M6 8.7v.01"
+        /// The SVG as a JS string, for a button's `innerHTML`.
+        var js: String {
+            MarkdownTab.js(
+                "<svg class=\"kelp-glyph\" aria-hidden=\"true\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" "
+                    + "fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" "
+                    + "stroke-linejoin=\"round\"><path d=\"\(rawValue)\"/></svg>")
+        }
+    }
+
     static func source(themes: String, labels l: Labels, floats: Bool = true) -> String {
         let js: (String) -> String = MarkdownTab.js
         return """
@@ -56,8 +72,9 @@ enum CanvasChrome {
                 key => post({ kind: 'themes', value: key })));
               // The canvas's size: steps down and up, or fitted to the pane.
               const zoom = el('div', 'kelp-float kelp-zoom');
-              const out = el('button', 'kelp-ib', '−'), into = el('button', 'kelp-ib', '+');
-              const shown = el('span', 'kelp-pct'), fit = el('button', 'kelp-text', \(js(l.fit)));
+              const out = el('button', 'kelp-ib'), into = el('button', 'kelp-ib');
+              out.innerHTML = \(Glyph.minus.js); into.innerHTML = \(Glyph.plus.js);
+              const shown = el('span', 'kelp-pct'), fit = el('button', 'kelp-pill', \(js(l.fit)));
               out.title = \(js(l.zoomOut)); into.title = \(js(l.zoomIn));
               const steps = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
               const set = z => { window.kelpZoom(z); post({ kind: 'zoom', value: z }); };
@@ -99,7 +116,7 @@ enum CanvasChrome {
         .kelp-grow { flex: 1; }
         .kelp-note { color: var(--k-sec); font-size: 11px; padding: 10px 12px; }
         .kelp-float { position: fixed; z-index: 15; display: flex; align-items: center; gap: 2px; padding: 0 4px;
-          height: 30px; border-radius: 12px; background: var(--k-float); color: var(--k-label);
+          height: 30px; border-radius: 8px; background: var(--k-float); color: var(--k-label);
           box-shadow: 0 0 0 .5px var(--k-sep), 0 2px 6px rgba(0,0,0,.2); font: 12px -apple-system, sans-serif; }
         .kelp-themes { top: 10px; right: 14px; }
         .kelp-zoom { bottom: 14px; right: 14px; }
@@ -112,9 +129,9 @@ enum CanvasChrome {
           box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
         .kelp-ib { width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: var(--k-sec);
           font: 14px -apple-system, sans-serif; }
-        .kelp-ib:hover, .kelp-text:hover { background: var(--k-hover); }
-        .kelp-text { height: 22px; padding: 0 8px; border: 0; border-radius: 999px; background: none;
-          color: var(--k-label); font: inherit; }
+        .kelp-ib:hover { background: var(--k-hover); }
+        .kelp-ib .kelp-glyph { display: block; margin: auto; }
+        .kelp-pill .kelp-glyph { vertical-align: -2px; margin-right: 4px; }
         .kelp-pill { height: 22px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--k-rest);
           color: var(--k-label); font: inherit; }
         .kelp-pill:hover { background: var(--k-hover); }
@@ -125,8 +142,16 @@ enum CanvasChrome {
         .kelp-issues { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 9; }
         .kelp-fault { position: absolute; width: 16px; height: 16px; border-radius: 4px; background: var(--k-card);
           color: var(--k-text-orange); box-shadow: 0 0 0 1px var(--k-orange);
-          font: 700 10px/16px -apple-system, sans-serif;
-          text-align: center; pointer-events: auto; cursor: default; }
+          display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: default; }
         .kelp-present .kelp-col, .kelp-present .kelp-float, .kelp-present .kelp-issues { display: none !important; }
+        .kelp-ib, .kelp-pill, .kelp-prominent, .kelp-seg button, .kelp-chip, .kelp-toc {
+          transition: background .12s ease-out, filter .12s ease-out; }
+        .kelp-seg button:not(.on):hover { background: var(--k-hover); }
+        .kelp-prominent:hover { filter: brightness(1.08); }
+        .kelp-ib:active, .kelp-pill:active, .kelp-seg button:not(.on):active, .kelp-toc:active {
+          background: var(--k-sel); transition: none; }
+        .kelp-prominent:active { filter: brightness(.88); transition: none; }
+        @media (prefers-reduced-motion: reduce) {
+          .kelp-ib, .kelp-pill, .kelp-prominent, .kelp-seg button, .kelp-chip, .kelp-toc { transition: none; } }
         """
 }

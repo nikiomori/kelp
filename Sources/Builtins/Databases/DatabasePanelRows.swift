@@ -14,18 +14,28 @@ struct DatabasePanelRows {
     var app: AppModel { panel.app }
 
     func heading(_ heading: DatabasesPanel.Heading, libraryOpen: Bool, activityOpen: Bool, only: String?) -> NSView {
-        var views: [NSView] = []
+        let key = DatabasesPanel.Row.heading(heading).key
         switch heading {
-        case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
+        case .asks: return SectionHeading(String(localized: "Asks"))
         case .library(let count):
-            let title = DatabaseSheet.section(String(localized: "All My Databases"))
-            views = [chevron(libraryOpen), title, NSView(), capsule(count)]
+            return turned(
+                SectionHeading(String(localized: "All My Databases"), count: count, open: libraryOpen), libraryOpen,
+                key)
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
-            let title = DatabaseSheet.section(String(localized: "Activity"))
-            views = [chevron(activityOpen), title, NSView(), small(who), capsule(count)]
+            return turned(
+                SectionHeading(String(localized: "Activity"), count: count, open: activityOpen, trailing: [small(who)]),
+                activityOpen, key)
         }
-        return line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
+    }
+
+    /// Turns the chevron of the heading just folded or opened from where it was.
+    private func turned(_ heading: SectionHeading, _ open: Bool, _ key: String) -> SectionHeading {
+        if panel.turning == key, let chevron = heading.chevron {
+            panel.turning = nil
+            Task { chevron.turn(from: open ? .pi / 2 : -.pi / 2) }
+        }
+        return heading
     }
 
     /// An agent's waiting question: the agent's icon, what it would change, the statement, and Allow / Deny in the row.
@@ -62,12 +72,12 @@ struct DatabasePanelRows {
         let branch = app.worktree(panel.workspace)?.branch ?? ""
         let name = NSTextField.label(
             under ? String(localized: "Copy for \(branch)") : Self.shownName(db),
-            font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
+            font: .ui(TextSize.row), color: color?.color ?? .labelColor)
         var first: [NSView] = [name, NSView()]
         if db.passwordIn != nil {   // the password is still in the app it came from; macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
             key.symbolConfiguration = .chrome(Metrics.iconSmall)
-            key.contentTintColor = .tertiaryLabelColor
+            key.contentTintColor = .secondaryLabelColor
             key.toolTip = String(
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
             first.append(key)
@@ -155,7 +165,7 @@ struct DatabasePanelRows {
         let icon = projectIcon(size: 16)
         let slot = NSStackView(views: [icon])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true   // the column of the badges under it
-        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row, weight: .medium))
+        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row))
         let views = [slot, name, NSView()] + (count > 0 ? [capsule(count)] : [])   // with none, the last row says so
         return line(views, inset: Self.inCard, trailing: Metrics.insetTrailing)
     }
@@ -165,12 +175,12 @@ struct DatabasePanelRows {
     func use(empty: Bool) -> NSView {
         let icon = NSImageView(image: .symbol("plus"))
         icon.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
-        icon.contentTintColor = empty ? .linkColor : .secondaryLabelColor
+        icon.contentTintColor = empty ? .themeAccent : .secondaryLabelColor
         let slot = NSStackView(views: [icon])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
         let said = NSTextField.label(
             String(localized: "Use a Database…"), font: .ui(TextSize.row),
-            color: empty ? .linkColor : .secondaryLabelColor)
+            color: empty ? .themeAccent : .secondaryLabelColor)
         var words: NSView = said
         if empty {
             words = stack([
@@ -193,12 +203,12 @@ struct DatabasePanelRows {
         let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
         folder.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
         folder.contentTintColor = color?.color ?? .secondaryLabelColor
-        let fold = chevron(open)
+        let fold = chevron(open, for: DatabasesPanel.Row.group(name, count: count).key)
         fold.contentTintColor = .secondaryLabelColor
         fold.isHidden = true
         let slot = NSStackView(views: [folder, fold])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
-        let title = NSTextField.label(name, font: .ui(TextSize.row, weight: .medium))
+        let title = NSTextField.label(name, font: .ui(TextSize.row))
         let row = line([slot, title, NSView(), capsule(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
         (row as? HoverRow)?.hovered = [fold]
         (row as? HoverRow)?.resting = [folder]
@@ -276,16 +286,22 @@ struct DatabasePanelRows {
         let sql = NSTextField.label(oneLine(run.sql), font: .uiMono(TextSize.caption))
         sql.toolTip = [run.sql, run.error].compactMap { $0 }.joined(separator: "\n\n")
         let end = NSTextField.label(Self.outcome(run), font: .uiDigits(TextSize.caption), color: Self.color(run.state))
+        end.setContentCompressionResistancePriority(.required, for: .horizontal)   // the SQL gives way, not the outcome
         return line([icon, sql, NSView(), end], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
     // MARK: Parts
 
-    private func chevron(_ open: Bool) -> NSImageView {
+    /// The fold of the row `key`. The one a click just turned turns from where it pointed, once its row is laid out.
+    private func chevron(_ open: Bool, for key: String) -> NSImageView {
         let image = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
         image.symbolConfiguration = .chrome(Metrics.iconTiny)
         image.contentTintColor = .secondaryLabelColor
         image.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        if panel.turning == key {
+            panel.turning = nil
+            Task { image.turn(from: open ? .pi / 2 : -.pi / 2) }
+        }
         return image
     }
 
@@ -352,6 +368,7 @@ extension String {
 final class HoverRow: NSStackView, Hoverable {
     var hovered: [NSView] = [], resting: [NSView] = []
     func setHover(_ on: Bool) {
+        if !hovered.isEmpty { crossfade() }   // the folder and the chevron, or Use in and +, fade into each other
         for v in hovered { v.isHidden = !on }
         for v in resting { v.isHidden = on }
     }

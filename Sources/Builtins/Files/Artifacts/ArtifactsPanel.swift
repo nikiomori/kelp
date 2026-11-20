@@ -28,7 +28,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private let search = NSSearchField()
     private lazy var filterBar = NSStackView(views: [search])
     private let empty = EmptyStateView()
-    let loading = LoadingView(rows: true)
+    let loading = LoadingView(rows: true, rowHeight: Metrics.row)
     /// The last read that worked, which stays on show when the next one fails.
     private var read: ArtifactsEvent?
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.readAgain() }
@@ -155,17 +155,35 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let find = search.stringValue.trimmingCharacters(in: .whitespaces)
         let project = app.projectName(app.worktree(app.workbench.workspaceId)?.repoId)
         let found = items.filter { find.isEmpty || title($0, project).localizedCaseInsensitiveContains(find) }
+        // Rows move only within one workspace's list: another workspace's pages are a new list.
+        let places = listed == app.workbench.workspaceId ? table.rowPlaces(rowKey) : [:]
+        let old = Set(rows.indices.compactMap(rowKey))
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
+        listed = app.workbench.workspaceId
         filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
         if let failed, kept == nil {
-            empty.showError(String(localized: "Couldn't read the pages"), text: failed, buttons: [tryAgain])
+            empty.showError(String(localized: "Couldn’t Read the Pages"), text: failed, buttons: [tryAgain])
         } else {
             empty.show(
                 list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
                 text: String(localized: "Pages agents make show here."), buttons: [makeButton])
         }
-        table.reloadData()
+        // A page that came fades in, one that went fades out, and the rows below travel, a row whose second line came
+        // or went too.
+        let now = Set(rows.indices.compactMap(rowKey))
+        table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), rowKey) {
+            table.reloadData()
+        }
         markOpen()
+    }
+    /// The workspace whose pages the rows list.
+    private var listed: String?
+    private func rowKey(_ row: Int) -> String? {
+        guard rows.indices.contains(row) else { return nil }
+        return switch rows[row] {
+        case .heading(let text): "h:" + text
+        case .item(let item, _): "i:" + item.target
+        }
     }
 
     /// Returns the rows: headings by when each page last changed, and one row per title, holding the latest page with
@@ -362,9 +380,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
                 copyText(link)
             }
         } else {
-            menu.add(String(localized: "Show in Finder")) {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.target)])
-            }
+            WorkspaceActions.addLocate(to: menu, path: item.target)
         }
     }
 }

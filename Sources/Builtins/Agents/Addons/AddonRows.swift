@@ -17,8 +17,6 @@ struct AddonRows {
     var pending: [String: Bool] = [:]
     /// Called when a switch is flipped, with the key the switch stands for (`Addon.key`) and whether it is on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
-    /// Called with a row's file when the person clicks the Open button that shows under the pointer.
-    var onOpen: (String) -> Void = { _ in }
     /// Called by Off Here with the keys to switch off for the project.
     var onOff: ([String]) -> Void = { _ in }
     /// Called by Tidy Up, or by Show Chat while a chat is tidying up. The callbacks below answer Review, Undo and
@@ -38,13 +36,9 @@ struct AddonRows {
             case .instructions: String(localized: "Instructions")
             case .others: String(localized: "Other Agents")
             }
-        let title = NSTextField.label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
         // The count sits on the capsule every list's section has, as Source Control's does.
-        let capsule = CountCapsule()
-        capsule.text = count.formatted()
-        var views: [NSView] = [title, capsule, NSView()]
-        if section == .others { views.append(digits(String(localized: "not in this chat"))) }
-        return line(views, inset: Metrics.inset)
+        let trailing = section == .others ? [digits(String(localized: "not in this chat"))] : []
+        return SectionHeading(name, count: count, trailing: trailing)
     }
 
     /// Draws a group's line. `off` is the state of the group's own switch, which only a plugin has; nil for a group
@@ -106,20 +100,12 @@ struct AddonRows {
         if addon.agents != [implied].compactMap({ $0 }), let faces = faces(addon.agents) { extras.append(faces) }
         let inset = Self.inset(depth)
         let mark = mark(addon)
-        let open = addon.path.map { path in
-            IconButton(.symbol("arrow.up.forward.square"), tip: String(localized: "Open")) { onOpen(path) }
-        }
-        let room = open == nil ? 0 : Metrics.iconButton + Metrics.gap
-        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset + room) {
+        // No Open button: the row itself opens its file (click, Return), and its right-click menu has Open.
+        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset) {
             $0 + $1.fittingSize.width + Metrics.gap
         }
         let shown = AddonGroups.fitting(extras.map { $0.fittingSize.width + Metrics.gap }, in: width - fixed)
-        let row = line(
-            [mark, name, NSView()] + [open].compactMap { $0 } + extras.prefix(shown).reversed() + held, inset: inset)
-        if let open {
-            open.isHidden = true
-            row.hovered = [open]
-        }
+        let row = line([mark, name, NSView()] + extras.prefix(shown).reversed() + held, inset: inset)
         let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
         row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
         return row
@@ -128,7 +114,7 @@ struct AddonRows {
     /// A mark that says the switch and the chat disagree until the chat restarts. It fits the narrowest panel, and its
     /// words are in the tooltip.
     private func waiting(_ tip: String = String(localized: "This chat follows the switch after a restart")) -> NSView {
-        let mark = NSImageView(image: .symbol("arrow.clockwise", String(localized: "After restart")))
+        let mark = NSImageView(image: .symbol("arrow.triangle.2.circlepath", String(localized: "After restart")))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
         mark.contentTintColor = .textOrange
         mark.toolTip = tip
@@ -136,8 +122,8 @@ struct AddonRows {
         return mark
     }
 
-    /// Returns the switch. While the daemon answers, the switch is held at the state asked for, dimmed, with a turning
-    /// ring beside it.
+    /// Returns the switch. While the daemon answers, the switch is held at the state asked for, dimmed, with the
+    /// system's small spinner beside it (the turning ring is an agent's mark for working).
     private func toggle(_ key: String, on: Bool, name: String) -> NSView {
         let asked = pending[key]
         let control = AddonSwitch(key: key, on: asked ?? on, changed: onSwitch)
@@ -145,9 +131,11 @@ struct AddonRows {
         control.toolTip = on ? String(localized: "On in this project") : String(localized: "Off in this project")
         guard asked != nil else { return control }
         control.isEnabled = false
-        let ring = StatusMark(size: Metrics.iconSmall)
-        ring.status = .working
-        let held = NSStackView(views: [ring, control])
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        let held = NSStackView(views: [spinner, control])
         held.spacing = Metrics.gap
         held.setContentCompressionResistancePriority(.required, for: .horizontal)
         return held
@@ -157,7 +145,7 @@ struct AddonRows {
     private func scope(_ source: Addon.Source) -> NSView {
         let mark = NSImageView(image: .symbol(source.symbol, source.words))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
-        mark.contentTintColor = .tertiaryLabelColor
+        mark.contentTintColor = .secondaryLabelColor   // the only place the row says where the item is from
         mark.toolTip = source.words
         mark.setContentCompressionResistancePriority(.required, for: .horizontal)
         return mark
@@ -334,9 +322,6 @@ final class AddonSwitch: NSSwitch {
     @objc private func flipped() { changed(key, state == .on) }
 }
 
-/// A row of the panel. Under the pointer it shows its hidden views, such as the button that opens the item's file.
+/// A row of the panel (the panel finds a group's chevron through it).
 @MainActor
-final class AddonCell: NSStackView, Hoverable {
-    var hovered: [NSView] = []
-    func setHover(_ on: Bool) { for view in hovered { view.isHidden = !on } }
-}
+final class AddonCell: NSStackView {}

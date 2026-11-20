@@ -75,7 +75,7 @@ struct RoutineFormView: View {
                 prompt: Text("The agent’s default"))
             LabeledContent(String(localized: "Prompt")) {
                 TextEditor(text: $form.routine.prompt).font(.ui(TextSize.body)).frame(height: 72)
-                    .overlay(RoundedRectangle(cornerRadius: Metrics.radiusXS).stroke(Color(nsColor: .separatorColor)))
+                    .overlay(RoundedRectangle(cornerRadius: Metrics.radiusSM).stroke(Color(nsColor: .separatorColor)))
             }
             RepeatFields(routine: $form.routine)
             Toggle(String(localized: "Missed while the Mac slept: run once it wakes"), isOn: $form.routine.onWake)
@@ -97,6 +97,7 @@ struct RepeatFields: View {
                     String(localized: "Hourly"), String(localized: "Daily"), String(localized: "Weekdays"),
                     String(localized: "Weekly")
                 ],
+                name: String(localized: "Repeat"),
                 selection: Binding {
                     every.firstIndex(of: routine.every) ?? 0
                 } set: {
