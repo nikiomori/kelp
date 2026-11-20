@@ -137,7 +137,6 @@ final class TabStrip: NSView {
         newAgent.target = self
         newAgent.action = #selector(newAgentTapped)
         newAgent.isHidden = true
-        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: newAgent)
         newAgent.onHover = { [weak self] in self?.newGroup.pointed = $0 }
         adds.setViews([newAgent, add], in: .leading)
         adds.spacing = 0
@@ -297,6 +296,8 @@ final class TabStrip: NSView {
     }
 
     override func layout() {
+        // In the strip, not the button, which cut it off.
+        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: self)
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // This runs before super.layout(), because when set after it the constant only took effect on the next pass,
         // so a tab whose title grew (a page finishing loading) stayed clipped until something else laid the strip out.

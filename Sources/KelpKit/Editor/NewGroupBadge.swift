@@ -5,34 +5,59 @@ import DesignKit
 /// (`pointed`) and ⌘ alone is held, as a ⌘-click reads it (`NSEvent.isClick(with: .command)`), because a click then
 /// starts it in a new group. Only what is under the pointer shows it, so only that one watches the keys.
 @MainActor
-final class NewGroupBadge: NSImageView {
+final class NewGroupBadge: NSView {
     /// Whether the pointer is on the button or tile the badge is on.
     var pointed = false { didSet { if pointed != oldValue { watch() } } }
     /// Told when the badge comes or goes, for a caption that says the same.
     var onShow: ((Bool) -> Void)?
     private var shown = false
     private var keys: Any?
+    /// The square in the text colour with the plus cut out of it in the window's, and a ring in the window's colour
+    /// around it that parts it from the icon (as drawn: 2 pt on a 15 pt mark). Drawn here, not by an `NSImageView`,
+    /// which sized this symbol shorter than it is and cut it (10.5 × 6.5 for an 11 × 11 mark).
+    private let mark: NSImage
+    private let ring: NSImage
+    private let ringWidth: CGFloat
 
     init(size: CGFloat) {
+        let bold = NSImage.SymbolConfiguration(pointSize: size, weight: .bold)
+        mark =
+            NSImage.symbol("plus.square.fill")
+            .withSymbolConfiguration(bold.applying(.init(paletteColors: [.windowBackgroundColor, .labelColor])))
+            ?? NSImage()
+        ring =
+            NSImage.symbol("square.fill")
+            .withSymbolConfiguration(bold.applying(.init(paletteColors: [.windowBackgroundColor]))) ?? NSImage()
+        ringWidth = size / 6
         super.init(frame: .zero)
-        image = .symbol("plus.square.fill")
-        // The square in the text colour and the plus cut out of it in the window's, as a mark on an icon.
-        symbolConfiguration = NSImage.SymbolConfiguration(pointSize: size, weight: .bold)
-            .applying(.init(paletteColors: [.windowBackgroundColor, .labelColor]))
         alphaValue = 0
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityElement(false)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: mark.size.width + 2 * ringWidth),
+            heightAnchor.constraint(equalToConstant: mark.size.height + 2 * ringWidth)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    override func draw(_ dirtyRect: NSRect) {
+        ring.draw(in: bounds)
+        mark.draw(in: bounds.insetBy(dx: ringWidth, dy: ringWidth))
+    }
+
     /// Puts the badge in `host`, its middle on the bottom trailing corner of an icon `side` wide centred on `icon`.
+    /// Called again, it pins again only if `icon` left the window and came back: a stack view takes out what it hides,
+    /// and the constraints to it go too.
     func pin(to icon: NSView, side: CGFloat, in host: NSView) {
-        host.addSubview(self)
-        NSLayoutConstraint.activate([
+        guard icon.superview != nil, pins.isEmpty || !pins.allSatisfy(\.isActive) else { return }
+        if superview !== host { host.addSubview(self) }
+        pins = [
             centerXAnchor.constraint(equalTo: icon.centerXAnchor, constant: side / 2),
             centerYAnchor.constraint(equalTo: icon.centerYAnchor, constant: side / 2)
-        ])
+        ]
+        NSLayoutConstraint.activate(pins)
     }
+    private var pins: [NSLayoutConstraint] = []
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
