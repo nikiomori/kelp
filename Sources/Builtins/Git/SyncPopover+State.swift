@@ -149,7 +149,8 @@ extension SyncPopover {
 
     private func showLists(ahead: Int, behind: Int, published: Bool) {
         let out = unsynced?.outgoing ?? [], inc = unsynced?.incoming ?? []
-        outgoing.isHidden = ahead == 0
+        // Until the commits are read (or if the read fails) there is no "and N more": nothing above it to be more than.
+        let read = unsynced != nil
         incoming.isHidden = behind == 0
 
         // The button above says what the commits are, so there is a caption only where two lists, or a first push,
@@ -159,7 +160,8 @@ extension SyncPopover {
         let mine = cut(out, of: ahead)
         outgoing.setViews(
             (named ? [caption(title, ahead)] : []) + mine.map { row($0, trailing: when($0)) }
-                + more(ahead - mine.count), in: .top)
+                + (read ? more(ahead - mine.count) : []), in: .top)
+        outgoing.isHidden = ahead == 0 || outgoing.arrangedSubviews.isEmpty
         if named, let head = outgoing.arrangedSubviews.first { outgoing.setCustomSpacing(4, after: head) }
 
         let toggle = PointerButton(title: "") { [weak self] in
@@ -175,7 +177,8 @@ extension SyncPopover {
         toggle.imagePosition = .imageLeading
         toggle.contentTintColor = .secondaryLabelColor
         let theirs = cut(inc, of: behind)
-        let rows = showIncoming ? theirs.map { row($0, trailing: $0.author) } + more(behind - theirs.count) : []
+        let rows =
+            showIncoming ? theirs.map { row($0, trailing: $0.author) } + (read ? more(behind - theirs.count) : []) : []
         incoming.setViews([toggle] + rows, in: .top)
     }
 

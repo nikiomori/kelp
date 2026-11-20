@@ -109,8 +109,9 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         empty.show(nil)
         failureBar.show(nil)
         web.isHidden = false
-        let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        links.load(MarkdownHTML.page(body: body, baseURL: nil, dark: dark), baseURL: nil, in: web)
+        // Not pinned dark: the page follows `prefers-color-scheme`, which WebKit takes from the view, so it turns with
+        // the Mac's light and dark.
+        links.load(MarkdownHTML.page(body: body, baseURL: nil, dark: false), baseURL: nil, in: web)
         showBar()
     }
 

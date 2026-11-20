@@ -108,7 +108,7 @@ extension DiffViewController {
             words = [:]
             files.reloadData()
             table.reloadData()
-            showState(error: nil, nothing: String(localized: "No agent on this screen"))
+            showState(error: nil, nothing: String(localized: "No Agent on This Screen"))
             return
         }
         if single == nil { await readTurns(sourcePicked == .turn ? agent : nil) }

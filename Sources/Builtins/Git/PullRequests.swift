@@ -61,8 +61,8 @@ enum PullRequests {
     }
 }
 
-/// "#123 Fix login · Open · checks passed": a PR in GitHub's own colours (open green, draft grey, merged purple,
-/// closed red).
+/// "#123 Fix login · Open · checks passed": a PR in `NSColor.pullRequest`'s colours (open green, merged purple, draft
+/// and closed grey), with Issues & PRs' symbols (`ForgeRows.symbol`), so a closed PR's shape tells it from a draft.
 struct PRLine: View {
     let pr: GitHub.PullRequest
     var body: some View {
@@ -74,13 +74,16 @@ struct PRLine: View {
             default: String(localized: "Open (state)", defaultValue: "Open")
             }
         let color = Color(nsColor: .pullRequest(state: pr.state, draft: pr.isDraft))
+        let symbol =
+            switch pr.isDraft ? "DRAFT" : pr.state {
+            case "MERGED": "arrow.triangle.merge"
+            case "CLOSED": "xmark.circle"
+            default: "arrow.triangle.pull"
+            }
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                SymbolIcon(
-                    pr.state == "MERGED" ? "arrow.triangle.merge" : "arrow.triangle.pull", size: Metrics.iconSmall
-                )
-                .foregroundStyle(color)
+                SymbolIcon(symbol, size: Metrics.iconSmall).foregroundStyle(color)
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
                 Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }

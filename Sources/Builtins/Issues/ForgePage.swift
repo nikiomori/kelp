@@ -90,13 +90,16 @@ enum ForgePage {
             : failed > 0
                 ? String(localized: "Checks · \(failed) failing") : String(localized: "Checks · \(checks.count)")
         let rows = checks.map { check -> String in
-            let mark =
+            // Drawn, not typed, as the review page's check: passed is grey, only a failure has a colour.
+            let (look, run, shape): (String, (String, String?), String) =
                 switch check.bucket {
-                case "pass": "<span class=\"ok\">✓</span>"   // passed is grey: only a failure has a colour
-                case "fail": "<span class=\"fail\">✕</span>"
-                case "pending": "<span class=\"wait\">◌</span>"
-                default: "<span class=\"wait\">–</span>"
+                case "pass": ("ok", ("completed", "success"), "<path d=\"M1.5 5.2 4 7.6 8.5 2.6\"/>")
+                case "fail": ("fail", ("completed", "failure"), "<path d=\"M2.5 2.5l5 5m0-5-5 5\"/>")
+                case "pending":
+                    ("wait", ("in_progress", nil), "<circle cx=\"5\" cy=\"5\" r=\"3.6\" stroke-dasharray=\"2 1.6\"/>")
+                default: ("wait", ("completed", "skipped"), "<path d=\"M2.5 5h5\"/>")
                 }
+            let mark = drawn(look, CIRunLook.words(run.0, run.1), shape)
             return "<li>\(mark) \(esc(check.name))</li>"
         }
         let none = checks.isEmpty ? "<li class=\"none\">\(esc(String(localized: "No checks reported.")))</li>" : ""
@@ -123,6 +126,13 @@ enum ForgePage {
 
     private static func esc(_ text: String) -> String { MarkdownHTML.esc(text) }
 
+    /// A check's mark as a 10 pt drawing in its class's colour, which VoiceOver reads by its words.
+    private static func drawn(_ look: String, _ words: String, _ shape: String) -> String {
+        "<svg class=\"mk \(look)\" role=\"img\" aria-label=\"\(esc(words))\" viewBox=\"0 0 10 10\" fill=\"none\" "
+            + "stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+            + "\(shape)</svg>"
+    }
+
     private static let css = """
         <style>
         .markdown-body{max-width:1080px;padding:20px 24px 48px;font-size:14px}
@@ -142,6 +152,7 @@ enum ForgePage {
         ul.side{list-style:none;padding:0;margin:0 0 18px}ul.side li{margin:0 0 3px;display:flex;gap:6px}
         .file{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .pass{color:var(--tip)}.fail{color:var(--caution)}.wait,.ok{color:var(--muted)}
+        .mk{width:10px;height:10px;flex:none;align-self:center}
         .comment{border-top:1px solid var(--border);padding:10px 0 2px}
         .comment .who{color:var(--muted);font-size:12px;margin:0 0 6px}
         </style>

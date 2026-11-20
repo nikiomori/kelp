@@ -293,7 +293,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             table.reloadData()
             source.isHidden = true
             filter.isHidden = true   // there is nothing to choose among yet
-            showEmpty(String(localized: "Select a project"))
+            showEmpty(String(localized: "Select a Project"))
             return
         }
         source.isHidden = false

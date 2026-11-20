@@ -71,15 +71,17 @@ extension TasksViewController {
         status.stringValue = ""
         // The source stays, because Linear and Jira need no remote.
         filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
+        showList(false)
+        let failed = String(localized: "Couldn’t Load the List")
         if src.needsRemote {
-            showList(false)
             setup = emptyView.showForge(
-                message, failed: String(localized: "Couldn’t load the list"), hint: src.connectHint,
-                setupButton: setupButton, checkAgain: checkAgain)
+                message, failed: failed, hint: src.connectHint, setupButton: setupButton, checkAgain: checkAgain)
         } else {
+            // Linear and Jira are only listed once connected, so a failed read is the network or the token: its own
+            // words, and Try Again.
             setup = nil
             setupButton.isHidden = true
-            showEmpty(src.connectHint ?? message, symbol: "link")
+            emptyView.showError(failed, text: message, buttons: [checkAgain])
         }
         table.reloadData()
         showDetail(nil)
@@ -99,7 +101,7 @@ extension TasksViewController {
         let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
         status.stringValue = ""
         let chosen = filter.titleOfSelectedItem ?? ""
-        let why = narrowed ? String(localized: "None in “\(chosen)”.") : src.none ?? String(localized: "Nothing here")
+        let why = narrowed ? String(localized: "Nothing in “\(chosen)”") : src.none ?? String(localized: "Nothing Here")
         showAll.isHidden = !narrowed
         setupButton.isHidden = true
         showEmpty(rows.isEmpty ? why : nil)

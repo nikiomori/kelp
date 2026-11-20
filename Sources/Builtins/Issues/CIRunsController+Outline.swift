@@ -132,7 +132,7 @@ extension CIRunsController {
     private func readingMark() -> NSView {
         let spinner = NSProgressIndicator()
         spinner.style = .spinning
-        spinner.controlSize = .small
+        spinner.controlSize = .mini   // drawn to fit the 12 pt of the step marks under it
         spinner.startAnimation(nil)
         for side in [spinner.widthAnchor, spinner.heightAnchor] { side.constraint(equalToConstant: 12).isActive = true }
         return spinner

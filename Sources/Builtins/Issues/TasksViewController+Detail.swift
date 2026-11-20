@@ -92,14 +92,14 @@ extension TasksViewController {
         Task {
             let ts = await app.quiet(JiraTransitions(key: key)) ?? []   // with none offered, the status stays as shown
             for transition in ts {
-                pop.addItem(withTitle: "→ " + transition.name)
+                pop.addItem(withTitle: transition.name)   // the row's "Status:" says what the names are
                 pop.lastItem?.representedObject = transition.id
             }
         }
-        return pickerRow(String(localized: "Status:"), pop) { [weak self, app] id in
-            Task {
+        return pickerRow(String(localized: "Status:"), pop) { [app] id in
+            Task {   // an action's result is a banner
                 if await app.call(JiraTransitionIssue(key: key, id: id)) != nil {
-                    self?.status.stringValue = String(localized: "Moved \(key)")
+                    Banner.show(String(localized: "Moved \(key)"))
                 }
             }
         }

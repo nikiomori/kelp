@@ -46,14 +46,9 @@ extension TasksViewController {
         /// What to do when the source can't be read and gh or glab has no fix to offer; nil shows the error's own
         /// words.
         var connectHint: String? {
-            switch self {
-            case .linear: String(localized: "Connect Linear in Settings › Integrations")
-            case .jira: String(localized: "Connect Jira in Settings › Integrations")
-            case .projects: String(localized: "Projects need `gh auth refresh -s read:project`")
-            case .pulls, .issues: nil
-            }
+            self == .projects ? String(localized: "Projects need `gh auth refresh -s read:project`") : nil
         }
-        /// What the list says when it's empty with no filter. Nil means "Nothing here", because no filter narrows it.
+        /// What the list says when it's empty with no filter. Nil means "Nothing Here", because no filter narrows it.
         var none: String? {
             switch self {
             case .pulls: String(localized: "No Open Pull Requests")

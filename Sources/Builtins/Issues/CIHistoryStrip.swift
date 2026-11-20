@@ -36,15 +36,22 @@ final class CIHistoryStrip: NSView {
         let tall = history == nil ? 0 : TextSize.of(Metrics.row)
         if tall != height?.constant {   // it opens, so the runs under it move down rather than jump
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = window == nil ? 0 : Motion.duration(Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                // It comes at base easing out and goes in about two thirds of that, easing in.
+                ctx.duration = window == nil ? 0 : Motion.duration(tall > 0 ? Motion.base : Motion.fast)
+                ctx.timingFunction = CAMediaTimingFunction(name: tall > 0 ? .easeOut : .easeIn)
                 ctx.allowsImplicitAnimation = true
                 height?.animator().constant = tall
                 superview?.layoutSubtreeIfNeeded()
             }
         }
         guard let history else { return }
-        marks.setViews(history.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
+        // A ⌘-click opens the run on its site, as on the run's row (decision 112).
+        let shown = history.runs.map { r in
+            HistoryMark(r) { [weak self] in
+                if NSApp.currentEvent?.isClick(with: .command) == true { Forge.open(r.url) } else { self?.onPick?(r) }
+            }
+        }
+        marks.setViews(shown, in: .leading)
         whole =
             history.lastGreen.map { green in
                 green.number.map { String(localized: "passed on #\($0)") }
@@ -98,7 +105,7 @@ private final class HistoryMark: PointerControl {
         let number = run.number.map { "#\($0) · " } ?? ""
         let said =
             number + CIRunLook.words(run.status, run.conclusion) + (run.timeWords(usual: nil).map { " · " + $0 } ?? "")
-        toolTip = said
+        toolTip = [said, CIRunLook.clickTip(run.url)].joined(separator: "\n")
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(said)
