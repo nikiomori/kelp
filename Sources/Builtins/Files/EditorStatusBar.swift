@@ -30,6 +30,10 @@ final class EditorStatusBar: NSView {
     private let problems = PointerButton()
     /// The message of the problem under the cursor.
     private let problem = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    /// Says a definition is being looked for, once the lookup has taken over a second (`whileSlow`).
+    private let finding = NSTextField.label(
+        String(localized: "Finding the definition…"), font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private var findingSince: Date?
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
     /// The Wrap chip's tooltip, with Word Wrap's key. The file's tab sets it, because the tab has the app to ask.
@@ -85,13 +89,16 @@ final class EditorStatusBar: NSView {
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
+        finding.lineBreakMode = .byTruncatingTail
+        finding.isHidden = true
         row.setViews(
-            [kind, place, problems, problem, NSView(), restricted, servers, suggestions, wrap, indentButton],
+            [kind, place, problems, problem, finding, NSView(), restricted, servers, suggestions, wrap, indentButton],
             in: .leading)
         // The buttons' words have `padding` round them for the hover fill, so the gaps and the right edge take it off:
         // a button's word stands 8 pt from a label, as labels from each other, and the last word 12 pt from the edge.
         row.spacing = Metrics.gapWide - Metrics.gap
         row.setCustomSpacing(Metrics.gapWide, after: kind)
+        row.setCustomSpacing(Metrics.gap, after: problem)   // with the row's spacing round an empty problem: 8 pt
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset - Metrics.gap)
         let line = NSBox()
         line.boxType = .separator
@@ -187,6 +194,21 @@ final class EditorStatusBar: NSView {
     }
 
     func show(problem text: String?) { problem.stringValue = text ?? "" }
+
+    /// Shows "Finding the definition…" (`whileSlow` calls it past a second).
+    func showFinding() {
+        findingSince = .now
+        finding.isHidden = false
+    }
+
+    /// The definition's lookup is over: the line goes, once it has been up `LoadingView.held`.
+    func found() async {
+        guard let since = findingSince else { return }
+        findingSince = nil
+        let left = LoadingView.held - Date.now.timeIntervalSince(since)
+        if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
+        if findingSince == nil { finding.isHidden = true }   // not when another lookup began meanwhile
+    }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""

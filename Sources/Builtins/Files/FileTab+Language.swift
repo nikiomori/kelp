@@ -67,16 +67,18 @@ extension FileTab {
     }
 
     /// Opens the definition of the symbol at the cursor as a tab (`beside`: in a split to the right), as the language
-    /// server finds it, or says there is none.
+    /// server finds it, or says there is none. A lookup over a second says so in the status bar.
     func jumpToDefinition(beside: Bool = false) {
         guard let editor, let (line, column) = editor.cursor else { return }
-        let filePath = path, projectRoot = root, app = app
+        let filePath = path, projectRoot = root, app = app, bar = statusBar
         Task {
+            let slow = whileSlow { bar?.showFinding() }
             await lspCaughtUp()
-            guard
-                let loc = await LSPManager.of(app).definition(
-                    root: projectRoot, path: filePath, line: line, column: column)
-            else {
+            let found = await LSPManager.of(app).definition(
+                root: projectRoot, path: filePath, line: line, column: column)
+            slow.cancel()
+            await bar?.found()
+            guard let loc = found else {
                 Banner.show(String(localized: "No definition found."))
                 return
             }
