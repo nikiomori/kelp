@@ -442,7 +442,7 @@ func codeOnly(_ s: String) -> String {
         "DesignKit/HoverPopover.swift": (1, "the hover delay before a popover shows"),
         "DesignKit/Latency.swift": (1, "`whileSlow`: a spinner only once a wait passes a second"),
         "DesignKit/LoadingView.swift": (
-            3, "when the loading note shows, how long it can stay, and its least time on screen"
+            4, "when the loading note (and a SwiftUI page's `LoadingPage`) shows, how long it can stay, its least time"
         ),
         "KelpKit/App/AppDelegate.swift": (
             2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
@@ -491,9 +491,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/HoverCardViews.swift": (1, "a card's shown wait stays 0.4 s, so a quick read doesn't flicker"),
         "Builtins/Files/EditorStatusBar.swift": (1, "a shown \"Finding the definition…\" stays 0.4 s"),
         "Builtins/Files/Disk/DiskFoot.swift": (1, "a measure on this Mac shows its wait only after a second"),
-        "Builtins/Files/Disk/DiskUsageTab.swift": (
-            1, "Measuring… shows only past a second: a quick measure doesn't flicker"
-        ),
+        "Builtins/Databases/DatabaseSheet.swift": (1, "a shown look for other apps' connections stays 0.4 s"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (
             1, "an extension's own refresh interval for its panel's badge command"
         ),
@@ -765,7 +763,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
-        "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
+        "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
         "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
     let all = try matches(

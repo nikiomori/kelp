@@ -4794,8 +4794,30 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "%1$lld cells · %2$@"
+            "state": "translated",
+            "value": "%#@n@ · %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg cell"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg cells"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "ru": {
@@ -5046,6 +5068,34 @@
             "state": "translated",
             "value": "Рутин: %1$lld · включено: %2$lld · неделя %3$@ – %4$@"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@ · %2$lld on · this week, %3$@ – %4$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg routine"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg routines"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -5073,8 +5123,30 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "%1$lld sessions · CPU %2$@ · %3$@"
+            "state": "translated",
+            "value": "%#@n@ · CPU %2$@ · %3$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg session"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg sessions"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "ru": {
@@ -7277,32 +7349,12 @@
         }
       }
     },
-    "Couldn’t load the list": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось загрузить список"
-          }
-        }
-      }
-    },
     "Couldn’t measure the sessions": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось измерить сессии"
-          }
-        }
-      }
-    },
-    "Couldn’t read the runs": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось прочитать запуски"
           }
         }
       }
@@ -7811,26 +7863,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подключить"
-          }
-        }
-      }
-    },
-    "Connect Jira in Settings › Integrations": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подключите Jira в Настройки › Интеграции"
-          }
-        }
-      }
-    },
-    "Connect Linear in Settings › Integrations": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подключите Linear в Настройки › Интеграции"
           }
         }
       }
@@ -10199,17 +10231,6 @@
         }
       }
     },
-    "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В боковой панели и переключателе ⌃Tab; ✓ — пока вы не откроете папку. Если выключить, Kelp перестаёт проверять CI остальных папок."
-          }
-        }
-      }
-    },
     "In the title bar, right of the search; right-click it to hide it. ⌃⌘T works either way.": {
       "extractionState": "manual",
       "localizations": {
@@ -12001,16 +12022,6 @@
         }
       }
     },
-    "No CI runs on %@ yet.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В %@ ещё нет запусков CI."
-          }
-        }
-      }
-    },
     "No Claude Code conversations in this time.": {
       "localizations": {
         "ru": {
@@ -12415,16 +12426,6 @@
         }
       }
     },
-    "No agent on this screen": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "На этом экране нет агента"
-          }
-        }
-      }
-    },
     "No agent on this screen — the element details were copied to the clipboard.": {
       "localizations": {
         "ru": {
@@ -12633,16 +12634,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет"
-          }
-        }
-      }
-    },
-    "None in “%@”.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В «%@» ничего нет."
           }
         }
       }
@@ -14803,16 +14794,6 @@
         }
       }
     },
-    "Running…": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выполняется…"
-          }
-        }
-      }
-    },
     "Runs in a group of its own, made at its first run": {
       "localizations": {
         "ru": {
@@ -15021,26 +15002,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать панель"
-          }
-        }
-      }
-    },
-    "Select a project": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выберите проект"
-          }
-        }
-      }
-    },
-    "Select a chat": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выберите чат"
           }
         }
       }
@@ -31359,16 +31320,6 @@
         }
       }
     },
-    "Extensions people shared, each reviewed before it’s added. Or any repository: kelp ext install owner/repo": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Расширения, которыми поделились, каждое проверено перед добавлением. Или любой репозиторий: kelp ext install owner/repo"
-          }
-        }
-      }
-    },
     "It asks you on its page: %@": {
       "localizations": {
         "ru": {
@@ -33456,6 +33407,24 @@
             "state": "translated",
             "value": "Изменений: %lld"
           }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Change"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Changes"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -33515,6 +33484,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Шагов: %1$lld · %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@ · %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg step"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg steps"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -35479,16 +35476,6 @@
         }
       }
     },
-    "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Кольцо, пока идёт, красная точка — если упал, ◎ — пока деплой ждёт подтверждения, ✓ — минуту после успеха."
-          }
-        }
-      }
-    },
     "Kelp’s virtual machines: what runs in each, its ports and folders.": {
       "localizations": {
         "ru": {
@@ -36135,6 +36122,396 @@
           "stringUnit": {
             "state": "translated",
             "value": "В этой папке"
+          }
+        }
+      }
+    },
+    "Select a Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите чат"
+          }
+        }
+      }
+    },
+    "Couldn’t Load the List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить список"
+          }
+        }
+      }
+    },
+    "Nothing in “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» ничего нет"
+          }
+        }
+      }
+    },
+    "Select a Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите проект"
+          }
+        }
+      }
+    },
+    "No runs on %@ yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На %@ запусков пока нет."
+          }
+        }
+      }
+    },
+    "Couldn’t Read the Runs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать запуски"
+          }
+        }
+      }
+    },
+    "No Agent on This Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране нет агента"
+          }
+        }
+      }
+    },
+    "Extensions people shared, each reviewed before it’s added. Or any repository: `kelp ext install owner/repo`": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расширения, которыми поделились, каждое проверено перед добавлением. Или любой репозиторий: `kelp ext install owner/repo`"
+          }
+        }
+      }
+    },
+    "A ring while it runs, a red dot when it fails, an orange ring while a deploy waits for approval, a grey check for a minute after it passes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольцо, пока идёт, красная точка — если упал, оранжевое кольцо — пока деплой ждёт подтверждения, серая галочка — минуту после успеха."
+          }
+        }
+      }
+    },
+    "In the sidebar and the ⌃Tab switcher; a grey check until you open the folder. Off also stops checking CI for the others.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В боковой панели и переключателе ⌃Tab; серая галочка — пока вы не откроете папку. Если выключить, Kelp перестаёт проверять CI остальных папок."
+          }
+        }
+      }
+    },
+    "No CI Runs Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запусков CI пока нет"
+          }
+        }
+      }
+    },
+    "Missing “%@” at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет «%1$@» в %2$@"
+          }
+        }
+      }
+    },
+    "Wrong type at %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный тип в %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Invalid JSON: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка в JSON: %@"
+          }
+        }
+      }
+    },
+    "Reading the machines…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю машины…"
+          }
+        }
+      }
+    },
+    "Endpoint: your Appwrite’s address. Project ID: the project’s Settings. API key: Overview › API keys, with databases.read, tables.read, rows.read and rows.write. No SQL there: Kelp turns its pages, filters and edits into Appwrite’s queries.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endpoint: адрес вашего Appwrite. Project ID: в настройках проекта. API key: Overview › API keys, с правами databases.read, tables.read, rows.read и rows.write. SQL там нет: Kelp сам превращает страницы, фильтры и правки в запросы Appwrite."
+          }
+        }
+      }
+    },
+    "Project Settings › Database › Connection string (or the pooler’s, port 6543).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Project Settings › Database › Connection string (или строка пулера, порт 6543)."
+          }
+        }
+      }
+    },
+    "The project’s Dashboard › Connection Details: paste the whole postgres:// line.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dashboard проекта › Connection Details: вставьте всю строку postgres://."
+          }
+        }
+      }
+    },
+    "Connect › General connection string.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect › General connection string."
+          }
+        }
+      }
+    },
+    "The cluster’s Endpoint, without its :5439/db tail.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endpoint кластера, без хвоста :5439/db."
+          }
+        }
+      }
+    },
+    "The service’s Connection info.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection info сервиса."
+          }
+        }
+      }
+    },
+    "Connect › General: host, user and password of a branch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect › General: хост, пользователь и пароль ветки."
+          }
+        }
+      }
+    },
+    "A local Turso/libSQL database file: Kelp opens it as SQLite.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный файл базы Turso/libSQL: Kelp открывает его как SQLite."
+          }
+        }
+      }
+    },
+    "Couldn’t Read the History": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать историю"
+          }
+        }
+      }
+    },
+    "Reading the routines…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю рутины…"
+          }
+        }
+      }
+    },
+    "Open Page in Browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть страницу в браузере"
+          }
+        }
+      }
+    },
+    "Copy Page Address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать адрес страницы"
+          }
+        }
+      }
+    },
+    "Stop Forwarding Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить проброс страницы"
+          }
+        }
+      }
+    },
+    "Stop Page’s Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить сервер страницы"
+          }
+        }
+      }
+    },
+    "Searching the project…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ищу по проекту…"
+          }
+        }
+      }
+    },
+    "Running all cells…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняю все ячейки…"
+          }
+        }
+      }
+    },
+    "No Files Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлов пока нет"
+          }
+        }
+      }
+    },
+    "Artifact: Present": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: показать"
+          }
+        }
+      }
+    },
+    "Artifact: Older Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: версия старше"
+          }
+        }
+      }
+    },
+    "Artifact: Newer Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: версия новее"
+          }
+        }
+      }
+    },
+    "Artifact: Show Latest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: последняя версия"
+          }
+        }
+      }
+    },
+    "Artifact: Restore": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: вернуть эту версию"
+          }
+        }
+      }
+    },
+    "Artifact: Update": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: обновить данные"
+          }
+        }
+      }
+    },
+    "Disk Usage: Measure Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место на диске: измерить снова"
           }
         }
       }
