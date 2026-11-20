@@ -107,6 +107,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let on = listed != nil
         grid.row(at: 1).isHidden = !on
         scroll.isHidden = !on
+        SheetForm.fit(window)   // the folder and its list come and go smoothly
         openWidth.isActive = on
         go.title =
             !on

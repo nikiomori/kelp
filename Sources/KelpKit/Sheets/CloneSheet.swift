@@ -75,6 +75,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         buttons.spacing = Metrics.gapWide
         window?.contentView = SheetForm.stack(
             [title, grid, bar, status, buttons], wide: [bar, status, buttons], width: Metrics.sheetWidth)
+        SheetForm.fit(window)
         window?.initialFirstResponder = field
     }
 
@@ -140,6 +141,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         choose.isEnabled = !on
         go.isEnabled = !on
         bar.isHidden = !on
+        SheetForm.fit(window)   // the bar comes and goes smoothly
         if on {
             bar.isIndeterminate = true
             bar.startAnimation(nil)

@@ -39,4 +39,23 @@ public enum SheetForm {
         }
         return stack
     }
+
+    /// Sizes a sheet to its `stack` after parts show or hide. It grows or shrinks smoothly from its top edge, which
+    /// hangs from the window's title bar: at once before it shows and under Reduce Motion. Call it once the stack is
+    /// the sheet's content, and after each change.
+    public static func fit(_ window: NSWindow?) {
+        guard let window, let stack = window.contentView as? NSStackView else { return }
+        // Below the window's own priority, so new parts don't snap the sheet taller: the frame below grows it.
+        stack.setClippingResistancePriority(.windowSizeStayPut - 10, for: .vertical)
+        let width = window.contentRect(forFrameRect: window.frame).width
+        var frame = window.frameRect(
+            forContentRect: NSRect(x: 0, y: 0, width: width, height: stack.fittingSize.height))
+        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+        guard frame != window.frame else { return }
+        guard window.isVisible else { return window.setFrame(frame, display: true) }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.base)
+            window.animator().setFrame(frame, display: true)
+        }
+    }
 }

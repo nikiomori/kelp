@@ -29,10 +29,14 @@ class SheetController: NSWindowController {
     /// Shows `text` on the status line (red for an `error`), or hides the line for nil. What the sheet is doing keeps
     /// to one line, so a long progress line doesn't make the sheet hop; an error wraps, to be read whole.
     func say(_ text: String?, error: Bool = false) {
+        // A progress line in the line's place leaves the sheet's height as it is, so it isn't measured again.
+        let resizes = error || status.isHidden != (text == nil) || status.maximumNumberOfLines != 1
         status.maximumNumberOfLines = error ? 0 : 1
+        status.lineBreakMode = error ? .byWordWrapping : .byTruncatingTail
         status.isHidden = text == nil
         status.stringValue = text ?? ""
         status.textColor = error ? .textRed : .secondaryLabelColor
+        if resizes { SheetForm.fit(window) }
     }
 
     override func close() { if let window { window.sheetParent?.endSheet(window) } }
