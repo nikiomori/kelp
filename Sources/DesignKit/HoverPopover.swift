@@ -19,10 +19,12 @@ public final class HoverPopover {
 
     public var isShown: Bool { popover.isShown }
 
-    /// Runs `show` after the wait, in a task that a later `open`, `closeSoon`, `cancel` or `close` cancels.
-    public func open(_ show: @escaping @MainActor () async -> Void) {
+    /// Runs `show` after the wait, in a task that a later `open`, `closeSoon`, `cancel` or `close` cancels. With
+    /// `patientWhileShown`, a card already up waits the whole `hoverOpen` before it moves to another item, so a pointer
+    /// on its way to the card's buttons can cross other rows.
+    public func open(patientWhileShown: Bool = false, _ show: @escaping @MainActor () async -> Void) {
         let warm = popover.isShown || Date() < warmUntil
-        after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen, show)
+        after(warm && !(patientWhileShown && popover.isShown) ? Motion.hoverOpenWarm : Motion.hoverOpen, show)
     }
 
     /// Called when the pointer left. The card goes in a moment, or with `unlessInside`, as `closeUnlessInside` says.

@@ -132,6 +132,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             return NSImage(data: data)
         }
         commitCard.onAction = { [weak self] in self?.cardAction($0, $1) }
+        commitCard.menu = { [weak self] commit in
+            let menu = NSMenu()
+            self?.addCommitItems(commit, to: menu)
+            return menu
+        }
         return commitCard
     }()
     var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])

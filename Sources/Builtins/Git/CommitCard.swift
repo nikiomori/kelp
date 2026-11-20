@@ -16,15 +16,17 @@ final class CommitCard {
     var load: (@MainActor (String) async -> CommitDetails?)?
     /// Loads the author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
-    /// What a button or a file in the card asks for. The card goes first, except for the menu, which it holds.
+    /// What a button in the card asks for. The card goes first, except for the menu, which it holds.
     var onAction: (@MainActor (GraphCommit, CommitCardView.Action) -> Void)?
+    /// The commit's menu, which a right-click anywhere on the card opens (Copy Message among it).
+    var menu: (@MainActor (GraphCommit) -> NSMenu)?
 
     init() {
         card.onClose = { [weak self] in self?.shown = nil }
     }
 
-    /// Called when the pointer came onto or left a commit's row. A card already up follows the pointer to the next row
-    /// at once.
+    /// Called when the pointer came onto or left a commit's row. A card already up moves to another row only once the
+    /// pointer rests there: the card is taller than a row, and the way to its buttons crosses other rows.
     func hover(_ on: Bool, commit graphCommit: GraphCommit, pushed: Bool?, over row: NSView) {
         guard on else {
             card.closeSoon(unlessInside: true)   // on the way to the card, or in it: it stays
@@ -35,7 +37,7 @@ final class CommitCard {
             return
         }
         let loading = Task { await detailsOf(graphCommit.hash) }
-        card.open { [weak self] in
+        card.open(patientWhileShown: true) { [weak self] in
             let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
             self.show(graphCommit, details: loaded, pushed: pushed, over: row)
@@ -64,6 +66,7 @@ final class CommitCard {
             if case .menu = action {} else { self?.close() }
             self?.onAction?(commit, action)
         }
+        view.menu = menu?(commit)
         let vc = NSViewController()
         vc.view = view
         vc.preferredContentSize = view.fittingSize
@@ -172,6 +175,11 @@ final class CommitCardView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         area = retracked(area, .activeAlways)
+    }
+    /// The card's words are plain labels: a click on them is the card's, so a right-click there opens its menu.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit is NSTextField ? self : hit
     }
     override func mouseEntered(with event: NSEvent) { onInside?(true) }
     override func mouseExited(with event: NSEvent) { onInside?(false) }
@@ -303,7 +311,9 @@ final class CommitCardView: NSView {
         let field = NSTextField(wrappingLabelWithString: string)
         field.font = font
         field.textColor = color
-        field.isSelectable = true   // a part of the message can be selected and copied
+        // Not selectable: a click in its words would make the card key, and it closes when the main window resigns.
+        // The card's right-click and ⋯ copy the message instead.
+        field.isSelectable = false
         field.maximumNumberOfLines = lines
         field.cell?.truncatesLastVisibleLine = true
         field.preferredMaxLayoutWidth = width - 2 * Metrics.inset
