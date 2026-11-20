@@ -89,12 +89,19 @@ extension FilesPanel {
         guard !query.isEmpty else { return }
         let options = searchOptions
         searching?.cancel()   // the daemon also stops the old rg when the next search starts (`replaces`)
+        // Rows to come, past a second, where nothing shows yet. Lines already shown stay as they are meanwhile.
+        let waits = results.matches.isEmpty
+        if waits { loading.wait(String(localized: "Searching the project…")) }
         searching = Task {
             let found = await app.tryCall(
                 FilesSearch(
                     id: current.id, query: query, regex: options.regex, case: options.matchCase,
                     word: options.wholeWord,
                     replaces: true))
+            if waits, !Task.isCancelled {   // a newer search has its own wait
+                await loading.settled()
+                loading.show(nil)
+            }
             // Drops the result when a newer search, new options or another workspace came in meanwhile.
             guard !Task.isCancelled, worktree?.id == current.id, searchOptions == options,
                 search.stringValue.trimmingCharacters(in: .whitespaces) == query
@@ -166,7 +173,7 @@ extension FilesPanel {
     }
 
     /// A button that clears the search and goes back to the tree.
-    private func clearButton() -> NSButton {
+    func clearButton() -> NSButton {
         ClosureButton(title: String(localized: "Clear Search")) { [weak self] in
             guard let self else { return }
             search.stringValue = ""

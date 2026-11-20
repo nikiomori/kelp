@@ -22,6 +22,27 @@ extension Builtins {
         return tab
     }
 
+    /// A command for a button on the bar over the agent's page in front (`ArtifactBar.button(for:)`), enabled while
+    /// the button shows there and can be pressed; elsewhere it beeps.
+    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String) -> CommandSpec {
+        let button: @MainActor () -> NSControl? = {
+            (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar?.button(for: id)
+        }
+        return CommandSpec(
+            id: id, title: title, enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
+        ) { _ in
+            guard let control = button(), !control.isHiddenOrHasHiddenAncestor, control.isEnabled else {
+                return NSSound.beep()
+            }
+            control.sendAction(control.action, to: control.target)
+        }
+    }
+
+    /// The project whose Disk Usage tab is in front.
+    fileprivate static func diskShown(_ app: AppModel) -> String? {
+        app.workbench.focusedContent.flatMap { TabURI.scheme($0.uri) == "disk" ? TabURI.body($0.uri) : nil }
+    }
+
     package static let files = Builtin(
         "kelp.files", "Files & Editor", "File tree, search and the code editor (tree-sitter, LSP).",
         icon: "doc.text", essential: true
@@ -44,6 +65,20 @@ extension Builtins {
                 cmd("files.new", "New File", "opt+cmd+n") { app.workbench.open(UntitledTab.next(app)) },
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
                     markdown(app)?.cycleMode()
+                },
+                // What the bar over an agent's page does, as its buttons do.
+                artifactCommand(app, "artifact.present", "Artifact: Present"),
+                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version"),
+                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version"),
+                artifactCommand(app, "artifact.showLatest", "Artifact: Show Latest"),
+                artifactCommand(app, "artifact.restore", "Artifact: Restore"),
+                artifactCommand(app, "artifact.update", "Artifact: Update"),
+                CommandSpec(
+                    id: "disk.measureAgain", title: "Disk Usage: Measure Again",
+                    enabled: { diskShown(app).map { !disk.measuring.contains($0) } ?? false }
+                ) { _ in
+                    guard let repoId = diskShown(app) else { return NSSound.beep() }
+                    disk.measure(repoId, app: app, again: true)
                 },
                 // The formatting bar's commands, with GitHub's keys. They are enabled only in a Markdown file's editor.
                 cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },

@@ -16,6 +16,8 @@ enum CanvasChrome {
     enum Glyph: String {
         case xmark = "M3.5 3.5l5 5M8.5 3.5l-5 5", minus = "M2.5 6h7", plus = "M2.5 6h7M6 2.5v7"
         case back = "M7.5 2.5 4 6l3.5 3.5", forward = "M4.5 2.5 8 6l-3.5 3.5", up = "M6 9.5v-7M3 5.5l3-3 3 3"
+        /// `exclamationmark.triangle`: what the check found wrong.
+        case warning = "M6 1.6 10.9 10.2H1.1ZM6 4.9v2.3M6 8.7v.01"
         /// The SVG as a JS string, for a button's `innerHTML`.
         var js: String {
             MarkdownTab.js(
@@ -140,8 +142,16 @@ enum CanvasChrome {
         .kelp-issues { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 9; }
         .kelp-fault { position: absolute; width: 16px; height: 16px; border-radius: 4px; background: var(--k-card);
           color: var(--k-text-orange); box-shadow: 0 0 0 1px var(--k-orange);
-          font: 700 10px/16px -apple-system, sans-serif;
-          text-align: center; pointer-events: auto; cursor: default; }
+          display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: default; }
         .kelp-present .kelp-col, .kelp-present .kelp-float, .kelp-present .kelp-issues { display: none !important; }
+        .kelp-ib, .kelp-pill, .kelp-prominent, .kelp-seg button, .kelp-chip, .kelp-toc {
+          transition: background .12s ease-out, filter .12s ease-out; }
+        .kelp-seg button:not(.on):hover { background: var(--k-hover); }
+        .kelp-prominent:hover { filter: brightness(1.08); }
+        .kelp-ib:active, .kelp-pill:active, .kelp-seg button:not(.on):active, .kelp-toc:active {
+          background: var(--k-sel); transition: none; }
+        .kelp-prominent:active { filter: brightness(.88); transition: none; }
+        @media (prefers-reduced-motion: reduce) {
+          .kelp-ib, .kelp-pill, .kelp-prominent, .kelp-seg button, .kelp-chip, .kelp-toc { transition: none; } }
         """
 }

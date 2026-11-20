@@ -71,6 +71,7 @@ extension FilesPanel {
         listing += 1   // a listing still being worked out was for the old tree
         narrowing?.cancel()
         guard let filter = nameFilter else {
+            sayNoMatches(false)
             return show(FileNode.tree(paths, ignored: ignored ?? []), base: (paths, ignored ?? []))
         }
         let known = lowered.of == paths ? lowered.paths : nil, changed = Set(status.keys), ticket = listing
@@ -82,7 +83,18 @@ extension FilesPanel {
             guard !Task.isCancelled, ticket == listing else { return }   // a newer key or listing came in
             lowered = (paths, low)
             show(FileNode.tree(kept), base: nil)
+            sayNoMatches(kept.isEmpty)
         }
+    }
+
+    /// Says, over the emptied tree, that no name matched, as a search of contents does (only while names are searched,
+    /// because a contents search says it itself).
+    func sayNoMatches(_ none: Bool) {
+        guard byName else { return }
+        let query = search.stringValue.trimmingCharacters(in: .whitespaces)
+        noResults.show(
+            none ? String(localized: "No Matches for “\(query)”") : nil, symbol: "magnifyingglass",
+            buttons: [clearButton()])
     }
 
     private func show(_ tree: [FileNode], base: (paths: [String], ignored: [String])?) {
@@ -90,6 +102,12 @@ extension FilesPanel {
         treeBase = base
         outline.reloadData()
         if isNarrowed { outline.expandItem(nil, expandChildren: true) }
+    }
+
+    /// An empty folder says so where the tree would be, with the way to start one.
+    func showNoFiles() {
+        let add = ClosureButton(title: String(localized: "New File")) { [weak self] in self?.newFile() }
+        loadError.show(String(localized: "No Files Yet"), symbol: "folder", buttons: [add])
     }
 
     var firstFileRow: Int? {

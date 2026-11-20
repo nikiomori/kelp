@@ -23,7 +23,7 @@ struct SuggestionsCard: View {
             if listing {
                 title(String(localized: "Code Suggestions"))
                 SuggestionsList(suggestions: suggestions, size: TextSize.row)
-                buttons(String(localized: "Done")) { listing = false }
+                buttons(String(localized: "Done")) { show(list: false) }
             } else if let pull = suggestions.pull {
                 pullCard(pull)
             } else if let setup = suggestions.needsOllama {
@@ -62,7 +62,6 @@ struct SuggestionsCard: View {
         .font(.ui(TextSize.row))
         .frame(width: Metrics.popoverWidth, alignment: .leading)   // the text column, as HelpMark's
         .padding(Metrics.inset)
-        .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: listing)   // the list dissolves in and out
         .task { await suggestions.refresh() }
     }
 
@@ -119,7 +118,12 @@ struct SuggestionsCard: View {
 
     /// Every model to pick from, the cloud's too.
     private func otherModels() -> some View {
-        Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(BarButtonStyle())
+        Button(String(localized: "Other Models…")) { show(list: true) }.buttonStyle(BarButtonStyle())
+    }
+
+    /// The list and the card dissolve into each other, in place.
+    private func show(list: Bool) {
+        withAnimation(.easeOut(duration: Motion.duration(Motion.fast))) { listing = list }
     }
 
     @ViewBuilder private func cloudCard(_ cloud: SuggestCloud, named: String) -> some View {

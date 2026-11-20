@@ -55,7 +55,7 @@ struct DiskUsageView: View {
                     Button(String(localized: "Try Again")) { sizes.measure(repoId, app: app, again: true) }
                 }
             } else {
-                MeasuringLine(text: String(localized: "Measuring \(repo?.name ?? "")…"))
+                LoadingPage(String(localized: "Measuring \(repo?.name ?? "")…"))
             }
         }
         .task(id: repoId) { sizes.measure(repoId, app: app) }
@@ -132,7 +132,9 @@ struct DiskList: View {
                                 Text(DiskNames.size(these.bytes)).monospacedDigit()
                             }
                             .font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
-                            .padding(.horizontal, Metrics.inset).frame(height: TextSize.of(Metrics.rowSection))
+                            // As `SectionHeading`: on the row's bottom, 4 pt over it, its words at the rows' 12.
+                            .padding(.horizontal, Metrics.gap).padding(.bottom, 4)
+                            .frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom)
                             ForEach(these, id: \.path) {
                                 DiskRow(item: $0, root: root, local: host == nil, chosen: $chosen)
                             }
@@ -215,21 +217,5 @@ struct DiskRow: View {
         .contentShape(Rectangle())
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)   // the fill and the button
         .onHover { hovering = $0 }
-    }
-}
-
-/// What the tab shows until the first measure is in: nothing for a second, then a spinner and its line, as
-/// `LoadingView.wait` does (the latency rule).
-private struct MeasuringLine: View {
-    let text: String
-    @State private var slow = false
-
-    var body: some View {
-        LoadingLine(text).opacity(slow ? 1 : 0)
-            .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
-            .task {
-                do { try await Task.sleep(for: .seconds(LoadingView.patience)) } catch { return }
-                withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { slow = true }
-            }
     }
 }

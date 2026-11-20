@@ -55,7 +55,9 @@ struct ArtifactCells {
         let row = ArtifactCell(views: [icon, text, NSView()] + end(item))
         row.spacing = Metrics.gap   // icon to its name
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        icon.widthAnchor.constraint(equalToConstant: Metrics.iconPoint + 2).isActive = true
+        // As wide as the widest kind's symbol (chart.bar, 20 pt at 13), so each draws whole at its size, centred.
+        icon.imageScaling = .scaleNone
+        icon.widthAnchor.constraint(equalToConstant: 20).isActive = true
         row.onHover = { [weak panel, weak row] on in
             guard let panel, let row else { return }
             panel.hover(on ? item : nil, over: row)
@@ -94,6 +96,7 @@ final class ArtifactCell: NSStackView, Hoverable {
     var onHover: (Bool) -> Void = { _ in }
     func setHover(_ on: Bool) {
         if let out = arrangedSubviews.last as? NSImageView, arrangedSubviews.count > 1 {
+            if out.isHidden == on, window != nil { crossfade() }   // the time and ↗ fade into each other, as Stop does
             out.isHidden = !on
             arrangedSubviews[arrangedSubviews.count - 2].isHidden = on
         }

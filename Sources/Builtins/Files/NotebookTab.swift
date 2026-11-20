@@ -20,6 +20,9 @@ final class NotebookTab: NSViewController {
     private let empty = EmptyStateView()
     /// Says the notebook is being read, once that has taken a second.
     private let loading = LoadingView()
+    /// The agents' working ring while Run All runs: work that goes on by itself, maybe for hours.
+    private let ring = StatusMark(size: 12)
+    private lazy var run = TextButton(String(localized: "Run All"), target: self, action: #selector(runAll))
 
     init(app: AppModel, url: URL, path: String, worktreeId: String?) {
         links = PreviewLinks(app: app)
@@ -37,10 +40,10 @@ final class NotebookTab: NSViewController {
         // Worded buttons carry no symbol (the design's rule for buttons with words).
         let bar = Bar.content(
             [
-                TextButton(String(localized: "Run All"), target: self, action: #selector(runAll)),
+                run,
                 TextButton(String(localized: "Open Kernel"), target: self, action: #selector(openKernel)),
                 TextButton(String(localized: "Ask Agent"), target: self, action: #selector(askAgent))
-            ], [status], stretching: status)
+            ], [status, ring], stretching: status)
         web.navigationDelegate = links
         view = stacked(bar, web)
         empty.place(in: view, under: bar)
@@ -102,7 +105,9 @@ final class NotebookTab: NSViewController {
 
     @objc private func runAll() {
         guard let jupyter = Self.jupyter() else { return Self.noJupyter() }
-        status.say(String(localized: "Running…"))
+        status.say(String(localized: "Running all cells…"))
+        ring.status = .working
+        run.isEnabled = false   // a second run would execute the same file over the first
         let file = url
         Task {
             // A notebook may compute for hours, so the timeout only catches one that never ends.
@@ -110,6 +115,8 @@ final class NotebookTab: NSViewController {
                 app, [jupyter, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
                 cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
             let msg = result.stderr.split(separator: "\n").last.map(String.init) ?? ""
+            ring.status = nil
+            run.isEnabled = true
             // What was asked failed: a banner with the error's mark, not a grey line in the bar.
             status.say(result.code == 0 ? String(localized: "Ran all cells") : "")
             if result.code != 0 { Banner.show(String(localized: "Couldn’t run the notebook: \(msg)"), style: .error) }

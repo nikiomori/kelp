@@ -270,14 +270,17 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             }
         }
         loading.show(nil)
-        showLoadError(event.error)
+        // An empty folder says so in the error's place, without going and coming back on every listing.
+        if event.error == nil, event.paths?.isEmpty == true { showNoFiles() } else { showLoadError(event.error) }
         guard let paths = event.paths else { return nil }
         let ignored = event.ignored ?? []
         let same = isNarrowed && shownPaths.map { $0 == paths && $1 == event.ignored } == true
         shownPaths = (paths, event.ignored)
         listing += 1
         guard !isNarrowed else {
-            if !same { showTree(treeShown(paths, ignored: ignored), base: nil) }   // a few thousand rows at most
+            guard !same else { return nil }
+            showTree(treeShown(paths, ignored: ignored), base: nil)   // a few thousand rows at most
+            sayNoMatches(nodes.isEmpty)
             return nil
         }
         let ticket = listing, was = treeBase, opened = opened

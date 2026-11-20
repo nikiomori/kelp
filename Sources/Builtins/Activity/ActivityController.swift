@@ -142,6 +142,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let icon = NSImageView(
             image: (session.isTerminal ? NSImage.symbol("terminal") : app.catalog.icon(session.agent))
                 ?? NSImage())
+        if session.isTerminal { icon.symbolConfiguration = .chrome() }   // the symbols' one weight, beside the logos
         let name = NSTextField(
             labelWithString: session.isTerminal
                 ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)

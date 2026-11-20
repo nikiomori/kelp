@@ -27,15 +27,15 @@ final class ArtifactBar: NSObject {
     let status = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
     /// The agents' working ring while its agent writes the page (still under Reduce Motion).
     private let ring = StatusMark(size: 12)
-    private lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
+    lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
     }
-    private lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
+    lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
         [weak self] in self?.step(1)
     }
     let count = TextButton("")   // "2 of 5", a button on the bar's plate as its neighbours
-    private let latest = TextButton(String(localized: "Show Latest"))
-    private let restore = TextButton(String(localized: "Restore"))
+    let latest = TextButton(String(localized: "Show Latest"))
+    let restore = TextButton(String(localized: "Restore"))
     private let author = TextButton("")
     /// On a canvas, the result of Kelp's check of the drawn boards: what it found wrong (`CanvasScript`).
     private let check = TextButton("")
@@ -49,12 +49,12 @@ final class ArtifactBar: NSObject {
         labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
         name: String(localized: "Mode"))
     /// The Present button. It shows a canvas's boards one at a time, each as large as the pane, like slides in a deck.
-    private let present = TextButton(String(localized: "Present"))
+    let present = TextButton(String(localized: "Present"))
     /// The button that counts the changes the agent's last turn made to a doc. A click goes to the next change.
     private let changes = TextButton("")
     /// On a dashboard, the time its figures were drawn, and an Update button that asks the agent to run them again.
     private let fresh = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
-    private let refresh = TextButton(String(localized: "Update"))
+    let refresh = TextButton(String(localized: "Update"))
     /// The kept version a doc's changes are counted from.
     var baselineN: Int?
     private var issues: [String] = []
@@ -129,7 +129,9 @@ final class ArtifactBar: NSObject {
             stretching: status
         )
         // In a narrow pane Present goes into ⋯ first, then the check's result, as Xcode's narrow bars do. The words
-        // are cut before either goes; `showMore` lists what is out.
+        // are cut before either goes; `showMore` lists what is out. A stack detaches only when its clipping resistance
+        // is below its views' (required, by default, squeezes them instead); the words' 250 stays under it.
+        bar.stack.setClippingResistancePriority(.defaultHigh - 1, for: .horizontal)
         bar.stack.setVisibilityPriority(.init(rawValue: 300), for: present)
         bar.stack.setVisibilityPriority(.init(rawValue: 400), for: check)
         return bar
