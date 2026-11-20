@@ -18,8 +18,7 @@ extension GhosttyTerminalView {
             if !ghosttyLink.isEmpty {
                 shown = ghosttyLink
             } else if bounds.contains(point), let hit = word(at: point) {
-                // The app looks for files: once a word.
-                if lastWord?.texts != hit.texts { lastWord = (hit.texts, onPathAt?(hit.texts)) }
+                if lastWord?.texts != hit.texts { lookUp(hit.texts) }
                 shown = lastWord?.path ?? ""
                 under = NSRect(x: hit.rect.minX, y: hit.rect.minY + 1, width: hit.rect.width, height: 1)
             }
@@ -41,6 +40,17 @@ extension GhosttyTerminalView {
         guard shown != shownLink else { return }
         shownLink = shown
         onLinkHover?(shown)
+    }
+    /// Asks the app once a word for its path, which may take a while (it stats files): the pill and underline show when
+    /// the answer comes, if ⌘ is still held over that word. `refreshLink` then runs in its own task, not inside a
+    /// Ghostty callback.
+    private func lookUp(_ texts: [String]) {
+        lastWord = (texts, nil)
+        Task { @MainActor [weak self] in
+            guard let path = await self?.onPathAt?(texts), let self, lastWord?.texts == texts else { return }
+            lastWord = (texts, path)   // not after the pointer moved on or ⌘ was let go (that clears lastWord)
+            refreshLink()
+        }
     }
     /// A click does what the pill said, so it goes until the pointer moves again: what opens may take the focus, and
     /// ⌘'s release would go to another view.

@@ -141,7 +141,11 @@ final class PaneView: NSView {
         terminal.onOpenPath = { token, flags in
             TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), workspace: wid, flags: flags, in: app)
         }
-        terminal.onPathAt = { TerminalPaths.shown($0, cwd: cwd(), elsewhere: projects()) }
+        terminal.onPathAt = { tokens in
+            let dir = cwd(), roots = projects()
+            // The lookup stats files in every project: off the main thread, so a slow volume doesn't stall the window.
+            return await Task.detached { TerminalPaths.shown(tokens, cwd: dir, elsewhere: roots) }.value
+        }
         terminal.onLinkHover = { [weak self] in self?.linkPill.show($0) }
         terminal.onHoverWord = { [weak self, weak terminal] tokens, rect in
             guard let self, let terminal else { return }

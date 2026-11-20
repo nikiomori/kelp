@@ -33,7 +33,8 @@ enum TerminalPaths {
 
     /// What ⌘-click opens of `tokens` (the readings of a word in the terminal), as the pill under ⌘ shows it: the file
     /// and its line. Nil when none is a file here; a remote project's path isn't looked up on its host for this.
-    static func shown(_ tokens: [String], cwd: String, elsewhere: [String] = []) -> String? {
+    /// It stats files, so it may run off the main thread.
+    nonisolated static func shown(_ tokens: [String], cwd: String, elsewhere: [String] = []) -> String? {
         guard let found = tokens.lazy.compactMap({ resolve($0, cwd: cwd, elsewhere: elsewhere) }).first else {
             return nil
         }

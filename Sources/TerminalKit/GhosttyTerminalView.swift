@@ -20,7 +20,8 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     /// opens that Ghostty doesn't see as a link (`onPathAt`). Called when it changes.
     public var onLinkHover: ((String) -> Void)?
     /// The path ⌘-click opens of a word under the pointer (`word(at:)`'s readings), as it's shown; nil for none.
-    public var onPathAt: (([String]) -> String?)?
+    /// Async, so the app can stat files off the main thread; asked once a word.
+    public var onPathAt: (@MainActor ([String]) async -> String?)?
     var ghosttyLink = "", shownLink = "", overPath = false   // GhosttyTerminalView+Link
     var lastWord: (texts: [String], path: String?)?
     let underline = NSView()   // under such a path: Ghostty underlines only the links it found itself
