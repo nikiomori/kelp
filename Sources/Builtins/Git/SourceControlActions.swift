@@ -340,29 +340,7 @@ extension SourceControlController {
                 if index == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
                 menu.add(act.title) { act.run() }
             }
-        case .commit(let index):
-            let commit = commits[index]
-            let wid = worktreeId
-            menu.add(String(localized: "Open in Browser")) {
-                Task {
-                    guard let found = await app.call(GitWebPages(worktreeId: wid)),
-                        let url = (found?.commitURL(commit.hash)).flatMap(URL.init)
-                    else { return }
-                    PreviewLinks.openOutside(url)
-                }
-            }
-            menu.add(String(localized: "Send to Agent")) {
-                FileActions(app).sendToAgent(text: "commit \(commit.hash.prefix(10)) (\(commit.subject))")
-            }
-            menu.addItem(.separator())
-            let copies = NSMenu()
-            copies.add(String(localized: "Hash")) {
-                copyText(commit.hash)
-            }
-            copies.add(String(localized: "Message")) {
-                copyText(commit.subject)
-            }
-            menu.add(String(localized: "Copy"), submenu: copies)
+        case .commit(let index): addCommitItems(commits[index], to: menu)
         case .commitFile(let hash, let fileChange):
             menu.add(String(localized: "Open Changes")) { [weak self] in
                 if let worktree = self?.worktreeId {

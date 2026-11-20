@@ -77,7 +77,7 @@ extension Builtins {
                 ) { _ in
                     if let name = branchName(app) { copyText(name) }
                 }
-            ],
+            ] + commitCommands(panel),
             settings: [
                 SettingsSection(
                     id: "git", title: "Source Control", icon: "arrow.triangle.branch",
@@ -180,6 +180,21 @@ private func remote(
             Banner.show(error, style: .error)
         } else {
             Banner.show(done)
+        }
+    }
+}
+
+/// The graph's commit menu as commands, for the commit selected there.
+@MainActor
+private func commitCommands(_ panel: LivePanel) -> [CommandSpec] {
+    CommitAction.allCases.map { action in
+        CommandSpec(
+            id: "git.commit.\(action.rawValue)", title: action.command,
+            enabled: { panel.controller?.canAct(action) == true }
+        ) { _ in
+            guard let controller = panel.controller, let commit = controller.selectedCommit, controller.canAct(action)
+            else { return }
+            controller.act(action, on: commit)
         }
     }
 }

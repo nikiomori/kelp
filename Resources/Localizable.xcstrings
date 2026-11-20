@@ -36515,6 +36515,236 @@
           }
         }
       }
+    },
+    "Check Out…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключиться…"
+          }
+        }
+      }
+    },
+    "Check Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключиться"
+          }
+        }
+      }
+    },
+    "Create Branch Here…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать ветку здесь…"
+          }
+        }
+      }
+    },
+    "Cherry-Pick into %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести в %@…"
+          }
+        }
+      }
+    },
+    "Cherry-Pick": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести"
+          }
+        }
+      }
+    },
+    "Cherry-pick %@ into %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести %1$@ в %2$@?"
+          }
+        }
+      }
+    },
+    "Its changes go onto %@ as a new commit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его изменения лягут в %@ новым коммитом."
+          }
+        }
+      }
+    },
+    "Revert %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить %@?"
+          }
+        }
+      }
+    },
+    "A new commit undoes its changes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый коммит отменит его изменения."
+          }
+        }
+      }
+    },
+    "Check out %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключиться на %@?"
+          }
+        }
+      }
+    },
+    "You’ll be on no branch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы окажетесь вне ветки."
+          }
+        }
+      }
+    },
+    "Copy Hash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать хэш"
+          }
+        }
+      }
+    },
+    "Copy Message": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать сообщение"
+          }
+        }
+      }
+    },
+    "not pushed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не отправлен"
+          }
+        }
+      }
+    },
+    "Git: Open Commit Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Открыть изменения коммита"
+          }
+        }
+      }
+    },
+    "Git: Open Commit in Browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Открыть коммит в браузере"
+          }
+        }
+      }
+    },
+    "Git: Send Commit to Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Отправить коммит агенту"
+          }
+        }
+      }
+    },
+    "Git: Check Out Commit…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Переключиться на коммит…"
+          }
+        }
+      }
+    },
+    "Git: Create Branch at Commit…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Создать ветку от коммита…"
+          }
+        }
+      }
+    },
+    "Git: Cherry-Pick Commit…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Перенести коммит…"
+          }
+        }
+      }
+    },
+    "Git: Revert Commit…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Отменить коммит…"
+          }
+        }
+      }
+    },
+    "Git: Copy Commit Hash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Копировать хэш коммита"
+          }
+        }
+      }
+    },
+    "Git: Copy Commit Message": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: Копировать сообщение коммита"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

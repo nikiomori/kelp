@@ -83,3 +83,36 @@ import Testing
     vc.showState(error: nil)
     #expect(!vc.empty.showing && !vc.status.stringValue.isEmpty)
 }
+
+/// A commit's menu, as right-click and the card's ⋯ show it: open, share, change the branch, copy, in that order, with
+/// the keys Return and ⌘C. Cherry-Pick names the current branch and is left out for a commit the branch already has.
+@MainActor
+@Test(arguments: [
+    (
+        "side",
+        "Open Changes ↩|Open in Browser|Send to Agent|-|Check Out…|Create Branch Here…|Cherry-Pick into main…|"
+            + "Revert…|-|Copy Hash ⌘c|Copy Message"
+    ),
+    (
+        "base",
+        "Open Changes ↩|Open in Browser|Send to Agent|-|Check Out…|Create Branch Here…|Revert…|-|Copy Hash ⌘c|"
+            + "Copy Message"
+    )
+])
+func aCommitsMenuListsItsActionsInOrder(commit: String, items: String) throws {
+    let vc = SourceControlController(app: AppModel(builtins: Builtins.all))
+    func c(_ hash: String, _ parents: [String]) -> GraphCommit {
+        GraphCommit(
+            hash: hash, parents: parents, author: "", date: 0, subject: hash, refs: [], lane: 0, top: [], bottom: [])
+    }
+    vc.commits = [c("head", ["base"]), c("side", ["base"]), c("base", [])]
+    vc.info = BranchInfo(current: "main", head: "head", local: ["main"], remote: [], merging: false)
+    let menu = NSMenu()
+    vc.addCommitItems(try #require(vc.commits.first { $0.hash == commit }), to: menu)
+    let shown = menu.items.map { item in
+        guard !item.isSeparatorItem else { return "-" }
+        let key = item.keyEquivalent == "\r" ? "↩" : item.keyEquivalent.isEmpty ? "" : "⌘" + item.keyEquivalent
+        return key.isEmpty ? item.title : item.title + " " + key
+    }
+    #expect(shown.joined(separator: "|") == items)
+}

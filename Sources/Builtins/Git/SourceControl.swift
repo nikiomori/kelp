@@ -49,7 +49,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var graphInfo: BranchInfo?
 
     let outline = NSOutlineView()
-    let graphOutline = NSOutlineView()
+    let graphOutline = GraphOutline()
     let graphBar = GraphBar()
     var graphHeight: NSLayoutConstraint?, graphClosed: NSLayoutConstraint?, barHeight: NSLayoutConstraint?
     /// Until the user drags the divider, the changes are as tall as their rows, up to half the panel, and the open
@@ -131,6 +131,14 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             else { return nil }
             return NSImage(data: data)
         }
+        commitCard.files = { [weak self] hash in
+            guard let self, let wid = self.worktreeId else { return nil }
+            if let known = self.commitFiles[hash] { return known }
+            let files = await self.app.quiet(GitCommitFiles(id: wid, commit: hash))
+            if wid == self.worktreeId { self.commitFiles[hash] = files }
+            return files
+        }
+        commitCard.onAction = { [weak self] in self?.cardAction($0, $1) }
         return commitCard
     }()
     var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
@@ -172,6 +180,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let box = commitBox()
         commitArea = box
         let scroll = list(outline), graphScroll = list(graphOutline)
+        followGraphKeys()
         graphBar.onToggle = { [weak self] in self?.toggle(.graph) }
         graphBar.onResize = { [weak self] in self?.resizeGraph(by: $0) }
         graphBar.onRefresh = { [weak self] in Task { await self?.refreshGraph() } }
