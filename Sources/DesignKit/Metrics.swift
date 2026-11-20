@@ -73,6 +73,7 @@ public enum Metrics {
     // Sheets
     public static let sheetWidth: CGFloat = 480
     public static let popoverWidth: CGFloat = 300   // a popover's text column (commit and sync take 320)
+    public static let codeCardWidth: CGFloat = 440   // a popover of code (docs, a change): lines read better wide
     public static let alertAccessory: CGFloat = 400   // the width of the fields a question sheet holds
     public static let formLabel: CGFloat = 96   // a field's name beside it, right-aligned
     public static let switcherWidth: CGFloat = 440   // the ⌃Tab switcher's card

@@ -5,7 +5,7 @@ import DesignKit
 /// there, a symbol's signature and documentation, and the signature of the call being typed. Each is asked for, by
 /// the tab's providers, when it's wanted.
 extension CodeEditor {
-    private static let cardWidth: CGFloat = 440, cardHeight: CGFloat = 260
+    private static let cardWidth = Metrics.codeCardWidth, cardHeight: CGFloat = 260
 
     /// Called when the pointer moved over the text, or (nil) left it. Resting on a word asks for what's there, on
     /// HoverPopover's waits; off a word, or out of the text, the card goes unless the pointer went into it.

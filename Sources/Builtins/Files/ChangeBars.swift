@@ -165,7 +165,7 @@ final class ChangeBars {
 
 /// The popover that shows a change: its lines in the diff's colours, and buttons for what can be done with it.
 final class ChangeCard: NSViewController {
-    private static let mostLines = 24, width: CGFloat = 460
+    private static let mostLines = 24, width = Metrics.codeCardWidth
     private let shown: Hunk, actions: [NSView]
     init(shown: Hunk, actions: [NSView]) {
         self.shown = shown
