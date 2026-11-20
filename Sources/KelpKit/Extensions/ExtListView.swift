@@ -15,7 +15,11 @@ final class ExtListView: NSViewController, NSTableViewDataSource, NSTableViewDel
     let table = KeyTable()
     private(set) var items: [JSONValue] = []
     /// Each row's key (`keys`), in the rows' order.
-    private var rowKeys: [String] = []
+    private(set) var rowKeys: [String] = []
+    /// Row actions under way, as [row key, action title]: the same one doesn't start again on that row until it ends.
+    var running: Set<[String]> = []
+    /// Those that have taken over a second, with when their spinner came: it stands at the row's end, `held` at least.
+    var slow: [[String]: Date] = [:]
     private var error: String?
     private var answered = false   // the command has answered once (no "empty" before that)
     private var loop: Task<Void, Never>?

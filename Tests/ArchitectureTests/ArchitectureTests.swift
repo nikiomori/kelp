@@ -488,6 +488,7 @@ func codeOnly(_ s: String) -> String {
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),
         "KelpKit/Extensions/ExtListView.swift": (1, "an extension's refresh interval"),
+        "KelpKit/Extensions/ExtListView+Rows.swift": (1, "a row's shown busy spinner stays 0.4 s"),
         "KelpKit/Sidebar/HoverCardViews.swift": (1, "a card's shown wait stays 0.4 s, so a quick read doesn't flicker"),
         "Builtins/Files/EditorStatusBar.swift": (1, "a shown \"Finding the definition…\" stays 0.4 s"),
         "Builtins/Files/Disk/DiskFoot.swift": (1, "a measure on this Mac shows its wait only after a second"),

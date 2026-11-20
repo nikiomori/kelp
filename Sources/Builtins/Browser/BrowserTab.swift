@@ -249,8 +249,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentButton.padding = Metrics.gap
             agentButton.restFill = .fillRest
             agentButton.onClick = { [weak self] in self?.toggleTakeOver() }
-            agentSlot.pin(Bar.content([agentIcon, agentLabel], [agentButton]))
-            agentSlotHeight.isActive = false
+            agentSlot.pinBottom(Bar.content([agentIcon, agentLabel], [agentButton]))
+            agentSlot.reveal(agentSlotHeight, open: true)   // the page under it moves down, as the pages' row does
             watchUser()
         }
         let asked = drive?.asked?.text, takenOver = drive?.takenOver == true

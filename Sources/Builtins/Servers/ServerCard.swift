@@ -15,7 +15,7 @@ struct ServerSection: View {
             Divider()
             HStack(spacing: Metrics.gap) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
-                Text(host).font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
+                Text(host).sectionTitle().lineLimit(1)   // a card's part is headed as a popover's section is
                 if let word = ServerActions.serverWord(app, host) {
                     Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
                 }

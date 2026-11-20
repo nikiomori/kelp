@@ -102,7 +102,7 @@ struct ExtActions {
     }
 
     /// Does what the action says. `busy` hears when a `run` command has gone on for a second (true) and when it ends
-    /// (false), for the button that ran it to show the wait.
+    /// (false, also when its question is answered Cancel), for the button or row that ran it to show the wait.
     func perform(
         _ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, busy: (@MainActor (Bool) -> Void)? = nil,
         after: (() -> Void)? = nil
@@ -113,7 +113,10 @@ struct ExtActions {
         }
         let text = expand(question, item: item, quote: false)
         Task {
-            guard await confirm(text, action: spec.title) else { return }
+            guard await confirm(text, action: spec.title) else {
+                busy?(false)
+                return
+            }
             act(spec, item: item, folder: folder, busy: busy, after: after)
         }
     }

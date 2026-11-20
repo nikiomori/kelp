@@ -1,9 +1,11 @@
 import AppKit
 import Core
 import DesignKit
+import SwiftUI
 
 /// An extension list's rows: its icon when that names a field, the title with the subtitle under it, the status mark at
-/// the end; the actions on a double-click, Return and a right-click; and the file a row drags.
+/// the end (a spinner there while its action takes over a second); the actions on a double-click, Return and a
+/// right-click; and the file a row drags.
 extension ExtListView {
     func numberOfRows(in tableView: NSTableView) -> Int { items.count }
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { tableView.listRowView() }
@@ -12,10 +14,10 @@ extension ExtListView {
         TextSize.of(def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine)
     }
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        items.indices.contains(row) ? cell(items[row]) : nil
+        items.indices.contains(row) ? cell(items[row], key: rowKeys[row]) : nil
     }
 
-    private func cell(_ item: JSONValue) -> NSView {
+    private func cell(_ item: JSONValue, key: String) -> NSView {
         let actions = ExtActions(app)
         let title = NSTextField.label(
             actions.expand(def.title ?? "${name}", item: item, quote: false), font: .ui(TextSize.row))
@@ -32,12 +34,30 @@ extension ExtListView {
         cell.spacing = Metrics.gap
         cell.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         cell.setViews([icon(item), texts].compactMap { $0 }, in: .leading)
-        if let status = status(item) {
-            let mark = StatusMark(size: 12)
-            mark.status = status
-            cell.setViews([mark], in: .trailing)
+        if slow.keys.contains(where: { $0.first == key }) {
+            cell.setViews([Self.spinner()], in: .trailing)
+        } else if let status = status(item) {
+            cell.setViews([mark(status)], in: .trailing)
         }
         return cell
+    }
+
+    /// `working` is the grey filled dot Settings shows for "on" (`StateDot`): the turning ring is an agent's, and only
+    /// an agent's state moves by itself. The others keep their still shapes.
+    private func mark(_ status: AgentStatus) -> NSView {
+        if status == .working { return NSHostingView(rootView: StateDot(on: true)) }
+        let mark = StatusMark(size: 12)
+        mark.status = status
+        return mark
+    }
+
+    /// The system's small spinner, as the interface waits (the turning ring is an agent's mark for working).
+    private static func spinner() -> NSView {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        return spinner
     }
 
     /// An icon that's the same on every row is the panel's own icon, which its tab already shows. Only an icon that
@@ -91,19 +111,48 @@ extension ExtListView {
     @objc func doubleClicked() { runFirst(on: table.clickedRow) }
     func runFirst(on row: Int) {
         guard items.indices.contains(row), let action = def.actions?.first else { return }
-        perform(action, items[row])
+        perform(action, items[row], key: rowKeys[row])
     }
-    private func perform(_ action: ExtManifest.ActionDef, _ item: JSONValue) {
-        ExtActions(app).perform(action, item: item, folder: folder, after: { [weak self] in self?.reload() })
+    /// Runs a row's action unless that one is still under way there. A `run` that takes over a second puts the
+    /// spinner at the row's end until it ends.
+    private func perform(_ action: ExtManifest.ActionDef, _ item: JSONValue, key: String) {
+        let job = [key, action.title]
+        guard running.insert(job).inserted else { return }
+        ExtActions(app).perform(
+            action, item: item, folder: folder, busy: { [weak self] on in self?.busy(job, on) }
+        ) { [weak self] in
+            self?.running.remove(job)
+            self?.reload()
+        }
+    }
+
+    private func busy(_ job: [String], _ on: Bool) {
+        if on {
+            slow[job] = .now
+            return redraw(job[0])
+        }
+        running.remove(job)   // also a question answered "Cancel"
+        guard let shown = slow[job] else { return }
+        Task { [weak self] in
+            let left = max(0, LoadingView.held - Date.now.timeIntervalSince(shown))
+            do { try await Task.sleep(for: .seconds(left)) } catch { return }
+            self?.slow[job] = nil
+            self?.redraw(job[0])
+        }
+    }
+
+    private func redraw(_ key: String) {
+        guard let row = rowKeys.firstIndex(of: key) else { return }
+        table.reloadData(forRowIndexes: [row], columnIndexes: [0])
     }
 
     /// A row's right-click menu: every action, with its symbol when it names one.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard items.indices.contains(table.clickedRow) else { return }
-        let item = items[table.clickedRow]
+        let item = items[table.clickedRow], key = rowKeys[table.clickedRow]
         for action in def.actions ?? [] {
-            menu.add(action.shownTitle, symbol: action.icon) { [weak self] in self?.perform(action, item) }
+            menu.add(action.shownTitle, symbol: action.icon) { [weak self] in self?.perform(action, item, key: key) }
         }
     }
 

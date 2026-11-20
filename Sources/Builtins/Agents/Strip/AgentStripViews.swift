@@ -228,8 +228,10 @@ final class StripButton: PointerControl {
         shown = (item, open)
         let status = StripModel.status(item.cell)
         // Every state has its mark in the tile's bite. The working state's mark is the spinning arc, so a strip of
-        // working agents reads as work going on, not as a row of Dock icons.
+        // working agents reads as work going on, not as a row of Dock icons. It draws the lead agent as every other
+        // place does (`follow`): dots while it waits for its command, dashes for a guess, a pulse, a pie, a clock.
         mark.status = status
+        if let lead = app.session(item.session) { mark.follow(lead) }
         if ciShown != item.ci?.key { show(ci: item.ci) }
         label.isHidden = !open
         trailing?.isActive = false

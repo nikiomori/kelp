@@ -61,7 +61,7 @@ struct AgentPageCard: View {
         VStack(alignment: .leading, spacing: Metrics.lineGap) {
             HStack(spacing: 6) {
                 Text(page.title.isEmpty ? URL(string: page.url)?.host ?? page.url : page.title)
-                    .font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
+                    .sectionTitle().lineLimit(1)   // a card's part is headed as a popover's section is
                 Spacer(minLength: 8)
                 Text(Self.place(page.url)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                     .truncationMode(.middle)
