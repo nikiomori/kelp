@@ -36,7 +36,7 @@ final class QuickOpenCell: PaletteCell {
         tick.contentTintColor = .themeAccent
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
-        key.font = .ui(TextSize.row)
+        key.font = .ui(TextSize.caption)   // a key hint (README: caption)
         key.textColor = .secondaryLabelColor
         key.setContentCompressionResistancePriority(.required, for: .horizontal)
         key.setContentHuggingPriority(.required, for: .horizontal)

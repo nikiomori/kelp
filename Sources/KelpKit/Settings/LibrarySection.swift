@@ -51,7 +51,7 @@ struct LibrarySection: View {
         } footer: {
             HStack {
                 Text(
-                    "Extensions people shared, each reviewed before it’s added. Or any repository: kelp ext install owner/repo"
+                    "Extensions people shared, each reviewed before it’s added. Or any repository: `kelp ext install owner/repo`"
                 )
                 .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer()

@@ -55,6 +55,8 @@ struct ExtManifest: Decodable {
         /// For commands only: the menu bar menu the command is listed in (Tools when left out).
         var menu: String?
         var terminal: String?, run: String?, open: String?, agent: String?
+        /// The title in a menu or on a button: an action that asks first (`confirm`) ends in "…".
+        var shownTitle: String { confirm == nil || title.hasSuffix("…") ? title : title + "…" }
     }
     var id: String
     var name: String
@@ -166,7 +168,9 @@ enum DeclarativeExtension {
         }
         for a in contributes?.commands ?? [] {
             result.commands.append(
-                CommandSpec(id: a.id ?? "\(extManifest.id).\(a.title)", title: a.title, key: a.key, menu: a.menu) { _ in
+                CommandSpec(
+                    id: a.id ?? "\(extManifest.id).\(a.title)", title: a.shownTitle, key: a.key, menu: a.menu
+                ) { _ in
                     ExtActions(app).perform(a, item: nil, folder: folder)
                 })
         }
@@ -229,11 +233,12 @@ enum DeclarativeExtension {
 
     private static func describe(_ decodingError: DecodingError) -> String {
         switch decodingError {
-        case .keyNotFound(let key, let context): "Missing “\(key.stringValue)” at \(path(context))"
+        case .keyNotFound(let key, let context): String(localized: "Missing “\(key.stringValue)” at \(path(context))")
         case .typeMismatch(_, let context), .valueNotFound(_, let context):
-            "Wrong type at \(path(context)): \(context.debugDescription)"
+            String(localized: "Wrong type at \(path(context)): \(context.debugDescription)")
         case .dataCorrupted(let context):
-            "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)"
+            String(
+                localized: "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)")
         @unknown default: "\(decodingError)"
         }
     }

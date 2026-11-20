@@ -90,18 +90,14 @@ final class ExtListView: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 
     /// A toolbar action: the first in words on the grey plate (`TextButton`: a worded button has no symbol), the
-    /// others as icons, or in words without a symbol. A `run` command that takes over a second shows a spinner in the
-    /// button's place, and the button can't be pressed again until it ends.
+    /// others as icons, or, without a symbol, in words on the plate too. A `run` command that takes over a second
+    /// shows a spinner in the button's place, and the button can't be pressed again until it ends.
     private func toolbarButton(_ action: ExtManifest.ActionDef, _ index: Int) -> PointerButton {
         let button: PointerButton
-        if index == 0 {
-            button = TextButton(action.title)
-        } else if let icon = action.icon {
-            button = IconButton(.symbol(icon, action.title), tip: action.title) {}
+        if index > 0, let icon = action.icon {
+            button = IconButton(.symbol(icon, action.title), tip: action.shownTitle) {}
         } else {
-            button = PointerButton(title: action.title) {}
-            button.font = .ui(TextSize.row)
-            button.padding = Metrics.gap
+            button = TextButton(action.shownTitle)
         }
         button.onClick = { [weak self, weak button] in
             guard let self else { return }

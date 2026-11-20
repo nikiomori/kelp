@@ -103,7 +103,7 @@ extension ExtListView {
         guard items.indices.contains(table.clickedRow) else { return }
         let item = items[table.clickedRow]
         for action in def.actions ?? [] {
-            menu.add(action.title, symbol: action.icon) { [weak self] in self?.perform(action, item) }
+            menu.add(action.shownTitle, symbol: action.icon) { [weak self] in self?.perform(action, item) }
         }
     }
 

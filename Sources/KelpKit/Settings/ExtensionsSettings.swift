@@ -154,7 +154,7 @@ struct ExtensionsSettings: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }

@@ -250,13 +250,9 @@ final class StartView: NSView {
             let icons = rest.prefix(3).map { app.catalog.icon($0.id, size: Metrics.iconMenu) }
             let more = AgentTile(stack: icons, title: String(localized: "\(rest.count) More")) { [weak self] in
                 guard let self, let tile else { return }
-                let menu = NSMenu()
-                for agent in rest {
-                    menu.add(agent.name) { [weak self] in self?.start(agent.id) }.show(app.catalog.icon(agent.id))
-                }
-                menu.addItem(.separator())
-                menu.add(String(localized: "Agent Catalog…"), catalog).show(.symbol("square.grid.2x2"))
-                menu.popUp(positioning: nil, at: NSPoint(x: 0, y: tile.bounds.height + 4), in: tile)
+                let menu = NSMenu.moreAgents(
+                    rest, icon: { app.catalog.icon($0) }, start: { [weak self] in self?.start($0) }, catalog: catalog)
+                menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: tile)   // a tile isn't flipped: 4 pt below
             }
             more.setAccessibilityLabel(String(localized: "More Agents…"))
             tile = more
@@ -360,7 +356,8 @@ final class StartView: NSView {
             let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
             if let self, !text.isEmpty { onPrompt?(def, text) }
         }
-        let icon = NSImageView(image: app.catalog.icon(def, size: TextSize.of(Metrics.iconMenu)) ?? NSImage())
+        let side = TextSize.of(Metrics.appIcon)   // an agent in a row
+        let icon = NSImageView(image: app.catalog.icon(def, size: side) ?? NSImage())
         let row = NSStackView(views: [icon, prompt])
         row.spacing = Metrics.gapWide
         row.alignment = .top
@@ -376,7 +373,7 @@ final class StartView: NSView {
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         box.pin(column)
         NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: 18), icon.heightAnchor.constraint(equalToConstant: 18),
+            icon.widthAnchor.constraint(equalToConstant: side), icon.heightAnchor.constraint(equalToConstant: side),
             row.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset),
             line.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset)
         ])

@@ -1,4 +1,5 @@
 // The start view's parts: its boxes, cards, rows and the Run group.
+import Agents
 import AppKit
 import Core
 import DesignKit
@@ -164,7 +165,7 @@ final class StartRow: PointerControl {
         more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
         let key = NSTextField(labelWithString: shortcut ?? "")
         key.textColor = .secondaryLabelColor
-        key.font = .ui(TextSize.row)
+        key.font = .ui(TextSize.caption)   // a key hint
         let row = NSStackView(views: [icon, label, NSView(), more, key])
         row.spacing = Metrics.gapWide
         row.detachesHiddenViews = true
@@ -236,5 +237,26 @@ final class TemplateGroup: NSStackView {
         setViews([head, card], in: .top)
         head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
         card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+    }
+}
+
+extension NSMenu {
+    /// The "N More" tile's menu: each agent, with its ⌘ stand-in "… in New Group" (a click on it is a ⌘-click, which
+    /// `start` reads as "in a new group"), then the Agent Catalog.
+    @MainActor static func moreAgents(
+        _ agents: [AgentManifest], icon: (String) -> NSImage?, start: @escaping @MainActor (String) -> Void,
+        catalog: @escaping @MainActor () -> Void
+    ) -> NSMenu {
+        let menu = NSMenu()
+        let alternates = NSMenuItem.noteColumn(agents.map { NSMenu.inNewGroup($0.name) })
+        for agent in agents {
+            let go: @MainActor () -> Void = { start(agent.id) }
+            let item = menu.add(agent.name, go)
+            item.show(icon(agent.id))
+            menu.addNewGroupAlternate(of: item, agent: agent.name, column: alternates, go)
+        }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Agent Catalog…"), catalog).show(.symbol("square.grid.2x2"))
+        return menu
     }
 }
