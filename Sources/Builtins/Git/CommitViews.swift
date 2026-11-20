@@ -42,7 +42,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         bang.font = .ui(TextSize.row, weight: .semibold)
-        bang.textColor = .textRed
+        bang.textColor = .secondaryLabelColor   // a kind of commit, not a failure: grey, its weight keeps it apart
         bang.setAccessibilityLabel(String(localized: "Breaking change"))
         // The mark has one colour in the list, so the subjects lead; the card under the pointer shows the type's own.
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)

@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 
 /// Source Control, modeled on VS Code's: branch and sync up top, the commit message, the merge, staged and unstaged
@@ -291,7 +292,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     /// The message field (it grows to six lines) and Commit with its split menu.
     private func commitBox() -> NSView {
-        message.plain(font: .ui(TextSize.body), inset: NSSize(width: 4, height: 6))
+        // A commit message is written in the editor's font, at its size, as in the Commit Message tab.
+        message.plain(font: CodeEditor.font, inset: NSSize(width: 4, height: 6))
         message.drawsBackground = false
         message.isVerticallyResizable = true
         message.autoresizingMask = .width
@@ -303,7 +305,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         messageScroll.drawsBackground = false
         messageScroll.hasVerticalScroller = false
         placeholder.textColor = .placeholderTextColor
-        placeholder.font = .ui(TextSize.body)
+        placeholder.font = CodeEditor.font
         placeholder.lineBreakMode = .byTruncatingTail
         // A long branch name truncates rather than widening the panel.
         placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

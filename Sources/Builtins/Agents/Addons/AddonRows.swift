@@ -17,8 +17,6 @@ struct AddonRows {
     var pending: [String: Bool] = [:]
     /// Called when a switch is flipped, with the key the switch stands for (`Addon.key`) and whether it is on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
-    /// Called with a row's file when the person clicks the Open button that shows under the pointer.
-    var onOpen: (String) -> Void = { _ in }
     /// Called by Off Here with the keys to switch off for the project.
     var onOff: ([String]) -> Void = { _ in }
     /// Called by Tidy Up, or by Show Chat while a chat is tidying up. The callbacks below answer Review, Undo and
@@ -102,20 +100,12 @@ struct AddonRows {
         if addon.agents != [implied].compactMap({ $0 }), let faces = faces(addon.agents) { extras.append(faces) }
         let inset = Self.inset(depth)
         let mark = mark(addon)
-        let open = addon.path.map { path in
-            IconButton(.symbol("arrow.up.forward.square"), tip: String(localized: "Open")) { onOpen(path) }
-        }
-        let room = open == nil ? 0 : Metrics.iconButton + Metrics.gap
-        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset + room) {
+        // No Open button: the row itself opens its file (click, Return), and its right-click menu has Open.
+        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset) {
             $0 + $1.fittingSize.width + Metrics.gap
         }
         let shown = AddonGroups.fitting(extras.map { $0.fittingSize.width + Metrics.gap }, in: width - fixed)
-        let row = line(
-            [mark, name, NSView()] + [open].compactMap { $0 } + extras.prefix(shown).reversed() + held, inset: inset)
-        if let open {
-            open.isHidden = true
-            row.hovered = [open]
-        }
+        let row = line([mark, name, NSView()] + extras.prefix(shown).reversed() + held, inset: inset)
         let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
         row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
         return row
@@ -332,12 +322,6 @@ final class AddonSwitch: NSSwitch {
     @objc private func flipped() { changed(key, state == .on) }
 }
 
-/// A row of the panel. Under the pointer it shows its hidden views, such as the button that opens the item's file.
+/// A row of the panel (the panel finds a group's chevron through it).
 @MainActor
-final class AddonCell: NSStackView, Hoverable {
-    var hovered: [NSView] = []
-    func setHover(_ on: Bool) {
-        if !hovered.isEmpty { crossfade() }   // the Open button fades in and out, as every list's row actions do
-        for view in hovered { view.isHidden = !on }
-    }
-}
+final class AddonCell: NSStackView {}

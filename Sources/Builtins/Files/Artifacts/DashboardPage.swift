@@ -64,6 +64,6 @@ enum DashboardPage {
           border-radius: 8px;
           background: var(--k-float); color: var(--k-label); font: 12px/1.35 -apple-system, sans-serif;
           box-shadow: 0 0 0 .5px var(--k-sep), 0 4px 14px rgba(0,0,0,.18); pointer-events: none; }
-        .kelp-src-none { color: var(--k-text-orange); }
+        .kelp-src-none { color: var(--k-sec); }   /* a hint, not a wait: grey */
         """
 }

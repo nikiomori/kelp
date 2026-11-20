@@ -80,7 +80,7 @@ struct ArtifactCells {
             color: .secondaryLabelColor)
         when.setContentCompressionResistancePriority(.required, for: .horizontal)
         guard item.url != nil else { return [when] }
-        let out = NSImageView(image: .symbol("arrow.up.right"))
+        let out = NSImageView(image: .symbol("arrow.up.forward.square"))   // the square arrow: opens outside Kelp
         out.symbolConfiguration = .chrome(Metrics.iconTiny)
         out.contentTintColor = .secondaryLabelColor
         out.toolTip = String(localized: "Opens in your browser")

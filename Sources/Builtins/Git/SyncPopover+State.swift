@@ -140,9 +140,10 @@ extension SyncPopover {
         guard key != listKey else { return }
         listKey = key
         Task {
-            let lists = await app.quiet(GitUnsynced(id: wid, limit: Self.shown))
+            let (lists, error) = await app.tryCall(GitUnsynced(id: wid, limit: Self.shown))
             guard key == listKey else { return }
-            unsynced = lists
+            if let lists { unsynced = lists }   // a failed read keeps what was read before, under the bar
+            failure.show(lists == nil ? error : nil)
             update()
         }
     }

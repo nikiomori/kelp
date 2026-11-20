@@ -66,7 +66,6 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         table.delegate = self
         table.target = self
         table.action = #selector(clicked)
-        table.doubleAction = #selector(openClicked)
         table.onReturn = { [weak self] in   // as a click: a group folds, an item opens
             guard let self, !self.fold(row: self.table.selectedRow) else { return }
             self.open(row: self.table.selectedRow)
@@ -286,7 +285,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         .fill(menu, lines[table.clickedRow])
     }
 
-    @objc private func clicked() { fold(row: table.clickedRow) }
+    /// A click folds a group and opens an item's file, as Return does.
+    @objc private func clicked() {
+        if !fold(row: table.clickedRow) { open(row: table.clickedRow) }
+    }
 
     /// Folds or unfolds the group on `row`: the rows under it come or go, moving the others, and its chevron turns.
     /// Returns false when the row is no group that folds.
@@ -313,10 +315,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         return true
     }
 
-    /// A double click opens the row's file in a tab.
-    @objc private func openClicked() { open(row: table.clickedRow) }
-
-    /// Opens the row's file in a tab, on Return or a double click.
+    /// Opens the row's file in a tab, on a click or Return.
     private func open(row: Int) {
         guard lines.indices.contains(row) else { return }
         switch lines[row] {
@@ -355,7 +354,6 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         var rows = AddonRows(app: app) { [weak self] key, on in self?.flip([key], on: on) }
         rows.agent = listAgent
         rows.pending = pending
-        rows.onOpen = { [weak self] path in self?.open(path) }
         rows.onOff = { [weak self] keys in self?.flip(keys, on: false) }
         let items = addons?.items ?? []
         let workspace = app.workbench.workspaceId ?? ""
