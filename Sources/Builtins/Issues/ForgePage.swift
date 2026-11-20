@@ -133,7 +133,7 @@ enum ForgePage {
         .meta{color:var(--muted);font-size:12px;margin:0 0 10px}
         .state{display:inline-block;padding:0 7px;border-radius:9px;border:1px solid currentColor;font-size:11px}
         .state.open{color:var(--tip)}.state.draft{color:var(--muted)}.state.merged{color:var(--important)}
-        .state.closed{color:var(--caution)}
+        .state.closed{color:var(--muted)}
         .block{color:var(--muted);font-size:13px;margin:0 0 14px}.block.ask{color:var(--warning)}
         .block.fail{color:var(--caution)}
         .none{color:var(--muted)}
