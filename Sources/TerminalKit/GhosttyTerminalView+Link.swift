@@ -2,10 +2,12 @@ import AppKit
 
 /// What ⌘-click would open under the pointer, said while ⌘ is held (`onLinkHover`).
 extension GhosttyTerminalView {
-    /// Ghostty's link under the pointer changed ("" off one).
+    /// Ghostty's link under the pointer changed ("" off one). Ghostty says so from inside `ghostty_surface_mouse_pos`,
+    /// with the surface locked, and `refreshLink` reads the screen's text (`word(at:)`), which waits for that lock: so
+    /// it runs after the call returns, or ⌘ held over the terminal froze the app.
     func overLink(_ url: String) {
         ghosttyLink = url
-        refreshLink()
+        Task { @MainActor [weak self] in self?.refreshLink() }
     }
     /// While ⌘ is held, says what ⌘-click would open under the pointer (`onLinkHover`), and over a path the app opens
     /// gives it the hand and the underline Ghostty shows on its own links.
