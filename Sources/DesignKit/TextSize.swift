@@ -97,8 +97,11 @@ extension Font {
     public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
         Font(NSFont.uiMono(size, weight: weight) as CTFont)
     }
-    /// The font for an `Image(systemName:)` beside chrome text: the symbols' one weight at a size from Metrics.
-    public static func symbol(_ size: CGFloat = Metrics.iconPoint) -> Font { .ui(size, weight: Metrics.iconWeight) }
+    /// The font for an `Image(systemName:)` in the chrome: the symbols' one weight at a size from Metrics. It doesn't
+    /// grow with Text size, as `NSImage.SymbolConfiguration.chrome` doesn't, so a SwiftUI ⋯ or ⓘ matches AppKit's.
+    public static func symbol(_ size: CGFloat = Metrics.iconPoint) -> Font {
+        Font(NSFont.systemFont(ofSize: size, weight: Metrics.iconWeight) as CTFont)
+    }
 }
 
 @MainActor
@@ -107,7 +110,8 @@ extension View {
     public func sectionTitle() -> some View {
         font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
     }
-    /// A section's title in a column of sections: `sectionTitle()` at the bottom of a section row's height.
+    /// A section's title in a column of sections: `sectionTitle()` at the bottom of a section row's height, where
+    /// `SectionHeading` stands it in AppKit.
     public func sectionHeading() -> some View {
         sectionTitle().frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom)
     }

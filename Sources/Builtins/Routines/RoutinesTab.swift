@@ -221,7 +221,7 @@ struct RunMark: View {
 
     var body: some View {
         VStack(spacing: Metrics.lineGap) {
-            symbol.font(.symbol(Metrics.iconSmall)).frame(height: 16)   // the medium weight; grows with Text size
+            symbol.font(.symbol(Metrics.iconSmall)).frame(height: 16)   // the medium weight; stays its size at any Text size (decision 121)
             Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(TextSize.caption).monospacedDigit())
                 .foregroundStyle(
                     .secondary
