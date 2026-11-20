@@ -64,6 +64,12 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(MainWindowController.overPeek(NSPoint(x: 2, y: 400), panel: panel, edge: edge))
     #expect(MainWindowController.overPeek(NSPoint(x: 100, y: 400), panel: panel, edge: edge))
     #expect(!MainWindowController.overPeek(NSPoint(x: 300, y: 400), panel: panel, edge: edge))
+    // A card the panel opened beside it (here to its right, as from a right-hand inspector it is to the left), and the
+    // step to it, keep the panel.
+    let card = NSRect(x: 276, y: 300, width: 320, height: 200)
+    #expect(MainWindowController.overPeek(NSPoint(x: 270, y: 400), panel: panel, edge: edge, cards: [card]))
+    #expect(MainWindowController.overPeek(NSPoint(x: 400, y: 400), panel: panel, edge: edge, cards: [card]))
+    #expect(!MainWindowController.overPeek(NSPoint(x: 400, y: 100), panel: panel, edge: edge, cards: [card]))
 }
 
 /// The context ring: nothing while there's room, then grey, orange, red — by share in a 200k window, by tokens in 1M.

@@ -144,7 +144,12 @@ extension MainWindowController {
     func pointerMoved(_ event: NSEvent) {
         guard let side = peeking, event.window === window, let root = window?.contentView else { return }
         let point = root.convert(event.locationInWindow, from: nil)
-        if Self.overPeek(point, panel: side.floater.frame, edge: side.edge.frame) {
+        // A card the panel opened (a commit's, an agent's) hangs beside it in a window of its own: the way to it and
+        // the card itself count as the panel, or the panel went, and the card with it, as the pointer set off for it.
+        let cards = (window?.childWindows ?? []).filter(\.isVisible).compactMap { child in
+            window.map { root.convert($0.convertFromScreen(child.frame), from: nil) }
+        }
+        if Self.overPeek(point, panel: side.floater.frame, edge: side.edge.frame, cards: cards) {
             peekReached = true
             return
         }
@@ -154,7 +159,11 @@ extension MainWindowController {
     /// Whether `point` is over a peeking panel, which counts anywhere from the window's edge through the panel. The
     /// panel stands 6 pt in from the edge, past the 4 pt strip, and a slow move across that gap closed it under the
     /// pointer.
-    static func overPeek(_ point: NSPoint, panel: NSRect, edge: NSRect) -> Bool { panel.union(edge).contains(point) }
+    /// A card beside the panel counts too, with a margin for the step between them.
+    static func overPeek(_ point: NSPoint, panel: NSRect, edge: NSRect, cards: [NSRect] = []) -> Bool {
+        panel.union(edge).contains(point)
+            || cards.contains { $0.insetBy(dx: -2 * Metrics.gapWide, dy: -2 * Metrics.gapWide).contains(point) }
+    }
     func endPeek(animated: Bool = true) {
         if let monitor = peekMoves {
             NSEvent.removeMonitor(monitor)
