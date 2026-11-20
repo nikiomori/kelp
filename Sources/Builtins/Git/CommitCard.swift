@@ -18,7 +18,7 @@ final class CommitCard {
     var picture: (@MainActor (String) async -> NSImage?)?
     /// What a button in the card asks for. The card goes first, except for the menu, which it holds.
     var onAction: (@MainActor (GraphCommit, CommitCardView.Action) -> Void)?
-    /// The commit's menu, which a right-click anywhere on the card opens (Copy Message among it).
+    /// The commit's menu, which a right-click on the card opens (Copy Message among it); on its words, their own menu.
     var menu: (@MainActor (GraphCommit) -> NSMenu)?
 
     init() {
@@ -176,11 +176,6 @@ final class CommitCardView: NSView {
         super.updateTrackingAreas()
         area = retracked(area, .activeAlways)
     }
-    /// The card's words are plain labels: a click on them is the card's, so a right-click there opens its menu.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        let hit = super.hitTest(point)
-        return hit is NSTextField ? self : hit
-    }
     override func mouseEntered(with event: NSEvent) { onInside?(true) }
     override func mouseExited(with event: NSEvent) { onInside?(false) }
 
@@ -311,9 +306,7 @@ final class CommitCardView: NSView {
         let field = NSTextField(wrappingLabelWithString: string)
         field.font = font
         field.textColor = color
-        // Not selectable: a click in its words would make the card key, and it closes when the main window resigns.
-        // The card's right-click and ⋯ copy the message instead.
-        field.isSelectable = false
+        field.isSelectable = true   // a part of the message can be selected and copied (⌘C, or its right-click)
         field.maximumNumberOfLines = lines
         field.cell?.truncatesLastVisibleLine = true
         field.preferredMaxLayoutWidth = width - 2 * Metrics.inset

@@ -42,6 +42,14 @@ public final class HoverPopover {
         closeSoon(unlessInside: true)
     }
 
+    /// The words selected in the card's text, if any.
+    private func selectedWords() -> String? {
+        guard popover.isShown, let root = popover.contentViewController?.view else { return nil }
+        // The field being selected in holds the window's field editor, its first responder.
+        guard let editor = root.window?.firstResponder as? NSText, editor.selectedRange.length > 0 else { return nil }
+        return (editor.string as NSString).substring(with: editor.selectedRange)
+    }
+
     /// Cancels what was to happen next, an open or a close.
     public func cancel() { pending?.cancel() }
 
@@ -68,8 +76,19 @@ public final class HoverPopover {
         keys =
             keys
             ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
-                return event
+                let copy = event.isCopy
+                let copied = MainActor.assumeIsolated {   // local monitors run on the main thread
+                    // ⌘C with words selected in the card copies them, and the card stays. The card is never key, so
+                    // the key goes to the window under it, and Edit › Copy would copy what that window has selected.
+                    if copy, let words = self?.selectedWords() {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(words, forType: .string)
+                        return true
+                    }
+                    self?.close()   // typing elsewhere closes it
+                    return false
+                }
+                return copied ? nil : event
             }
     }
 
@@ -79,5 +98,12 @@ public final class HoverPopover {
             do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             await action()
         }
+    }
+}
+
+extension NSEvent {
+    /// ⌘C and nothing else.
+    package var isCopy: Bool {
+        modifierFlags.intersection(.deviceIndependentFlagsMask) == .command && charactersIgnoringModifiers == "c"
     }
 }
