@@ -24,7 +24,7 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
     let daemon = try count(#"\bremotes\.(of|containing)\("#, in: ["Sources/Daemon", "Sources/GitKit"])
     let app = try count(#"\bRemoteHost\.of\("#, in: appDirs)
     #expect(daemon == 99, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
-    #expect(app == 32, "RemoteHost.of in the app: \(app)")
+    #expect(app == 31, "RemoteHost.of in the app: \(app)")
 }
 
 /// Kelp's home folders are named in `Paths` (`Paths.agents(in:)` for a home given, as the daemon's): spelled out here

@@ -19,7 +19,7 @@ package struct AgentCatalog {
     /// Returns the agents a new tab in `worktree` can start. For a remote project these are the agents its host has
     /// (once the host has answered, and this call asks it), otherwise this Mac's. A terminal is always among them.
     func startable(in worktree: Worktree?) -> [AgentManifest] {
-        guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed }
+        guard let worktree, let host = Self.host(worktree) else { return installed }
         app.availability.refreshHost(host, workspace: worktree.id, commands: all.map(\.command))
         guard let there = app.availability.onHost[host] else { return installed }
         return all.filter {
@@ -27,6 +27,8 @@ package struct AgentCatalog {
         }
     }
 
+    /// The host a remote project's terminals and agents run on; nil for a project on this Mac.
+    static func host(_ worktree: Worktree?) -> String? { worktree.flatMap { RemoteHost.of($0.path)?.host } }
     /// Built-in and user agent manifests plus agents contributed by extensions.
     package var all: [AgentManifest] {
         let base = app.agents
@@ -42,7 +44,7 @@ package struct AgentCatalog {
     /// Whether to offer tmux sessions in a workspace. That is when tmux is on this Mac, or the project is on a host,
     /// which usually has tmux (tmux.list says so when it doesn't).
     func hasTmux(_ worktree: Worktree?) -> Bool {
-        app.availability.ids.contains("tmux") || worktree.flatMap { RemoteHost.of($0.path) } != nil
+        app.availability.ids.contains("tmux") || Self.host(worktree) != nil
     }
     /// The agent "New Agent" starts in `worktree`: the default when it runs there, else the first agent that does (a
     /// host may lack the agent this Mac has).
@@ -79,28 +81,38 @@ package struct AgentCatalog {
     var suggested: [AgentManifest] {
         all.filter { $0.featured != nil && $0.install != nil }.sorted { ($0.featured ?? 0) < ($1.featured ?? 0) }
     }
-    /// Runs the agent's own install command in a terminal tab of `e`, in plain sight. Once it ends, the agent is looked
-    /// for again. When the installer needs npm or Homebrew and the Mac lacks it, a banner says so instead of the
-    /// installer failing in its tab.
+    /// Runs the agent's own install command in a terminal tab of `e`, in plain sight: on this Mac, or on the host of a
+    /// remote project. Once it ends, the agent is looked for again there. When the installer needs npm or Homebrew and
+    /// that machine lacks it, a banner says so instead of the installer failing in its tab.
     package func install(_ agentManifest: AgentManifest, in e: SessionStarter) {
         guard let cmd = agentManifest.install else { return }
+        let worktree = e.area.worktree, host = Self.host(worktree)
         Task { [app] in
-            if let tool = agentManifest.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])),
-                found[tool] == nil
-            {
+            if let tool = agentManifest.installNeeds, await !Self.has(tool, app: app, in: worktree) {
                 let first =
                     tool == "npm"
                     ? String(localized: "Install Node.js first (nodejs.org, or brew install node).")
                     : String(localized: "Install Homebrew first (brew.sh).")
-                Banner.show(
-                    String(localized: "\(agentManifest.name) installs with \(tool), which isn’t on this Mac. ") + first,
-                    style: .error)
+                let lacks =
+                    host.map {
+                        String(localized: "\(agentManifest.name) installs with \(tool), which isn’t on \($0). ")
+                    } ?? String(localized: "\(agentManifest.name) installs with \(tool), which isn’t on this Mac. ")
+                Banner.show(lacks + first, style: .error)
                 return
             }
             e.run(command: cmd, title: String(localized: "Install \(agentManifest.name)")) { session in
                 app.availability.watchInstall(session.id, agent: agentManifest.id)
             }
         }
+    }
+
+    /// Whether `tool` is on the machine `worktree`'s terminals run on. True when that can't be learned, so the
+    /// installer runs and says so itself.
+    private static func has(_ tool: String, app: AppModel, in worktree: Worktree?) async -> Bool {
+        if let worktree, host(worktree) != nil {
+            return await app.quiet(HostCommands(worktreeId: worktree.id, commands: [tool]))?.contains(tool) ?? true
+        }
+        return await app.quiet(ProcessWhich(commands: [tool])).map { $0[tool] != nil } ?? true
     }
 
     /// The agent's real icon when there is one (AgentIcons), else its initial on a tile of the same shape; for a
@@ -176,6 +188,12 @@ package final class AgentAvailability {
         guard session.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: session.id) })?.key
         else {
             return
+        }
+        // An installer on a remote project's host: that host is asked again, not this Mac.
+        if let worktree = app.worktree(session.worktreeId), let host = AgentCatalog.host(worktree) {
+            phases[agent] = nil
+            hostAsked[host] = nil
+            return refreshHost(host, workspace: worktree.id, commands: app.catalog.all.map(\.command))
         }
         refresh(force: true, rereadPath: true, expecting: [agent])
     }

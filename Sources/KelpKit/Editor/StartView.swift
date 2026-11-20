@@ -22,6 +22,8 @@ final class StartView: NSView {
             accessibilityLabel: String(localized: "First task for \(name)"))
     }()
     private let def: String
+    /// The remote project's host, whose agents the page offers; nil on this Mac.
+    private let host: String?
     /// What's typed, kept by the editor area, because this view is made again whenever the workspace's agents change.
     var draft: String {
         get { prompt.value }
@@ -44,6 +46,8 @@ final class StartView: NSView {
     init(app: AppModel, worktree w: Worktree) {
         self.app = app
         def = app.catalog.defaultAgent(in: w)
+        let remote = RemoteHost.of(w.path)
+        host = remote?.host
         super.init(frame: .zero)
         let repo = app.repo(w.repoId)
         let icon = NSImageView(image: .symbol("folder"))
@@ -63,7 +67,7 @@ final class StartView: NSView {
                 localized: "On its own branch \(w.branch), from \(w.base.isEmpty ? repo?.baseBranch ?? "" : w.base)")
             : ""
         let folder = NSTextField(
-            labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? onBranch)
+            labelWithString: remote.map { "\($0.host):\($0.path)" } ?? onBranch)
         folder.font = .ui(TextSize.body)
         folder.textColor = .secondaryLabelColor
         folder.lineBreakMode = .byTruncatingMiddle
@@ -261,14 +265,20 @@ final class StartView: NSView {
     }
     private static let perRow = 4
 
-    /// The rows shown when no agent is on this Mac: what to install, then the catalog.
+    /// The rows shown when no agent is on this Mac, or on the remote project's host: what to install, then the catalog.
     private func installRows() -> [NSView] {
         let app = self.app
         let none = NSTextField(
-            wrappingLabelWithString: String(
-                localized:
-                    "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."
-            ))
+            wrappingLabelWithString: host.map {
+                String(
+                    localized:
+                        "No agent found on \($0). Install one: its installer runs in a terminal there, and the agent is offered when it’s done."
+                )
+            }
+                ?? String(
+                    localized:
+                        "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."
+                ))
         none.textColor = .secondaryLabelColor
         var rows: [NSView] = [StartView.padded(none)]
         rows += app.catalog.suggested.map { agent in
