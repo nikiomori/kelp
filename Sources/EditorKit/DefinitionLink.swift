@@ -1,7 +1,8 @@
 import AppKit
 
 /// ⌘ held over a word, in a file with a language server, makes the word a link to its definition (Xcode, VS Code): it
-/// is underlined in the link colour, the pointer is a pointing hand, and a click opens the definition (⌥⌘: beside).
+/// is underlined in the text colour (as the terminal underlines a path under ⌘), the pointer is a pointing hand, and a
+/// click opens the definition (⌥⌘: beside).
 /// The underline is a temporary attribute, so the text doesn't change.
 @MainActor
 final class DefinitionLink {
@@ -95,7 +96,7 @@ final class DefinitionLink {
         word = range
         guard let range else { return }
         lm.addTemporaryAttributes(
-            [.underlineStyle: NSUnderlineStyle.single.rawValue, .underlineColor: NSColor.linkColor],
+            [.underlineStyle: NSUnderlineStyle.single.rawValue, .underlineColor: NSColor.labelColor],
             forCharacterRange: range)
     }
 }

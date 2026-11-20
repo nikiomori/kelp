@@ -103,7 +103,7 @@ open class PointerButton: NSButton {
         guard !underlinesOnHover else {
             let words = NSMutableAttributedString(
                 string: title,
-                attributes: [.font: font ?? .ui(TextSize.body), .foregroundColor: contentTintColor ?? .themeAccent])
+                attributes: [.font: font ?? .ui(TextSize.body), .foregroundColor: contentTintColor ?? .emphasis])
             if hovering && isEnabled {
                 words.addAttribute(
                     .underlineStyle, value: NSUnderlineStyle.single.rawValue,
@@ -125,8 +125,9 @@ open class PointerButton: NSButton {
 }
 
 extension PointerButton {
-    /// A link (a port, the table a key points at): words in the accent colour with no plate, underlined under the
-    /// pointer. Every link is drawn this way; SwiftUI's is `.buttonStyle(.kelpLink)`.
+    /// A link (a port, the table a key points at): words in the accent colour (`emphasis`: the text colour under
+    /// Graphite, whose grey read as a disabled label) with no plate, underlined under the pointer. Every link is drawn
+    /// this way; SwiftUI's is `.buttonStyle(.kelpLink)`.
     public static func link(_ title: String, font: NSFont, action: @escaping () -> Void) -> PointerButton {
         let button = PointerButton(title: title, action: action)
         button.font = font

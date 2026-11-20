@@ -37,7 +37,6 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.headerView = nil
         table.style = .plain
         table.backgroundColor = .clear
-        table.rowHeight = TextSize.of(Metrics.row)   // its text grows with Text size
         table.intercellSpacing = .zero
         table.dataSource = self
         table.delegate = self
@@ -68,6 +67,9 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     /// Shows the list under `caret` (in screen coordinates), or over it when the screen ends first.
     func show(_ items: [CodeEditor.Completion], at caret: NSRect, in parent: NSWindow?) {
         self.items = items
+        // A row fits the editor's line (its font and size, which Settings change), and grows with Text size too.
+        let line = ceil(NSLayoutManager().defaultLineHeight(for: CodeEditor.font)) + CodeEditor.lineExtra
+        table.rowHeight = max(TextSize.of(Metrics.row), line)
         table.reloadData()
         guard !items.isEmpty else { return close() }
         self.caret = caret
@@ -107,7 +109,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     /// Sizes the panel to the list's rows or the docs beside them, whichever is taller, keeping the list's edge at the
     /// caret: its top under it, or its bottom over it when the screen ends first.
     private func place() {
-        let rows = CGFloat(min(items.count, Self.mostRows)) * TextSize.of(Metrics.row) + 2 * Metrics.lineGap
+        let rows = CGFloat(min(items.count, Self.mostRows)) * table.rowHeight + 2 * Metrics.lineGap
         listHeight?.constant = rows
         let height = docCard.isHidden ? rows : max(rows, docCard.fittingSize.height)
         let width = Self.width + Metrics.gap + Self.docWidth
@@ -136,7 +138,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
         let label = NSTextField(labelWithString: item.label)
-        label.font = .uiMono(TextSize.row)
+        label.font = CodeEditor.font   // the code's font and size, as what it puts in
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.init(300), for: .horizontal)
         let detail = NSTextField(labelWithString: item.detail ?? "")

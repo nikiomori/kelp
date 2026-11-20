@@ -54,7 +54,7 @@ public struct KelpLinkStyle: ButtonStyle {
         @State private var size = CGSize.zero
         var body: some View {
             configuration.label
-                .foregroundStyle(Color(nsColor: .themeAccent))
+                .foregroundStyle(Color(nsColor: .emphasis))
                 .underline(hovering)
                 .contentShape(Rectangle())
                 .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)

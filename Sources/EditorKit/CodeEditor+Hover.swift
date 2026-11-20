@@ -110,11 +110,11 @@ extension CodeEditor {
     }
 
     private func showSignature(_ label: String, active: NSRange?, at location: Int) {
+        let font = Self.font   // the code's own font and size, as the line it is about
         let text = NSMutableAttributedString(
-            string: label, attributes: [.font: NSFont.uiMono(TextSize.row), .foregroundColor: NSColor.labelColor])
+            string: label, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         if let active, NSMaxRange(active) <= text.length {
-            text.addAttribute(
-                .font, value: NSFont.uiMono(TextSize.row, weight: .medium), range: active)
+            text.addAttribute(.font, value: NSFontManager.shared.convertWeight(true, of: font), range: active)
         }
         let card = HoverCard(text, width: Self.cardWidth, most: Self.cardHeight)
         if let open = hover.signatureCard, open.isShown {
@@ -126,11 +126,11 @@ extension CodeEditor {
     }
 }
 
-/// A server's Markdown as text: code fences in the code font, and the rest with its inline marks.
+/// A server's Markdown as text: code fences in the editor's font and size, and the rest with its inline marks.
 @MainActor
 enum HoverText {
     static func attributed(_ markdown: String) -> NSAttributedString {
-        let out = NSMutableAttributedString(), body = NSFont.ui(TextSize.row), code = NSFont.uiMono(TextSize.row)
+        let out = NSMutableAttributedString(), body = NSFont.ui(TextSize.row), code = CodeEditor.font
         var fenced = false
         for line in markdown.components(separatedBy: "\n") {
             if line.hasPrefix("```") {
