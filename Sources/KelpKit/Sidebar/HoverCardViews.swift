@@ -92,9 +92,7 @@ struct CardView: View {
                 HStack(spacing: Metrics.gapWide) {
                     ForEach(model.pages, id: \.port) { page in
                         Button(page.address) { runs.open(page, model.workspaceId) }
-                            .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit())
-                            .foregroundStyle(
-                                Color.accentColor)
+                            .buttonStyle(.kelpLink).font(.ui(TextSize.caption).monospacedDigit())
                     }
                 }
             }

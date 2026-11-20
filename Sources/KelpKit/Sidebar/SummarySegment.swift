@@ -27,13 +27,13 @@ final class SummarySegment: PointerControl {
         constraint.isActive = false
         return constraint
     }()
+    private lazy var height = heightAnchor.constraint(equalToConstant: TextSize.of(22))
     var press: () -> Void = {}
     var hover: (Bool) -> Void = { _ in }
 
     init(_ kind: SummaryKind) {
         self.kind = kind
         super.init(frame: .zero)
-        layer?.cornerRadius = TextSize.of(22) / 2
         mark.status = kind == .working || kind == .quiet ? .working : .done
         mark.limited = kind == .limit
         mark.announces = false
@@ -41,7 +41,6 @@ final class SummarySegment: PointerControl {
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        verb.font = .ui(TextSize.caption)
         verb.textColor = .secondaryLabelColor
         verb.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, label, verb])
@@ -51,7 +50,7 @@ final class SummarySegment: PointerControl {
         addSubview(content)
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: TextSize.of(22)),
+            height,
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gap),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gap),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -60,6 +59,14 @@ final class SummarySegment: PointerControl {
         setAccessibilityRole(.button)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Sets the sizes that follow Text size: the plate's height and rounding and the words' fonts.
+    func restyle() {
+        height.constant = TextSize.of(22)
+        layer?.cornerRadius = TextSize.of(22) / 2
+        verb.font = .ui(TextSize.caption)
+        show()
+    }
 
     func say(_ words: [String]) {
         self.words = words.isEmpty ? [""] : words

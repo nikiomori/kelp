@@ -67,7 +67,6 @@ final class AgentSummary: NSView {
         card = SummaryCard(app: app)
         super.init(frame: .zero)
         title.maximumNumberOfLines = 1
-        title.font = .ui(TextSize.row, weight: .medium)   // 12 has no semibold on the scale
         title.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, title])
         content.spacing = Metrics.gap
@@ -85,7 +84,6 @@ final class AgentSummary: NSView {
         capsule.press = { [weak self] in self?.app.workbench.showNextNeedingAttention() }
         capsule.setAccessibilityElement(true)
         capsule.setAccessibilityRole(.button)
-        heading.font = .ui(TextSize.caption, weight: .semibold)
         heading.textColor = .secondaryLabelColor
         for segment in segments {
             segment.press = { [weak self, kind = segment.kind] in self?.pressed(kind) }
@@ -98,16 +96,30 @@ final class AgentSummary: NSView {
         row.detachesHiddenViews = true
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+        let height = heightAnchor.constraint(equalToConstant: 0)
+        let capsuleHeight = capsule.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: TextSize.of(24)),
+            height,
             row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
             // The row stops a gap short of Add Project.
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),
-            capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
+            capsuleHeight,
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
             content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
             content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
+        // The row, its words and its counts grow with Text size.
+        track(owner: self) { [app] in
+            app.themes.chromeText
+        } changed: { [weak self] _ in
+            guard let self else { return }
+            height.constant = TextSize.of(24)
+            capsuleHeight.constant = TextSize.of(24)
+            title.font = .ui(TextSize.row, weight: .medium)   // 12 has no semibold on the scale
+            heading.font = .ui(TextSize.caption, weight: .semibold)
+            segments.forEach { $0.restyle() }
+            needsLayout = true
+        }
         // Follow only what the row shows, so an agent's progress or title, which change a few times a second while it
         // works, don't redraw anything.
         track(owner: self) { [weak self, app] in

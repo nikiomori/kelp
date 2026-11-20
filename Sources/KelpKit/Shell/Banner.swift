@@ -134,7 +134,12 @@ private final class BannerCard: NSView {
             image: icon ?? .symbol(style == .error ? "exclamationmark.triangle.fill" : "info.circle.fill"))
         // What the user asked for failed, so the sign is red: orange stays for what waits for them.
         symbol.contentTintColor = style == .error ? .systemRed : .secondaryLabelColor
-        symbol.imageScaling = .scaleProportionallyUpOrDown
+        if icon == nil {   // a symbol drawn at its size and the chrome's weight, not a stretched regular one
+            symbol.symbolConfiguration = .chrome(Metrics.iconLarge)
+            symbol.imageScaling = .scaleNone
+        } else {
+            symbol.imageScaling = .scaleProportionallyUpOrDown
+        }
         NSLayoutConstraint.activate([
             symbol.widthAnchor.constraint(equalToConstant: icon == nil ? 16 : 24),
             symbol.heightAnchor.constraint(equalToConstant: icon == nil ? 16 : 24)

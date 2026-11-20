@@ -306,8 +306,13 @@ final class CountBadge: NSView {
             let dot = Self.height / 2
             return NSBezierPath(ovalIn: NSRect(x: 0, y: (bounds.height - dot) / 2, width: dot, height: dot)).fill()
         }
+        let plate = NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2)
+        // The grey goes on a solid base, because a wide count (or one at a larger Text size) sits on the glyph, and
+        // through the see-through grey the glyph's strokes showed behind the digits.
+        NSColor.windowBackgroundColor.setFill()
+        plate.fill()
         // Read while drawing, because `fillTint` is fixed to the appearance it is read in.
         (alert ? NSColor.fillTint(.systemRed) : NSColor.fillSelected).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+        plate.fill()
     }
 }

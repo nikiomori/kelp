@@ -125,7 +125,7 @@ final class WindowBar: NSView {
             icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16),
             context.centerYAnchor.constraint(equalTo: centerYAnchor),
             search.centerYAnchor.constraint(equalTo: centerYAnchor),
-            search.heightAnchor.constraint(equalToConstant: TextSize.barCapsule), wide, center,
+            wide, center,
             search.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             search.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
             back.widthAnchor.constraint(equalToConstant: 24), forward.widthAnchor.constraint(equalToConstant: 24),
