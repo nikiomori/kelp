@@ -28,3 +28,12 @@ import Testing
     try "x\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     #expect(Git.isDirty(try Git.status(repo, remotes: .none), in: repo))
 }
+
+/// A renamed file's lines are counted under its new path, however numstat writes the rename.
+@Test(arguments: [
+    ("f.txt", "f.txt"), ("a.txt => b.txt", "b.txt"), ("src/{a.txt => b.txt}", "src/b.txt"),
+    ("src/{ => new}/f", "src/new/f"), ("src/{old => }/f", "src/f"), ("{old => }/f", "f")
+])
+func aRenameIsCountedUnderItsNewPath(numstat: String, path: String) {
+    #expect(Git.renamed(Substring(numstat)) == path)
+}

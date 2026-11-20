@@ -287,6 +287,21 @@ public struct GitRemoteOp: RPCMethod {
         self.op = op
     }
 }
+/// Acts on one commit of workspace `worktreeId`'s history: `checkout` puts HEAD on it with no branch, `branch` makes
+/// the branch `branch` there and switches to it, `cherryPick` applies it to the current branch, and `revert` adds a
+/// commit that undoes it. A conflict leaves the cherry-pick or revert under way, for Source Control's Merge section.
+public struct GitCommitAct: RPCMethod {
+    public static let name = "git.commitAct"
+    public typealias Result = Done
+    public enum Kind: String, Codable, Sendable, CaseIterable { case checkout, branch, cherryPick, revert }
+    public var worktreeId: String, commit: String, op: Kind, branch: String?
+    public init(worktreeId: String, commit: String, op: Kind, branch: String? = nil) {
+        self.worktreeId = worktreeId
+        self.commit = commit
+        self.op = op
+        self.branch = branch
+    }
+}
 /// Stashes the changes of workspace `id`, or brings the last stash back with `pop`.
 public struct GitStash: RPCMethod {
     public static let name = "git.stash"

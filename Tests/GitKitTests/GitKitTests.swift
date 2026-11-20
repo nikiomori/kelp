@@ -178,7 +178,11 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
         d
             == CommitDetails(
                 body: "Why it changed,\nwrapped.\n\nSecond paragraph.", email: "ada@example.com", files: 2, added: 2,
-                removed: 1))
+                removed: 1,
+                lines: [
+                    FileLines(path: "blob.bin", added: 0, removed: 0), FileLines(path: "f.txt", added: 2, removed: 1)
+                ]
+            ))
     #expect(try Git.commitDetails(repo, commit: "HEAD~1", remotes: .none).body.isEmpty)
 }
 
