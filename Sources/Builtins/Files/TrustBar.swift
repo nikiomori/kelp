@@ -10,6 +10,7 @@ import KelpKit
 enum TrustBar {
     static func make(project name: String, notNow: @escaping () -> Void, trust: @escaping () -> Void) -> Bar {
         let icon = NSImageView(image: NSImage.symbol("info.circle"))
+        icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let text = NSTextField.sentence(
             String(

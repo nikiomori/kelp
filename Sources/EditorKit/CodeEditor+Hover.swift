@@ -201,6 +201,7 @@ final class HoverCard: NSViewController {
         tv.isEditable = false
         tv.drawsBackground = false
         tv.textContainerInset = NSSize(width: inset, height: inset)
+        tv.textContainer?.lineFragmentPadding = 0   // the inset alone, not 5 pt more on each side
         tv.textStorage?.setAttributedString(text)
         tv.isVerticallyResizable = true
         tv.autoresizingMask = [.width]

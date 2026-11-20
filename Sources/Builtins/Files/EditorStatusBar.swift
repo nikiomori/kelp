@@ -198,7 +198,7 @@ final class EditorStatusBar: NSView {
     /// Shows "Finding the definition…" (`whileSlow` calls it past a second).
     func showFinding() {
         findingSince = .now
-        finding.isHidden = false
+        finding.fadeIn()
     }
 
     /// The definition's lookup is over: the line goes, once it has been up `LoadingView.held`.
@@ -207,7 +207,22 @@ final class EditorStatusBar: NSView {
         findingSince = nil
         let left = LoadingView.held - Date.now.timeIntervalSince(since)
         if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
-        if findingSince == nil { finding.isHidden = true }   // not when another lookup began meanwhile
+        if findingSince == nil { leaveFinding() }   // not when another lookup began meanwhile
+    }
+
+    /// The line fades out in two thirds of the time it took to come.
+    private func leaveFinding() {
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = Motion.duration(Motion.fast * 2 / 3)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                finding.animator().alphaValue = 0
+            },
+            completionHandler: {
+                MainActor.assumeIsolated {   // AppKit ends the group on the main thread
+                    if self.findingSince == nil { self.finding.isHidden = true }
+                }
+            })
     }
 
     func show(cursor: (line: Int, column: Int)?) {

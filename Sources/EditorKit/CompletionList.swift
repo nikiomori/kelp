@@ -5,7 +5,7 @@ import DesignKit
 /// documentation beside it. The text view sends it ↑ ↓ ↩ ⇥ and Esc while it's open.
 @MainActor
 final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
-    private static let width: CGFloat = 380, docWidth: CGFloat = 280, mostRows = 9
+    private static let width: CGFloat = 380, docWidth: CGFloat = 280, mostRows = 9, mostDocLines = 12
     private let panel = NSPanel(
         contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: true)
     private let table = NSTableView()
@@ -16,6 +16,12 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         padded.pin(doc, inset: NSEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
         return FloatingCard(padded, radius: Metrics.radiusMD)
     }()
+    private let row = NSStackView()
+    /// The list's height: its rows, whatever the docs beside it need (`place`).
+    private var listHeight: NSLayoutConstraint?
+    /// Where the list was asked for, for placing it again when the docs beside it change.
+    private var caret = NSRect.zero
+    private weak var parent: NSWindow?
     private(set) var items: [CodeEditor.Completion] = []
     var onAccept: ((CodeEditor.Completion) -> Void)?
     var isOpen: Bool { panel.isVisible }
@@ -45,12 +51,17 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         let card = FloatingCard(scroll, radius: Metrics.radiusMD)
         doc.font = .ui(TextSize.caption)
         doc.textColor = .secondaryLabelColor
-        let row = NSStackView(views: [card, docCard])
+        // Long docs are cut at their end rather than growing the panel down the screen.
+        doc.maximumNumberOfLines = Self.mostDocLines
+        doc.cell?.truncatesLastVisibleLine = true
+        doc.preferredMaxLayoutWidth = Self.docWidth - 2 * Metrics.inset
+        row.setViews([card, docCard], in: .leading)
         row.alignment = .top
         row.spacing = Metrics.gap
         panel.contentView = row
         card.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-        card.heightAnchor.constraint(equalTo: row.heightAnchor).isActive = true
+        listHeight = card.heightAnchor.constraint(equalToConstant: 0)
+        listHeight?.isActive = true
         docCard.widthAnchor.constraint(equalToConstant: Self.docWidth).isActive = true
     }
 
@@ -59,12 +70,9 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         self.items = items
         table.reloadData()
         guard !items.isEmpty else { return close() }
+        self.caret = caret
+        self.parent = parent
         select(0)
-        let height = CGFloat(min(items.count, Self.mostRows)) * TextSize.of(Metrics.row) + 2 * Metrics.lineGap
-        let width = Self.width + Metrics.gap + Self.docWidth
-        var originY = caret.minY - height - Metrics.lineGap
-        if let floor = parent?.screen?.visibleFrame.minY, originY < floor { originY = caret.maxY + Metrics.lineGap }
-        panel.setFrame(NSRect(x: caret.minX, y: originY, width: width, height: height), display: true)
         if !panel.isVisible {
             parent?.addChildWindow(panel, ordered: .above)
             panel.orderFront(nil)
@@ -93,6 +101,23 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         let text = selected?.documentation ?? ""
         doc.stringValue = text
         docCard.isHidden = text.isEmpty
+        place()
+    }
+
+    /// Sizes the panel to the list's rows or the docs beside them, whichever is taller, keeping the list's edge at the
+    /// caret: its top under it, or its bottom over it when the screen ends first.
+    private func place() {
+        let rows = CGFloat(min(items.count, Self.mostRows)) * TextSize.of(Metrics.row) + 2 * Metrics.lineGap
+        listHeight?.constant = rows
+        let height = docCard.isHidden ? rows : max(rows, docCard.fittingSize.height)
+        let width = Self.width + Metrics.gap + Self.docWidth
+        var originY = caret.minY - height - Metrics.lineGap
+        row.alignment = .top
+        if let floor = parent?.screen?.visibleFrame.minY, caret.minY - rows - Metrics.lineGap < floor {
+            originY = caret.maxY + Metrics.lineGap
+            row.alignment = .bottom
+        }
+        panel.setFrame(NSRect(x: caret.minX, y: originY, width: width, height: height), display: true)
     }
 
     @objc private func clicked() { if let selected { onAccept?(selected) } }

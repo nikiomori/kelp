@@ -9,6 +9,7 @@ import EditorKit
 final class ConflictBar {
     private(set) lazy var bar: Bar = {
         let icon = NSImageView(image: NSImage.symbol("arrow.triangle.merge"))
+        icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .systemOrange
         let buttons: [NSView] = [
             steps,

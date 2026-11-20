@@ -61,6 +61,7 @@ final class TabStrip: NSView {
         didSet {
             guard dimmed != oldValue else { return }
             buttons.forEach { $0.stripDimmed = dimmed }
+            newGroup.strength = dimmed ? Metrics.tabDim : 1
             NSAnimationContext.runAnimationGroup { ctx in   // new agent and "+" fade with the pane's tabs
                 ctx.duration = Motion.duration(Motion.fast)
                 adds.animator().alphaValue = dimmed ? Metrics.tabDim : 1
@@ -143,7 +144,7 @@ final class TabStrip: NSView {
         adds.detachesHiddenViews = true
         adds.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
         let trailing = NSStackView(views: [unzoom, overflow])
-        trailing.spacing = 6
+        trailing.spacing = Metrics.iconGap
         trailing.detachesHiddenViews = true
         scroll.documentView = stack
         scroll.wantsLayer = true
@@ -296,15 +297,15 @@ final class TabStrip: NSView {
     }
 
     override func layout() {
-        // In the strip, not the button, which cut it off.
-        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: self)
+        // In the strip, not the button, which cut it off. No gap is cut in the button: its hover fill would break.
+        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: self, cut: false)
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // This runs before super.layout(), because when set after it the constant only took effect on the next pass,
         // so a tab whose title grew (a page finishing loading) stayed clipped until something else laid the strip out.
         var sizes = measured ?? measure()
         var room = bounds.width - 6 - sizes.others - 2
         // The chevron's room counts as the tabs' room, so showing the chevron mustn't turn the tabs back to regular.
-        let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + 6)
+        let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + Metrics.iconGap)
         let compact = tabWidth == "compact" || tabWidth == "auto" && squeezed
         if compact != self.compact {
             self.compact = compact

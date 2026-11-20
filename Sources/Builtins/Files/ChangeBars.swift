@@ -178,7 +178,7 @@ final class ChangeCard: NSViewController {
         let text = NSTextField(labelWithAttributedString: lines())
         text.maximumNumberOfLines = 0
         text.lineBreakMode = .byTruncatingTail
-        text.preferredMaxLayoutWidth = Self.width
+        text.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // the card is 440, as the docs card
         let bar = NSStackView(views: actions)
         bar.spacing = Metrics.gap
         let stack = NSStackView(views: [text, bar])
