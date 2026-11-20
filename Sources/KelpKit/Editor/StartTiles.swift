@@ -7,8 +7,14 @@ import DesignKit
 final class AgentTile: PointerControl {
     private let isDefault: Bool
     private let name: String
+    private let icon: NSView
     private let bar = PlanBar()
     private let amount = NSTextField(labelWithString: " ")
+    /// Where a click starts the agent, under its name (`offerNewGroup`); blank on the other tiles, so all are as tall.
+    private let caption = NSTextField(labelWithString: " ")
+    private var badge: NewGroupBadge?
+    /// What a click and a ⌘-click do, for the tooltip.
+    private var actions: String?
 
     convenience init(image: NSImage?, title: String, key: String?, isDefault: Bool, action: @escaping () -> Void) {
         let icon = NSImageView(image: image ?? NSImage())
@@ -26,6 +32,7 @@ final class AgentTile: PointerControl {
 
     private init(icon: NSView, title: String, key: String?, isDefault: Bool, action: @escaping () -> Void) {
         self.isDefault = isDefault
+        self.icon = icon
         name = title
         super.init(frame: .zero)
         onClick = action
@@ -35,14 +42,20 @@ final class AgentTile: PointerControl {
         label.lineBreakMode = .byTruncatingTail
         label.alignment = .center
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        caption.font = .ui(TextSize.caption)
+        caption.textColor = .secondaryLabelColor
+        caption.alignment = .center
+        caption.lineBreakMode = .byTruncatingTail
+        caption.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         amount.font = .uiDigits(TextSize.caption)
         amount.textColor = .secondaryLabelColor
         bar.alphaValue = 0
         amount.alphaValue = 0
-        let column = NSStackView(views: [icon, label, bar, amount])
+        let column = NSStackView(views: [icon, label, caption, bar, amount])
         column.detachesHiddenViews = true
         column.orientation = .vertical
         column.spacing = Metrics.gap
+        column.setCustomSpacing(Metrics.lineGap, after: label)
         column.setCustomSpacing(Metrics.iconGap, after: bar)
         column.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.gapWide, bottom: Metrics.gapWide, right: Metrics.gapWide)
@@ -69,6 +82,28 @@ final class AgentTile: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Says under the name that a click starts the agent in this folder, and while the pointer is on the tile with ⌘
+    /// held, that a click starts it in a new group: the new-group badge fades into the icon's corner and the line
+    /// changes.
+    func offerNewGroup() {
+        let badge = NewGroupBadge(size: Metrics.iconPoint)
+        badge.pin(to: icon, side: Metrics.iconEmpty, in: self)
+        badge.onShow = { [weak self] in self?.showPlace(newGroup: $0) }
+        self.badge = badge
+        showPlace(newGroup: false)
+        actions = String(localized: "New \(name)") + "\n" + String(localized: "⌘-click: in a new group")
+        toolTip = actions
+    }
+    private func showPlace(newGroup: Bool) {
+        if window != nil { caption.crossfade() }
+        caption.stringValue = newGroup ? String(localized: "In a New Group") : String(localized: "In this folder")
+        caption.textColor = newGroup ? .labelColor : .secondaryLabelColor
+    }
+    override func showPointer(hovering: Bool, pressed: Bool) {
+        super.showPointer(hovering: hovering, pressed: pressed)
+        badge?.pointed = hovering
+    }
+
     /// Whether the tile keeps room under the name for a plan. While no agent on show has a plan, the tiles are only as
     /// tall as their names.
     var roomForPlan = true {
@@ -90,7 +125,7 @@ final class AgentTile: PointerControl {
             bar.animator().alphaValue = shown
             amount.animator().alphaValue = shown
         }
-        toolTip = note?.tip
+        toolTip = [actions, note?.tip].compactMap { $0 }.joined(separator: "\n")
         setAccessibilityLabel([name, note?.text].compactMap { $0 }.joined(separator: ", "))
     }
 

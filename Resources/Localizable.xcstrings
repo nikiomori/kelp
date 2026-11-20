@@ -36098,6 +36098,46 @@
           }
         }
       }
+    },
+    "⌘-click": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘-клик"
+          }
+        }
+      }
+    },
+    "%@ in New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ в новой группе"
+          }
+        }
+      }
+    },
+    "In a New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В новой группе"
+          }
+        }
+      }
+    },
+    "In this folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этой папке"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -81,6 +81,8 @@ final class TabStrip: NSView {
     private let add = CapsuleSegment()
     /// The default agent, one click away beside "+" (no list to pick from); the two share one capsule.
     private let newAgent = CapsuleSegment()
+    /// In the agent's icon corner while the pointer is on the button and ⌘ is held: a click starts it in a new group.
+    private let newGroup = NewGroupBadge(size: Metrics.iconTiny)
     private let adds = CapsuleStack()
     private var items: [Item] = []
     private var selectedId: String?
@@ -135,6 +137,8 @@ final class TabStrip: NSView {
         newAgent.target = self
         newAgent.action = #selector(newAgentTapped)
         newAgent.isHidden = true
+        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: newAgent)
+        newAgent.onHover = { [weak self] in self?.newGroup.pointed = $0 }
         adds.setViews([newAgent, add], in: .leading)
         adds.spacing = 0
         adds.detachesHiddenViews = true

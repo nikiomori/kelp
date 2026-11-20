@@ -41,7 +41,8 @@ enum KeyBindings {
     static func apply(to menu: NSMenu, _ settings: SettingsStore) {
         let over = overrides(settings)
         for (item, path) in menu.leaves() {
-            guard let action = item.action else { continue }
+            // An alternate (⌥ or ⌘ held) has its item's key, so it gets no shortcut of its own.
+            guard let action = item.action, !item.isAlternate else { continue }
             // A command's item goes by the command id, the others by their English path ("Edit › Copy").
             let command = action == #selector(AppDelegate.runCommand(_:)),
                 name = item.identifier?.rawValue ?? item.title

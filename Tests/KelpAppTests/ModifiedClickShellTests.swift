@@ -74,3 +74,25 @@ extension OneAtATime {
         #expect(ran == ["beside a"])
     }
 }
+
+/// An agent's menu item gets a stand-in that shows while ⌘ is held and starts it in a new group, as a ⌘-click does.
+/// An item with a key gets none: macOS doesn't count a key's ⌘ when it swaps two items, so the stand-in would show
+/// instead of the item.
+@MainActor @Test func anAgentsMenuItemHasANewGroupStandInWhileCommandIsHeld() throws {
+    _ = NSApplication.shared
+    var ran: [String] = []
+    for key in ["", "t"] {
+        let menu = NSMenu()
+        let item = menu.add("Claude Code", key: key) { ran.append("here") }
+        let alternate = menu.addNewGroupAlternate(of: item, agent: "Claude Code", column: 0) { ran.append("new group") }
+        guard key.isEmpty else {
+            #expect(alternate == nil && menu.items.count == 1)
+            continue
+        }
+        let new = try #require(alternate)
+        #expect(menu.items.map(\.title) == ["Claude Code", "Claude Code in New Group\t⌘-click"])
+        #expect(new.isAlternate && new.keyEquivalentModifierMask == .command && item.keyEquivalentModifierMask == [])
+        menu.performActionForItem(at: 1)
+    }
+    #expect(ran == ["new group"])
+}

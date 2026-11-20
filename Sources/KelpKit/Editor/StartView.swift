@@ -234,7 +234,7 @@ final class StartView: NSView {
             ) { [weak self] in
                 self?.start(agent.id)
             }
-            tile.toolTip = String(localized: "⌘-click: in a new group")
+            tile.offerNewGroup()
             tilesById[agent.id] = tile
             return tile
         }

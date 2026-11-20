@@ -121,8 +121,12 @@ extension AppDelegate {
             "workspace.newBranchAsking",
             "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
+        let alternates = NSMenuItem.noteColumn(app.catalog.installed.map { NSMenu.inNewGroup($0.name) })
         for a in app.catalog.installed {
-            with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
+            let item = with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
+            with.addNewGroupAlternate(of: item, agent: a.name, column: alternates) {
+                app.workbench.newChatInGroup(agent: a.id)
+            }
         }
         with.addItem(.separator())
         for e in menuBuilder.reg.all.editors {
