@@ -97,6 +97,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             views: [Self.small(String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle.")), ask])
         later.spacing = Metrics.gapWide
 
+        found.arrangedSubviews.forEach { $0.removeFromSuperview() }   // Back comes here again: read afresh
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
