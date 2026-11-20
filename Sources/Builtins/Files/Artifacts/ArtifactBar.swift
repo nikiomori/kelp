@@ -120,7 +120,7 @@ final class ArtifactBar: NSObject {
         refresh.onClick = { [weak self] in self?.markdown.askUpdate() }
         present.onClick = { [weak self] in self?.togglePresenting() }
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
-        return Bar.content(
+        let bar = Bar.content(
             [kind, ring, status],
             [
                 spent, latest, restore, fresh, refresh, changes, modes, present, check, back, count, forward, author,
@@ -128,6 +128,11 @@ final class ArtifactBar: NSObject {
             ],
             stretching: status
         )
+        // In a narrow pane Present goes into ⋯ first, then the check's result, as Xcode's narrow bars do. The words
+        // are cut before either goes; `showMore` lists what is out.
+        bar.stack.setVisibilityPriority(.init(rawValue: 300), for: present)
+        bar.stack.setVisibilityPriority(.init(rawValue: 400), for: check)
+        return bar
     }()
 
     init(app: AppModel, path: String, markdown: MarkdownTab) {
@@ -330,6 +335,11 @@ final class ArtifactBar: NSObject {
     }
 
     private func showCheck() {
+        checkMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
+    }
+
+    /// What the check found, and asking the agent to fix it or checking again.
+    private func checkMenu() -> NSMenu {
         let menu = NSMenu(), md = markdown
         for issue in issues.prefix(20) {
             menu.addItem(
@@ -343,11 +353,20 @@ final class ArtifactBar: NSObject {
             menu.add(String(localized: "Ask \(who) to Fix")) { md.sendCheck() }
         }
         menu.add(String(localized: "Check Again")) { md.rerender() }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
+        return menu
+    }
+
+    /// Present and the check's result, while a narrow pane keeps them out of the bar.
+    private func addCrowdedOut(to menu: NSMenu) {
+        let out = (view as? Bar)?.stack.detachedViews.filter { !$0.isHidden && ($0 == present || $0 == check) } ?? []
+        if out.contains(present) { menu.add(present.title) { [weak self] in self?.togglePresenting() } }
+        if out.contains(check) { menu.add(check.title, submenu: checkMenu()).toolTip = check.toolTip }
+        if !out.isEmpty { menu.addItem(.separator()) }
     }
 
     private func showMore() {
         let menu = NSMenu(), app = self.app, path = self.path, md = markdown
+        addCrowdedOut(to: menu)
         if modes.isHidden {   // a review: these show its Markdown beside or instead of the page (others use `modes`)
             for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
                 .enumerated()
