@@ -202,7 +202,7 @@ enum DeclarativeExtension {
         badge: ExtBadge? = nil,
         props: [String: String] = [:]
     ) -> NSViewController {
-        if let list = viewDef.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
+        if let list = viewDef.list { return ExtListView(def: list, folder: folder, app: app) }
         if let web = viewDef.web {
             // A missing page would load nothing and leave the panel blank, with no word of why.
             guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(web).path) else {

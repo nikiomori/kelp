@@ -1,135 +1,142 @@
 import AppKit
 import Core
 import DesignKit
-import SwiftUI
-import WebKit
 
 // MARK: list views
 
-struct ExtListView: View {
+/// An extension's list panel: what its command prints, one row per item, on the inspector's rows (`ListRowView`) as
+/// every other panel has them. Double-click or Return runs the first action, a right-click lists them all, and a row
+/// with `drag` drags that file. Its rows are in `ExtListView+Rows.swift`.
+@MainActor
+final class ExtListView: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let def: ExtManifest.ListDef
     let folder: URL
-    @State private var items: [JSONValue] = []
-    @State private var error: String?
-    @State private var waitingSince: Date?   // when the rows' outline came up, a second into the first wait
-    @State private var answered = false   // the command has answered once (no "empty" before that)
-    @State private var selection: String?
-    @State private var busy: Set<Int> = []   // toolbar actions whose command has run for over a second
-    private let app: AppModel
-    private var bench: Workbench { app.workbench }
+    let app: AppModel
+    let table = KeyTable()
+    private(set) var items: [JSONValue] = []
+    /// Each row's key (`keys`), in the rows' order.
+    private var rowKeys: [String] = []
+    private var error: String?
+    private var answered = false   // the command has answered once (no "empty" before that)
+    private var loop: Task<Void, Never>?
+    private lazy var failureBar = FailureBar { [weak self] in self?.reload() }
+    private let empty = EmptyStateView()
+    private lazy var loading = LoadingView(
+        rows: true, rowHeight: def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine)
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
+    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
+        [weak self] in self?.showMore()
+    }
 
     init(def: ExtManifest.ListDef, folder: URL, app: AppModel) {
         self.def = def
         self.folder = folder
         self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func loadView() {
+        let scroll = table.plainList("row")
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.doubleAction = #selector(doubleClicked)
+        table.onReturn = { [weak self] in self.map { $0.runFirst(on: $0.table.selectedRow) } }
+        table.menu = NSMenu()
+        table.menu?.delegate = self
+        table.setDraggingSourceOperationMask(.copy, forLocal: false)
+        // The bar every panel has: the leading side is for the panel's subject (its tab names it), and the actions sit
+        // at the end before ⋯ (Refresh).
+        let actions = (def.toolbar ?? []).enumerated().map { toolbarButton($1, $0) }
+        let top = failureBar.under(Bar.panel([], actions + [more]))
+        let content = stacked(top, scroll)
+        empty.place(in: content, under: top)
+        loading.place(in: content, under: top)
+        view = content
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // The bar every panel has (DesignKit's Bar): the leading side is for the panel's subject (its tab names
-            // it), and the actions sit at the end before ⋯ (Refresh): the first in words on the grey plate, as
-            // TextButton draws it (a worded button has no symbol), the others as icons, or in words without a symbol.
-            HStack(spacing: Metrics.gap) {
-                Spacer()
-                ForEach(Array((def.toolbar ?? []).enumerated()), id: \.offset) { index, action in
-                    toolbarButton(action, index)
-                }
-                Menu {
-                    Button("Refresh") { reload() }
-                } label: {
-                    Image(systemName: "ellipsis.circle").font(.symbol()).foregroundStyle(.secondary)
-                }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More Actions")
-                .accessibilityLabel("More Actions")
-            }
-            .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(
-                height: TextSize.of(Metrics.panelHeader))
-            Divider()
-            if let error, items.isEmpty {
-                EmptyState(
-                    title: String(localized: "Couldn’t Run the List’s Command"), symbol: nil, output: error,
-                    retry: reload
-                ).frame(maxHeight: .infinity)
-            } else if items.isEmpty, !answered {
-                // Only the first wait shows the rows' outline; a timed refresh keeps what is shown.
-                if waitingSince != nil {
-                    Waiting(rowHeight: def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine).frame(
-                        maxHeight: .infinity)
-                } else {
-                    Color.clear
-                }
-            } else if items.isEmpty {
-                let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
-                EmptyState(title: def.empty ?? String(localized: "Nothing Here"), symbol: symbol, output: nil).frame(
-                    maxHeight: .infinity)
-            } else {
-                if let error {
-                    FailureLine(error, retry: reload).padding(.horizontal, Metrics.inset).padding(.top, Metrics.gap)
-                }
-                List(selection: $selection) {
-                    ForEach(Array(zip(keys(items), items)), id: \.0) { key, item in
-                        draggable(row(item), item).tag(key).contextMenu { rowMenu(item) }
-                    }
-                }
-                .listStyle(.sidebar)
-                // Rows as tall as the inspector's (24, or 40 with a line under the name), growing with Text size.
-                .environment(
-                    \.defaultMinListRowHeight, TextSize.of(def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine)
-                )
-                .contextMenu(forSelectionType: String.self) { _ in
-                } primaryAction: { sel in
-                    if let key = sel.first, let index = keys(items).firstIndex(of: key),
-                        let action = def.actions?.first
-                    {
-                        ExtActions(app).perform(action, item: items[index], folder: folder, after: { reload() })
-                    }
-                }
-            }
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Another workspace runs the command again, in its folder; what is shown stays until the answer.
+        track(owner: self, now: false) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self] _ in
+            if self?.loop != nil { self?.start() }
         }
-        .task(id: bench.workspaceId) {
-            await Self.refreshing(every: def.refresh, away: { app.away }, run: refresh)
+    }
+    // The command runs only while the panel is on screen.
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        start()
+    }
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        loop?.cancel()
+        loop = nil
+    }
+    private func start() {
+        loop?.cancel()
+        let every = def.refresh, app = self.app
+        loop = Task { [weak self] in
+            await ExtListView.refreshing(every: every, away: { app.away }) { await self?.refresh() }
         }
     }
 
-    /// A row's right-click menu: every action, with its symbol when it names one.
-    @ViewBuilder private func rowMenu(_ item: JSONValue) -> some View {
-        ForEach(Array((def.actions ?? []).enumerated()), id: \.offset) { _, a in
-            Button {
-                ExtActions(app).perform(a, item: item, folder: folder, after: { reload() })
-            } label: {
-                if let icon = a.icon { Label(a.title, systemImage: icon) } else { Text(a.title) }
-            }
-        }
+    private func showMore() {
+        let menu = NSMenu()
+        menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + Metrics.lineGap * 2), in: more)
     }
 
-    /// A toolbar action. A `run` command that takes over a second shows a spinner in the button's place, and the
-    /// button can't be pressed again until it ends.
-    @ViewBuilder private func toolbarButton(_ action: ExtManifest.ActionDef, _ index: Int) -> some View {
-        let run: @MainActor () -> Void = {
+    /// A toolbar action: the first in words on the grey plate (`TextButton`: a worded button has no symbol), the
+    /// others as icons, or in words without a symbol. A `run` command that takes over a second shows a spinner in the
+    /// button's place, and the button can't be pressed again until it ends.
+    private func toolbarButton(_ action: ExtManifest.ActionDef, _ index: Int) -> PointerButton {
+        let button: PointerButton
+        if index == 0 {
+            button = TextButton(action.title)
+        } else if let icon = action.icon {
+            button = IconButton(.symbol(icon, action.title), tip: action.title) {}
+        } else {
+            button = PointerButton(title: action.title) {}
+            button.font = .ui(TextSize.row)
+            button.padding = Metrics.gap
+        }
+        button.onClick = { [weak self, weak button] in
+            guard let self else { return }
             ExtActions(app).perform(
-                action, item: nil, folder: folder,
-                busy: { on in
-                    if on { busy.insert(index) } else { busy.remove(index) }
-                }
-            ) { reload() }
+                action, item: nil, folder: folder, busy: { on in button.map { Self.busy($0, on) } }
+            ) { [weak self] in self?.reload() }
         }
-        let waiting = busy.contains(index)
-        Group {
-            if index == 0 {
-                Button(action: run) { Text(action.title).opacity(waiting ? 0 : 1) }.buttonStyle(BarButtonStyle())
-            } else if let icon = action.icon {
-                Button(action: run) {
-                    Image(systemName: icon).font(.symbol()).foregroundStyle(.secondary).opacity(waiting ? 0 : 1)
-                        .frame(width: Metrics.iconButton, height: Metrics.iconButton)
-                }
-                .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
-            } else {
-                Button(action: run) { Text(action.title).font(.ui(TextSize.row)).opacity(waiting ? 0 : 1) }
-                    .buttonStyle(PointerButtonStyle())
-            }
+        return button
+    }
+
+    /// Shows a button at work: the spinner stands where its symbol or its words were (which keep their room).
+    private static func busy(_ button: PointerButton, _ on: Bool) {
+        button.isEnabled = !on
+        if let icon = button as? IconButton { return icon.busy = on }
+        let spinner = button.subviews.first { $0 is NSProgressIndicator } as? NSProgressIndicator
+        if on, spinner == nil {
+            let made = NSProgressIndicator()
+            made.style = .spinning
+            made.controlSize = .small
+            made.translatesAutoresizingMaskIntoConstraints = false
+            button.addSubview(made)
+            NSLayoutConstraint.activate([
+                made.centerXAnchor.constraint(equalTo: button.centerXAnchor),
+                made.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+            ])
+            made.startAnimation(nil)
+            let clear: [NSAttributedString.Key: Any] = [
+                .font: button.font ?? .ui(TextSize.row), .foregroundColor: NSColor.clear
+            ]
+            button.attributedTitle = NSAttributedString(string: button.title, attributes: clear)
+        } else if !on, let spinner {
+            spinner.removeFromSuperview()
+            let words = button.title
+            button.title = words   // in their colour again
         }
-        .overlay { if waiting { ProgressView().controlSize(.small) } }
-        .disabled(waiting)
     }
 
     /// Each row's key: its title, numbered where titles repeat. A refresh keeps a row, and its selection, while its
@@ -145,97 +152,9 @@ struct ExtListView: View {
         }
     }
 
-    /// DesignKit's empty state, as every panel has it; a failed command's output shows as its (selectable) fix line,
-    /// with Try Again under it.
-    private struct EmptyState: NSViewRepresentable {
-        let title: String, symbol: String?, output: String?
-        var retry: (@MainActor () -> Void)?
-        func makeNSView(context: Context) -> EmptyStateView { EmptyStateView() }
-        func updateNSView(_ view: EmptyStateView, context: Context) {
-            guard let output else { return view.show(title, symbol: symbol) }
-            let again = retry.map { [ClosureButton(title: String(localized: "Try Again"), action: $0)] } ?? []
-            view.showError(title, text: nil, fix: output, buttons: again)
-        }
-    }
-
-    /// DesignKit's loading view: the shape of the rows to come, while the first answer is slow.
-    private struct Waiting: NSViewRepresentable {
-        var rowHeight: CGFloat
-        func makeNSView(context: Context) -> LoadingView {
-            let view = LoadingView(rows: true, rowHeight: rowHeight)
-            view.show(String(localized: "Running the list’s command…"))
-            return view
-        }
-        func updateNSView(_ view: LoadingView, context: Context) {}
-    }
-
-    private func row(_ item: JSONValue) -> some View {
-        let actions = ExtActions(app)
-        let subtitle = def.subtitle.map { actions.expand($0, item: item, quote: false) } ?? ""
-        return HStack(spacing: Metrics.gap) {
-            // An icon that's the same on every row is the panel's own icon, which its tab already shows. Only an icon
-            // that names a field tells rows apart, so only that one shows on the row.
-            if let icon = def.icon, icon.contains("${") {
-                let name = actions.expand(icon, item: item, quote: false)
-                if let image = Self.image(name) {
-                    Image(nsImage: image).resizable().frame(
-                        width: TextSize.of(Metrics.appIcon), height: TextSize.of(Metrics.appIcon))
-                } else {
-                    Image(systemName: name.hasPrefix("app:") ? "app.dashed" : name).font(.symbol())
-                        .foregroundStyle(.secondary).frame(width: TextSize.of(Metrics.appIcon))
-                }
-            }
-            VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).font(.ui(TextSize.row))
-                    .lineLimit(1)
-                if !subtitle.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            Spacer(minLength: Metrics.gap)
-            if let st = status(item) { StatusIcon(status: st) }
-        }
-    }
-
-    /// `drag`: the row drags that file (into Finder, a terminal, an agent's prompt).
-    @ViewBuilder private func draggable(_ view: some View, _ item: JSONValue) -> some View {
-        let path = def.drag.map { ExtActions(app).expand($0, item: item, quote: false) } ?? ""
-        if !path.isEmpty {
-            view.onDrag { NSItemProvider(contentsOf: URL(fileURLWithPath: path)) ?? NSItemProvider() }
-        } else {
-            view
-        }
-    }
-
-    @MainActor private static var images: [String: NSImage?] = [:]
-    /// A row icon that isn't an SF Symbol: `app:<bundle id>` (that app's icon) or a file's path (its Finder icon).
-    @MainActor private static func image(_ name: String) -> NSImage? {
-        guard name.hasPrefix("app:") || name.hasPrefix("/") else { return nil }
-        if let cached = images[name] { return cached }
-        let path =
-            name.hasPrefix("/")
-            ? name : NSWorkspace.shared.urlForApplication(withBundleIdentifier: String(name.dropFirst(4)))?.path
-        let image = path.map { NSWorkspace.shared.icon(forFile: $0) }
-        images[name] = image
-        return image
-    }
-
-    private func status(_ item: JSONValue) -> AgentStatus? {
-        guard let rule = def.status, let value = item[rule.field].map(ExtActions.text),
-            let mapped = rule.map[value] ?? rule.map[value.lowercased()]
-        else { return nil }
-        switch mapped {
-        case "working": return .working
-        case "waiting": return .waiting
-        case "done": return .done
-        case "idle": return .idle
-        default: return .exited
-        }
-    }
-
-    /// Runs `run` now, then again `seconds` (at least 1) after each run ends, so a command slower than its interval never
-    /// runs twice at once. While the window is away nobody sees the list: it only looks again every 5 s whether to run.
-    /// No `seconds` (or 0): once.
+    /// Runs `run` now, then again `seconds` (at least 1) after each run ends, so a command slower than its interval
+    /// never runs twice at once. While the window is away nobody sees the list: it only looks again every 5 s whether
+    /// to run. No `seconds` (or 0): once.
     static func refreshing(
         every seconds: Double?, away: @MainActor () -> Bool, run: @MainActor () async -> Void,
         pause: @MainActor (Double) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
@@ -249,32 +168,63 @@ struct ExtListView: View {
         }
     }
 
-    private func reload() { Task { await refresh() } }
+    func reload() { Task { [weak self] in await self?.refresh() } }
 
     private func refresh() async {
         let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
         let cwd = IDEContext.of(app).workspace?.path ?? folder.path
-        // The outline only for a first wait you'd notice; once shown, it stays long enough not to blink.
-        let slow = whileSlow { if !answered { waitingSince = .now } }
+        // Only the first wait shows the rows' outline, a second in; a timed refresh keeps what is shown. Once shown,
+        // the outline stays long enough not to blink.
+        if !answered { loading.wait(String(localized: "Running the list’s command…")) }
         let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
-        slow.cancel()
-        if let since = waitingSince {
-            let left = LoadingView.held - Date.now.timeIntervalSince(since)
-            if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
-            waitingSince = nil
-        }
+        await loading.settled()
+        loading.show(nil)
         answered = true
         if result.code != 0, result.stdout.isEmpty {
             error =
                 result.stderr.isEmpty
                 ? String(localized: "Exit code \(result.code)") : String(result.stderr.suffix(600))
-            return
+        } else {
+            error = nil
+            show(Self.parse(result.stdout))
         }
-        error = nil
-        let new = Self.parse(result.stdout)
-        // Up to three rows coming or going fade while their neighbours move; more change at once.
-        let changed = Set(keys(new)).symmetricDifference(keys(items)).count
-        withAnimation(changed <= 3 && !Motion.reduced ? .easeOut(duration: Motion.appear) : nil) { items = new }
+        showState()
+    }
+
+    /// Puts the new rows in. Up to three rows coming or going fade while their neighbours move; more change at once.
+    /// The selected row stays selected while it is there.
+    private func show(_ new: [JSONValue]) {
+        guard new != items else { return }   // the same rows aren't drawn again, so the one under the pointer stays lit
+        let old = rowKeys
+        let picked = old.indices.contains(table.selectedRow) ? old[table.selectedRow] : nil
+        let places = table.rowPlaces { old.indices.contains($0) ? old[$0] : nil }
+        items = new
+        rowKeys = keys(new)
+        let now = rowKeys
+        table.reloadSettling(
+            from: places, came: Set(now).subtracting(old), gone: Set(old).subtracting(now),
+            { now.indices.contains($0) ? now[$0] : nil }
+        ) {
+            table.reloadData()
+            if let picked, let row = now.firstIndex(of: picked) {
+                table.selectRowIndexes([row], byExtendingSelection: false)
+            }
+        }
+    }
+
+    /// With rows, a failed refresh is a line over them. With none, the failure, or the empty state, takes their place.
+    private func showState() {
+        failureBar.show(items.isEmpty ? nil : error)
+        if let error, items.isEmpty {
+            empty.showError(
+                String(localized: "Couldn’t Run the List’s Command"), text: nil, fix: error, buttons: [tryAgain])
+        } else if items.isEmpty {
+            // A field's icon names no symbol here.
+            let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"
+            empty.show(def.empty ?? String(localized: "Nothing Here"), symbol: symbol)
+        } else {
+            empty.show(nil)
+        }
     }
 
     /// A JSON array, or one JSON object per line.
