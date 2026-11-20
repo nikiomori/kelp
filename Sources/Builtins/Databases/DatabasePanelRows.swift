@@ -14,22 +14,28 @@ struct DatabasePanelRows {
     var app: AppModel { panel.app }
 
     func heading(_ heading: DatabasesPanel.Heading, libraryOpen: Bool, activityOpen: Bool, only: String?) -> NSView {
-        var views: [NSView] = []
+        let key = DatabasesPanel.Row.heading(heading).key
         switch heading {
-        case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
+        case .asks: return SectionHeading(String(localized: "Asks"))
         case .library(let count):
-            let title = DatabaseSheet.section(String(localized: "All My Databases"))
-            let fold = chevron(libraryOpen, for: DatabasesPanel.Row.heading(heading).key)
-            views = [fold, title, NSView(), capsule(count)]
+            return turned(
+                SectionHeading(String(localized: "All My Databases"), count: count, open: libraryOpen), libraryOpen,
+                key)
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
-            let title = DatabaseSheet.section(String(localized: "Activity"))
-            views = [
-                chevron(activityOpen, for: DatabasesPanel.Row.heading(heading).key), title, NSView(), small(who),
-                capsule(count)
-            ]
+            return turned(
+                SectionHeading(String(localized: "Activity"), count: count, open: activityOpen, trailing: [small(who)]),
+                activityOpen, key)
         }
-        return line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
+    }
+
+    /// Turns the chevron of the heading just folded or opened from where it was.
+    private func turned(_ heading: SectionHeading, _ open: Bool, _ key: String) -> SectionHeading {
+        if panel.turning == key, let chevron = heading.chevron {
+            panel.turning = nil
+            Task { chevron.turn(from: open ? .pi / 2 : -.pi / 2) }
+        }
+        return heading
     }
 
     /// An agent's waiting question: the agent's icon, what it would change, the statement, and Allow / Deny in the row.

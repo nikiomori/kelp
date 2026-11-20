@@ -34,7 +34,9 @@ struct MachinesView: View {
                         Spacer(minLength: Metrics.gap)
                         add
                     }
-                    .frame(height: TextSize.of(Metrics.rowSection)).padding(.leading, Metrics.gap)
+                    // As `SectionHeading` stands it: the line 4 pt over the row's bottom, the + centred on the title.
+                    .padding(.bottom, 4)
+                    .frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom).padding(.leading, Metrics.gap)
                     ForEach(machines) { row($0) }
                 }
                 .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
@@ -90,9 +92,9 @@ struct MachinesView: View {
         return HStack(spacing: Metrics.gapWide) {
             Group {
                 switch vmInfo.machine.kind {
-                case .macos: Image(systemName: "apple.logo").font(.ui(TextSize.row, weight: .semibold))
-                case .android: Image(systemName: "smartphone").font(.ui(TextSize.row, weight: .semibold))
-                case .ios: Image(systemName: "iphone").font(.ui(TextSize.row, weight: .semibold))
+                case .macos: Image(systemName: "apple.logo").font(.symbol(Metrics.iconSmall))
+                case .android: Image(systemName: "smartphone").font(.symbol(Metrics.iconSmall))
+                case .ios: Image(systemName: "iphone").font(.symbol(Metrics.iconSmall))
                 case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .semibold))
                 }
             }

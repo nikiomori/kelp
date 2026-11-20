@@ -21,6 +21,7 @@ struct MachineView: View {
     let app: AppModel, name: String
     private var info: VMInfo? { Machines.machineList(app).first { $0.machine.name == name } }
     private var detail: VMDetail? { app.latest(MachineEvent.self, name)?.detail }
+    /// The list hasn't come for over a second, so the tab says it reads it (`whileSlow`'s rule).
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,7 +60,7 @@ struct MachineView: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().pointerMenu()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }
@@ -108,6 +109,8 @@ struct MachineView: View {
                     }
                 }
             }
+        } else if app.latest(MachinesEvent.self) == nil {   // not "no such machine" before the list has come
+            LoadingPage(String(localized: "Reading the machines…"))
         } else {
             EmptyState(String(localized: "No Machine Called \(name)"), symbol: "shippingbox") {
                 Text("`kelp vm list` shows the machines.")

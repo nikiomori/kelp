@@ -194,6 +194,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
         case .run, .saved: TextSize.of(Metrics.rowTwoLine)
+        case .section: TextSize.of(Metrics.rowSection)
         default: TextSize.of(Metrics.row)
         }
     }
@@ -205,16 +206,12 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         switch rows[row] {
         case .section(let title, let count, let open):
-            let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
-            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-            chevron.contentTintColor = .secondaryLabelColor
-            if turning == title {   // turns from where it pointed once the row is laid out, as a disclosure does
+            let heading = SectionHeading(title, count: count, open: open)
+            if turning == title, let chevron = heading.chevron {   // turns from where it pointed once laid out
                 turning = nil
                 Task { chevron.turn(from: open ? .pi / 2 : -.pi / 2) }
             }
-            let capsule = CountCapsule()   // the title and capsule every list's section has, as the panel's do
-            capsule.text = count.formatted()
-            return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: Metrics.inset)
+            return heading
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
             let name = NSTextField.label(

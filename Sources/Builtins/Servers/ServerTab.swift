@@ -69,7 +69,7 @@ struct ServerView: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().pointerMenu()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }

@@ -22,6 +22,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let next = NSButton()
     private var parsed: DatabaseAddress?
     private let tiles = NSStackView()
+    /// When the line saying Kelp looks for other apps' connections came up, so it stays at least `LoadingView.held`.
+    private var lookingSince: Date?
     /// The pane shown after the first one, kept alive while it shows.
     private var pane: AnyObject?
 
@@ -59,19 +61,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         window.makeFirstResponder(first)
     }
 
-    /// Sizes the sheet as tall as what it shows and always at its own width, because fittingSize alone comes out
-    /// narrower. On screen it grows or shrinks to the new height, its top staying where it is, as a sheet's does.
-    func fit() {
-        let content = NSSize(width: Self.width, height: window.contentView?.fittingSize.height ?? 0)
-        guard window.isVisible else { return window.setContentSize(content) }
-        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: content))
-        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
-        guard frame != window.frame else { return }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.duration(Motion.base)
-            window.animator().setFrame(frame, display: true)
-        }
-    }
+    /// Sizes the sheet as tall as what it shows (`SheetForm.fit`): each pane is a `SheetForm.stack`.
+    func fit() { SheetForm.fit(window) }
 
     // MARK: The first pane
 
@@ -109,7 +100,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
-        foundTitle.isHidden = false   // with a line that says it looks, until the rows come or there are none
+        foundTitle.isHidden = true   // until a row comes, or the reads take long enough to say they look
         let file = ClosureButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
         file.bezelStyle = .push
         next.title = String(localized: "Continue")
@@ -122,7 +113,9 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         Task { await fillFound() }
     }
 
-    /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read.
+    /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read. They are
+    /// this Mac's own files and daemon, so the line that says it looks shows only past a second (`whileSlow`), and
+    /// then stays at least `LoadingView.held`.
     private func fillFound() async {
         let spinner = NSProgressIndicator()
         spinner.style = .spinning
@@ -132,7 +125,15 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         let looking = NSStackView(views: [spinner, words])
         looking.spacing = Metrics.gap
         looking.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: Metrics.gap, right: 0)
-        found.addArrangedSubview(looking)
+        lookingSince = nil
+        let slow = whileSlow { [weak self] in
+            guard let self else { return }
+            lookingSince = .now
+            found.addArrangedSubview(looking)
+            foundTitle.isHidden = false
+            looking.fadeIn()
+            if pane == nil { fit() }
+        }
         let sources = await app.quiet(DatabaseImportSources()) ?? []
         for source in sources where source.count > 0 {
             let engines = source.engines.map(\.displayName).joined(separator: ", ")
@@ -140,7 +141,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 FoundRow(
                     icon: DatabaseLook.appIcon(source.id), title: source.name,
                     detail: String(localized: "\(source.count) connections · \(engines)"), trailing: nil
-                ) { [weak self] in self?.openImport(source, file: nil) })
+                ) { [weak self] in self?.openImport(source, file: nil) }, above: looking)
         }
         let running = await app.quiet(DatabaseContainers()) ?? []
         for server in running {
@@ -151,17 +152,26 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                     detail: "\(server.image) · \(String(localized: "port")) \(port)", trailing: String(localized: "Use")
                 ) { [weak self] in
                     self?.openForm(DatabaseAddress(database: server.database), container: server.container)
-                })
+                }, above: looking)
+        }
+        slow.cancel()
+        if let since = lookingSince {
+            let left = LoadingView.held - Date.now.timeIntervalSince(since)
+            if left > 0 {
+                do { try await Task.sleep(for: .seconds(left)) } catch { return }
+            }
         }
         looking.removeFromSuperview()
         foundTitle.isHidden = found.arrangedSubviews.isEmpty
         if pane == nil { fit() }
     }
 
-    private func add(_ row: FoundRow) {
+    private func add(_ row: FoundRow, above looking: NSView) {
         row.isHidden = true
-        found.insertArrangedSubview(row, at: max(0, found.arrangedSubviews.count - 1))   // above the looking line
+        let end = found.arrangedSubviews.count
+        found.insertArrangedSubview(row, at: found.arrangedSubviews.firstIndex(of: looking) ?? end)
         row.widthAnchor.constraint(equalTo: found.widthAnchor).isActive = true
+        foundTitle.isHidden = false
         row.fadeIn()
         if pane == nil { fit() }
     }

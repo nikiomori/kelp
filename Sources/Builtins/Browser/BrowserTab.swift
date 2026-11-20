@@ -51,8 +51,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var finding: FindCard?
     /// The workspace's servers, watched while a local address failed, so the page loads again once its port is served.
     @ObservationIgnored lazy var serving = Watched(.ports, in: app)
-    /// How far the page has loaded, as a line under the bar while it loads.
-    @ObservationIgnored private let progress = NSView()
+    /// How far the page has loaded, as a line under the bar while it loads, its fill read when its layer updates.
+    @ObservationIgnored private let progress = FillStack()
     @ObservationIgnored private lazy var progressWidth = progress.widthAnchor.constraint(equalToConstant: 0)
     /// The page's size, set by the user (⋯ › Page Size) or the agent (`kelp browser viewport`). The page sits at that
     /// size at the top of the pane, centred across. Nil means the page fills the pane (`placeWeb`).
@@ -153,8 +153,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
         body.pin(ports)
-        progress.wantsLayer = true
-        progress.layer?.backgroundColor = NSColor.themeAccent.cgColor
+        progress.fill = .themeAccent
         progress.alphaValue = 0
         progress.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(progress)
@@ -317,6 +316,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The line grows as the page loads and fades once it has.
     private func showProgress() {
         let width = progress.superview?.bounds.width ?? 0, loading = web.isLoading
+        progress.needsDisplay = true   // reads the accent again, which light/dark or a theme may have changed
         if loading, progress.alphaValue == 0 { progressWidth.constant = 0 }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(loading ? Motion.fast : Motion.disappear)
