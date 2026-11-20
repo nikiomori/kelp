@@ -322,7 +322,8 @@ public struct SectionList: NSViewRepresentable {
         required init?(coder: NSCoder) { fatalError("not from a nib") }
 
         func setHover(_ on: Bool) {
-            guard let shown else { return }
+            guard let shown, shown.isHidden == on else { return }
+            crossfade()
             shown.isHidden = !on
             quiet?.isHidden = on
         }

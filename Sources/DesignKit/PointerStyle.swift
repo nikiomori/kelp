@@ -43,7 +43,7 @@ public struct PointerButtonStyle: ButtonStyle {
 }
 
 /// SwiftUI's link, as `PointerButton.link` draws it in AppKit: words in the accent colour with no plate, underlined
-/// under the pointer. For a `Link` or a `Button`: `.buttonStyle(.kelpLink)`.
+/// under the pointer, dipping when pressed. For a `Link` or a `Button`: `.buttonStyle(.kelpLink)`.
 public struct KelpLinkStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Linked(configuration: configuration) }
@@ -51,12 +51,20 @@ public struct KelpLinkStyle: ButtonStyle {
     private struct Linked: View {
         let configuration: ButtonStyleConfiguration
         @State private var hovering = false
+        @State private var size = CGSize.zero
         var body: some View {
             configuration.label
                 .foregroundStyle(Color(nsColor: .themeAccent))
                 .underline(hovering)
                 .contentShape(Rectangle())
+                .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
+                .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
                 .onHover { hovering = $0 }
+                .onGeometryChange(for: CGSize.self) {
+                    $0.size
+                } action: {
+                    size = $0
+                }
         }
     }
 }

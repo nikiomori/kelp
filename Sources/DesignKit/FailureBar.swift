@@ -61,7 +61,7 @@ public final class FailureBar: NSStackView {
 }
 
 /// `FailureBar` for a SwiftUI page: the same grey line over what was read before, saying the refresh failed, with Try
-/// Again on the bar's plate.
+/// Again on the bar's plate. It fades in and out; the page animates its `failed` value so what is below moves with it.
 public struct FailureLine: View {
     private let error: String
     private let retry: () -> Void
@@ -80,5 +80,6 @@ public struct FailureLine: View {
             Spacer(minLength: Metrics.gap)
             Button(String(localized: "Try Again"), action: retry).buttonStyle(BarButtonStyle())
         }
+        .transition(.opacity)
     }
 }

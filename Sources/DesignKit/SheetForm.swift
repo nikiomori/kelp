@@ -53,8 +53,11 @@ public enum SheetForm {
         frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
         guard frame != window.frame else { return }
         guard window.isVisible else { return window.setFrame(frame, display: true) }
+        // Grows on `base`; closes up in about two thirds of that, easing in, as what leaves does.
+        let shrinks = frame.height < window.frame.height
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.base)
+            context.duration = Motion.duration(shrinks ? Motion.base * 2 / 3 : Motion.base)
+            if shrinks { context.timingFunction = CAMediaTimingFunction(name: .easeIn) }
             window.animator().setFrame(frame, display: true)
         }
     }

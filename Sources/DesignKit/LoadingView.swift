@@ -248,6 +248,22 @@ public struct LoadingLine: View {
     }
 }
 
+/// A page's first read in SwiftUI: nothing for a second, then `LoadingLine` in the page's middle, as `LoadingView.wait`
+/// does (the latency rule: own work shows its wait only after a second, so a quick read doesn't flicker).
+public struct LoadingPage: View {
+    private let text: String
+    @State private var slow = false
+    public init(_ text: String) { self.text = text }
+    public var body: some View {
+        LoadingLine(text).opacity(slow ? 1 : 0)
+            .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .task {
+                do { try await Task.sleep(for: .seconds(LoadingView.patience)) } catch { return }
+                withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { slow = true }
+            }
+    }
+}
+
 extension NSView {
     /// Fills `area` under `top` (its bar), over whatever the area shows.
     func pin(in area: NSView, under top: NSView?) {
