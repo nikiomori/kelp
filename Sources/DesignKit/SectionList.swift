@@ -31,7 +31,7 @@ public struct SectionList: NSViewRepresentable {
         public var trailing: String?
         /// A worded action at the row's end. With `onHover` it stands in `trailing`'s place only under the pointer.
         public var button: Action?, onHover = false
-        /// Where the row leads, written in the accent colour at its end.
+        /// Where the row leads: a link at its end (`PointerButton.link`).
         public var link: Action?
         /// What a click does, and what Return or a double click does (the click's, when it has none of its own).
         public var click: (@MainActor () -> Void)?, open: (@MainActor () -> Void)?
@@ -188,7 +188,7 @@ public struct SectionList: NSViewRepresentable {
             // The new heading's chevron turns from what the old one showed, once it has a size.
             guard let row = lines.firstIndex(where: { $0.key == "s " + id }) else { return }
             table.layoutSubtreeIfNeeded()
-            (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? Cell)?.chevron?
+            (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SectionHeading)?.chevron?
                 .turn(from: opens ? .pi / 2 : -.pi / 2)
         }
         @objc func opened() {
@@ -229,25 +229,10 @@ public struct SectionList: NSViewRepresentable {
         }
 
         private func heading(_ section: Section, open: Bool) -> NSView {
-            let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
-            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-            chevron.contentTintColor = .secondaryLabelColor
-            let title = NSTextField.label(
-                section.title, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-            var views: [NSView] = [chevron, title]
-            if !section.rows.isEmpty {
-                let capsule = CountCapsule()
-                capsule.text = section.rows.count.formatted()
-                views.append(capsule)
-            }
-            let cell = Cell(views + [NSView()])
-            cell.chevron = chevron
-            cell.onPress = { [weak self] in self?.fold(section.id) }
-            cell.setAccessibilityElement(true)
-            cell.setAccessibilityRole(.button)
-            cell.setAccessibilityLabel(section.title)
-            cell.setAccessibilityHelp(open ? String(localized: "Collapse") : String(localized: "Expand"))
-            return cell
+            let heading = SectionHeading(
+                section.title, count: section.rows.isEmpty ? nil : section.rows.count, open: open)
+            heading.onPress = { [weak self] in self?.fold(section.id) }
+            return heading
         }
 
         private func cell(_ row: Row) -> NSView {
@@ -276,10 +261,9 @@ public struct SectionList: NSViewRepresentable {
                 quiet = label
             }
             if let link = row.link {
-                let button = PointerButton(title: link.title) { [weak self] in self?.row(id)?.link?.run() }
-                button.attributedTitle = NSAttributedString(
-                    string: link.title,
-                    attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.emphasis])
+                let button = PointerButton.link(link.title, font: .uiDigits(TextSize.caption)) { [weak self] in
+                    self?.row(id)?.link?.run()
+                }
                 button.toolTip = link.tip
                 views.append(button)
             }
@@ -325,8 +309,6 @@ public struct SectionList: NSViewRepresentable {
     /// "all addresses" stood.
     final class Cell: NSView, Hoverable {
         private let quiet: NSView?, shown: NSView?
-        /// A heading's: the chevron that turns as it folds, and the fold VoiceOver's press does.
-        var chevron: NSView?, onPress: (() -> Void)?
 
         init(_ views: [NSView], quiet: NSView? = nil, shown: NSView? = nil) {
             self.quiet = quiet
@@ -338,12 +320,6 @@ public struct SectionList: NSViewRepresentable {
             pin(line)
         }
         required init?(coder: NSCoder) { fatalError("not from a nib") }
-
-        override func accessibilityPerformPress() -> Bool {
-            guard let onPress else { return false }
-            onPress()
-            return true
-        }
 
         func setHover(_ on: Bool) {
             guard let shown else { return }

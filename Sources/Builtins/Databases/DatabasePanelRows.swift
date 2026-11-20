@@ -169,12 +169,12 @@ struct DatabasePanelRows {
     func use(empty: Bool) -> NSView {
         let icon = NSImageView(image: .symbol("plus"))
         icon.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
-        icon.contentTintColor = empty ? .linkColor : .secondaryLabelColor
+        icon.contentTintColor = empty ? .themeAccent : .secondaryLabelColor
         let slot = NSStackView(views: [icon])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
         let said = NSTextField.label(
             String(localized: "Use a Database…"), font: .ui(TextSize.row),
-            color: empty ? .linkColor : .secondaryLabelColor)
+            color: empty ? .themeAccent : .secondaryLabelColor)
         var words: NSView = said
         if empty {
             words = stack([

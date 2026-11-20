@@ -185,7 +185,7 @@ struct PhoneSettings: View {
     }
 
     private func link(_ title: String, _ address: String) -> some View {
-        URL(string: address).map { Link(title, destination: $0) }
+        URL(string: address).map { Link(title, destination: $0).buttonStyle(.kelpLink) }
     }
 
     private func reached(_ state: PhoneState) -> some View {

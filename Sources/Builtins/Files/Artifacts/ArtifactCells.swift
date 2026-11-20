@@ -14,13 +14,7 @@ struct ArtifactCells {
         "dashboard": "chart.bar", "proof": "checkmark.seal"
     ]
 
-    func heading(_ text: String) -> NSView {
-        let title = NSTextField.label(
-            text, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        let row = NSStackView(views: [title, NSView()])
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
-        return row
-    }
+    func heading(_ text: String) -> NSView { SectionHeading(text) }
 
     func item(_ item: ArtifactItem, earlier: Int) -> NSView {
         let icon = NSImageView(image: .symbol(Self.symbols[item.type] ?? "doc.richtext"))

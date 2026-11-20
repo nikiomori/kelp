@@ -142,13 +142,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
         if let ref = column?.references, let value, case let target = ref.split(separator: "."), target.count == 2 {
-            let link = PointerButton(title: "\(value) → \(target[0])") { [weak self] in
+            let words = "\(value) → \(target[0])"
+            let link = PointerButton.link(words, font: .uiMono(TextSize.caption)) { [weak self] in
                 self?.onFollow(String(target[0]), String(target[1]), value)
             }
-            link.contentTintColor = .linkColor
-            link.font = .uiMono(TextSize.caption)
             link.lineBreakMode = .byTruncatingMiddle
-            link.underlinesOnHover = true
             parts.append(link)
         }
         let multiline =

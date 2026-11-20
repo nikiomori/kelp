@@ -32,14 +32,7 @@ enum ForgeRows {
         return parts.count == 1 ? [(nil, parts[0].1)] : parts.map { ($0.0, $0.1) }
     }
 
-    static func heading(_ text: String) -> NSView {
-        let title = NSTextField.label(
-            text, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        let row = NSStackView(views: [title, NSView()])
-        row.alignment = .bottom
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 4, right: Metrics.insetTrailing)
-        return row
-    }
+    static func heading(_ text: String) -> NSView { SectionHeading(text) }
 
     static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool) -> ForgeRowCell {
         var said = [word("#\(pr.number)"), word(pr.author)]
@@ -103,7 +96,7 @@ enum ForgeRows {
         return words
     }
 
-    /// How many lines the title takes at `width` (one or two), for the row's height.
+    /// The row's height: a two-line row's 40, and a line more when the title takes two at `width`.
     static func height(title: String, width: CGFloat) -> CGFloat {
         sizer.stringValue = title
         let line = TextSize.of(16)
@@ -114,7 +107,7 @@ enum ForgeRows {
                 (sizer.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: 1000))
                     .height ?? line) / line
             ).rounded())
-        return TextSize.of(8 + 15) + lines * line + TextSize.of(4)
+        return TextSize.of(Metrics.rowTwoLine) + (lines - 1) * line
     }
     private static let sizer: NSTextField = {
         let field = NSTextField(wrappingLabelWithString: "")
@@ -175,14 +168,21 @@ final class ForgeRowCell: NSView {
         let row = NSStackView(views: [icon, text])
         row.alignment = .top
         row.spacing = Metrics.gapWide
-        row.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.inset, bottom: 6, right: Metrics.inset)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         if unseen {
             // What changed since you last looked is news, which the title's weight says; the row's tooltip and
             // VoiceOver say it in words.
             toolTip = String(localized: "Changed since you last opened it")
             setAccessibilityHelp(toolTip)
         }
-        pin(row)
+        // The lines stand in the middle of the row, as a tracker's task's do in the same list.
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 }

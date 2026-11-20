@@ -42,6 +42,29 @@ public struct PointerButtonStyle: ButtonStyle {
     }
 }
 
+/// SwiftUI's link, as `PointerButton.link` draws it in AppKit: words in the accent colour with no plate, underlined
+/// under the pointer. For a `Link` or a `Button`: `.buttonStyle(.kelpLink)`.
+public struct KelpLinkStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Linked(configuration: configuration) }
+
+    private struct Linked: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+        var body: some View {
+            configuration.label
+                .foregroundStyle(Color(nsColor: .themeAccent))
+                .underline(hovering)
+                .contentShape(Rectangle())
+                .onHover { hovering = $0 }
+        }
+    }
+}
+
+extension ButtonStyle where Self == KelpLinkStyle {
+    public static var kelpLink: KelpLinkStyle { KelpLinkStyle() }
+}
+
 /// A card that is a choice (a theme). When pressed it dips a little, and under the pointer it tells its label, whose
 /// tile brightens its own edge (`cardEdge`). A ring of the style's own went round the caption too, and with the tile's
 /// it made two lines.

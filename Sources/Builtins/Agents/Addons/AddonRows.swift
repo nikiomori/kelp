@@ -38,13 +38,9 @@ struct AddonRows {
             case .instructions: String(localized: "Instructions")
             case .others: String(localized: "Other Agents")
             }
-        let title = NSTextField.label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
         // The count sits on the capsule every list's section has, as Source Control's does.
-        let capsule = CountCapsule()
-        capsule.text = count.formatted()
-        var views: [NSView] = [title, capsule, NSView()]
-        if section == .others { views.append(digits(String(localized: "not in this chat"))) }
-        return line(views, inset: Metrics.inset)
+        let trailing = section == .others ? [digits(String(localized: "not in this chat"))] : []
+        return SectionHeading(name, count: count, trailing: trailing)
     }
 
     /// Draws a group's line. `off` is the state of the group's own switch, which only a plugin has; nil for a group
