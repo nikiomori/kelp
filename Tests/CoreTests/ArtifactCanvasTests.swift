@@ -52,6 +52,9 @@ import Testing
     let core = try #require(Artifacts.guide("design", whereTo: "local", system: true))
     #expect(core.contains("kelp artifact new design") && core.contains("kelp artifact check"))
     #expect(core.contains("read DESIGN.md"))
+    for kind in ["design", "doc", "slides"] {
+        #expect(try #require(Artifacts.guide(kind, whereTo: "local")).contains("kelp artifact reply <name> <#>"))
+    }
     #expect(core.utf8.count < 4800, "the core stays near 1k tokens: \(core.utf8.count) bytes")
     #expect(try #require(Artifacts.guide("design", whereTo: "local")).contains("guide design system"))
     for part in Artifacts.designParts { #expect(Artifacts.guide("design", whereTo: "local", part: part) != nil) }

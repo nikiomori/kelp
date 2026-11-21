@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add` handles pages agents make for the user, kept in the project's
+    /// `artifact guide|new|list|open|add|marks|reply` handles pages agents make for the user, kept in the project's
     /// `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
@@ -86,6 +86,15 @@ extension Main {
             _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
             let issues = try await c.call(ArtifactCheck(path: target))
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
+        case "marks": try await listMarks(root: try await projectRoot(cwd, c))
+        case "reply":
+            let usage = "artifact reply <name> <#> <what you say about that mark>"
+            guard args.count >= 3, let id = Int(args[1].trimmingCharacters(in: CharacterSet(charactersIn: "#"))) else {
+                fail(usage)
+            }
+            let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+            _ = try await c.call(ArtifactReply(path: target, id: id, text: args.dropFirst(2).joined(separator: " ")))
+            print("Said on #\(id). The user sees it under the mark.")
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
             guard let url = args.first, url.hasPrefix("https://") else {
@@ -94,6 +103,42 @@ extension Main {
             _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
         default: print(usage)
         }
+    }
+
+    /// `kelp artifact marks <name> [--all]`: the marks with an agent and those the user checks; all with --all.
+    static func listMarks(root: String) async throws {
+        let (target, _) = try await page(args.first, root: root, usage: "artifact marks <name> [--all]")
+        let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
+        let marks = ArtifactMarks.read(
+            FileManager.default.contents(atPath: folder.appendingPathComponent(ArtifactMarks.file).path))
+        let shown = marks.marks.filter { has("--all") || $0.state == .sent || $0.state == .check }
+        if shown.isEmpty { print(has("--all") ? "No marks." : "No marks open: none with you, none to check.") }
+        for m in shown { print(line(m, folder: Artifacts.projectPath(folder.path))) }
+    }
+
+    /// Returns the file of the page named `name` in the project at `root`, or ends with `usage`.
+    static func page(_ name: String?, root: String, usage: String) async throws -> (String, ArtifactRecord) {
+        guard let name, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
+            artifact.record.file != nil
+        else { fail("\(usage) (names: kelp artifact list)") }
+        return (Artifacts.target(artifact.slug, artifact.record, root: root), artifact.record)
+    }
+
+    /// A mark as `kelp artifact marks` lists it: number, state, what it points at, the note it went with, and the
+    /// agent's reply.
+    static func line(_ m: ArtifactMark, folder: String) -> String {
+        let note = m.rounds.last?.note ?? m.note
+        var what = [m.board]
+        switch m.kind {
+        case .element: what.append(m.target)
+        case .quote: what.append("«\(m.text)»")
+        case .area: what.append("area " + (m.area ?? []).map { String(Int($0.rounded())) }.joined(separator: ","))
+        case .pen: what.append("pen" + (m.target.isEmpty ? "" : " near \(m.target)"))
+        }
+        if let picture = m.picture { what.append(folder + "/" + picture) }
+        let reply = m.rounds.last?.reply.map { "  (you said: \($0))" } ?? ""
+        let state = m.state == .check ? "to check" : m.state.rawValue
+        return "#\(m.id)\t\(state)\t\(what.filter { !$0.isEmpty }.joined(separator: " "))\t\(note)\(reply)"
     }
 
     /// Returns the folder of the workspace that holds `cwd`, because artifacts belong to the workspace. For a chat

@@ -249,6 +249,7 @@ public enum Artifacts {
         - Name code as path:line (Sources/App.swift:88): the user opens it from the page.
         - No HTML, no images from the web.
 
+        \(marksRule)
         """,
         "review": """
         - One H1, the title, and a line on what the choices are for.
@@ -272,6 +273,7 @@ public enum Artifacts {
           each).
         - For a deck in the project's own look, make a design instead: `kelp artifact guide design deck`.
 
+        \(marksRule)
         """,
         "proof": """
         - For a change you made: what you checked and what you saw, for the user to look at before they commit. Not a
@@ -289,6 +291,17 @@ public enum Artifacts {
 
         """
     ]
+
+    /// What every page that takes marks (a design, a doc, slides) tells the agent about them.
+    package static let marksRule = """
+        - The user's marks arrive as `Marks on <page> (version N)`, a line each: `#3 boards/A.html [data-id=cta]
+          «Start»: bigger`. Change only what each points at, in place; an area or a pen mark comes with a picture:
+          read it. The user edits these files by hand too: read a file again before you edit it, and never undo a
+          change you didn't make (`Edited by the user` lines name them). If you can't do a mark or need an answer,
+          say so with `kelp artifact reply <name> <#> "…"`, one line. You never close a mark: the user checks each
+          one. `kelp artifact marks <name>` lists those still open.
+
+        """
 
     private static func article(_ kind: String) -> String { kind == "slides" ? "slides" : "a \(kind)" }
 

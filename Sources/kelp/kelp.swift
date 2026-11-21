@@ -60,6 +60,7 @@ let usage = """
       artifact check <design>              what the window finds wrong on a design: cut-off text, contrast, sizes
       artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
+      artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
                                            browser, where they're signed in); list one an agent published elsewhere
       \(Main.dbUsage)
                                            the project's databases (compose, .env, database.yml, SQLite files) through
