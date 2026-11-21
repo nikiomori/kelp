@@ -53,6 +53,22 @@ final class WorkModel {
         (work?.agents ?? []).map { $0.role == .subagent ? $0.name : app.catalog.name($0.agent) }
     }
 
+    /// Each agent's mark, by its index in the work: the catalog's logo for a session's agent, the subagent symbol for a
+    /// subagent (its parent's logo would make the two look like one).
+    func icons(size: CGFloat) -> [NSImage?] {
+        (work?.agents ?? []).map { WorkModel.icon($0, app: app, size: size) }
+    }
+
+    static func icon(_ agent: AgentWork.Agent, app: AppModel?, size: CGFloat) -> NSImage? {
+        guard agent.role != .subagent else {
+            // A copy: the symbol's image may be shared, and its size is changed here.
+            let image = (NSImage.symbol("person.crop.square").copy() as? NSImage) ?? NSImage()
+            image.size = NSSize(width: size, height: size)
+            return image
+        }
+        return app?.catalog.icon(agent.agent, size: size)
+    }
+
     /// The project's folder name, for the top layer.
     var projectName: String {
         guard let root = work?.root else { return String(localized: "Project") }

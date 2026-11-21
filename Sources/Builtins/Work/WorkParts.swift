@@ -91,22 +91,36 @@ final class OutsideChips: NSView {
         places = outside
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         isHidden = outside.isEmpty
-        let own = outside.filter { $0.kind == .own }, shown = outside.filter { $0.kind != .own }
+        let shown = outside.filter { $0.kind != .own }
         for (index, place) in shown.enumerated() {
             let chip = Chip(place) { [weak self] in self?.onOpen(place) }
             stack.addArrangedSubview(chip)
             // The first ones stay; the rest give way when the panel is narrow.
             stack.setVisibilityPriority(NSStackView.VisibilityPriority(rawValue: Float(1000 - index)), for: chip)
         }
-        if !own.isEmpty {
-            let rest = NSTextField.label(
-                "+ " + own.map(\.name).joined(separator: ", "), font: .ui(TextSize.caption), color: .secondaryLabelColor
-            )
-            rest.toolTip = String(localized: "The agent's own folders")
-            stack.addArrangedSubview(rest)
-            stack.setVisibilityPriority(NSStackView.VisibilityPriority(rawValue: 1), for: rest)
-        }
+        own = outside.filter { $0.kind == .own }
+        stack.addArrangedSubview(more)
+        stack.setVisibilityPriority(.mustHold, for: more)
         stack.addArrangedSubview(NSView())
+        needsLayout = true
+    }
+
+    /// What didn't fit, as one grey word that always shows: "+ 5 more" (the agent's own folders counted in), with the
+    /// rest's names in its tooltip.
+    private let more = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private var own: [AgentWork.Place] = []
+
+    override func layout() {
+        super.layout()
+        let hidden = stack.arrangedSubviews.compactMap { $0 as? Chip }.filter { stack.detachedViews.contains($0) }.map(
+            \.place)
+        let rest = hidden + own
+        let words = rest.isEmpty ? "" : String(localized: "+ \(rest.count) more")
+        if more.stringValue != words {
+            more.stringValue = words
+            more.toolTip = rest.map(\.name).joined(separator: ", ")
+            more.isHidden = rest.isEmpty
+        }
     }
 
     private final class Chip: NSControl {

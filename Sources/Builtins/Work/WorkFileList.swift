@@ -51,7 +51,7 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         var parts: [NSView] = [mark, name]
         if let worktree = place.worktree { parts.append(Self.badge(worktree)) }
         for index in place.agents.sorted() where agents.indices.contains(index) {
-            let logo = NSImageView(image: app?.catalog.icon(agents[index].agent, size: Metrics.iconSmall) ?? NSImage())
+            let logo = NSImageView(image: WorkModel.icon(agents[index], app: app, size: Metrics.iconSmall) ?? NSImage())
             logo.toolTip = names.indices.contains(index) ? names[index] : nil
             parts.append(logo)
         }
@@ -65,7 +65,10 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
                 NSTextField.label(
                     String(localized: "by a command"), font: .ui(TextSize.caption), color: .secondaryLabelColor))
         }
-        parts.append(NSView())
+        // The room left goes to a spacer, so the lines always sit at the right edge.
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        parts.append(spacer)
         parts.append(Self.lines(place))
         let cell = NSStackView(views: parts)
         cell.spacing = Metrics.gapTight
@@ -108,6 +111,7 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         }
         let field = NSTextField(labelWithAttributedString: text)
         field.setContentCompressionResistancePriority(.required, for: .horizontal)
+        field.setContentHuggingPriority(.required, for: .horizontal)
         return field
     }
 }

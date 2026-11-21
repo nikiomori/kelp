@@ -134,7 +134,7 @@ final class WorkMapController: NSViewController {
         agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
         let names = model.agentNames
         tree.names = names
-        tree.icons = work.agents.map { app.catalog.icon($0.agent, size: Metrics.iconSmall) }
+        tree.icons = model.icons(size: Metrics.iconSmall)
         tree.agentIcon = app.session(session).flatMap { app.catalog.icon($0.agent, size: Metrics.iconMenu) }
         let working = app.session(session)?.status == .working
         now.stringValue = WorkSummary.now(work, working: working, names: names) ?? ""

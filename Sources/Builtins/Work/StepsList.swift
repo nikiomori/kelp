@@ -109,7 +109,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         var parts: [NSView] = [rail]
         if step.kind == .spawn, let other = step.other, agents.indices.contains(other) {
             parts.append(
-                NSImageView(image: app?.catalog.icon(agents[other].agent, size: Metrics.iconSmall) ?? NSImage()))
+                NSImageView(image: WorkModel.icon(agents[other], app: app, size: Metrics.iconSmall) ?? NSImage()))
         }
         let title = NSTextField.label(
             Self.title(item, names: names), font: .ui(TextSize.row, weight: step.kind == .spawn ? .medium : .regular))
