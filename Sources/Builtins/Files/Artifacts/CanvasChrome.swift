@@ -78,12 +78,13 @@ enum CanvasChrome {
         :root { --k-ground: #f2f2f2; --k-win: #eaeced; --k-card: #fff; --k-label: rgba(0,0,0,.85);
           --k-sec: rgba(0,0,0,.5); --k-sep: rgba(0,0,0,.1); --k-rest: rgba(0,0,0,.05); --k-hover: rgba(0,0,0,.08);
           --k-sel: rgba(0,0,0,.12); --k-accent: #007aff; --k-float: rgba(246,246,246,.96); --k-orange: #ff9500;
-          --k-text-orange: #9a5000; }
+          --k-text-orange: #9a5000; --k-quiet: #aeaeb2; }
         @media (prefers-color-scheme: dark) {
           :root { --k-ground: #232325; --k-win: #363a3c; --k-card: #282828; --k-label: rgba(255,255,255,.85);
             --k-sec: rgba(255,255,255,.55); --k-sep: rgba(255,255,255,.1); --k-rest: rgba(255,255,255,.05);
             --k-hover: rgba(255,255,255,.08); --k-sel: rgba(255,255,255,.12); --k-accent: #0a84ff;
-            --k-float: rgba(48,48,50,.96); --k-orange: #ff9f0a; --k-text-orange: #ff9f0a; }
+            --k-float: rgba(48,48,50,.96); --k-orange: #ff9f0a; --k-text-orange: #ff9f0a;
+            --k-quiet: #636366; }
         }
         body.kelp-with-col { padding-right: 300px; }
         .kelp-col { position: fixed; top: 0; right: 0; bottom: 0; width: 260px; display: none; flex-direction: column;

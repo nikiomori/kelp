@@ -30379,6 +30379,366 @@
           }
         }
       }
+    },
+    "What should change?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что поменять?"
+          }
+        }
+      }
+    },
+    "What isn’t right yet?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что ещё не так?"
+          }
+        }
+      }
+    },
+    "Look at this": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Посмотри сюда"
+          }
+        }
+      }
+    },
+    "Marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометки"
+          }
+        }
+      }
+    },
+    "To Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить"
+          }
+        }
+      }
+    },
+    "New": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые"
+          }
+        }
+      }
+    },
+    "Your Edits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши правки"
+          }
+        }
+      }
+    },
+    "With %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У %@"
+          }
+        }
+      }
+    },
+    "Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё раз"
+          }
+        }
+      }
+    },
+    "Changed in version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменён в версии"
+          }
+        }
+      }
+    },
+    "Gone in version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убран в версии"
+          }
+        }
+      }
+    },
+    "Not changed: its chat may say why": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не изменился: почему — может быть в чате"
+          }
+        }
+      }
+    },
+    "%@ finished its turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ закончил ход"
+          }
+        }
+      }
+    },
+    "of": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "из"
+          }
+        }
+      }
+    },
+    "Before": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Было"
+          }
+        }
+      }
+    },
+    "After": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стало"
+          }
+        }
+      }
+    },
+    "hold Space": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "держите пробел"
+          }
+        }
+      }
+    },
+    "Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Элемент"
+          }
+        }
+      }
+    },
+    "Area": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Область"
+          }
+        }
+      }
+    },
+    "Pen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перо"
+          }
+        }
+      }
+    },
+    "Click an element on a board to mark it, or drag over an area, then say what should change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на элемент на доске или обведите область, затем напишите, что поменять."
+          }
+        }
+      }
+    },
+    "To check: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить: %lld"
+          }
+        }
+      }
+    },
+    "With %@: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У %@: %lld"
+          }
+        }
+      }
+    },
+    "Sent: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено: %lld"
+          }
+        }
+      }
+    },
+    "By hand: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вручную: %@"
+          }
+        }
+      }
+    },
+    "the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агента"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        }
+      }
+    },
+    "Pick": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать"
+          }
+        }
+      }
+    },
+    "Tweaks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки"
+          }
+        }
+      }
+    },
+    "Ask %@ to Fix": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросить %@ исправить"
+          }
+        }
+      }
+    },
+    "Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка"
+          }
+        }
+      }
+    },
+    "Contents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Содержание"
+          }
+        }
+      }
+    },
+    "Select text on the page to mark it, then say what should change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделите текст на странице, чтобы пометить его, затем напишите, что поменять."
+          }
+        }
+      }
+    },
+    "No headings on this page.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На странице нет заголовков."
+          }
+        }
+      }
+    },
+    "No issues: nothing cut off, every text readable, every file there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё в порядке: ничего не обрезано, весь текст читается, все файлы на месте."
+          }
+        }
+      }
+    },
+    "Esc to end": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esc — выйти"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

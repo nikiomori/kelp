@@ -57,6 +57,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// board and data-id). That element is chosen again after the canvas is redrawn.
     var editing = false
     var chosen: (board: String, id: String)?
+    /// The elements changed by hand since the last pause, and the wait for the next one (`keepHandEdit`).
+    var handEdited: Set<String> = []
+    let handEditRest = Debounce()
     /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
     /// being written gets the ring).
     var canvasZoom: Double?

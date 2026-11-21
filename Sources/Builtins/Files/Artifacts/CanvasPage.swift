@@ -25,9 +25,11 @@ enum CanvasPage {
         var html: String
         /// The problems found in the files themselves before anything is drawn. They are part of the check.
         var issues: [String]
-        /// Each board's tweaks, and the marks not sent yet (`CanvasEdit`).
+        /// Each board's tweaks (`CanvasEdit`), and the page's marks (`MarkColumn`).
         var tweaks: [String: [Tweak]] = [:]
-        var marks: [CanvasMark] = []
+        var marks = ArtifactMarks()
+        /// Each board as a mark to check was sent with, by `board@version@theme`, for Before.
+        var before: [String: String] = [:]
         /// The design system's token names by group, which are the choices in the properties panel (`CanvasEditMode`).
         var tokens: [String: [String]] = [:]
     }
@@ -90,11 +92,23 @@ enum CanvasPage {
             rows += "<section class=\"row\">\(title)<div class=\"boards\">\(frames)</div></section>"
         }
         let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
-        let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
+        let marks = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
+        // Each board a mark to check was sent with, drawn as it was then, in the themes shown now.
+        var before: [String: String] = [:]
+        let canvasFile = folder.appendingPathComponent(Artifacts.Kind.design.file).path
+        for mark in marks.marks where mark.state == .check {
+            guard let n = mark.rounds.last?.before, before["\(mark.board)@\(n)@\(shown[0])"] == nil,
+                let kept = read(URL(fileURLWithPath: Artifacts.versionPath(target: canvasFile, n))),
+                let old = CanvasSnapshot.read(kept)?.boards[mark.board]
+            else { continue }
+            for theme in shown {
+                let vars = (theme == "dark" ? tokens.dark : tokens.light) + " " + Tweak.css(Tweak.all(in: old))
+                before["\(mark.board)@\(n)@\(theme)"] = boardPage(old, theme: theme, vars: vars, kit: kit, base: folder)
+            }
+        }
         return Built(
             html: shell(body: "<div id=\"kelp-canvas\">\(body)</div>", dashboard: view.dashboard), issues: issues,
-            tweaks: tweaks,
-            marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
+            tweaks: tweaks, marks: marks, before: before, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
     /// Returns a board's own page: `vars` (the system's tokens for the theme, then the board's tweaks), then the kit,
@@ -172,6 +186,7 @@ enum CanvasPage {
         \(CanvasChrome.style)
         \(CanvasStates.style)
         \(CanvasEdit.style)
+        \(MarkColumn.style)
         \(CanvasEditMode.style)
         \(dashboard ? DashboardPage.style : "")
         </style></head><body\(dashboard ? " class=\"kelp-dash\"" : "")>\(body)</body></html>

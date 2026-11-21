@@ -56,6 +56,8 @@ final class ArtifactBar: NSObject {
     /// The kept version a doc's changes are counted from.
     var baselineN: Int?
     private var issues: [String] = []
+    /// The page's marks with an agent and to check, as the last artifacts list counted them.
+    private var marks: ArtifactMarkCounts?
     /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
@@ -224,13 +226,25 @@ final class ArtifactBar: NSObject {
             if canvasTime != nil { markdown.boardsChanged() }
             canvasTime = time
         }
+        if item?.marks != marks {
+            // Marks handed back (or answered) by an agent: a canvas draws again for Before, a doc takes them in place.
+            if marks != nil || item?.marks != nil {
+                markdown.marksChanged(redraw: (item?.marks?.check ?? 0) > (marks?.check ?? 0))
+            }
+            marks = item?.marks
+            modes.setCount(marks.flatMap { $0.check > 0 ? $0.check : nil }, forSegment: 1)
+        }
         if let title = item?.title ?? recorded?.title, !title.isEmpty { markdown.onPageTitle?(title, pageKind) }
         // The current file goes last. When it hasn't changed since the last kept version, the two are the same page,
         // so that version is dropped and the current file takes its turn's label.
         let versions = item?.versions ?? []
         let live = item?.changed != false || versions.isEmpty
         entries =
-            versions.dropLast(live ? 0 : 1).map { Entry(version: $0, label: $0.label, at: $0.at) }
+            versions.dropLast(live ? 0 : 1).map {
+                Entry(
+                    version: $0, label: $0.byUser == true ? String(localized: "By hand: \($0.label)") : $0.label,
+                    at: $0.at)
+            }
             + [
                 Entry(
                     version: nil, label: live ? String(localized: "As it is now") : versions.last?.label ?? "",

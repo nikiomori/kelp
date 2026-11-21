@@ -8,9 +8,10 @@ extension Artifacts {
     static func markCounts(in folder: URL) -> ArtifactMarkCounts? {
         let path = folder.appendingPathComponent(ArtifactMarks.file).path
         guard fileStat(path) != nil else { return nil }
-        let counts = ArtifactMarks.read(small(path)).counts
+        let marks = ArtifactMarks.read(small(path)), counts = marks.counts
         let sent = counts[.sent] ?? 0, check = counts[.check] ?? 0
-        return sent + check == 0 ? nil : ArtifactMarkCounts(sent: sent, check: check)
+        let replies = marks.marks.filter { [.sent, .check].contains($0.state) && $0.rounds.last?.reply != nil }.count
+        return sent + check == 0 ? nil : ArtifactMarkCounts(sent: sent, check: check, replies: replies)
     }
 
     /// Whether the page in `folder` has marks with chat `session`, waiting for its turn to end.

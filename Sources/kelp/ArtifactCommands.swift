@@ -107,12 +107,13 @@ extension Main {
 
     /// `kelp artifact marks <name> [--all]`: the marks with an agent and those the user checks; all with --all.
     static func listMarks(root: String) async throws {
+        let all = has("--all")   // read once: it takes the flag out of the arguments
         let (target, _) = try await page(args.first, root: root, usage: "artifact marks <name> [--all]")
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
         let marks = ArtifactMarks.read(
             FileManager.default.contents(atPath: folder.appendingPathComponent(ArtifactMarks.file).path))
-        let shown = marks.marks.filter { has("--all") || $0.state == .sent || $0.state == .check }
-        if shown.isEmpty { print(has("--all") ? "No marks." : "No marks open: none with you, none to check.") }
+        let shown = marks.marks.filter { all || $0.state == .sent || $0.state == .check }
+        if shown.isEmpty { print(all ? "No marks." : "No marks open: none with you, none to check.") }
         for m in shown { print(line(m, folder: Artifacts.projectPath(folder.path))) }
     }
 

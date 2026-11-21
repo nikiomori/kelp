@@ -292,11 +292,19 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return Date().timeIntervalSince1970 - modified < 120
     }
 
-    /// The row's second line, only when there's something to say: the agent is writing the page, or how much of a
-    /// review is answered.
+    /// The row's second line, only when there's something to say: the agent is writing the page, the marks to check or
+    /// with the agent, or how much of a review is answered.
     func note(_ item: ArtifactItem) -> (text: String, waits: Bool)? {
         if writing(item), let session = item.session.flatMap(app.session) {
             return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
+        }
+        if let marks = item.marks, marks.check > 0 { return (String(localized: "To check: \(marks.check)"), true) }
+        if let marks = item.marks, marks.sent > 0 {
+            let who = item.session.flatMap(app.session).map { app.catalog.name($0.agent) }
+            return (
+                who.map { String(localized: "With \($0): \(marks.sent)") } ?? String(localized: "Sent: \(marks.sent)"),
+                false
+            )
         }
         guard let points = item.points, points > 0 else { return nil }
         let answered = item.answered ?? 0

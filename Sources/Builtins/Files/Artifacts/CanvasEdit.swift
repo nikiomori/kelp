@@ -1,61 +1,27 @@
 import Core
 import Foundation
 
-/// A mark the user put on a board with Mark on the canvas's bar: what it points at and the user's note on it. Marks are
-/// kept in the artifact's `notes.json` until sent, so they survive when the canvas is drawn again (because the agent
-/// saved a board) or the tab is reopened.
-struct CanvasMark: Codable, Equatable, Sendable {
-    var board: String
-    /// The element's selector, such as `[data-id=title]`, or its tag when nothing around it has an id.
-    var target: String
-    /// The start of the element's text, so the agent can tell which element it is without an id.
-    var text: String
-    var note: String
-
-    static let file = "notes.json"
-
-    /// Returns the marks as one line for the chat, grouped by board: `Marks on <file>: boards/A.html 1 [data-id=t]
-    /// «Hi»: bigger; …`.
-    /// Marks on a page (a doc or slides) have no board or target: `Marks on <file>: 1 «quoted text»: note`.
-    static func message(_ marks: [CanvasMark], canvas: String) -> String {
-        var n = 0
-        let boards = Dictionary(grouping: marks, by: \.board).sorted { $0.key < $1.key }.map { board, marks in
-            (board.isEmpty ? "" : board + " ")
-                + marks.map { m in
-                    n += 1
-                    let what = [String(n), m.target, m.text.isEmpty ? "" : "«\(m.text)»"].filter { !$0.isEmpty }
-                    return what.joined(separator: " ") + ": " + (m.note.isEmpty ? "look at this" : m.note)
-                }.joined(separator: "; ")
-        }
-        return "Marks on \(canvas): " + boards.joined(separator: " | ")
-    }
-
-    /// Returns the marks in a `notes.json`, or none when the data doesn't decode as one.
-    static func read(_ data: Data?) -> [CanvasMark] {
-        guard let data else { return [] }
-        do { return try JSONDecoder().decode([CanvasMark].self, from: data) } catch { return [] }
-    }
-}
-
 /// Kelp's script for what the user does on a canvas. It runs in `MarkdownTab.world`, and the boards' own scripts don't
 /// run. It handles:
-/// - marks on elements (`kelpMark(true)` from the bar). A click outlines the element and puts a number on it, and the
-/// column on the right holds the notes and sends them;
+/// - Mark's tools (`kelpMark(true)` from the bar): a click marks an element, a drag marks an area or draws a stroke.
+/// The marks themselves, their column and the check strip are `MarkColumn`'s; this tells it where a mark is on the
+/// boards, and shows a board as it was sent for Before;
 /// - the Pick button on each row;
 /// - each board's tweaks, which move the board live and are saved;
 /// - Present (`kelpPresent(true)`), which shows the boards one at a time, each as large as the pane. ← → step through
 /// them and Esc ends.
-/// It sends these to `kelpSync`: `marks` (send), `marksDraft` (keep), `pick`, `tweak` and `present` (ended).
+/// It sends these to `kelpSync`: `pick`, `tweak`, `fixCheck` and `present` (ended).
 enum CanvasEdit {
     struct Labels: Encodable {
-        var send: String, pick: String, tweaks: String, note: String, remove: String
-        var marks: String, check: String, askFix: String, noMarks: String, noIssues: String, of: String, escEnds: String
+        var pick: String, tweaks: String, check: String, askFix: String, noMarks: String, noIssues: String
+        var of: String, escEnds: String, element: String, area: String, pen: String
     }
 
-    static func source(marks: [CanvasMark], tweaks: [String: [Tweak]], labels: Labels) -> String {
+    /// `before` holds each board as a mark to check was sent with, by `board@version@theme`, for Before.
+    static func source(tweaks: [String: [Tweak]], before: [String: String], labels: Labels) -> String {
         """
         (function () {
-          const marks = \(MarkdownTab.js(marks)), tweaks = \(MarkdownTab.js(tweaks));
+          const tweaks = \(MarkdownTab.js(tweaks)), BEFORE = \(MarkdownTab.js(before));
           const L = \(MarkdownTab.js(labels));
         \(body)
         })();
@@ -80,10 +46,6 @@ enum CanvasEdit {
           const setMode = m => {
             mode = m; outline.style.display = 'none'; sheet.style.display = m ? 'block' : 'none';
           };
-          window.kelpMark = on => {
-            setMode(on ? 'mark' : mode === 'mark' ? null : mode);
-            if (on) draw(); else if (mode !== 'edit') C.close();
-          };
           const pointed = e => e.closest('[data-id]') || e;
           const describe = e => {
             const d = e.closest('[data-id]');
@@ -105,47 +67,80 @@ enum CanvasEdit {
             const e = id ? doc.querySelector('[data-id="' + CSS.escape(id[1]) + '"]') : null;
             return e ? { f, e } : null;
           }
-          const keep = () => post({ kind: 'marksDraft', marks: marks });
-          // Pins on the boards; while marking, the column lists the marks (each with its note) or the check's findings.
-          let tab = 'marks';
-          function draw() {
-            for (const p of layer.querySelectorAll('.kelp-pin')) p.remove();
-            marks.forEach((m, i) => {
-              const at = find(m); if (!at) return;
-              const b = box(at.f, at.e), pin = el('div', 'kelp-pin', String(i + 1));
-              Object.assign(pin.style, { left: (b.x + b.w - 9) + 'px', top: (b.y - 9) + 'px' });
-              layer.append(pin);
-            });
-            if (mode !== 'mark') return;
-            const issues = window.kelpIssues || [];
-            const tabs = [['marks', L.marks + ' ' + marks.length], ['check', L.check + ' ' + issues.length]];
-            const pick = key => { tab = key; draw(); };
-            C.open([C.tabs(tabs, tab, pick)], tab === 'marks' ? markRows() : checkRows(issues));
+          const NS = 'http://www.w3.org/2000/svg', K = window.kelpMarks;
+          const last = m => m.rounds[m.rounds.length - 1];
+          // A board's frame under a point, and the point in the board's own pixels.
+          function frameAt(e) {
+            for (const f of frames) {
+              const r = f.getBoundingClientRect();
+              if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+                const k = r.width / f.offsetWidth;
+                return { f, k, x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k };
+              }
+            }
+            return null;
           }
-          function markRows() {
-            if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];
-            const rows = [];
-            marks.forEach((m, i) => {
-              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib', '×');
-              x.title = L.remove;
-              x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
-              head.append(el('span', 'kelp-num', String(i + 1)), el('span', 'kelp-grow kelp-what', m.target
-                + (m.text ? ' «' + m.text + '»' : '')), x);
-              const note = el('input', 'kelp-field'), line = el('div', 'kelp-row kelp-indent');
-              note.placeholder = L.note; note.value = m.note;
-              note.addEventListener('change', () => { m.note = note.value; keep(); });
-              note.addEventListener('keydown', e => { if (e.key === 'Enter') note.blur(); });
-              line.append(note);
-              rows.push(head, line);
-            });
-            const send = el('button', 'kelp-prominent', L.send), foot = el('div', 'kelp-row kelp-end');
-            send.onclick = () => {
-              for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
-              post({ kind: 'marks', marks: marks }); marks.length = 0; draw();
-            };
-            foot.append(send);
-            return [...rows, foot];
-          }
+          const inPage = (f, x, y, w, h) => {
+            const fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth;
+            return { x: fr.left + scrollX + x * k, y: fr.top + scrollY + y * k, w: w * k, h: h * k };
+          };
+          const shown = new Map();   // a frame's own page while Before shows the old one
+          const hooks = {
+            empty: L.noMarks,
+            what: m => m.kind === 'area' ? L.area : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
+              : m.target + (m.text ? ' «' + m.text + '»' : ''),
+            where(m) {
+              if (m.kind === 'area' || m.kind === 'pen') {
+                const f = light(m.board); if (!f || !m.area) return null;
+                return inPage(f, ...m.area);
+              }
+              const at = find(m); return at ? box(at.f, at.e) : null;
+            },
+            draw(m, into, r) {
+              if (m.kind === 'area') {
+                const a = el('div', 'kelp-area kelp-n-' + m.state); place(a, r); into.append(a);
+              }
+              if (m.kind !== 'pen' || !m.path) return;
+              const f = light(m.board); if (!f) return;
+              const fr = inPage(f, 0, 0, f.offsetWidth, f.offsetHeight), svg = document.createElementNS(NS, 'svg');
+              svg.setAttribute('class', 'kelp-stroke kelp-n-' + m.state);
+              svg.setAttribute('viewBox', '0 0 ' + f.offsetWidth + ' ' + f.offsetHeight);
+              place(svg, fr);
+              const path = document.createElementNS(NS, 'path');
+              path.setAttribute('d', m.path); path.setAttribute('vector-effect', 'non-scaling-stroke');
+              svg.append(path); into.append(svg);
+            },
+            focus(m) {
+              const r = hooks.where(m); if (!r) return;
+              scrollTo({ left: Math.max(0, r.x - innerWidth / 3), top: Math.max(0, r.y - innerHeight / 3),
+                behavior: 'smooth' });
+            },
+            before: Object.keys(BEFORE).length ? (m, on) => {
+              const n = last(m)?.before;
+              for (const f of frames.filter(f => f.dataset.board === m.board)) {
+                const old = BEFORE[m.board + '@' + n + '@' + f.dataset.theme];
+                if (on && old && !shown.has(f)) { shown.set(f, f.srcdoc); f.srcdoc = old; }
+                else if (!on && shown.has(f)) { f.srcdoc = shown.get(f); shown.delete(f); }
+              }
+            } : null,
+            tabs: () => [['check', L.check + ' ' + (window.kelpIssues || []).length]],
+            tabRows: () => checkRows(window.kelpIssues || [])
+          };
+          const draw = () => K?.draw();
+          // Mark's tools: an element (a click), an area (a drag) or a stroke (a drag), each on one board.
+          let tool = 'element', drag = null;
+          const tools = el('div', 'kelp-float kelp-tools');
+          const drawTools = () => tools.replaceChildren(C.tabs(
+            [['element', L.element], ['area', L.area], ['pen', L.pen]], tool, k => { tool = k; drawTools(); }));
+          drawTools();
+          document.body.append(tools);
+          window.kelpMark = on => {
+            setMode(on ? 'mark' : mode === 'mark' ? null : mode);
+            tools.style.display = on ? 'flex' : 'none';
+            K?.setOn(on);
+          };
+          tools.style.display = 'none';
+          K?.attach(hooks);
           function checkRows(issues) {
             if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
             const rows = issues.map(t => {
@@ -170,15 +165,58 @@ enum CanvasEdit {
             return null;
           }
           sheet.addEventListener('mousemove', e => {
-            const at = mode !== 'peek' && under(e, mode === 'edit');
+            if (drag) return grow(e);
+            const at = mode !== 'peek' && !(mode === 'mark' && tool !== 'element') && under(e, mode === 'edit');
             outline.style.display = at ? 'block' : 'none';
             if (at) place(outline, box(at.f, at.e));
           });
+          sheet.addEventListener('mousedown', e => {
+            if (mode !== 'mark' || tool === 'element') return;
+            const at = frameAt(e); if (!at) return;
+            const shape = tool === 'area' ? el('div', 'kelp-area') : document.createElementNS(NS, 'svg');
+            if (tool === 'pen') {
+              shape.setAttribute('class', 'kelp-stroke'); shape.append(document.createElementNS(NS, 'path'));
+              shape.setAttribute('viewBox', '0 0 ' + at.f.offsetWidth + ' ' + at.f.offsetHeight);
+              place(shape, inPage(at.f, 0, 0, at.f.offsetWidth, at.f.offsetHeight));
+            }
+            layer.append(shape);
+            drag = { ...at, shape, points: [[at.x, at.y]], start: e };
+            e.preventDefault();
+          });
+          function grow(e) {
+            const r = drag.f.getBoundingClientRect(), k = drag.k;
+            const x = Math.min(Math.max((e.clientX - r.left) / k, 0), drag.f.offsetWidth);
+            const y = Math.min(Math.max((e.clientY - r.top) / k, 0), drag.f.offsetHeight);
+            drag.points.push([x, y]);
+            if (tool === 'area') {
+              const [x0, y0] = drag.points[0];
+              drag.box = [Math.min(x0, x), Math.min(y0, y), Math.abs(x - x0), Math.abs(y - y0)];
+              place(drag.shape, inPage(drag.f, ...drag.box));
+            } else {
+              drag.shape.firstChild.setAttribute('d', path(drag.points));
+              drag.shape.firstChild.setAttribute('vector-effect', 'non-scaling-stroke');
+            }
+          }
+          const path = ps => 'M' + ps.map(([x, y]) => Math.round(x) + ' ' + Math.round(y)).join(' L');
+          addEventListener('mouseup', e => {
+            if (!drag) return;
+            const d = drag; drag = null; d.shape.remove();
+            const board = d.f.dataset.board;
+            if (tool === 'area' && d.box && d.box[2] > 6 && d.box[3] > 6) {
+              const near = under({ clientX: e.clientX, clientY: e.clientY });
+              K.add({ kind: 'area', board, area: d.box.map(Math.round),
+                target: near ? describe(near.e).target : '' });
+            } else if (tool === 'pen' && d.points.length > 2) {
+              const xs = d.points.map(p => p[0]), ys = d.points.map(p => p[1]);
+              const x0 = Math.min(...xs), y0 = Math.min(...ys);
+              const near = under(d.start);
+              K.add({ kind: 'pen', board, path: path(d.points), target: near ? describe(near.e).target : '',
+                area: [x0, y0, Math.max(...xs) - x0, Math.max(...ys) - y0].map(Math.round) });
+            }
+          });
           sheet.addEventListener('click', e => {
-            const at = mode === 'mark' && under(e); if (!at) return;
-            marks.push(Object.assign({ board: at.f.dataset.board, note: '' }, describe(at.e)));
-            tab = 'marks'; keep(); draw();
-            const inputs = document.querySelectorAll('.kelp-col input'); inputs[inputs.length - 1]?.focus();
+            const at = mode === 'mark' && tool === 'element' && under(e); if (!at) return;
+            K.add(Object.assign({ kind: 'element', board: at.f.dataset.board }, describe(at.e)));
           });
           for (const f of frames) f.addEventListener('load', draw);
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode };
@@ -269,6 +307,8 @@ enum CanvasEdit {
     /// The CSS for what Kelp puts on the canvas: pins, the rows in the column, Pick, tweaks, and the strip shown while
     /// presenting.
     static let style = """
+        .kelp-tools { top: 10px; left: 50%; transform: translateX(-50%); }
+        .kelp-reviewing .kelp-tools { top: 48px; }
         .kelp-layer { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 10; }
         .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }
         .kelp-with-col .kelp-sheet { right: 260px; }

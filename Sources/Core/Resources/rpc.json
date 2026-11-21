@@ -522,9 +522,12 @@
         "type" : "string"
       },
       "ArtifactMarkCounts" : {
-        "description" : "How many of a page's marks are with an agent, and how many wait for the user's check.",
+        "description" : "How many of a page's marks are with an agent, how many wait for the user's check, and how many of those have the agent's reply.",
         "properties" : {
           "check" : {
+            "type" : "integer"
+          },
+          "replies" : {
             "type" : "integer"
           },
           "sent" : {
@@ -533,6 +536,7 @@
         },
         "required" : [
           "check",
+          "replies",
           "sent"
         ],
         "type" : "object"

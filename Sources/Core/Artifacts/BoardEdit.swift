@@ -52,6 +52,17 @@ public enum BoardEdit {
         return out
     }
 
+    /// Returns the value of `property` in element `id`'s inline style, or nil when it sets none.
+    public static func style(_ source: String, id: String, property: String) -> String? {
+        guard let tag = openingTag(source, id: id), let style = source[tag].firstMatch(of: /\sstyle="([^"]*)"/)
+        else { return nil }
+        for part in style.output.1.split(separator: ";") {
+            let pair = part.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if pair.count == 2, pair[0] == property { return pair[1] }
+        }
+        return nil
+    }
+
     /// Returns the range of the opening tag, from `<` to `>`, of the one element with `data-id="id"`. nil when there is
     /// no such element or more than one.
     static func openingTag(_ source: String, id: String) -> Range<String.Index>? {

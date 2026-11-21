@@ -40,25 +40,34 @@ extension MarkdownTab {
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
-        case "marks": send(CanvasMark.message(marks(body), canvas: Artifacts.projectPath(url.path)), keep: [])
-        case "marksDraft": keep(marks(body))
+        case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
         case "pick":
             let row = (body["row"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             send(
                 "Picked “\(row)” on \(Artifacts.projectPath(url.path)): build it out in full; take the other rows off "
-                    + "canvas.json, keeping their files.", keep: nil)
+                    + "canvas.json, keeping their files.")
         case "selected":
             chosen = (body["board"] as? String).flatMap { board in (body["id"] as? String).map { (board, $0) } }
         case "text":
             guard let board = body["board"] as? String, let old = body["old"] as? String,
                 let text = body["text"] as? String
             else { return true }
-            rewrite(board) { BoardEdit.setText($0, id: body["id"] as? String, old: old, new: text) }
+            let id = body["id"] as? String
+            rewrite(board, edit: { _ in id.map { HandEdit(board: board, id: $0, what: "text", from: old, to: text) } })
+            {
+                BoardEdit.setText($0, id: id, old: old, new: text)
+            }
         case "style":
             guard let board = body["board"] as? String, let id = body["id"] as? String,
                 let property = body["property"] as? String
             else { return true }
-            rewrite(board) { BoardEdit.setStyle($0, id: id, property: property, value: body["value"] as? String) }
+            let value = body["value"] as? String
+            let edit = { (source: String) in
+                HandEdit(
+                    board: board, id: id, what: property, from: BoardEdit.style(source, id: id, property: property),
+                    to: value)
+            }
+            rewrite(board, edit: edit) { BoardEdit.setStyle($0, id: id, property: property, value: value) }
         case "present":
             presentingBoards = false
             onPresentEnded?()
@@ -69,7 +78,7 @@ extension MarkdownTab {
         case "update":
             send(
                 "Update \(Artifacts.projectPath(url.path)): run its commands again and bring every figure up to date, "
-                    + "its data-source time too.", keep: nil)
+                    + "its data-source time too.")
         case "themes":
             UserDefaults.standard.set(body["value"] as? String, forKey: CanvasPage.themesKey)
             rerender()
@@ -78,12 +87,17 @@ extension MarkdownTab {
         case "fixCheck": sendCheck()
         case "fixCanvas":
             send(
-                "\(Artifacts.projectPath(url.path)) doesn't read (\(body["why"] as? String ?? "")): fix it.", keep: nil)
+                "\(Artifacts.projectPath(url.path)) doesn't read (\(body["why"] as? String ?? "")): fix it.")
         case "tweak":
             guard let board = body["board"] as? String, let name = body["name"] as? String,
                 let value = body["value"] as? String
             else { return true }
-            rewrite(board) { Tweak.set(name, to: value, in: $0) }
+            let edit = { (source: String) in
+                HandEdit(
+                    board: board, id: "tweak", what: name,
+                    from: Tweak.all(in: source).first { $0.name == name }?.value, to: value)
+            }
+            rewrite(board, edit: edit) { Tweak.set(name, to: value, in: $0) }
         default: return false
         }
         return true
@@ -92,14 +106,15 @@ extension MarkdownTab {
     var canvasLabels: CanvasEdit.Labels {
         let who = pageAuthor.map { app.catalog.name($0.agent) } ?? String(localized: "the Agent")
         return CanvasEdit.Labels(
-            send: String(localized: "Send to \(who)"),
-            pick: String(localized: "Pick"), tweaks: String(localized: "Tweaks"),
-            note: String(localized: "What should change?"), remove: String(localized: "Remove"),
-            marks: String(localized: "Marks"), check: String(localized: "Check"),
+            pick: String(localized: "Pick"), tweaks: String(localized: "Tweaks"), check: String(localized: "Check"),
             askFix: String(localized: "Ask \(who) to Fix"),
-            noMarks: String(localized: "Click an element on a board to mark it, then say what should change."),
+            noMarks: String(
+                localized: "Click an element on a board to mark it, or drag over an area, then say what should change."
+            ),
             noIssues: String(localized: "No issues: nothing cut off, every text readable, every file there."),
-            of: String(localized: "of"), escEnds: String(localized: "Esc to end"))
+            of: String(localized: "of"), escEnds: String(localized: "Esc to end"),
+            element: String(localized: "Element"),
+            area: String(localized: "Area"), pen: String(localized: "Pen"))
     }
 
     var canvasChromeLabels: CanvasChrome.Labels {
@@ -135,13 +150,10 @@ extension MarkdownTab {
 
     /// The words shown for a doc's marks and in its column (`PageMarks`).
     var pageMarkLabels: [String: String] {
-        let labels = canvasLabels
-        return [
-            "mark": String(localized: "Mark"), "marks": labels.marks, "send": labels.send, "note": labels.note,
-            "remove": labels.remove, "contents": String(localized: "Contents"),
+        [
+            "mark": String(localized: "Mark"), "contents": String(localized: "Contents"),
             "noMarks": String(localized: "Select text on the page to mark it, then say what should change."),
-            "noContents": String(localized: "No headings on this page."),
-            "hint": String(localized: "Select more text to add a mark. ⌘↩ sends.")
+            "noContents": String(localized: "No headings on this page.")
         ]
     }
 
@@ -156,37 +168,18 @@ extension MarkdownTab {
         runJS("kelpPresent(\(presentingBoards))")
     }
 
-    private func marks(_ body: [String: Any]) -> [CanvasMark] {
-        (body["marks"] as? [[String: Any]] ?? []).compactMap { m in
-            guard let board = m["board"] as? String, let target = m["target"] as? String else { return nil }
-            return CanvasMark(
-                board: board, target: target, text: m["text"] as? String ?? "", note: m["note"] as? String ?? "")
-        }
-    }
-
-    private var notesPath: String { url.deletingLastPathComponent().appendingPathComponent(CanvasMark.file).path }
-
-    /// Saves the marks not sent yet in a file beside the canvas.
-    private func keep(_ marks: [CanvasMark]) {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
-        let text: String
-        do { text = String(decoding: try encoder.encode(marks), as: UTF8.self) } catch { return }
-        Task { await app.call(FilesWrite(path: notesPath, text: text, base: nil)) }
-    }
-
-    /// Sends `line` to the chat that made the canvas, or else to the agent on screen. `keep` is the marks left after
-    /// sending, saved first when given.
-    private func send(_ line: String, keep marks: [CanvasMark]?) {
-        if let marks { keep(marks) }
+    /// Sends `line` to the chat that made the page, or else to the agent on screen.
+    func send(_ line: String) {
         guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
         Task { await app.call(SessionSend(id: author.id, text: line, enter: true)) }
     }
 
     /// Writes a change made by hand (a tweak, a style, a text) into a board's file. When the file changed since the
     /// page was drawn, the edit can't be placed for sure, so nothing is written and the canvas draws again from the
-    /// file.
-    private func rewrite(_ board: String, _ change: @escaping (String) -> String?) {
+    /// file. A change written is kept for the agent (`edit`, made from the file before the change).
+    private func rewrite(
+        _ board: String, edit: @escaping (String) -> HandEdit?, _ change: @escaping (String) -> String?
+    ) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         Task {
             guard let file = await app.call(FilesRead(path: path)) else { return }
@@ -194,7 +187,10 @@ extension MarkdownTab {
                 Banner.show(String(localized: "Couldn't find that element in \(board) as it is now: drawn again."))
                 return rerender()
             }
-            await app.call(FilesWrite(path: path, text: text, base: file.stamp))
+            let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp))
+            if let written, written.conflict == nil, written.missing != true, let made = edit(file.text) {
+                keepHandEdit(made)
+            }
         }
     }
 

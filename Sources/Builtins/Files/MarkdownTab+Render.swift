@@ -54,7 +54,7 @@ extension MarkdownTab {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
             }
-            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels
+            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
@@ -76,11 +76,13 @@ extension MarkdownTab {
                         snapshot, folder: base, root: Self.projectRoot(of: base.path), view: canvasView)
                     let around = CanvasChrome.source(
                         themes: themes.rawValue, labels: chrome, floats: !canvasView.dashboard)
-                    let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
+                    let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
+                    let edit = CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
-                        built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + dash + again,
+                        built.html,
+                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand] + dash + again,
                         nil
                     )
                 }
@@ -110,11 +112,11 @@ extension MarkdownTab {
                         mermaid: mermaid != nil, math: math != nil, body: body)
                     return (html, scripts, kind == .markdown ? swap : nil)
                 }
-                let marks = CanvasMark.read(Artifacts.small(base.appendingPathComponent(CanvasMark.file).path))
+                let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
                 html += PageMarks.style
                 scripts += [
                     CanvasChrome.source(themes: "", labels: chrome, floats: false),
-                    PageMarks.source(marks: marks, labels: markLabels)
+                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
                 return (html, scripts + again, nil)

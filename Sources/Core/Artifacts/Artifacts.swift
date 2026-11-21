@@ -74,12 +74,14 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     }
 }
 
-/// How many of a page's marks are with an agent, and how many wait for the user's check.
+/// How many of a page's marks are with an agent, how many wait for the user's check, and how many of those have the
+/// agent's reply.
 public struct ArtifactMarkCounts: Codable, Equatable, Sendable {
-    public var sent: Int, check: Int
-    public init(sent: Int, check: Int) {
+    public var sent: Int, check: Int, replies: Int
+    public init(sent: Int, check: Int, replies: Int = 0) {
         self.sent = sent
         self.check = check
+        self.replies = replies
     }
 }
 

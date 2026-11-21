@@ -53,18 +53,6 @@ private func demo() throws -> (root: URL, folder: URL) {
             == ["b: 1 figures without data-source (where each came from, and when)"])
 }
 
-@Test func marksGoToTheChatAsOneLineByBoard() {
-    let marks = [
-        CanvasMark(board: "boards/B.html", target: "[data-id=start]", text: "Start", note: "full width on a phone"),
-        CanvasMark(board: "boards/A.html", target: "h1", text: "", note: "")
-    ]
-    #expect(
-        CanvasMark.message(marks, canvas: ".kelp/artifacts/home/canvas.json")
-            == "Marks on .kelp/artifacts/home/canvas.json: boards/A.html 1 h1: look at this | "
-            + "boards/B.html 2 [data-id=start] «Start»: full width on a phone")
-    #expect(CanvasMark.read(Data("not json".utf8)).isEmpty && CanvasMark.read(nil).isEmpty)
-}
-
 @Test func anOlderVersionOfACanvasIsDrawnWithItsOwnBoards() throws {
     let (root, folder) = try demo()
     defer { try? FileManager.default.removeItem(at: root) }
@@ -75,6 +63,29 @@ private func demo() throws -> (root: URL, folder: URL) {
         try #require(CanvasSnapshot.read(kept)), folder: folder, root: root.path, view: .init(themes: .light))
     #expect(page.html.contains("&lt;p&gt;Then&lt;/p&gt;") && !page.html.contains("Hi &amp;amp;"))
     #expect(CanvasSnapshot.live(json: json, folder: folder).boards["boards/A.html"]?.contains("Hi & ") == true)
+}
+
+/// A mark to check brings its board as it was sent, in each theme shown, for Before; others bring nothing.
+@Test func aMarkToCheckBringsItsBoardAsItWasSent() throws {
+    let (root, folder) = try demo()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let json = #"{"boards": [{"file": "boards/A.html", "w": 390}]}"#
+    try FileManager.default.createDirectory(
+        at: folder.appendingPathComponent("versions"), withIntermediateDirectories: true)
+    try #require(CanvasSnapshot(canvas: json, boards: ["boards/A.html": "<p>Then</p>"]).data).write(
+        to: folder.appendingPathComponent("versions/1.json"))
+    let round = ArtifactMark.Round(note: "bigger", at: 0, before: 1, after: 2, outcome: .changed)
+    for (state, drawn) in [(ArtifactMark.State.check, ["boards/A.html@1@dark", "boards/A.html@1@light"]), (.done, [])] {
+        let marks = ArtifactMarks(marks: [
+            ArtifactMark(id: 1, board: "boards/A.html", target: "[data-id=t]", state: state, rounds: [round])
+        ])
+        try marks.encoded().write(to: folder.appendingPathComponent("notes.json"))
+        let page = CanvasPage.build(
+            CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, view: .init(themes: .both)
+        )
+        #expect(page.before.keys.sorted() == drawn && page.marks.marks == marks.marks)
+        #expect(page.before.values.allSatisfy { $0.contains("<p>Then</p>") && $0.contains("--bg") })
+    }
 }
 
 @Test func whileItsAgentWritesABoardNotThereYetIsAFrameOfItsSize() throws {
