@@ -1,0 +1,37 @@
+import AppKit
+import Core
+import KelpKit
+import WorkbenchKit
+
+extension Builtins {
+    /// Where an agent worked: the inspector's Work panel (its steps, and its project in layers) and the Map tab (the
+    /// same work as a tree of nodes, the project on one side and what it reached outside on the other).
+    package static let work = Builtin(
+        "kelp.work", "Work", "Where an agent worked: its steps, the files it read and edited, what it reached outside.",
+        icon: "map"
+    ) { app in
+        Contributions(
+            panels: [
+                PanelSpec(id: "work", title: "Work", icon: "map", extensionId: "kelp.work") { WorkPanel(app: app) }
+            ],
+            tabs: [
+                TabProvider(
+                    schemes: [WorkTab.scheme], make: { WorkTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        let title = WorkTab.title(app.session(TabURI.body(uri)), app: app)
+                        return (title, .symbol("map"), nil)
+                    })
+            ],
+            rowMenu: [
+                { row, menu in
+                    guard case .agent(let id) = row, app.session(id)?.isAgent == true else { return }
+                    menu.addItem(.separator())
+                    menu.add(String(localized: "Show Map")) {
+                        guard let workspace = app.session(id)?.worktreeId else { return }
+                        _ = app.workbench.openBeside(WorkTab.uri(id), in: workspace)
+                    }
+                }
+            ]
+        )
+    }
+}

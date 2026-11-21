@@ -1,0 +1,113 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+
+/// The files under the block picked in the layers: edited first, then by how often they were read, each with its mark,
+/// its worktree, who touched it and its lines. A click opens the file beside the agent; with Option, the turn's diff.
+@MainActor
+final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    let table = KeyTable()
+    private(set) lazy var scroll = table.plainList("files")
+    var onOpen: (AgentWork.Place, _ diff: Bool) -> Void = { _, _ in }
+    private var rows: [AgentWork.Place] = []
+    private var names: [String] = [], agents: [AgentWork.Agent] = []
+    private weak var app: AppModel?
+
+    override init() {
+        super.init()
+        table.dataSource = self
+        table.delegate = self
+        table.rowHeight = TextSize.of(Metrics.row)
+        table.target = self
+        table.action = #selector(clicked)
+        table.onReturn = { [weak self] in self?.clicked() }
+    }
+
+    func show(_ node: WorkNode, names: [String], app: AppModel, agents: [AgentWork.Agent]) {
+        let files = node.files.compactMap(\.place).sorted { a, b in
+            let (ea, eb) = (a.edits > 0 || a.byCommand, b.edits > 0 || b.byCommand)
+            if ea != eb { return ea }
+            if a.reads != b.reads { return a.reads > b.reads }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+        self.app = app
+        self.agents = agents
+        guard files != rows || names != self.names else { return }
+        rows = files
+        self.names = names
+        table.reloadData()
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { tableView.listRowView() }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let place = rows[row]
+        let mark = PlaceMark()
+        mark.kind = place.edits > 0 || place.byCommand ? .edit : .read
+        let name = NSTextField.label(
+            (place.name as NSString).lastPathComponent, font: .ui(TextSize.row), truncation: .byTruncatingMiddle)
+        var parts: [NSView] = [mark, name]
+        if let worktree = place.worktree { parts.append(Self.badge(worktree)) }
+        for index in place.agents.sorted() where agents.indices.contains(index) {
+            let logo = NSImageView(image: app?.catalog.icon(agents[index].agent, size: Metrics.iconSmall) ?? NSImage())
+            logo.toolTip = names.indices.contains(index) ? names[index] : nil
+            parts.append(logo)
+        }
+        let read = WorkWords.reads(place)
+        let loop = place.reads >= 3 ? "↻ " : ""
+        if !read.isEmpty {
+            parts.append(NSTextField.label(loop + read, font: .ui(TextSize.caption), color: .secondaryLabelColor))
+        }
+        if place.byCommand && place.edits == 0 {
+            parts.append(
+                NSTextField.label(
+                    String(localized: "by a command"), font: .ui(TextSize.caption), color: .secondaryLabelColor))
+        }
+        parts.append(NSView())
+        parts.append(Self.lines(place))
+        let cell = NSStackView(views: parts)
+        cell.spacing = Metrics.gapTight
+        cell.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        cell.toolTip = place.name
+        cell.setAccessibilityElement(true)
+        cell.setAccessibilityLabel(
+            WorkWords.describe(WorkNode(path: place.name, name: place.name, place: place), agents: names))
+        return cell
+    }
+
+    @objc private func clicked() {
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard rows.indices.contains(row) else { return }
+        onOpen(rows[row], NSEvent.modifierFlags.contains(.option))
+    }
+
+    /// The worktree a file was touched in, as a grey chip.
+    static func badge(_ worktree: String) -> NSView {
+        let label = NSTextField.label("⎇ " + worktree, font: .ui(TextSize.micro), color: .secondaryLabelColor)
+        label.wantsLayer = true
+        label.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        label.layer?.cornerRadius = Metrics.radiusXS
+        label.toolTip = String(localized: "Touched in the worktree \(worktree)")
+        return label
+    }
+
+    /// "+18 −5" in the diff's colours.
+    static func lines(_ place: AgentWork.Place) -> NSTextField {
+        let text = NSMutableAttributedString()
+        let font = NSFont.uiDigits(TextSize.caption)
+        if place.added > 0 {
+            text.append(
+                .init(string: "+\(place.added)", attributes: [.font: font, .foregroundColor: NSColor.textGreen]))
+        }
+        if place.removed > 0 {
+            if place.added > 0 { text.append(.init(string: " ")) }
+            text.append(
+                .init(string: "−\(place.removed)", attributes: [.font: font, .foregroundColor: NSColor.textRed]))
+        }
+        let field = NSTextField(labelWithAttributedString: text)
+        field.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return field
+    }
+}

@@ -1,0 +1,295 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+
+/// The inspector's Work panel: where the agent in focus worked. Steps shows its turn step by step, as the commit graph
+/// shows commits (agents as lanes); Map shows its project in layers (folders over files, as wide as the files touched),
+/// the places outside the project as chips, and the files of the block picked. The bar names the agent, picks the turn
+/// and opens the Map tab. It reads only while it is on screen.
+@MainActor
+final class WorkPanel: NSViewController {
+    let app: AppModel
+    let model: WorkModel
+    private let face = NSImageView()
+    private let name = NSTextField.label("", font: .ui(TextSize.row, weight: .medium))
+    private let turnPop = NSPopUpButton()
+    private lazy var openTab = IconButton(
+        .symbol("arrow.up.left.and.arrow.down.right"), tip: String(localized: "Open the Map as a Tab"), target: self,
+        action: #selector(openAsTab))
+    private let summary = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private lazy var views = CapsuleSegments(
+        labels: [String(localized: "Steps"), String(localized: "Map")], target: self, action: #selector(switchView))
+    private let agents = AgentPicker()
+    let icicle = IcicleView()
+    let chips = OutsideChips()
+    private let heading = NSTextField.label(
+        "", font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+    private lazy var back = TextButton(String(localized: "‹ Back"), target: self, action: #selector(zoomOut))
+    let files = WorkFileList()
+    let steps = StepsList()
+    private let mapColumn = NSStackView(), stepsColumn = NSStackView()
+    private let empty = EmptyStateView()
+    private var watched: Watched?
+    private var shown = false
+    /// The block the layers start from (its path), and the one picked under it.
+    var zoom = "", picked: String?
+
+    init(app: AppModel) {
+        self.app = app
+        model = WorkModel(app: app)
+        super.init(nibName: nil, bundle: nil)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func loadView() {
+        face.imageScaling = .scaleProportionallyDown
+        face.widthAnchor.constraint(equalToConstant: Metrics.appIcon).isActive = true
+        turnPop.controlSize = .small
+        turnPop.font = .ui(TextSize.caption)
+        turnPop.target = self
+        turnPop.action = #selector(pickTurn)
+        let header = Bar.panel([face, name], [turnPop, openTab])
+        views.controlSize = .small
+        views.selectedSegment = 1
+        agents.onPick = { [weak self] in self?.model.agent = $0 }
+        turnPop.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        turnPop.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.formLabel + 2 * Metrics.blockGap).isActive =
+            true
+        name.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        let controls = NSStackView(views: [views, NSView(), agents])
+        controls.spacing = Metrics.gap
+        controls.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        summary.lineBreakMode = .byTruncatingTail
+        let summaryRow = NSStackView(views: [summary])
+        summaryRow.edgeInsets = NSEdgeInsets(
+            top: Metrics.gapTight, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+
+        icicle.onSelect = { [weak self] in self?.pick($0) }
+        icicle.onZoom = { [weak self] in $0.map { self?.zoom(to: $0) } ?? self?.zoomOut() }
+        icicle.onOpen = { [weak self] path in
+            guard let self, let place = model.work?.places.first(where: { $0.kind == .file && $0.name == path }) else {
+                return
+            }
+            model.open(place, diff: NSEvent.modifierFlags.contains(.option))
+        }
+        chips.onOpen = { [weak self] in self?.model.open(outside: $0) }
+        files.onOpen = { [weak self] place, diff in self?.model.open(place, diff: diff) }
+        steps.onOpen = { [weak self] in self?.model.open(step: $0) }
+        let headingRow = NSStackView(views: [heading, NSView(), back])
+        headingRow.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowSection)).isActive = true
+        headingRow.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
+        headingRow.alignment = .lastBaseline
+        back.font = .ui(TextSize.caption)
+        let icicleRow = NSStackView(views: [icicle])
+        icicleRow.edgeInsets = NSEdgeInsets(top: Metrics.gapWide, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        let chipsRow = NSStackView(views: [chips])
+        chipsRow.edgeInsets = NSEdgeInsets(top: Metrics.gapWide, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        for (column, parts) in [
+            (mapColumn, [icicleRow, chipsRow, headingRow, files.scroll]), (stepsColumn, [steps.scroll])
+        ] {
+            column.orientation = .vertical
+            column.spacing = 0
+            column.setViews(parts, in: .top)
+            for part in parts { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+        }
+        icicle.widthAnchor.constraint(equalTo: icicleRow.widthAnchor, constant: -2 * Metrics.inset).isActive = true
+        chips.widthAnchor.constraint(equalTo: chipsRow.widthAnchor, constant: -2 * Metrics.inset).isActive = true
+        stepsColumn.isHidden = true
+        let column = NSStackView(views: [header, summaryRow, controls, mapColumn, stepsColumn])
+        column.orientation = .vertical
+        column.spacing = 0
+        column.alignment = .leading
+        for part in column.arrangedSubviews { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+        let root = NSView()
+        root.pin(column)
+        empty.place(in: root, under: header)
+        view = root
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        watched = Watched(.work, in: app)
+        // Another agent in focus, a turn chosen, or a conversation that grew: read again.
+        track(owner: self) { [weak self] in
+            self?.focused?.id
+        } changed: { [weak self] in
+            self?.follow($0)
+        }
+        track(owner: self) { [weak self] in
+            guard let self else { return Values(String?.none, Int?.none, false) }
+            let stamp = model.session.flatMap { app.latest(WorkEvent.self, $0)?.stamp }
+            return Values(stamp, model.turn, model.whole)
+        } changed: { [weak self] _ in
+            self?.reload()
+        }
+        track(owner: self) { [weak self] in
+            Values(self?.model.work, self?.model.agent, self?.model.error)
+        } changed: {
+            [weak self] _ in
+            self?.render()
+        }
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        shown = true
+        watched?.key = model.session
+        reload()
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        shown = false
+        watched?.key = nil
+    }
+
+    /// The agent chat looked at last in the workspace on screen, else its newest agent chat that hasn't exited.
+    private var focused: Session? {
+        let workspace = app.workbench.workspaceId
+        if let last = app.workbench.lastSession.flatMap(app.session), last.worktreeId == workspace, last.isAgent {
+            return last
+        }
+        return app.sessions.last { $0.worktreeId == workspace && $0.isChat && $0.isAgent && $0.status != .exited }
+    }
+
+    private func follow(_ id: String?) {
+        model.show(id)
+        zoom = ""
+        picked = nil
+        if shown { watched?.key = id }
+        let session = id.flatMap(app.session)
+        face.image = session.flatMap { app.catalog.icon($0.agent, size: Metrics.appIcon) }
+        name.stringValue = session.map(app.catalog.displayName) ?? ""
+        reload()
+    }
+
+    private func reload() {
+        guard shown else { return }
+        model.load()
+    }
+
+    // MARK: Showing
+
+    private func render() {
+        guard isViewLoaded else { return }
+        let work = model.work
+        fillTurns(work)
+        if model.session == nil {
+            return showEmpty(
+                String(localized: "No Agent"), text: String(localized: "Open an agent's chat to see where it worked."))
+        }
+        if let error = model.error, work == nil {
+            empty.showError(String(localized: "Couldn’t read where the agent worked"), text: error)
+            return hideColumns()
+        }
+        guard let work else {
+            return model.loaded
+                ? showEmpty(
+                    String(localized: "No Transcript to Read"),
+                    text: String(
+                        localized: "This agent keeps no transcript Kelp can read, or its host isn’t connected."))
+                : hideColumns()
+        }
+        if work.places.isEmpty && work.steps.isEmpty {
+            return showEmpty(
+                String(localized: "Nothing Touched Yet"),
+                text: String(localized: "Files and places show up here as the agent works."))
+        }
+        empty.show(nil)
+        agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
+        summary.stringValue = WorkSummary.line(work, turn: work.turn)
+        let tree = WorkTree.project(work, rootName: model.projectName, agent: model.agent)
+        let shownRoot = tree.node(at: zoom) ?? tree
+        let noFiles = tree.children.isEmpty
+        icicle.superview?.isHidden = noFiles
+        files.scroll.isHidden = noFiles
+        icicle.agentNames = model.agentNames
+        icicle.root = shownRoot
+        icicle.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.map(\.name)
+        let pickedNode = picked.flatMap(shownRoot.node(at:)) ?? shownRoot
+        icicle.selected = pickedNode.path
+        heading.stringValue =
+            noFiles
+            ? String(localized: "No project files in this turn")
+            : pickedNode.path.isEmpty ? String(localized: "In the project") : pickedNode.path
+        back.isHidden = zoom.isEmpty
+        files.show(pickedNode, names: model.agentNames, app: app, agents: work.agents)
+        chips.show(WorkTree.outside(work, agent: model.agent))
+        steps.show(work, names: model.agentNames, app: app, filter: model.agent)
+        views.setEnabled(!model.whole, forSegment: 0)
+        let stepsOn = views.selectedSegment == 0 && !model.whole
+        mapColumn.isHidden = stepsOn
+        stepsColumn.isHidden = !stepsOn
+    }
+
+    private func showEmpty(_ title: String, text: String) {
+        empty.show(title, symbol: "map", text: text)
+        hideColumns()
+    }
+
+    private func hideColumns() {
+        mapColumn.isHidden = true
+        stepsColumn.isHidden = true
+    }
+
+    /// The turn picker: the last turn first, then each earlier one by its prompt and time, then the whole session.
+    private func fillTurns(_ work: AgentWork?) {
+        turnPop.removeAllItems()
+        let turns = work?.turns ?? []
+        turnPop.isHidden = turns.isEmpty
+        for (index, turn) in turns.enumerated().reversed() {
+            let when = turn.at.formatted(date: .omitted, time: .shortened)
+            turnPop.addItem(
+                withTitle: index == turns.count - 1
+                    ? String(localized: "Last Turn") : "“\(turn.prompt.prefix(40))” · \(when)")
+            turnPop.lastItem?.tag = index
+            turnPop.lastItem?.toolTip = turn.prompt
+        }
+        turnPop.menu?.addItem(.separator())
+        turnPop.addItem(withTitle: String(localized: "Whole Session"))
+        turnPop.lastItem?.tag = -1
+        let chosen = model.whole ? -1 : (model.turn ?? turns.count - 1)
+        turnPop.selectItem(withTag: chosen)
+    }
+
+    // MARK: Actions
+
+    @objc private func pickTurn() {
+        let tag = turnPop.selectedTag()
+        model.whole = tag < 0
+        model.turn = tag < 0 || tag == (model.work?.turns.count ?? 0) - 1 ? nil : tag
+        picked = nil
+        zoom = ""
+    }
+
+    @objc private func switchView() { render() }
+
+    @objc private func openAsTab() {
+        guard let session = model.session, let workspace = app.session(session)?.worktreeId else { return }
+        _ = app.workbench.openBeside(WorkTab.uri(session), in: workspace)
+    }
+
+    func pick(_ path: String) {
+        picked = path
+        render()
+    }
+
+    func zoom(to path: String) {
+        zoom = path
+        picked = path
+        render()
+    }
+
+    @objc func zoomOut() {
+        guard !zoom.isEmpty else { return }
+        let parent = (zoom as NSString).deletingLastPathComponent
+        let tree = model.work.map { WorkTree.project($0, rootName: model.projectName, agent: model.agent) }
+        // A merged folder chain ("Daemon/Sessions") is one node: step out past the whole chain.
+        var up = parent
+        while !up.isEmpty, tree?.node(at: up) == nil { up = (up as NSString).deletingLastPathComponent }
+        picked = zoom
+        zoom = up
+        render()
+    }
+}
