@@ -135,10 +135,10 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         return cell
     }
 
-    static func title(_ row: StepRow, names: [String]) -> String {
+    nonisolated static func title(_ row: StepRow, names: [String]) -> String {
         let step = row.step
         switch step.kind {
-        case .read: return row.count > 1 ? String(localized: "Read ×\(row.count)") : String(localized: "Read")
+        case .read: return row.count > 1 ? String(localized: "Read ×\(row.count)") : String(localized: "Read a file")
         case .search: return row.count > 1 ? String(localized: "Search ×\(row.count)") : String(localized: "Search")
         case .edit: return String(localized: "Edit")
         case .command: return String(localized: "Ran")

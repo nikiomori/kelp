@@ -36868,6 +36868,506 @@
           }
         }
       }
+    },
+    "%lld edited": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменено: %lld"
+          }
+        }
+      }
+    },
+    "%lld outside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "снаружи: %lld"
+          }
+        }
+      }
+    },
+    "%lld read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прочитано: %lld"
+          }
+        }
+      }
+    },
+    "+ %lld read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ ещё %lld прочитано"
+          }
+        }
+      }
+    },
+    "Asked you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросил вас"
+          }
+        }
+      }
+    },
+    "Couldn’t read where the agent worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать, где работал агент"
+          }
+        }
+      }
+    },
+    "Files and places show up here as the agent works.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы и места появятся здесь, когда агент начнёт работать."
+          }
+        }
+      }
+    },
+    "In the project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В проекте"
+          }
+        }
+      }
+    },
+    "Map": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Карта"
+          }
+        }
+      }
+    },
+    "Map of where the agent worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Карта того, где работал агент"
+          }
+        }
+      }
+    },
+    "Map · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Карта · %@"
+          }
+        }
+      }
+    },
+    "No Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет агента"
+          }
+        }
+      }
+    },
+    "No Transcript to Read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего прочитать"
+          }
+        }
+      }
+    },
+    "No project files in this turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом ходе нет файлов проекта"
+          }
+        }
+      }
+    },
+    "Nothing Touched Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ничего не тронуто"
+          }
+        }
+      }
+    },
+    "Now: %@ %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас: %@ %@"
+          }
+        }
+      }
+    },
+    "Open an agent's chat to see where it worked.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте чат агента, чтобы увидеть, где он работал."
+          }
+        }
+      }
+    },
+    "Open the Map as a Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть карту во вкладке"
+          }
+        }
+      }
+    },
+    "Outside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снаружи"
+          }
+        }
+      }
+    },
+    "Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проект"
+          }
+        }
+      }
+    },
+    "Ran": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнил"
+          }
+        }
+      }
+    },
+    "Read a file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитал файл"
+          }
+        }
+      }
+    },
+    "Read ×%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитал ×%lld"
+          }
+        }
+      }
+    },
+    "Reported back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отчитался"
+          }
+        }
+      }
+    },
+    "Search ×%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск ×%lld"
+          }
+        }
+      }
+    },
+    "Show Diff": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать дифф"
+          }
+        }
+      }
+    },
+    "Show Map": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать карту"
+          }
+        }
+      }
+    },
+    "Steps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шаги"
+          }
+        }
+      }
+    },
+    "The agent's own folders": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Служебные папки агента"
+          }
+        }
+      }
+    },
+    "This Turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот ход"
+          }
+        }
+      }
+    },
+    "This agent keeps no transcript Kelp can read, or its host isn’t connected.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот агент не ведёт журнала, который Kelp умеет читать, или его хост не подключён."
+          }
+        }
+      }
+    },
+    "Tool": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструмент"
+          }
+        }
+      }
+    },
+    "Touched in the worktree %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тронут в worktree %@"
+          }
+        }
+      }
+    },
+    "Web": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сеть"
+          }
+        }
+      }
+    },
+    "Where an agent worked: its steps, the files it read and edited, what it reached outside.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где работал агент: шаги, прочитанные и изменённые файлы, что он открывал снаружи."
+          }
+        }
+      }
+    },
+    "Where the agent worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где работал агент"
+          }
+        }
+      }
+    },
+    "Whole Session": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вся сессия"
+          }
+        }
+      }
+    },
+    "Work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работа"
+          }
+        }
+      }
+    },
+    "Zoom In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увеличить"
+          }
+        }
+      }
+    },
+    "Zoom Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уменьшить"
+          }
+        }
+      }
+    },
+    "Zoom to Fit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По размеру окна"
+          }
+        }
+      }
+    },
+    "by a command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "командой"
+          }
+        }
+      }
+    },
+    "changed by a command %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменён командой %@"
+          }
+        }
+      }
+    },
+    "edited %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменён %@"
+          }
+        }
+      }
+    },
+    "in worktree %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в worktree %@"
+          }
+        }
+      }
+    },
+    "read": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прочитан"
+          }
+        }
+      }
+    },
+    "read %lld×": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прочитан %lld×"
+          }
+        }
+      }
+    },
+    "searched": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "поиск"
+          }
+        }
+      }
+    },
+    "worktree %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "worktree %@"
+          }
+        }
+      }
+    },
+    "‹ Back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‹ Назад"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

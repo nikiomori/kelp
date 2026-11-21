@@ -17,6 +17,13 @@ enum WorkSummary {
         return parts.joined(separator: " · ")
     }
 
+    /// What the agent does now, while it works: its last step ("Now: Read Models.swift"), or nil.
+    static func now(_ work: AgentWork, working: Bool, names: [String]) -> String? {
+        guard working, let last = work.steps.last else { return nil }
+        let title = StepsList.title(StepRow(step: last), names: names)
+        return String(localized: "Now: \(title) \((last.detail as NSString).lastPathComponent)")
+    }
+
     /// The symbol that stands for a kind of place outside the project.
     static func symbol(_ kind: AgentWork.Kind) -> String {
         switch kind {

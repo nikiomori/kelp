@@ -124,7 +124,9 @@ final class WorkPanel: NSViewController {
             self?.reload()
         }
         track(owner: self) { [weak self] in
-            Values(self?.model.work, self?.model.agent, self?.model.error)
+            Values(
+                self?.model.work, self?.model.agent, self?.model.error,
+                self?.model.session.flatMap { self?.app.session($0)?.status })
         } changed: {
             [weak self] _ in
             self?.render()
@@ -198,7 +200,9 @@ final class WorkPanel: NSViewController {
         }
         empty.show(nil)
         agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
-        summary.stringValue = WorkSummary.line(work, turn: work.turn)
+        let working = model.session.flatMap(app.session)?.status == .working
+        summary.stringValue =
+            WorkSummary.now(work, working: working, names: model.agentNames) ?? WorkSummary.line(work, turn: work.turn)
         let tree = WorkTree.project(work, rootName: model.projectName, agent: model.agent)
         let shownRoot = tree.node(at: zoom) ?? tree
         let noFiles = tree.children.isEmpty

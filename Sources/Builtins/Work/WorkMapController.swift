@@ -16,7 +16,7 @@ final class WorkMapController: NSViewController {
         labels: [String(localized: "This Turn"), String(localized: "Whole Session")], target: self,
         action: #selector(pickScope))
     private let agents = AgentPicker()
-    private let bar = NSStackView()
+    private let now = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
     private let card = HoverPopover()
     private var watched: Watched?
@@ -48,7 +48,7 @@ final class WorkMapController: NSViewController {
         let zoomIn = IconButton(.symbol("plus.magnifyingglass"), tip: String(localized: "Zoom In")) { [weak self] in
             self?.zoom(by: 1.25)
         }
-        let header = Bar.content([turnPop, scope, agents], [zoomOut, fit, zoomIn])
+        let header = Bar.content([turnPop, scope, agents, now], [zoomOut, fit, zoomIn])
         scroll.documentView = tree
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
@@ -79,7 +79,9 @@ final class WorkMapController: NSViewController {
             self?.reload()
         }
         track(owner: self) { [weak self] in
-            Values(self?.model.work, self?.model.agent, self?.model.error)
+            Values(
+                self?.model.work, self?.model.agent, self?.model.error,
+                self.flatMap { $0.app.session($0.session)?.status })
         } changed: {
             [weak self] _ in
             self?.render()
@@ -134,6 +136,8 @@ final class WorkMapController: NSViewController {
         tree.names = names
         tree.icons = work.agents.map { app.catalog.icon($0.agent, size: Metrics.iconSmall) }
         tree.agentIcon = app.session(session).flatMap { app.catalog.icon($0.agent, size: Metrics.iconMenu) }
+        let working = app.session(session)?.status == .working
+        now.stringValue = WorkSummary.now(work, working: working, names: names) ?? ""
         let nodes = NodeTree.nodes(project: project, outside: outside, opened: opened)
         tree.nodes = nodes
         tree.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.flatMap { place in
