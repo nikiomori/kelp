@@ -52,10 +52,9 @@ final class WorkCard: NSViewController {
             lines.append(row)
         }
         if let first = place.first, let last = place.last {
-            let span =
-                first == last
-                ? first.formatted(date: .omitted, time: .shortened)
-                : "\(first.formatted(date: .omitted, time: .shortened)) → \(last.formatted(date: .omitted, time: .shortened))"
+            let from = first.formatted(date: .omitted, time: .shortened)
+            let to = last.formatted(date: .omitted, time: .shortened)
+            let span = from == to ? from : "\(from) → \(to)"
             lines.append(NSTextField.label(span, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor))
         }
         var buttons: [NSView] = []

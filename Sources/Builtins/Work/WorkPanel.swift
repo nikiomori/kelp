@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 /// The inspector's Work panel: where the agent in focus worked. Steps shows its turn step by step, as the commit graph
 /// shows commits (agents as lanes); Map shows its project in layers (folders over files, as wide as the files touched),
@@ -29,6 +30,7 @@ final class WorkPanel: NSViewController {
     let files = WorkFileList()
     let steps = StepsList()
     private let mapColumn = NSStackView(), stepsColumn = NSStackView()
+    private var controlRows: [NSView] = []
     private let empty = EmptyStateView()
     private var watched: Watched?
     private var shown = false
@@ -96,6 +98,7 @@ final class WorkPanel: NSViewController {
         icicle.widthAnchor.constraint(equalTo: icicleRow.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         chips.widthAnchor.constraint(equalTo: chipsRow.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         stepsColumn.isHidden = true
+        controlRows = [summaryRow, controls]
         let column = NSStackView(views: [header, summaryRow, controls, mapColumn, stepsColumn])
         column.orientation = .vertical
         column.spacing = 0
@@ -146,13 +149,20 @@ final class WorkPanel: NSViewController {
         watched?.key = nil
     }
 
-    /// The agent chat looked at last in the workspace on screen, else its newest agent chat that hasn't exited.
+    /// The agent whose Map tab has focus, else the agent chat looked at last in the workspace on screen, else its
+    /// newest agent chat (one that hasn't exited first).
     private var focused: Session? {
         let workspace = app.workbench.workspaceId
+        if let tab = app.workbench.focusedTab, TabURI.scheme(tab) == WorkTab.scheme,
+            let shown = app.session(TabURI.body(tab))
+        {
+            return shown
+        }
         if let last = app.workbench.lastSession.flatMap(app.session), last.worktreeId == workspace, last.isAgent {
             return last
         }
-        return app.sessions.last { $0.worktreeId == workspace && $0.isChat && $0.isAgent && $0.status != .exited }
+        let chats = app.sessions.filter { $0.worktreeId == workspace && $0.isChat && $0.isAgent }
+        return chats.last { $0.status != .exited } ?? chats.last
     }
 
     private func follow(_ id: String?) {
@@ -199,6 +209,7 @@ final class WorkPanel: NSViewController {
                 text: String(localized: "Files and places show up here as the agent works."))
         }
         empty.show(nil)
+        controlRows.forEach { $0.isHidden = false }
         agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
         let working = model.session.flatMap(app.session)?.status == .working
         summary.stringValue =
@@ -235,6 +246,7 @@ final class WorkPanel: NSViewController {
     private func hideColumns() {
         mapColumn.isHidden = true
         stepsColumn.isHidden = true
+        controlRows.forEach { $0.isHidden = true }
     }
 
     /// The turn picker: the last turn first, then each earlier one by its prompt and time, then the whole session.

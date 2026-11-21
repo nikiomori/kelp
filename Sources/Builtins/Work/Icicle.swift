@@ -75,10 +75,10 @@ final class IcicleView: NSView, NSViewToolTipOwner {
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
+    /// As tall as the rows the tree fills, up to `rows`.
     override var intrinsicContentSize: NSSize {
-        NSSize(
-            width: NSView.noIntrinsicMetric,
-            height: CGFloat(Self.rows) * (rowHeight + Metrics.lineGap) - Metrics.lineGap)
+        let used = CGFloat(min(Self.rows, max(1, (blocks.map(\.depth).max() ?? 0) + 1)))
+        return NSSize(width: NSView.noIntrinsicMetric, height: used * (rowHeight + Metrics.lineGap) - Metrics.lineGap)
     }
 
     override func layout() {
@@ -96,6 +96,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             addToolTip(block.rect, owner: self, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
         }
         elements = blocks.map(element)
+        invalidateIntrinsicContentSize()
         flashing = flashNew && !Motion.reduced ? Set(blocks.compactMap(\.path)).subtracting(before) : []
         if !flashing.isEmpty {
             NSAnimationContext.runAnimationGroup { context in
