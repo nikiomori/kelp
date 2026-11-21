@@ -76,3 +76,44 @@ public struct ArtifactCost: InternalMethod {
     public var path: String
     public init(path: String) { self.path = path }
 }
+
+/// Changes the marks on a page (`path`, its file) as the window asks: its drafts, a send, done, again, a hand edit.
+/// The daemon applies the change to `notes.json` as it is then. A send first keeps a version of the page as the user
+/// sends it, when it changed since the last one, so the marks are checked against what the user saw; `pictures`
+/// holds the PNG of each area or stroke being sent, by mark number. Returns the marks as written.
+public struct ArtifactMarksChange: InternalMethod {
+    public static let name = "artifact.marks"
+    public typealias Result = ArtifactMarks
+    public var path: String, change: ArtifactMarks.Change
+    public var pictures: [String: Data]?
+    public init(path: String, change: ArtifactMarks.Change, pictures: [String: Data]? = nil) {
+        self.path = path
+        self.change = change
+        self.pictures = pictures
+    }
+}
+
+/// Keeps a version of a page (`path`, its file) as the user's hand edits left it, labelled with what they changed.
+/// Nothing is kept when the page is the same as its last version. Returns whether a version was kept.
+public struct ArtifactKeepVersion: InternalMethod {
+    public static let name = "artifact.keepVersion"
+    public typealias Result = Bool
+    public var path: String, label: String
+    public init(path: String, label: String) {
+        self.path = path
+        self.label = label
+    }
+}
+
+/// `kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark
+/// must be with the agent or waiting for the user's check; closing it is the user's.
+public struct ArtifactReply: RPCMethod {
+    public static let name = "artifact.reply"
+    public typealias Result = Bool
+    public var path: String, id: Int, text: String
+    public init(path: String, id: Int, text: String) {
+        self.path = path
+        self.id = id
+        self.text = text
+    }
+}

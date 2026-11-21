@@ -81,6 +81,7 @@ extension Artifacts {
             return item
         }
         item.preview = target
+        item.marks = markCounts(in: URL(fileURLWithPath: target).deletingLastPathComponent())
         let page = fileStat(target)
         item.modified =
             artifactRecord.file == Kind.design.file
@@ -176,7 +177,12 @@ extension Artifacts {
     @discardableResult
     static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
         var kept = 0, failed: (any Error)?
-        for (slug, record) in list(root: root) where record.session == session && record.file != nil {
+        // A page another chat made counts too when its marks went to this chat: the turn answers them.
+        for (slug, record) in list(root: root)
+        where record.file != nil
+            && (record.session == session
+                || hasMarks(sentTo: session, in: dir(root: root).appendingPathComponent(slug)))
+        {
             do { kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0 } catch {
                 failed = failed ?? error
             }   // one page failing doesn't stop the others; the first error is thrown at the end
@@ -185,10 +191,9 @@ extension Artifacts {
         return kept
     }
 
-    private static func keepVersion(_ slug: String, _ record: ArtifactRecord, root: String, label: String, now: Date)
-        throws
-        -> Bool
-    {
+    static func keepVersion(
+        _ slug: String, _ record: ArtifactRecord, root: String, label: String, byUser: Bool = false, now: Date
+    ) throws -> Bool {
         let target = target(slug, record, root: root)
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
         // A design's version is one file that holds the canvas together with the text of every board, so an older
@@ -206,7 +211,9 @@ extension Artifacts {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try live.write(to: URL(fileURLWithPath: versionPath(target: target, number)))
         versions.append(
-            ArtifactVersion(n: number, at: now.timeIntervalSince1970, label: oneLine(label, number: number)))
+            ArtifactVersion(
+                n: number, at: now.timeIntervalSince1970, label: byUser ? label : oneLine(label, number: number),
+                byUser: byUser ? true : nil))
         for old in versions.dropLast(keptVersions) {   // a file deleted by hand is skipped, not an error
             let path = versionPath(target: target, old.n)
             if FileManager.default.fileExists(atPath: path) { try FileManager.default.removeItem(atPath: path) }

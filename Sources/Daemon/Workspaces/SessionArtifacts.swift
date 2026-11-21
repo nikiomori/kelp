@@ -16,6 +16,7 @@ extension Sessions {
             }
             guard FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path) else { return }
             try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt)
+            try Artifacts.settleMarks(root: workspace.path, session: session, prompt: prompt)
         }
     }
 
@@ -117,6 +118,7 @@ extension ArtifactCost: Handled {
 
 extension Methods {
     static let artifactMethods: [any Answered.Type] = [
-        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self
+        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
+        ArtifactKeepVersion.self, ArtifactReply.self
     ]
 }

@@ -7,10 +7,13 @@ public struct ArtifactVersion: Codable, Equatable, Sendable {
     /// Seconds since 1970.
     public var at: Double
     public var label: String
-    public init(n: Int, at: Double, label: String) {
+    /// Whether the user's hand edits made it: its label then names what they changed, not a prompt.
+    public var byUser: Bool?
+    public init(n: Int, at: Double, label: String, byUser: Bool? = nil) {
         self.n = n
         self.at = at
         self.label = label
+        self.byUser = byUser
     }
 }
 

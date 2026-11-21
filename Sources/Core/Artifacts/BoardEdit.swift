@@ -63,6 +63,25 @@ public enum BoardEdit {
         return start..<source.index(after: end)
     }
 
+    /// Returns the whole element with `data-id="id"`, from its opening tag to its closing one, counting the same tags
+    /// opened inside it. nil when there is no such element, more than one, or it isn't closed.
+    public static func element(_ source: String, id: String) -> String? {
+        guard let tag = openingTag(source, id: id) else { return nil }
+        let name = source[tag].dropFirst().prefix(while: { $0.isLetter || $0.isNumber || $0 == "-" }).lowercased()
+        let voids: Set = ["img", "br", "hr", "input", "meta", "link", "source", "area", "col", "embed", "wbr"]
+        guard !name.isEmpty else { return nil }
+        if voids.contains(name) || source[tag].hasSuffix("/>") { return String(source[tag]) }
+        var depth = 1, at = tag.upperBound
+        while depth > 0, let lt = source[at...].firstIndex(of: "<") {
+            let rest = source[source.index(after: lt)...]
+            let closing = rest.hasPrefix("/")
+            let word = (closing ? rest.dropFirst() : rest).prefix(while: { $0.isLetter || $0.isNumber || $0 == "-" })
+            if word.lowercased() == name { depth += closing ? -1 : 1 }
+            at = source[lt...].firstIndex(of: ">").map(source.index(after:)) ?? source.endIndex
+        }
+        return depth == 0 ? String(source[tag.lowerBound..<at]) : nil
+    }
+
     static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")

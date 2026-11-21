@@ -53,6 +53,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     /// The file the preview shows: the artifact's file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`).
     /// nil when there is nothing to show.
     public var preview: String?
+    /// The page's marks that are with an agent, and those waiting for the user's check. nil when there are none.
+    public var marks: ArtifactMarkCounts?
 
     public init(
         slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
@@ -69,6 +71,15 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
         self.points = points
         self.answered = answered
         self.modified = modified
+    }
+}
+
+/// How many of a page's marks are with an agent, and how many wait for the user's check.
+public struct ArtifactMarkCounts: Codable, Equatable, Sendable {
+    public var sent: Int, check: Int
+    public init(sent: Int, check: Int) {
+        self.sent = sent
+        self.check = check
     }
 }
 

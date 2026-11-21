@@ -363,3 +363,67 @@ private func tempRoot() throws -> URL {
     #expect(try lines(try Date("2026-11-13T10:00:00Z", strategy: .iso8601)) == 1)
     #expect(try lines(try Date("2026-11-13T10:00:01Z", strategy: .iso8601)) == 0)
 }
+
+/// A mark goes to a chat with the page as the user saw it kept as a version, the chat may answer it, and the end of
+/// the turn its prompt was about hands it back to the user with what the turn did to the marked thing.
+@Test func marksComeBackToTheUserAfterTheTurnThatGotThem() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = try tempRoot()
+    let canvas = try Artifacts.create(.design, title: "Home", root: root.path, session: "s1")
+    try #"{"boards": [{"file": "boards/A.html"}, {"file": "boards/B.html"}]}"#.write(
+        to: canvas, atomically: true, encoding: .utf8)
+    let folder = canvas.deletingLastPathComponent()
+    let a = folder.appendingPathComponent("boards/A.html"), b = folder.appendingPathComponent("boards/B.html")
+    try #"<h1 data-id="title">Hi</h1><p data-id="cta">Start</p>"#.write(to: a, atomically: true, encoding: .utf8)
+    try "<p>b</p>".write(to: b, atomically: true, encoding: .utf8)
+    try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it")
+    let path = canvas.path, page = Artifacts.projectPath(path)
+    // The window's two drafts and a hand edit the user made before sending.
+    var marks = try ArtifactMarksChange(
+        path: path,
+        change: .drafts([
+            ArtifactMark(board: "boards/A.html", target: "[data-id=title]", note: "bigger"),
+            ArtifactMark(kind: .area, board: "boards/B.html", area: [0, 0, 10, 10], note: "a screen here")
+        ])
+    ).handle(NoService())
+    #expect(marks.marks.map(\.id) == [1, 2])
+    try #"<h1 data-id="title">Hi</h1><p data-id="cta">Go</p>"#.write(to: a, atomically: true, encoding: .utf8)
+    _ = try ArtifactMarksChange(
+        path: path,
+        change: .edit(
+            HandEdit(
+                board: "boards/A.html", id: "cta", what: "text",
+                from: "Start", to: "Go"))
+    ).handle(NoService())
+    marks = try ArtifactMarksChange(
+        path: path, change: .send(ids: [1, 2], to: "s2", before: nil), pictures: ["2": Data([1, 2, 3])]
+    ).handle(NoService())
+    let versions = try #require(Artifacts.record(in: folder)?.versions)
+    #expect(versions.map(\.n) == [1, 2] && versions[1].byUser == true && versions[1].label == "cta")
+    #expect(marks.marks.allSatisfy { $0.state == .sent && $0.rounds.last?.before == 2 } && marks.edits.isEmpty)
+    #expect(
+        FileManager.default.contents(atPath: folder.appendingPathComponent("marks/2-1.png").path) == Data([1, 2, 3]))
+    #expect(Artifacts.items(root: root.path).first?.marks == ArtifactMarkCounts(sent: 2, check: 0))
+    // The agent answers #2 through kelp; a mark that isn't there is refused.
+    #expect(try await c.call(ArtifactReply(path: path, id: 2, text: "Which screen?")))
+    await #expect(throws: RPCError.self) { try await c.call(ArtifactReply(path: path, id: 9, text: "?")) }
+    // The chat works on the title only; a turn about something else leaves the marks with it.
+    try #"<h1 data-id="title" style="font-size: 40px">Hi</h1><p data-id="cta">Go</p>"#.write(
+        to: a, atomically: true, encoding: .utf8)
+    try Artifacts.keepVersions(root: root.path, session: "s2", label: "fix the tests")
+    try Artifacts.settleMarks(root: root.path, session: "s2", prompt: "fix the tests")
+    #expect(ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).counts[.sent] == 2)
+    try Artifacts.settleMarks(root: root.path, session: "s2", prompt: "Marks on \(page) (version 2)…")
+    let back = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).marks
+    #expect(back.map(\.state) == [.check, .check])
+    #expect(back.map { $0.rounds.last?.outcome } == [.changed, .same])
+    #expect(back[1].rounds.last?.reply == "Which screen?" && back[0].rounds.last?.after == 3)
+    // A pause in hand edits keeps them as the user's version, named by what they changed.
+    try #"<h1 data-id="title" style="font-size: 48px">Hi</h1><p data-id="cta">Go</p>"#.write(
+        to: a, atomically: true, encoding: .utf8)
+    #expect(try ArtifactKeepVersion(path: path, label: "title").handle(NoService()))
+    #expect(try !ArtifactKeepVersion(path: path, label: "title").handle(NoService()), "nothing new since")
+    let last = try #require(Artifacts.record(in: folder)?.versions?.last)
+    #expect((last.n, last.label, last.byUser) == (4, "title", true))
+}
