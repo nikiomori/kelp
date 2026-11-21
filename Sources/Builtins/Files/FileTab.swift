@@ -199,9 +199,9 @@ final class FileTab: SavableTab {
             markdown = md
             // An agent's page has no status bar: its own bar says what it is, and its lines mean nothing in the page.
             if ArtifactBar.isPage(path) {
-                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view))
+                box.pin(stacked(bars(md.header(else: crumbs), conflictBar), md.view))
             } else {
-                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view, bar))
+                box.pin(stacked(bars(md.header(else: crumbs), conflictBar), md.view, bar))
             }
             md.attach(bar)
         } else {
