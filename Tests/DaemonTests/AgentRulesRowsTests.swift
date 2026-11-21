@@ -93,6 +93,14 @@ import Testing
         (
             .session(mine.id), ArtifactCheck(path: wt.path + "/.kelp/artifacts/x/canvas.json"), true,
             "and checks a canvas"
+        ),
+        (
+            .session(mine.id), ArtifactReply(path: wt.path + "/.kelp/artifacts/x/canvas.json", id: 1, text: "?"), true,
+            "it answers a mark on a page in its workspace"
+        ),
+        (
+            .session(mine.id), ArtifactReply(path: elsewhere.path + "/.kelp/artifacts/x/canvas.json", id: 1, text: "?"),
+            false, "but not on one in another's"
         )
     ]
     try expectRows(w.d, table)
