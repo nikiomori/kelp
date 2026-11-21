@@ -642,14 +642,15 @@
         "type" : "object"
       },
       "Artifacts.Kind" : {
-        "description" : "The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.",
+        "description" : "The kinds of artifact Kelp makes on this Mac: a Markdown file, a canvas of boards, or a motion page (an HTML page whose CSS animations Kelp plays and records as a video).",
         "enum" : [
           "doc",
           "review",
           "slides",
           "design",
           "dashboard",
-          "proof"
+          "proof",
+          "motion"
         ],
         "type" : "string"
       },

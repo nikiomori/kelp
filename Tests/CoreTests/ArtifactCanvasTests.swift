@@ -52,6 +52,8 @@ import Testing
     let core = try #require(Artifacts.guide("design", whereTo: "local", system: true))
     #expect(core.contains("kelp artifact new design") && core.contains("kelp artifact check"))
     #expect(core.contains("read DESIGN.md"))
+    let motion = try #require(Artifacts.guide("motion", whereTo: "agent"))
+    #expect(motion.contains("stay in the project") && motion.contains("data-duration") && motion.contains("data-start"))
     for kind in ["design", "doc", "slides"] {
         #expect(try #require(Artifacts.guide(kind, whereTo: "local")).contains("kelp artifact reply <name> <#>"))
     }

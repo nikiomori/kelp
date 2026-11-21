@@ -41,6 +41,7 @@ extension MarkdownTab {
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
+        case "motion": motionMessage(body)
         case "review":
             let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
             reviewBar.show(

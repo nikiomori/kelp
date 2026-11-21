@@ -73,6 +73,9 @@ private func tempRoot() throws -> URL {
     #expect(
         try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
     #expect(try Artifacts.create(.proof, title: "Fix", root: root.path, session: nil).lastPathComponent == "proof.md")
+    let motion = try Artifacts.create(.motion, title: "Launch <1>", root: root.path, session: nil)
+    #expect(motion.lastPathComponent == "motion.html")
+    #expect(try String(contentsOf: motion, encoding: .utf8).contains(#"<title>Launch &lt;1&gt;</title>"#))
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
     #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.json"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))

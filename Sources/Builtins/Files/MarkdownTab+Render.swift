@@ -20,10 +20,14 @@ extension MarkdownTab {
         case html
         /// A design's canvas.json. The preview shows its boards, drawn by Kelp (`CanvasPage`).
         case canvas
+        /// An agent's motion page (motion.html): its CSS animations on one timeline that Kelp plays (`MotionPage`).
+        case motion
 
         @MainActor init(_ url: URL) {
             if url.lastPathComponent == Artifacts.Kind.design.file && ArtifactBar.isPage(url.path) {
                 self = .canvas
+            } else if url.lastPathComponent == Artifacts.Kind.motion.file && ArtifactBar.isPage(url.path) {
+                self = .motion
             } else if ["html", "htm"].contains(url.pathExtension.lowercased()) {
                 self = .html
             } else if Review.isReview(url.path) {
@@ -70,6 +74,7 @@ extension MarkdownTab {
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
                 if kind == .html { return (text, [], nil) }
+                if kind == .motion { return (text, [MotionPage.source], nil) }
                 if kind == .canvas {
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(

@@ -86,10 +86,17 @@ public struct ArtifactMarkCounts: Codable, Equatable, Sendable {
 }
 
 public enum Artifacts {
-    /// The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.
+    /// The kinds of artifact Kelp makes on this Mac: a Markdown file, a canvas of boards, or a motion page (an HTML
+    /// page whose CSS animations Kelp plays and records as a video).
     public enum Kind: String, Codable, CaseIterable, Sendable {
-        case doc, review, slides, design, dashboard, proof
-        public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
+        case doc, review, slides, design, dashboard, proof, motion
+        public var file: String {
+            switch self {
+            case .design, .dashboard: "canvas.json"
+            case .motion: "motion.html"
+            default: "\(rawValue).md"
+            }
+        }
         /// True for a canvas of boards that Kelp draws (`ArtifactCanvas`), and false for a Markdown page.
         public var isCanvas: Bool { self == .design || self == .dashboard }
     }
@@ -227,6 +234,8 @@ public enum Artifacts {
         } else if kind == Kind.proof.rawValue {
             out +=
                 "Proofs stay in the project, even if you can publish artifacts elsewhere: their pictures are files beside the page.\n"
+        } else if kind == Kind.motion.rawValue {
+            out += "Motion pages stay in the project: Kelp plays them beside you and records them as a video.\n"
         } else if whereTo == "local" {
             out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
@@ -277,6 +286,20 @@ public enum Artifacts {
 
         \(marksRule)
         """,
+        "motion": """
+        - One HTML page, motion.html: Kelp plays it beside you, frame by frame, and exports it as an MP4. Its scripts
+          don't run: everything moves with CSS (@keyframes, transitions as keyframes), which Kelp's timeline drives.
+        - The stage is the body: `<body data-duration="8">` (seconds), 1920×1080 unless the body sets `data-width` and
+          `data-height` (1080×1920 for a phone video). Give the body its size and `overflow: hidden` in CSS.
+        - Time is one timeline from 0: each animation starts at its `animation-delay`, with `animation-fill-mode:
+          both`, no `infinite`. A scene is an element with `data-start` and `data-duration` (seconds): Kelp shows it
+          only then, and lists it as a scene. Give every scene a `data-id` and a `data-title`.
+        - Fonts from the system or files beside the page; images and videos are files beside motion.html. No web
+          requests.
+        - Tell the user it plays beside them (Space plays, ← → step a frame) and that Export Video in its bar makes
+          the MP4.
+
+        """,
         "proof": """
         - For a change you made: what you checked and what you saw, for the user to look at before they commit. Not a
           plan, not a tour of the code.
@@ -304,6 +327,21 @@ public enum Artifacts {
           one. `kelp artifact marks <name>` lists those still open.
 
         """
+
+    /// A new motion page: a black 1920×1080 stage, five seconds long, for the agent to fill.
+    public static func motionStart(_ title: String) -> String {
+        """
+        <!doctype html>
+        <html><head><meta charset="utf-8"><title>\(BoardEdit.escape(title))</title>
+        <style>
+        body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #111; color: #fff;
+          font: 64px -apple-system, BlinkMacSystemFont, sans-serif; }
+        </style></head>
+        <body data-duration="5">
+        </body></html>
+
+        """
+    }
 
     private static func article(_ kind: String) -> String { kind == "slides" ? "slides" : "a \(kind)" }
 

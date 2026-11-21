@@ -186,6 +186,7 @@ final class ArtifactBar: NSObject {
         case .design: ("square.grid.2x2", String(localized: "Design"))
         case .dashboard: ("chart.bar", String(localized: "Dashboard"))
         case .proof: ("checkmark.seal", String(localized: "Proof"))
+        case .motion: ("film", String(localized: "Motion"))
         }
     }
 

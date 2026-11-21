@@ -29,7 +29,10 @@ extension Artifacts {
             try FileManager.default.createDirectory(
                 at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
         }
-        let start = kind.isCanvas ? ArtifactCanvas.empty : "# \(title)\n\n"
+        let start =
+            kind.isCanvas
+            ? ArtifactCanvas.empty
+            : kind == .motion ? Artifacts.motionStart(title) : "# \(title)\n\n"
         try start.write(to: page, atomically: true, encoding: .utf8)
         try save(
             ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),
