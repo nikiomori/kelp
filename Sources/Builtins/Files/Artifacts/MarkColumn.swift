@@ -24,14 +24,15 @@ enum MarkColumn {
 
     private static let body = """
           const { el, post } = C;
-          const layer = el('div', 'kelp-marks');
-          document.body.append(layer);
+          const layer = el('div', 'kelp-marks'), composer = el('div', 'kelp-composer');
+          document.body.append(layer, composer);
+          composer.style.display = 'none';
           let page = null, tab = 'marks', at = 0, doneOpen = false, before = false;
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
           const keep = () => post({ kind: 'marksDraft', marks: by('draft') });
-          const typing = () => document.activeElement?.tagName === 'INPUT'
-            && !!document.activeElement.closest('.kelp-col');
+          const typing = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)
+            && !!document.activeElement.closest('.kelp-col, .kelp-composer');
           const num = m => el('span', 'kelp-num kelp-n-' + m.state, m.state === 'done' ? '✓' : String(m.id || '·'));
 
           function pins() {
@@ -161,6 +162,35 @@ enum MarkColumn {
 
           function draw() { pins(); column(); review(); }
 
+          // Where a new mark's note is written: beside the mark. Return keeps it, ⌘Return sends the marks, Esc takes
+          // the mark away. The draft is found by its place among the drafts, which the daemon keeps.
+          function compose(m) {
+            const r = page?.where(m), i = by('draft').indexOf(m);
+            if (!r || i < 0) return;
+            const field = el('textarea', 'kelp-compose-field');
+            field.placeholder = m.rounds.length ? L.whatsWrong : L.note; field.value = m.note; field.rows = 2;
+            composer.replaceChildren(field, el('div', 'kelp-hint', L.composeHint));
+            const right = scrollX + innerWidth - (document.body.classList.contains('kelp-with-col') ? 280 : 20);
+            const left = Math.max(scrollX + 8, Math.min(r.x, right - 290));
+            Object.assign(composer.style, { display: 'block', left: left + 'px', top: (r.y + r.h + 10) + 'px' });
+            let open = true;
+            const done = (keepIt, andSend) => {
+              if (!open) return;
+              open = false; composer.style.display = 'none';
+              const d = by('draft')[i] || m;
+              if (keepIt) d.note = field.value.trim(); else M.marks = M.marks.filter(k => k !== d);
+              keep(); draw();
+              if (andSend) send();
+            };
+            field.addEventListener('keydown', e => {
+              if (e.key === 'Escape') { e.preventDefault(); done(false); }
+              else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(true, e.metaKey); }
+              e.stopPropagation();
+            });
+            field.addEventListener('blur', () => done(true));
+            field.focus();
+          }
+
           function show() {
             const m = by('check')[at];
             if (m) page?.focus?.(m);
@@ -212,7 +242,7 @@ enum MarkColumn {
               M.marks.push(Object.assign({ id: 0, kind: 'element', board: '', target: '', text: '', note: '',
                 state: 'draft', rounds: [] }, mark));
               tab = 'marks'; keep(); draw();
-              const inputs = document.querySelectorAll('.kelp-col input'); inputs[inputs.length - 1]?.focus();
+              compose(M.marks[M.marks.length - 1]);
             },
             // The marks as the daemon wrote them. Drafts being typed keep their text; they take the numbers given.
             set(next) {
@@ -257,6 +287,14 @@ enum MarkColumn {
         .kelp-stroke path { fill: none; stroke: var(--k-orange); stroke-width: 2.5; stroke-linecap: round;
           stroke-linejoin: round; }
         .kelp-stroke.kelp-n-sent path { stroke: var(--k-quiet); }
+        .kelp-composer { position: absolute; z-index: 25; width: 280px; padding: 8px; box-sizing: border-box;
+          border-radius: 10px; background: var(--k-float); color: var(--k-label);
+          box-shadow: 0 0 0 .5px var(--k-sep), 0 6px 20px rgba(0,0,0,.25); font: 12px -apple-system, sans-serif; }
+        .kelp-compose-field { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0;
+          border-radius: 6px; padding: 6px 8px; background: var(--k-card); color: var(--k-label); font: inherit;
+          box-shadow: inset 0 0 0 1px var(--k-sep); outline: none; }
+        .kelp-compose-field:focus { box-shadow: inset 0 0 0 1px var(--k-accent); }
+        .kelp-composer .kelp-hint { margin-top: 6px; }
         .kelp-current-box { position: absolute; border: 1.5px solid var(--k-orange); border-radius: 4px; }
         .kelp-mark { margin: 0 8px; padding: 2px 4px 8px; border-radius: 6px; }
         .kelp-mark .kelp-row { padding: 4px 0; }

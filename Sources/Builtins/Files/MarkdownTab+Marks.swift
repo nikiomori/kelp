@@ -49,6 +49,8 @@ extension MarkdownTab {
     /// then the message, to the chat that made the page (or the agent on screen).
     private func sendMarks(_ drafts: [ArtifactMark]) {
         Task {
+            // Who gets them is settled first: with no agent to take them, they stay drafts.
+            guard let agent = await markTaker() else { return }
             guard let numbered = await changed(.drafts(drafts)) else { return }
             let sending = numbered.marks.filter { $0.state == .draft }
             var pictures: [String: Data] = [:]
@@ -57,7 +59,7 @@ extension MarkdownTab {
                     continue   // the mark goes without its picture: the message still says where it is
                 }
             }
-            let to = pageAuthor?.id
+            let to = agent.id
             guard
                 let sent = await changed(
                     .send(ids: sending.map(\.id), to: to, before: nil), pictures: pictures.isEmpty ? nil : pictures)
@@ -68,11 +70,24 @@ extension MarkdownTab {
                 return m
             }
             let version = sent.marks.first { sending.map(\.id).contains($0.id) }?.rounds.last?.before
-            send(
-                ArtifactMarks.message(
-                    named, edits: numbered.edits, page: Artifacts.projectPath(url.path),
-                    name: url.deletingLastPathComponent().lastPathComponent, version: version))
+            let text = ArtifactMarks.message(
+                named, edits: numbered.edits, page: Artifacts.projectPath(url.path),
+                name: url.deletingLastPathComponent().lastPathComponent, version: version)
+            await app.call(SessionSend(id: agent.id, text: text, enter: true))
+            app.workbench.focus(session: agent.id)
         }
+    }
+
+    /// The chat the marks go to: the one that made the page while it runs, else the agent on screen (asking which when
+    /// there are several). nil, with a banner, when there is none.
+    private func markTaker() async -> Session? {
+        if let author = pageAuthor, author.status != .exited { return author }
+        let actions = FileActions(app)
+        guard !actions.agents().isEmpty else {
+            actions.sendToAgent(text: "")   // with no agent, it only says how to start one
+            return nil
+        }
+        return await actions.pickAgent()
     }
 
     /// A picture of mark `id` as it is on screen (an area, or a stroke with the board under it), as PNG. nil when the
@@ -123,7 +138,8 @@ extension MarkdownTab {
             "yourEdits": String(localized: "Your Edits"), "withAgent": String(localized: "With \(who)"),
             "done": String(localized: "Done"), "again": String(localized: "Again"),
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
-            "same": String(localized: "Not changed: its chat may say why")
+            "same": String(localized: "Not changed: its chat may say why"),
+            "composeHint": String(localized: "↩ add  ·  ⌘↩ send  ·  esc remove")
         ]
     }
 }

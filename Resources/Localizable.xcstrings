@@ -30769,6 +30769,16 @@
           }
         }
       }
+    },
+    "↩ add  ·  ⌘↩ send  ·  esc remove": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ добавить  ·  ⌘↩ отправить  ·  esc убрать"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

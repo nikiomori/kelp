@@ -49,10 +49,10 @@ enum PageMarks {
             what: m => '«' + m.text + '»',
             where(m) {
               const r = rangeOf(m.text); if (!r) return null;
-              const rects = r.getClientRects(), end = rects[rects.length - 1];
-              if (!end || !end.width) return null;
+              const box = r.getBoundingClientRect();
+              if (!box.width) return null;
               if (m.state !== 'done') lit.push(r);
-              return { x: end.left + scrollX, y: end.top + scrollY - 5, w: end.width, h: end.height };
+              return { x: box.left + scrollX, y: box.top + scrollY, w: box.width, h: box.height };
             },
             // The marked words are lit, the ones being checked as much as the others.
             drawn() {
