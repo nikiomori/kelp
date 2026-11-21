@@ -35,7 +35,7 @@ enum MarkColumn {
           function pins() {
             layer.replaceChildren();
             if (!page) return;
-            const current = window.kelpMarks.on ? by('check')[at] : null;
+            const current = by('check')[at];
             for (const m of M.marks) {
               if (m.state === 'done') continue;
               const r = page.where(m); if (!r) continue;
@@ -149,7 +149,8 @@ enum MarkColumn {
           }
 
           function review() {
-            const c = by('check'), on = window.kelpMarks.on && c.length > 0;
+            // Shown whenever marks wait, in View too: it is where checking starts. Its keys work while Mark is on.
+            const c = by('check'), on = c.length > 0;
             strip.style.display = on ? 'flex' : 'none';
             document.body.classList.toggle('kelp-reviewing', on);
             if (!on) return;
@@ -287,7 +288,9 @@ enum MarkColumn {
           background: color-mix(in srgb, var(--k-orange) 9%, var(--k-card)); color: var(--k-label);
           font: 12px -apple-system, sans-serif; }
         .kelp-with-col .kelp-review { right: 261px; }
-        .kelp-review .kelp-grow { font-weight: 500; }
+        .kelp-review .kelp-grow { font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; }
+        .kelp-review > :not(.kelp-grow) { flex: none; white-space: nowrap; }
         .kelp-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--k-orange); flex: none; }
         .kelp-reviewing { padding-top: 70px; }
         .kelp-reviewing .kelp-themes { top: 48px; }

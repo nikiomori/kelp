@@ -85,6 +85,15 @@ enum CanvasEdit {
             return { x: fr.left + scrollX + x * k, y: fr.top + scrollY + y * k, w: w * k, h: h * k };
           };
           const shown = new Map();   // a frame's own page while Before shows the old one
+          // Where an element's own content is (its text, its children), not its whole box: a heading or a row spans
+          // the board's width, and its mark belongs where its words end.
+          function content(f, e) {
+            const r = e.ownerDocument.createRange(); r.selectNodeContents(e);
+            const c = r.getBoundingClientRect(), whole = box(f, e);
+            if (!c.width || !c.height) return whole;
+            const fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth;
+            return { x: fr.left + scrollX + c.left * k, y: whole.y, w: c.width * k, h: whole.h };
+          }
           const hooks = {
             empty: L.noMarks,
             what: m => m.kind === 'area' ? L.area : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
@@ -94,7 +103,7 @@ enum CanvasEdit {
                 const f = light(m.board); if (!f || !m.area) return null;
                 return inPage(f, ...m.area);
               }
-              const at = find(m); return at ? box(at.f, at.e) : null;
+              const at = find(m); return at ? content(at.f, at.e) : null;
             },
             draw(m, into, r) {
               if (m.kind === 'area') {
