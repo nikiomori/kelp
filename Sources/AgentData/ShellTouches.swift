@@ -26,7 +26,9 @@ public enum ShellTouches {
     public static func parse(_ command: String) -> [Touch] {
         var out: [Touch] = [], dir = ""
         for part in parts(of: withoutHeredocs(command)) {
-            let (words, redirects) = split(part)
+            // A subshell's parentheses aren't part of its words: `(cd Vendor && ls)`.
+            let (words, redirects) = split(
+                part.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "()")) }.filter { !$0.isEmpty })
             var plain = words[...]
             while let first = plain.first, first.contains("="), first.first?.isLetter == true { plain.removeFirst() }
             for target in redirects { out.append(.wrote(join(dir, target))) }

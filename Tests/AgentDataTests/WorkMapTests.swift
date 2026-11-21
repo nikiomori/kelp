@@ -32,7 +32,8 @@ import Testing
         ("brew install ollama", [.packages("Homebrew", verb: "brew install")]),
         ("FOO=1 npm install", [.packages("npm", verb: "npm install")]),
         ("swift package resolve", [.packages("SwiftPM", verb: "swift package resolve")]),
-        ("python3 -c \"print('cat a.py')\"", [])
+        ("python3 -c \"print('cat a.py')\"", []),
+        ("(cd Vendor/Kit.xcframework && cat Info.plist)", [.read("Vendor/Kit.xcframework/Info.plist", search: false)])
     ] as [(String, [ShellTouches.Touch])])
 func aShellCommandSaysWhatItTouched(command: String, touches: [ShellTouches.Touch]) {
     #expect(ShellTouches.parse(command) == touches)

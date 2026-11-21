@@ -186,7 +186,7 @@ public enum WorkMap {
                 (kind, detail) = (.spawn, call.task ?? call.kind ?? "")
             case "askuserquestion", "exitplanmode":
                 (kind, detail) = (.ask, call.query ?? "")
-            case "todowrite", "update_plan", "subagenthandback": return first
+            case "todowrite", "update_plan", "subagenthandback", "toolsearch": return first
             default:
                 if lower.hasPrefix("mcp__") {
                     let parts = tool.components(separatedBy: "__")
@@ -274,8 +274,8 @@ public enum WorkMap {
         /// worktree.
         static func unfolded(_ relative: String) -> (name: String, worktree: String?) {
             let parts = relative.split(separator: "/", omittingEmptySubsequences: true)
-            if parts.count > 3, parts[0] == ".claude", parts[1] == "worktrees" {
-                return (parts.dropFirst(3).joined(separator: "/"), String(parts[2]))
+            if parts.count >= 3, parts[0] == ".claude", parts[1] == "worktrees" {
+                return (parts.count == 3 ? "." : parts.dropFirst(3).joined(separator: "/"), String(parts[2]))
             }
             return (relative, nil)
         }
