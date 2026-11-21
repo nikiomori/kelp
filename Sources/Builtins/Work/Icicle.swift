@@ -55,8 +55,10 @@ enum Icicle {
 @MainActor
 final class IcicleView: NSView, NSViewToolTipOwner {
     var root = WorkNode(path: "", name: "") {
-        didSet { if root != oldValue { relayout() } }
+        didSet { if root != oldValue { relayout(flashNew: oldValue.path == root.path && !oldValue.children.isEmpty) } }
     }
+    /// Blocks that just came in, lit for as long as Needs You flashes.
+    private var flashing: Set<String> = []
     var selected: String? { didSet { if selected != oldValue { needsDisplay = true } } }
     /// Where the agent is now, ringed while it works.
     var now: String? { didSet { if now != oldValue { needsDisplay = true } } }
@@ -84,7 +86,8 @@ final class IcicleView: NSView, NSViewToolTipOwner {
         relayout()
     }
 
-    private func relayout() {
+    private func relayout(flashNew: Bool = false) {
+        let before = Set(blocks.compactMap(\.path))
         blocks = Icicle.layout(
             root, width: bounds.width, rows: Self.rows, row: .init(height: rowHeight, gap: Metrics.lineGap),
             narrowest: Metrics.gapTight)
@@ -93,6 +96,16 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             addToolTip(block.rect, owner: self, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
         }
         elements = blocks.map(element)
+        flashing = flashNew && !Motion.reduced ? Set(blocks.compactMap(\.path)).subtracting(before) : []
+        if !flashing.isEmpty {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.flash
+                animator().alphaValue = 1
+            } completionHandler: { [weak self] in
+                self?.flashing = []
+                self?.needsDisplay = true
+            }
+        }
         needsDisplay = true
     }
 
@@ -109,6 +122,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             shape.fill()
             if block.path == selected, block.path != nil { ring(rect, NSColor.themeAccent) }
             if let now, block.path == now { ring(rect, .labelColor) }
+            if let path = block.path, flashing.contains(path) { ring(rect, .agentEdited) }
             let name = node?.name ?? (block.merged > 0 ? "…" : "")
             // A block too narrow for a word gets none: its name is in the tooltip and the list.
             guard rect.width >= Metrics.iconButton + Metrics.inset || name == "…" && rect.width >= Metrics.inset else {
