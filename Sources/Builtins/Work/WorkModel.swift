@@ -122,9 +122,11 @@ final class WorkModel {
             app.workbench.open((local ? "http://" : "https://") + place.name)
         case .tool: app.workbench.showPanel("addons")
         case .outside, .own:
-            // A host's folder isn't on this Mac: there is nothing for Finder to show.
+            // A host's folder isn't on this Mac: its work's root is the host's path, not the workspace's folder here.
+            let workspace = session.flatMap(app.session)?.worktreeId.flatMap { id in app.worktrees.first { $0.id == id }
+            }
+            guard let root = work?.root, root == workspace?.path else { return }
             let path = place.name.hasPrefix("~") ? NSHomeDirectory() + place.name.dropFirst() : place.name
-            guard FileManager.default.fileExists(atPath: path) else { return }
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         default: break
         }
