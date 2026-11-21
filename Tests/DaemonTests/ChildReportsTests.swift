@@ -332,6 +332,42 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(try await c.call(SessionSubagentJournal(id: id, subagent: "../a1")) == nil)
 }
 
+/// Where an agent worked is read from its transcript and its subagents' beside it: files named from the project's root,
+/// a subagent's reads under its kind, sites by host only.
+@Test func anAgentsWorkIsReadFromItsTranscripts() async throws {
+    let f = try await family()
+    defer { f.w.d.stop() }
+    let id = f.parent.id, c = f.w.c
+    let root = try #require(try await c.call(WorktreeList(repoId: f.w.repo.id)).first).path
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let folder = dir.appendingPathComponent("0F/subagents")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func use(_ id: String, _ name: String, _ input: String) -> String {
+        #"{"type":"assistant","timestamp":"2026-11-21T12:00:0\#(id.count)Z","message":{"content":[{"type":"tool_use","id":"\#(id)","name":"\#(name)","input":\#(input)}]}}"#
+    }
+    let main = [
+        #"{"type":"user","timestamp":"2026-11-21T12:00:00Z","message":{"content":"Fix it"}}"#,
+        use("t", "Task", #"{"subagent_type":"Explore","description":"look"}"#),
+        use("rr", "Read", #"{"file_path":"\#(root)/Sources/a.swift"}"#),
+        use("www", "WebFetch", #"{"url":"https://example.com/x?key=1"}"#)
+    ]
+    try Data((main.joined(separator: "\n") + "\n").utf8).write(to: dir.appendingPathComponent("0F.jsonl"))
+    try Data((use("s", "Read", #"{"file_path":"\#(root)/Sources/a.swift"}"#) + "\n").utf8)
+        .write(to: folder.appendingPathComponent("agent-a1.jsonl"))
+    try Data(#"{"agentType":"Explore","description":"look","toolUseId":"t"}"#.utf8)
+        .write(to: folder.appendingPathComponent("agent-a1.meta.json"))
+    _ = try await c.call(SessionHook(id: id, event: "working", transcript: dir.appendingPathComponent("0F.jsonl").path))
+    let work = try #require(try await c.call(SessionWork(id: id)))
+    #expect(work.turns.map(\.prompt) == ["Fix it"])
+    #expect(work.agents.map(\.name) == ["fake", "Explore"])
+    let file = work.places.first { $0.kind == .file }
+    #expect(file?.name == "Sources/a.swift" && file?.reads == 2 && file?.agents == [0, 1])
+    #expect(work.places.contains { $0.kind == .web && $0.name == "example.com" })
+    #expect(work.steps.first { $0.kind == .spawn }?.other == 1)
+    #expect(try await c.call(SessionWork(id: id, whole: true))?.steps.isEmpty == true)
+}
+
 /// A command an agent starts belongs to it, unlike an agent it starts it's no child: it hears nothing of it, and it goes on
 /// when the agent ends. A terminal starts commands of its own.
 @Test func aCommandBelongsToTheAgentThatStartedItAndOutlivesIt() async throws {

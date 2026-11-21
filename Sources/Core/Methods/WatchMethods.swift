@@ -55,6 +55,9 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case phone
     /// A project's open pull requests (`PRsEvent`), read every 2 minutes while watched. Key: repo id.
     case prs
+    /// Where an agent worked (`WorkEvent`): its conversations' sizes, read every 2 s while the Work panel or the Map
+    /// tab is on screen. Key: session id.
+    case work
 }
 
 /// Starts watching for this connection. The last value comes at once (or the first one, once it is read), then each

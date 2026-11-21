@@ -40,7 +40,7 @@ private func rows() async throws -> Rows {
         { SessionContinueAt(id: $0, at: nil) }, { SessionHandoff(id: $0) }, { SessionLastReply(id: $0) },
         { SessionMarkUnread(id: $0) }, { SessionRecap(id: $0) }, { SessionRestart(id: $0) },
         { SessionSubagentJournal(id: $0, subagent: "a") }, { SessionSubagentSteps(id: $0) }, { SessionTrail(id: $0) },
-        { SessionTurn(id: $0) }, { SessionTurns(id: $0) }, { SessionWhy(id: $0) },
+        { SessionTurn(id: $0) }, { SessionTurns(id: $0) }, { SessionWhy(id: $0) }, { SessionWork(id: $0) },
         { PaneReportAgent(paneId: $0, state: "idle") }
     ]
     let agent = Caller.session(r.mine.id)
