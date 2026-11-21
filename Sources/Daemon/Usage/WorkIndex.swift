@@ -72,6 +72,15 @@ extension Conversations {
         let id = argv.lastIndex { $0 == "--session-id" || $0 == "--resume" }.flatMap { index in
             index + 1 < argv.count ? argv[index + 1] : nil
         }
+        let script = Self.workScript(path: remote.path, id: id, claude: hostClaude.withLock { $0 }, offsets: offsets)
+        guard let out = Log.session.attempt("reading \(remote.host)'s work", { try remote.run(script, timeLimit: 30) })
+        else { return nil }
+        return HostFile.split(out)
+    }
+
+    /// The script for sh on the host behind `remoteWork`: each file's `\u{1}name size start` line, then its bytes from
+    /// `start`; the subagents' `.meta.json` as `meta:<name>`.
+    static func workScript(path: String, id: String?, claude: String, offsets: [String: UInt64]) -> String {
         let known = offsets.filter { $0.key.wholeMatch(of: /(main|agent-[A-Za-z0-9]+)/) != nil }
         let cases = known.map { "\($0.key)) o=\($0.value);;" }.joined(separator: " ")
         let first = WorkIndex.hostFirstRead
@@ -93,12 +102,10 @@ extension Conversations {
             #"done"#
         ].joined(separator: "\n")
         let script = [
-            Self.remoteFileScript(path: remote.path, id: id, claude: hostClaude.withLock { $0 }),
+            remoteFileScript(path: path, id: id, claude: claude),
             #"[ -n "$f" ] && [ -f "$f" ] || exit 0"#, read, "exit 0"
         ].joined(separator: "\n")
-        guard let out = Log.session.attempt("reading \(remote.host)'s work", { try remote.run(script, timeLimit: 30) })
-        else { return nil }
-        return HostFile.split(out)
+        return script
     }
 
     /// One file a host sent: its name, its size there, where the bytes sent begin, the bytes.

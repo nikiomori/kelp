@@ -397,3 +397,50 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     r.settle(within: 5)
     #expect(order.withLock { $0 } == [1, 2])
 }
+
+/// A host's answer for a work map is its files one after another, each after a `\u{1}name size start` line.
+@Test func aHostsWorkFilesAreToldApart() {
+    let out = Data("\u{1}main 120 100\n{\"a\":1}\n{\"b\":2}\n\u{1}agent-x1 9 0\n{\"c\":3}\n\u{1}meta:agent-x1 0 0\n{\"agentType\":\"Explore\"}\n".utf8)
+    let files = Conversations.HostFile.split(out)
+    #expect(files.map(\.name) == ["main", "agent-x1", "meta:agent-x1"])
+    #expect(files.first?.size == 120 && files.first?.start == 100)
+    #expect(String(decoding: files[0].data, as: UTF8.self) == "{\"a\":1}\n{\"b\":2}\n")
+    #expect(String(decoding: files[2].data, as: UTF8.self) == "{\"agentType\":\"Explore\"}\n")
+    #expect(Conversations.HostFile.split(Data()).isEmpty)
+}
+
+/// The script a host runs for a work map, run here by sh: the conversation and its subagent from where they were read
+/// last, and the subagent's kind.
+@Test func aHostsWorkScriptSendsWhatGrew() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let project = root.appendingPathComponent("proj")
+    try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+    let real = try #require(Paths.real(project.path))
+    let folder = root.appendingPathComponent("claude/projects")
+        .appendingPathComponent(String(real.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" }))
+    try FileManager.default.createDirectory(at: folder.appendingPathComponent("s1/subagents"), withIntermediateDirectories: true)
+    try Data("{\"a\":1}\n{\"b\":2}\n".utf8).write(to: folder.appendingPathComponent("s1.jsonl"))
+    try Data("{\"c\":3}\n".utf8).write(to: folder.appendingPathComponent("s1/subagents/agent-x1.jsonl"))
+    try Data("{\"agentType\":\"Explore\"}".utf8).write(to: folder.appendingPathComponent("s1/subagents/agent-x1.meta.json"))
+    func run(_ offsets: [String: UInt64]) throws -> [Conversations.HostFile] {
+        let script = Conversations.workScript(
+            path: project.path, id: "s1", claude: "'" + root.appendingPathComponent("claude").path + "'", offsets: offsets)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        let out = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return Conversations.HostFile.split(out)
+    }
+    let first = try run([:])
+    #expect(first.map(\.name) == ["main", "agent-x1", "meta:agent-x1"])
+    #expect(String(decoding: first[0].data, as: UTF8.self) == "{\"a\":1}\n{\"b\":2}\n")
+    #expect(String(decoding: first[2].data, as: UTF8.self).contains("Explore"))
+    let again = try run(["main": 8, "agent-x1": 8])
+    #expect(again[0].start == 8 && String(decoding: again[0].data, as: UTF8.self) == "{\"b\":2}\n")
+    #expect(again[1].data.isEmpty)
+}
