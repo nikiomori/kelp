@@ -4,8 +4,9 @@ import Foundation
 /// and this script holds them all on one timeline. It pauses every animation and sets its time (`seek`), shows each
 /// scene (`data-start`, `data-duration`) only in its stretch of time, plays the timeline in step with the screen, and
 /// fits the stage (the body, `data-width` × `data-height`) into the pane. It sends `motion` to `kelpSync` with the
-/// time, the length, whether it plays and the scenes, a few times a second while playing; `window.kelpMotion` is what
-/// the tab's bar (`MotionBar`) and the export (`MarkdownTab.exportVideo`) call.
+/// time, the length, whether it plays, the scenes and the tracks (each element that moves), a few times a second while
+/// playing; `window.kelpMotion` is what the tab's studio (`MotionStudio`) and the export (`MarkdownTab.exportVideo`)
+/// call.
 enum MotionPage {
     static let source = """
         (function () {
@@ -27,7 +28,23 @@ enum MotionPage {
           }
           const scenes = parts().map(e => ({ id: e.dataset.id || '', title: e.dataset.title || e.dataset.id || '',
             start: +e.dataset.start || 0, duration: +e.dataset.duration || 0 }));
-          let t = 0, playing = false, last = 0, told = 0;
+          // Each element that moves, as a track: its name and when its animations run.
+          const named = e => e.dataset.title || e.dataset.id
+            || (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 28) || e.classList[0]
+            || e.tagName.toLowerCase();
+          function tracks() {
+            const by = new Map();
+            for (const a of document.getAnimations()) {
+              const e = a.effect && a.effect.target, timing = a.effect && a.effect.getComputedTiming();
+              if (!e || !timing || !isFinite(timing.endTime)) continue;
+              const start = (timing.delay || 0) / 1000, end = timing.endTime / 1000;
+              const track = by.get(e) || { title: named(e), start, end };
+              track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
+              by.set(e, track);
+            }
+            return [...by.values()].sort((a, b) => a.start - b.start);
+          }
+          let t = 0, playing = false, last = 0, told = 0, moving = null;
           function seek(at) {
             t = Math.max(0, Math.min(at, duration()));
             for (const a of document.getAnimations()) { a.pause(); a.currentTime = t * 1000; }
@@ -44,7 +61,8 @@ enum MotionPage {
             const at = performance.now();
             if (!now && at - told < 120) return;
             told = at;
-            post({ kind: 'motion', t, duration: duration(), playing, scenes });
+            moving = moving || tracks();
+            post({ kind: 'motion', t, duration: duration(), playing, scenes, tracks: moving, width: W, height: H });
           }
           function frame(at) {
             if (!playing) return;

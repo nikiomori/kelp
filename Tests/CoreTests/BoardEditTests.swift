@@ -36,3 +36,13 @@ private let board = """
         DesignSystem.names(tokens: ##"{"color": {"bg": "#fff", "accent": "#000"}, "space": {"4": "16px"}}"##)
             == ["color": ["accent", "bg"], "space": ["4"]])
 }
+
+@Test func aSceneTimeIsSetOnItsElement() throws {
+    let page = #"<div class="scene" data-id="intro" data-start="0" data-duration="2"><h1 data-id="t">Hi</h1></div>"#
+    let moved = try #require(BoardEdit.setAttribute(page, id: "intro", name: "data-start", value: "0.5"))
+    #expect(moved.contains(#"data-start="0.5" data-duration="2""#))
+    let added = try #require(BoardEdit.setAttribute(page, id: "t", name: "data-start", value: "1"))
+    #expect(added.contains(#"<h1 data-id="t" data-start="1">"#))
+    #expect(BoardEdit.setAttribute(page, id: "intro", name: "style", value: "x") == nil, "only data- attributes")
+    #expect(BoardEdit.setAttribute(page, id: "intro", name: "data-start", value: "1\"><script>") == nil)
+}

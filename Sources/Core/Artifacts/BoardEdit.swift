@@ -52,6 +52,26 @@ public enum BoardEdit {
         return out
     }
 
+    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none. Only a `data-` name and a
+    /// value that can't end the attribute are taken (the times a motion page's timeline sets).
+    public static func setAttribute(_ source: String, id: String, name: String, value: String) -> String? {
+        guard name.hasPrefix("data-"), name.allSatisfy({ $0.isLetter || $0 == "-" }),
+            !value.contains(where: { "\"<>&".contains($0) }), let tag = openingTag(source, id: id)
+        else { return nil }
+        var opening = String(source[tag])
+        let attribute = " \(name)=\"\(value)\""
+        if let start = opening.range(of: " \(name)=\""),
+            let end = opening[start.upperBound...].firstIndex(of: "\"")
+        {
+            opening.replaceSubrange(start.lowerBound...end, with: attribute)
+        } else {
+            opening.insert(contentsOf: attribute, at: opening.index(before: opening.endIndex))
+        }
+        var out = source
+        out.replaceSubrange(tag, with: opening)
+        return out
+    }
+
     /// Returns the value of `property` in element `id`'s inline style, or nil when it sets none.
     public static func style(_ source: String, id: String, property: String) -> String? {
         guard let tag = openingTag(source, id: id), let style = source[tag].firstMatch(of: /\sstyle="([^"]*)"/)

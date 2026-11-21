@@ -62,8 +62,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let handEditRest = Debounce()
     /// The bar for checking the marks an agent's turn handed back.
     lazy var reviewBar = MarkReviewBar { [weak self] call in self?.runJS(call) }
-    /// The player under a motion page's bar.
-    lazy var motionBar = makeMotionBar()
+    /// The player and timeline under a motion page.
+    lazy var motionStudio = makeMotionStudio()
     /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
     /// being written gets the ring).
     var canvasZoom: Double?
@@ -99,7 +99,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         guard ArtifactBar.isPage(url.path) else { return crumbs }
         let bar = ArtifactBar(app: app, path: url.path, markdown: self)
         artifactBar = bar
-        return page == .motion ? bars(bar.view, motionBar.bar) : bars(bar.view, reviewBar.bar)
+        return bars(bar.view, reviewBar.bar)
     }
 
     /// 0 edit, 1 split, 2 preview, as the bar's segments.
@@ -222,7 +222,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             for subview in [bar, split] { subview.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
             view = column
         } else {
-            view = stacked(split)
+            view = page == .motion ? stacked(split, motionStudio.view) : stacked(split)
         }
         view.addSubview(selectionBar)   // over the text, placed by frame
         let before = editor.onSelection   // the breadcrumbs and the conflict bar follow the selection too

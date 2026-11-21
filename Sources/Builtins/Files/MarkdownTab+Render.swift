@@ -59,6 +59,7 @@ extension MarkdownTab {
                 page = (colors.background.hexString, colors.text.hexString)
             }
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
+            let motionAt = kind == .motion ? motionStudio.at : 0
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
@@ -74,7 +75,7 @@ extension MarkdownTab {
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
                 if kind == .html { return (text, [], nil) }
-                if kind == .motion { return (text, [MotionPage.source], nil) }
+                if kind == .motion { return (text, [MotionPage.source, "window.kelpMotion?.seek(\(motionAt))"], nil) }
                 if kind == .canvas {
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(

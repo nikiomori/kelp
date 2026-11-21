@@ -13,21 +13,43 @@ extension MarkdownTab {
     /// The frames a second of an exported video.
     static let videoFPS = 30.0
 
-    func makeMotionBar() -> MotionBar {
-        let made = MotionBar { [weak self] call in self?.runJS(call) }
+    func makeMotionStudio() -> MotionStudio {
+        let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] in self?.exportVideo() }
+        made.onScene = { [weak self] id, start, length in self?.retime(scene: id, start: start, length: length) }
         return made
     }
 
     func motionMessage(_ body: [String: Any]) {
         let number = { (key: String) in (body[key] as? NSNumber)?.doubleValue ?? 0 }
-        let scenes = (body["scenes"] as? [[String: Any]] ?? []).map {
-            MotionTimeline.Scene(
-                title: $0["title"] as? String ?? "", start: ($0["start"] as? NSNumber)?.doubleValue ?? 0,
-                duration: ($0["duration"] as? NSNumber)?.doubleValue ?? 0)
+        let clips = { (key: String, start: String, length: String) in
+            (body[key] as? [[String: Any]] ?? []).map { c in
+                let begins = (c[start] as? NSNumber)?.doubleValue ?? 0
+                let takes = (c[length] as? NSNumber)?.doubleValue ?? 0
+                return MotionTimeline.Clip(
+                    id: c["id"] as? String ?? "", title: c["title"] as? String ?? "", start: begins,
+                    length: length == "end" ? takes - begins : takes)
+            }
         }
-        motionBar.show(
-            at: number("t"), length: number("duration"), playing: body["playing"] as? Bool ?? false, scenes: scenes)
+        motionStudio.show(
+            MotionStudio.State(
+                at: number("t"), length: number("duration"), playing: body["playing"] as? Bool ?? false,
+                width: Int(number("width")), height: Int(number("height")),
+                scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end")))
+    }
+
+    /// Moves or trims scene `id` to start at `start` and last `length` seconds, in the page's file: the page is drawn
+    /// again at the time it showed.
+    func retime(scene id: String, start: Double, length: Double) {
+        let seconds = { (value: Double) in String(format: "%g", (value * 100).rounded() / 100) }
+        guard
+            let moved = BoardEdit.setAttribute(editor.text, id: id, name: "data-start", value: seconds(start)),
+            let both = BoardEdit.setAttribute(moved, id: id, name: "data-duration", value: seconds(length))
+        else {
+            return Banner.show(String(localized: "Couldn’t find scene \(id) in the page as it is now."), style: .error)
+        }
+        editor.apply(text: both, selection: NSRange(location: 0, length: 0))
+        Task { _ = await saveFile?() }
     }
 
     /// Asks where to save the video, then records it.
@@ -59,7 +81,7 @@ extension MarkdownTab {
             // The picture is the stage's own size in pixels, however small the pane shows it.
             config.snapshotWidth = NSNumber(value: stage[4] / Double(view.window?.backingScaleFactor ?? 2))
             for frame in 0...frames {
-                motionBar.exporting(frame, of: frames)
+                motionStudio.exporting(frame, of: frames)
                 let at = Double(frame) / Self.videoFPS
                 _ = try await web.callAsyncJavaScript(
                     "return await window.kelpMotion.frameAt(at)", arguments: ["at": at], contentWorld: Self.world)
@@ -68,10 +90,10 @@ extension MarkdownTab {
                 try await movie.add(picture, at: at)
             }
             try await movie.finish(at: Double(frames + 1) / Self.videoFPS)
-            motionBar.exporting(nil, of: frames)
+            motionStudio.exporting(nil, of: frames)
             app.workbench.open(TabURI.file(to.path))
         } catch {
-            motionBar.exporting(nil, of: 0)
+            motionStudio.exporting(nil, of: 0)
             Banner.show(
                 String(localized: "Couldn’t make the video: \(error.localizedDescription)"), style: .error)
         }
