@@ -30540,16 +30540,6 @@
         }
       }
     },
-    "hold Space": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "держите пробел"
-          }
-        }
-      }
-    },
     "Element": {
       "localizations": {
         "ru": {
@@ -30746,6 +30736,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Агент закончил ход"
+          }
+        }
+      }
+    },
+    "Previous Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущая пометка"
+          }
+        }
+      }
+    },
+    "Next Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая пометка"
+          }
+        }
+      }
+    },
+    "The page as the mark was sent with it (or hold Space)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница такой, какой была при отправке пометки (или держите пробел)"
           }
         }
       }

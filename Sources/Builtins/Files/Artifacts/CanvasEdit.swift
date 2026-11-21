@@ -317,7 +317,6 @@ enum CanvasEdit {
     /// presenting.
     static let style = """
         .kelp-tools { top: 10px; left: 50%; transform: translateX(-50%); }
-        .kelp-reviewing .kelp-tools { top: 48px; }
         .kelp-layer { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 10; }
         .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }
         .kelp-with-col .kelp-sheet { right: 260px; }

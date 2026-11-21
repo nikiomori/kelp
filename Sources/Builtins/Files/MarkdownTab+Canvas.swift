@@ -41,6 +41,11 @@ extension MarkdownTab {
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
+        case "review":
+            let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
+            reviewBar.show(
+                count: number("count"), at: number("at"), before: body["before"] as? Bool ?? false,
+                canBefore: body["canBefore"] as? Bool ?? false, who: pageAuthor.map { app.catalog.name($0.agent) })
         case "pick":
             let row = (body["row"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             send(

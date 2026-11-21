@@ -2,12 +2,14 @@ import Core
 import Foundation
 
 /// The marks on an agent's page, shared by a canvas (`CanvasEdit`) and a doc or slides (`PageMarks`): the pins, the
-/// column on the right (`window.kelpColumn`) and the strip that walks through the marks to check. A mark is a draft
+/// column on the right (`window.kelpColumn`) and the walk through the marks to check, which the tab's bar shows
+/// (`MarkReviewBar`). A mark is a draft
 /// (orange: the user's to write and send), with the agent (grey, while its turn runs), the user's to check (orange
 /// again, once the turn ends), or done (folded away). The page tells it where a mark is (`kelpMarks.attach`).
 ///
-/// It sends `marksDraft` (the drafts as they are now), `marks` (Send: the drafts to send), `markDone` and `markAgain`
-/// to `kelpSync`. The tab answers each with the marks as the daemon wrote them (`kelpMarks.set`).
+/// It sends `marksDraft` (the drafts as they are now), `marks` (Send: the drafts to send), `markDone`, `markAgain` and
+/// `review` (where the check is) to `kelpSync`. The tab answers each with the marks as the daemon wrote them
+/// (`kelpMarks.set`).
 enum MarkColumn {
     static func source(marks: ArtifactMarks, labels: [String: String]) -> String {
         """
@@ -22,8 +24,8 @@ enum MarkColumn {
 
     private static let body = """
           const { el, post } = C;
-          const layer = el('div', 'kelp-marks'), strip = el('div', 'kelp-review');
-          document.body.append(layer, strip);
+          const layer = el('div', 'kelp-marks');
+          document.body.append(layer);
           let page = null, tab = 'marks', at = 0, doneOpen = false, before = false;
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
@@ -148,26 +150,13 @@ enum MarkColumn {
             C.open([C.tabs(tabs, tab, key => { tab = key; draw(); })], tab === 'marks' ? rows() : page.tabRows(tab));
           }
 
+          // The tab's bar for the check (`MarkReviewBar`) shows where it is; its buttons call back in here.
+          let told = '';
           function review() {
-            // Shown whenever marks wait, in View too: it is where checking starts. Its keys work while Mark is on.
-            const c = by('check'), on = c.length > 0;
-            strip.style.display = on ? 'flex' : 'none';
-            document.body.classList.toggle('kelp-reviewing', on);
-            if (!on) return;
-            at = Math.min(at, c.length - 1);
-            const back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib', '›');
-            back.onclick = () => step(-1); next.onclick = () => step(1);
-            const again = el('button', 'kelp-pill', L.again), done = el('button', 'kelp-prominent', L.markDone);
-            again.onclick = () => sendAgain(c[at]); done.onclick = () => finish(c[at]);
-            const parts = [el('span', 'kelp-dot'),
-              el('span', 'kelp-grow', L.finished + ' · ' + L.toCheck + ': ' + c.length),
-              back, el('span', 'kelp-where', (at + 1) + ' ' + L.of + ' ' + c.length), next];
-            if (page?.before) {
-              parts.push(C.tabs([['before', L.before], ['after', L.after]], before ? 'before' : 'after',
-                k => showBefore(k === 'before')), el('span', 'kelp-hint', L.space));
-            }
-            parts.push(again, done, el('span', 'kelp-hint', '↩'));
-            strip.replaceChildren(...parts);
+            const c = by('check');
+            at = Math.max(0, Math.min(at, c.length - 1));
+            const now = JSON.stringify({ kind: 'review', count: c.length, at, before, canBefore: !!page?.before });
+            if (now !== told) { told = now; post(JSON.parse(now)); }
           }
 
           function draw() { pins(); column(); review(); }
@@ -236,6 +225,9 @@ enum MarkColumn {
               draw();
             },
             find: id => M.marks.find(m => m.id === id),
+            step, showBefore,
+            finish: () => finish(by('check')[at]),
+            again: () => sendAgain(by('check')[at]),
             // Scrolls mark `id` into view and returns its box on screen, with a margin, for its picture.
             reveal(id) {
               const m = M.marks.find(k => k.id === id), r = m && page ? page.where(m) : null;
@@ -283,18 +275,7 @@ enum MarkColumn {
         .kelp-what-id { color: var(--k-sec); flex: none; }
         .kelp-fold { cursor: default; }
         .kelp-hint { color: var(--k-sec); font-size: 11px; }
-        .kelp-review { position: fixed; top: 0; left: 0; right: 0; height: 38px; z-index: 19; display: none;
-          align-items: center; gap: 8px; padding: 0 12px; box-sizing: border-box; border-bottom: 1px solid var(--k-sep);
-          background: color-mix(in srgb, var(--k-orange) 9%, var(--k-card)); color: var(--k-label);
-          font: 12px -apple-system, sans-serif; }
-        .kelp-with-col .kelp-review { right: 261px; }
-        .kelp-review .kelp-grow { font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden;
-          text-overflow: ellipsis; }
-        .kelp-review > :not(.kelp-grow) { flex: none; white-space: nowrap; }
-        .kelp-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--k-orange); flex: none; }
-        .kelp-reviewing { padding-top: 70px; }
-        .kelp-reviewing .kelp-themes { top: 48px; }
-        .kelp-present .kelp-review, .kelp-present .kelp-marks { display: none !important; }
-        @media print { .kelp-marks, .kelp-review { display: none !important; } }
+        .kelp-present .kelp-marks { display: none !important; }
+        @media print { .kelp-marks { display: none !important; } }
         """
 }

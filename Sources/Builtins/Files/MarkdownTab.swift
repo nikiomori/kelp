@@ -60,6 +60,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// The elements changed by hand since the last pause, and the wait for the next one (`keepHandEdit`).
     var handEdited: Set<String> = []
     let handEditRest = Debounce()
+    /// The bar for checking the marks an agent's turn handed back.
+    lazy var reviewBar = MarkReviewBar { [weak self] call in self?.runJS(call) }
     /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
     /// being written gets the ring).
     var canvasZoom: Double?
@@ -95,7 +97,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         guard ArtifactBar.isPage(url.path) else { return crumbs }
         let bar = ArtifactBar(app: app, path: url.path, markdown: self)
         artifactBar = bar
-        return bar.view
+        return stacked(bar.view, reviewBar.bar)
     }
 
     /// 0 edit, 1 split, 2 preview, as the bar's segments.

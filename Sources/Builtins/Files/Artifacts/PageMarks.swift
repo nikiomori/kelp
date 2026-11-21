@@ -84,7 +84,7 @@ enum PageMarks {
           };
           const hide = () => { button.style.display = 'none'; };
           addEventListener('mouseup', e => {
-            if (e.target === button || e.target.closest?.('.kelp-col, .kelp-review')) return;
+            if (e.target === button || e.target.closest?.('.kelp-col')) return;
             setTimeout(() => {
               const t = chosen(); if (!t) return hide();
               if (K.on) return add(t);

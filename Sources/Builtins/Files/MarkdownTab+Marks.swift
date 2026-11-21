@@ -111,7 +111,7 @@ extension MarkdownTab {
         }
     }
 
-    /// The words of the marks' column and strip (`MarkColumn`).
+    /// The words of the marks' column (`MarkColumn`).
     var markColumnLabels: [String: String] {
         let who = pageAuthor.map { app.catalog.name($0.agent) } ?? String(localized: "the Agent")
         return [
@@ -122,14 +122,8 @@ extension MarkdownTab {
             "toCheck": String(localized: "To Check"), "fresh": String(localized: "New"),
             "yourEdits": String(localized: "Your Edits"), "withAgent": String(localized: "With \(who)"),
             "done": String(localized: "Done"), "again": String(localized: "Again"),
-            "markDone": String(localized: "Done"),
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
-            "same": String(localized: "Not changed: its chat may say why"),
-            "finished": pageAuthor.map { String(localized: "\(app.catalog.name($0.agent)) finished its turn") }
-                ?? String(localized: "The agent finished its turn"),
-            "of": String(localized: "of"),
-            "before": String(localized: "Before"), "after": String(localized: "After"),
-            "space": String(localized: "hold Space")
+            "same": String(localized: "Not changed: its chat may say why")
         ]
     }
 }
