@@ -58,7 +58,7 @@ final class WorkCard: NSViewController {
             lines.append(NSTextField.label(span, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor))
         }
         var buttons: [NSView] = []
-        if isFile || place.kind == .web {
+        if isFile || [.web, .tool, .outside, .own].contains(place.kind) {
             buttons.append(ClosureButton(title: String(localized: "Open")) { [act] in act(.open) })
         }
         if isFile, place.edits > 0 || place.byCommand {

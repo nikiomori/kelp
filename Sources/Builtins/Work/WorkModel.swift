@@ -112,11 +112,22 @@ final class WorkModel {
         app.workbench.focus(session: id)
     }
 
-    /// Opens a place outside the project where Kelp can: a site in its browser.
+    /// Opens a place outside the project where Kelp can: a site in its browser, an MCP server in Skills & MCP, a folder
+    /// on this Mac in Finder. A host has nowhere to go from here.
     func open(outside place: AgentWork.Place) {
-        guard place.kind == .web, !place.name.contains(" ") else { return }
-        let local = place.name.hasPrefix("127.0.0.1") || place.name.hasPrefix("localhost")
-        app.workbench.open((local ? "http://" : "https://") + place.name)
+        switch place.kind {
+        case .web:
+            guard !place.name.contains(" ") else { return }
+            let local = place.name.hasPrefix("127.0.0.1") || place.name.hasPrefix("localhost")
+            app.workbench.open((local ? "http://" : "https://") + place.name)
+        case .tool: app.workbench.showPanel("addons")
+        case .outside, .own:
+            // A host's folder isn't on this Mac: there is nothing for Finder to show.
+            let path = place.name.hasPrefix("~") ? NSHomeDirectory() + place.name.dropFirst() : place.name
+            guard FileManager.default.fileExists(atPath: path) else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        default: break
+        }
     }
 }
 
