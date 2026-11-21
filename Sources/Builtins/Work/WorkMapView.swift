@@ -112,13 +112,14 @@ final class WorkMapView: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        let byId = Dictionary(nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        if let outside = point("outside"),
-            let lastProject = nodes.filter({ $0.id != "outside" && $0.parent != "outside" && $0.parent != "agent" })
-                .compactMap({ point($0.id)?.y }).max()
-        {
-            let y = (outside.y + lastProject) / 2 + step / 4, line = NSBezierPath()
-            line.move(to: NSPoint(x: outside.x - Metrics.inset, y: y))
+        // The line between the project and what is outside: halfway from the project's last row to the outside's first.
+        let outsideRows = nodes.filter { $0.parent == "outside" }.compactMap { point($0.id)?.y }
+        let projectRows = nodes.filter { ![.agent, .group].contains($0.kind) && $0.parent != "outside" }.compactMap {
+            point($0.id)?.y
+        }
+        if let first = outsideRows.min(), let last = projectRows.max(), let left = point("outside")?.x {
+            let y = (first + last) / 2, line = NSBezierPath()
+            line.move(to: NSPoint(x: left - Metrics.inset, y: y))
             line.line(to: NSPoint(x: bounds.maxX - pad, y: y))
             line.setLineDash([Metrics.gapTight, Metrics.gapTight], count: 2, phase: 0)
             NSColor.separatorColor.setStroke()
@@ -137,7 +138,6 @@ final class WorkMapView: NSView {
             (lit.contains(node.id) ? NSColor.themeAccent : blue ? NSColor.agentEdited : NSColor.tertiaryLabelColor)
                 .withAlphaComponent(on ? 1 : Metrics.paneDim / 2).setStroke()
             path.stroke()
-            _ = byId
         }
         for node in nodes {
             guard let p = point(node.id) else { continue }

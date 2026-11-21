@@ -111,3 +111,16 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(rows[4].lane == 1 && rows[4].after == [0])
     #expect(StepRow.make([step(0, .read), step(1, .read)], filter: 1).count == 1)
 }
+
+/// The card under the pointer is as wide as its words (up to its width), not squeezed to the narrowest they allow.
+@MainActor @Test func aNodesCardIsAsWideAsItsWords() {
+    var place = AgentWork.Place(kind: .tool, name: "claude-in-chrome")
+    place.reads = 2
+    place.detail = "javascript_tool"
+    place.agents = [0]
+    let card = WorkCard(place: place, names: ["Claude Code"], icons: [nil]) { _ in }
+    card.loadView()
+    let width = card.view.fittingSize.width
+    #expect(width > 150)
+    #expect(width <= 300)
+}

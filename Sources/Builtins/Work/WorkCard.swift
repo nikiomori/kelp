@@ -69,13 +69,18 @@ final class WorkCard: NSViewController {
             button.controlSize = .small
         }
         if !buttons.isEmpty { lines.append(NSStackView(views: buttons)) }
+        // Each line keeps its words unless the card would pass its width; then the longest gives way (cut in the middle
+        // for a path). Without this the popover sizes itself to the narrowest the lines allow.
+        for case let field as NSTextField in lines + lines.flatMap(\.subviews) {
+            field.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        }
         let column = NSStackView(views: lines)
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.gapTight
         column.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
-        column.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.alertAccessory).isActive = true
+        column.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.sheetWidth * 5 / 8).isActive = true
         view = column
     }
 }
