@@ -30739,6 +30739,16 @@
           }
         }
       }
+    },
+    "The agent finished its turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент закончил ход"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

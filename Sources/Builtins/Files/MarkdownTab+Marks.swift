@@ -125,7 +125,9 @@ extension MarkdownTab {
             "markDone": String(localized: "Done"),
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
             "same": String(localized: "Not changed: its chat may say why"),
-            "finished": String(localized: "\(who) finished its turn"), "of": String(localized: "of"),
+            "finished": pageAuthor.map { String(localized: "\(app.catalog.name($0.agent)) finished its turn") }
+                ?? String(localized: "The agent finished its turn"),
+            "of": String(localized: "of"),
             "before": String(localized: "Before"), "after": String(localized: "After"),
             "space": String(localized: "hold Space")
         ]
