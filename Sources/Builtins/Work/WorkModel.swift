@@ -11,25 +11,36 @@ import WorkbenchKit
 final class WorkModel {
     let app: AppModel
     private(set) var session: String?
-    /// The turn shown (an index into `work.turns`), or nil for the last.
-    var turn: Int?
-    var whole = false
+    /// What is shown of this session, kept with the panel's and the Map tab's choices alike (`WorkChoices`): the turn
+    /// (an index into `work.turns`, nil for the last), or the whole session, and one agent's touches or all.
+    let choices: WorkChoices
+    var turn: Int? {
+        get { choices[session].turn }
+        set { choices[session].turn = newValue }
+    }
+    var whole: Bool {
+        get { choices[session].whole }
+        set { choices[session].whole = newValue }
+    }
     /// Only this agent's touches (an index into `work.agents`), or nil for all.
-    var agent: Int?
+    var agent: Int? {
+        get { choices[session].agent }
+        set { choices[session].agent = newValue }
+    }
     private(set) var work: AgentWork?
     private(set) var error: String?
     private(set) var loaded = false
     private var reading: Task<Void, Never>?
 
-    init(app: AppModel) { self.app = app }
+    init(app: AppModel, choices: WorkChoices) {
+        self.app = app
+        self.choices = choices
+    }
 
-    /// Shows another session: what was chosen for the last one doesn't carry over.
+    /// Shows another session, with what was chosen for it before.
     func show(_ id: String?) {
         guard id != session else { return }
         session = id
-        turn = nil
-        whole = false
-        agent = nil
         work = nil
         error = nil
         loaded = false
@@ -42,10 +53,15 @@ final class WorkModel {
         reading = Task { [weak self, app] in
             let (value, error) = await app.tryCall(ask)
             guard !Task.isCancelled, let self, self.session == session else { return }
-            if let value { work = value }
-            self.error = error
-            loaded = true
+            received(value ?? nil, error: error)
         }
+    }
+
+    /// Takes an answer of `session.work`: a failed read keeps what was shown.
+    func received(_ value: AgentWork?, error: String? = nil) {
+        if let value { work = value }
+        self.error = error
+        loaded = true
     }
 
     /// The agents' names, by their index in the work: the catalog's for a session's agents, the kind for a subagent.
@@ -130,6 +146,24 @@ final class WorkModel {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         default: break
         }
+    }
+}
+
+/// What is chosen for each session's work (the turn or the whole session, one agent), one choice per session for the
+/// Work panel and the Map tab alike, so the two always show the same.
+@MainActor
+@Observable
+final class WorkChoices {
+    struct Choice: Equatable {
+        var turn: Int?
+        var whole = false
+        var agent: Int?
+    }
+    private var bySession: [String: Choice] = [:]
+
+    subscript(session: String?) -> Choice {
+        get { session.flatMap { bySession[$0] } ?? Choice() }
+        set { if let session { bySession[session] = newValue } }
     }
 }
 

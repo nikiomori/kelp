@@ -201,14 +201,15 @@ private func sampleWork() -> AgentWork {
     icicle.keyDown(with: key(NSRightArrowFunctionKey))
     #expect(picked == "Tests/DaemonTests")   // one folder in Tests: the chain is one block
     shot(holder, "layers")
-    // The chips that fit show whole; the rest are dropped, not squeezed.
-    let shown = chips.subviews.first?.subviews.filter { !$0.isHidden && $0.frame.width > 0 } ?? []
+    // The chips that fit show whole, inside the row; the rest are counted, the agent's own folders with them.
+    chips.layout()
+    let shown = chips.subviews.filter { !$0.isHidden && !($0 is NSTextField) }
     #expect(!shown.isEmpty)
-    for chip in shown { #expect(chip.frame.maxX <= chips.bounds.width + 0.5) }
-    // What didn't fit is counted, the agent's own folders with it.
-    let chipCount = shown.filter { !($0 is NSTextField) && $0.subviews.count > 0 }.count
-    let more = shown.compactMap { $0 as? NSTextField }.first { $0.stringValue.hasPrefix("+") }
-    #expect(more?.stringValue == "+ \(8 - chipCount) more")
+    for chip in shown { #expect(chip.frame.maxX <= chips.bounds.width + 0.5 && chip.frame.width >= chip.fittingSize.width - 0.5) }
+    #expect(chips.hiddenCount == 8 - shown.count)
+    let more = chips.subviews.compactMap { $0 as? NSTextField }.first
+    #expect(more?.stringValue == "+ \(8 - shown.count) more")
+    #expect((more?.frame.maxX ?? 999) <= chips.bounds.width + 0.5)
 }
 
 /// The steps list draws every kind of step on its lanes.
@@ -232,4 +233,58 @@ private func sampleWork() -> AgentWork {
         WorkTree.project(work, rootName: "Kelp"), names: ["claude", "Explore"], app: rig.app, agents: work.agents)
     #expect(files.table.numberOfRows == 34)
     shot(files.scroll, "files")
+}
+
+/// The agent picker asks for no width of its own: with three agents in 120 pt it is a menu inside its bounds, so a
+/// narrow inspector keeps its width.
+@MainActor @Test func theAgentPickerFitsANarrowRow() {
+
+    let picker = AgentPicker(frame: NSRect(x: 0, y: 0, width: 120, height: 22))
+    picker.show([0, 1, 2], names: ["Claude Code", "general-purpose", "Explore"], picked: nil)
+    picker.layout()
+    let shown = picker.subviews.filter { !$0.isHidden }
+    #expect(shown.count == 1 && shown.first is NSPopUpButton)
+    #expect((shown.first?.frame.maxX ?? 999) <= 120.5)
+}
+
+/// The whole panel with a turn's work, in a narrow inspector and a wide one: its parts show and stay inside it.
+@MainActor @Test func theWorkPanelShowsATurnAtAnyWidth() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    for (width, name) in [(280.0, "panel-narrow"), (400.0, "panel-wide")] {
+        let panel = WorkPanel(app: rig.app, choices: WorkChoices())
+        let win = window(panel.view, NSSize(width: width, height: 640))
+        _ = win
+        panel.viewDidAppear()
+        panel.model.show("s1")
+        panel.model.received(sampleWork())
+        await Task.yield()
+        panel.view.layoutSubtreeIfNeeded()
+        shot(panel.view, name)
+        func all(_ v: NSView) -> [NSView] { v.subviews.flatMap { [$0] + all($0) } }
+        let words = all(panel.view).filter { !$0.isHiddenOrHasHiddenAncestor }.compactMap { ($0 as? NSTextField)?.stringValue }
+        #expect(words.contains("In the project"))
+        #expect(panel.view.frame.width == CGFloat(width))
+    }
+}
+
+/// A turn that touched no project file but reached outside: the panel says so and shows the places.
+@MainActor @Test func aTurnWithOnlyPlacesOutsideShowsThem() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    var work = sampleWork()
+    work.places = work.places.filter { $0.kind != .file && $0.kind != .folder }
+    let panel = WorkPanel(app: rig.app, choices: WorkChoices())
+    let win = window(panel.view, NSSize(width: 280, height: 400))
+    _ = win
+    panel.viewDidAppear()
+    panel.model.show("s1")
+    panel.model.received(work)
+    await Task.yield()
+    panel.view.layoutSubtreeIfNeeded()
+    shot(panel.view, "panel-outside-only")
+    func all(_ v: NSView) -> [NSView] { v.subviews.flatMap { [$0] + all($0) } }
+    let shown = all(panel.view).filter { !$0.isHiddenOrHasHiddenAncestor && $0.frame.height > 0 }
+    #expect(shown.contains { ($0 as? NSTextField)?.stringValue == "No project files in this turn" })
+    #expect(shown.contains { $0 is OutsideChips })
 }

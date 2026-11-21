@@ -10,13 +10,17 @@ extension Builtins {
         "kelp.work", "Work", "Where an agent worked: its steps, the files it read and edited, what it reached outside.",
         icon: "map"
     ) { app in
-        Contributions(
+        // One choice of turn and agent per session, for the panel and the Map tab alike.
+        let choices = WorkChoices()
+        return Contributions(
             panels: [
-                PanelSpec(id: "work", title: "Work", icon: "map", extensionId: "kelp.work") { WorkPanel(app: app) }
+                PanelSpec(id: "work", title: "Work", icon: "map", extensionId: "kelp.work") {
+                    WorkPanel(app: app, choices: choices)
+                }
             ],
             tabs: [
                 TabProvider(
-                    schemes: [WorkTab.scheme], make: { WorkTab(uri: $0, app: app) },
+                    schemes: [WorkTab.scheme], make: { WorkTab(uri: $0, app: app, choices: choices) },
                     placeholder: { uri in
                         let title = WorkTab.title(app.session(TabURI.body(uri)), app: app)
                         return (title, .symbol("map"), nil)

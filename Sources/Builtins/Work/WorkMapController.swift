@@ -18,15 +18,16 @@ final class WorkMapController: NSViewController {
     private let agents = AgentPicker()
     private let now = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
+    private let loading = LoadingView(rows: true)
     private let card = HoverPopover()
     private var watched: Watched?
     private var opened: Set<String> = []
     private let session: String
 
-    init(app: AppModel, session: String) {
+    init(app: AppModel, session: String, choices: WorkChoices) {
         self.app = app
         self.session = session
-        model = WorkModel(app: app)
+        model = WorkModel(app: app, choices: choices)
         super.init(nibName: nil, bundle: nil)
         model.show(session)
     }
@@ -34,6 +35,7 @@ final class WorkMapController: NSViewController {
 
     override func loadView() {
         agents.onPick = { [weak self] in self?.model.agent = $0 }
+        agents.trailing = false
         turnPop.target = self
         turnPop.action = #selector(pickTurn)
         turnPop.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -66,6 +68,7 @@ final class WorkMapController: NSViewController {
         let root = NSView()
         root.pin(column)
         empty.place(in: root, under: header)
+        loading.place(in: root, under: header)
         view = root
     }
 
@@ -113,6 +116,7 @@ final class WorkMapController: NSViewController {
             scroll.isHidden = true
             return
         }
+        loading.show(work == nil && !model.loaded ? String(localized: "Reading where the agent worked…") : nil)
         guard let work else {
             empty.show(
                 model.loaded ? String(localized: "No Transcript to Read") : nil, symbol: "map",

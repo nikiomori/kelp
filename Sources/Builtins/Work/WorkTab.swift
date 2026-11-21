@@ -20,10 +20,10 @@ final class WorkTab: KelpKit.TabContent {
     var title: String { Self.title(app.session(TabURI.body(uri)), app: app) }
     var icon: NSImage? { .symbol("map") }
 
-    init(uri: String, app: AppModel) {
+    init(uri: String, app: AppModel, choices: WorkChoices) {
         self.uri = uri
         self.app = app
-        controller = WorkMapController(app: app, session: TabURI.body(uri))
+        controller = WorkMapController(app: app, session: TabURI.body(uri), choices: choices)
         view = controller.view
     }
     func focus() { view.window?.makeFirstResponder(controller.tree) }

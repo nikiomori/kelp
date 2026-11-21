@@ -31,15 +31,19 @@ final class WorkPanel: NSViewController {
     let steps = StepsList()
     private let mapColumn = NSStackView(), stepsColumn = NSStackView()
     private var controlRows: [NSView] = []
+    /// Takes the room under the map's rows when there is no file list to fill it, so they stay at the top.
+    private let filler = NSView()
     private let empty = EmptyStateView()
+    /// While a long conversation is read the first time (a 50 MB transcript takes a few seconds).
+    private let loading = LoadingView(rows: true)
     private var watched: Watched?
     private var shown = false
     /// The block the layers start from (its path), and the one picked under it.
     var zoom = "", picked: String?
 
-    init(app: AppModel) {
+    init(app: AppModel, choices: WorkChoices) {
         self.app = app
-        model = WorkModel(app: app)
+        model = WorkModel(app: app, choices: choices)
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -59,7 +63,7 @@ final class WorkPanel: NSViewController {
         turnPop.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.formLabel + 2 * Metrics.blockGap).isActive =
             true
         name.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        let controls = NSStackView(views: [views, NSView(), agents])
+        let controls = NSStackView(views: [views, agents])
         controls.spacing = Metrics.gap
         controls.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         summary.lineBreakMode = .byTruncatingTail
@@ -99,6 +103,11 @@ final class WorkPanel: NSViewController {
         chips.widthAnchor.constraint(equalTo: chipsRow.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         stepsColumn.isHidden = true
         controlRows = [summaryRow, controls]
+        // The bar and the rows under it keep their height: the map or the steps below take the rest.
+        header.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        for row in [summaryRow, controls, icicleRow, chipsRow, headingRow] {
+            row.setHuggingPriority(.defaultHigh, for: .vertical)
+        }
         let column = NSStackView(views: [header, summaryRow, controls, mapColumn, stepsColumn])
         column.orientation = .vertical
         column.spacing = 0
@@ -107,6 +116,7 @@ final class WorkPanel: NSViewController {
         let root = NSView()
         root.pin(column)
         empty.place(in: root, under: header)
+        loading.place(in: root, under: header)
         view = root
     }
 
@@ -195,6 +205,7 @@ final class WorkPanel: NSViewController {
             empty.showError(String(localized: "Couldn’t read where the agent worked"), text: error)
             return hideColumns()
         }
+        loading.show(work == nil && !model.loaded ? String(localized: "Reading where the agent worked…") : nil)
         guard let work else {
             return model.loaded
                 ? showEmpty(
@@ -219,6 +230,7 @@ final class WorkPanel: NSViewController {
         let noFiles = tree.children.isEmpty
         icicle.superview?.isHidden = noFiles
         files.scroll.isHidden = noFiles
+        filler.isHidden = !noFiles
         icicle.agentNames = model.agentNames
         icicle.root = shownRoot
         icicle.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.map(\.name)

@@ -11,6 +11,9 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private(set) lazy var scroll = table.plainList("files")
     var onOpen: (AgentWork.Place, _ diff: Bool) -> Void = { _, _ in }
     private var rows: [AgentWork.Place] = []
+    /// The block picked: a file's folder is shown below it (grey, after the name) when the list spans folders.
+    private var under = ""
+    private var spansFolders = false
     private var names: [String] = [], agents: [AgentWork.Agent] = []
     private weak var app: AppModel?
 
@@ -33,7 +36,10 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         }
         self.app = app
         self.agents = agents
-        guard files != rows || names != self.names else { return }
+        let folders = Set(files.map { ($0.name as NSString).deletingLastPathComponent })
+        guard files != rows || names != self.names || under != node.path else { return }
+        under = node.path
+        spansFolders = folders.count > 1
         rows = files
         self.names = names
         table.reloadData()
@@ -48,7 +54,19 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         mark.kind = place.edits > 0 || place.byCommand ? .edit : .read
         let name = NSTextField.label(
             (place.name as NSString).lastPathComponent, font: .ui(TextSize.row), truncation: .byTruncatingMiddle)
+        name.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)   // the folder gives way first
         var parts: [NSView] = [mark, name]
+        // Two File.swift in two folders read apart only by their folders: each says where it is under the block.
+        let folder = (place.name as NSString).deletingLastPathComponent
+        if spansFolders, !folder.isEmpty {
+            let shown = under.isEmpty ? folder : Paths.relative(folder, to: under) ?? folder
+            if !shown.isEmpty {
+                parts.append(
+                    NSTextField.label(
+                        shown, font: .ui(TextSize.caption), color: .tertiaryLabelColor, truncation: .byTruncatingMiddle)
+                )
+            }
+        }
         if let worktree = place.worktree { parts.append(Self.badge(worktree)) }
         for index in place.agents.sorted() where agents.indices.contains(index) {
             let logo = NSImageView(image: WorkModel.icon(agents[index], app: app, size: Metrics.iconSmall) ?? NSImage())

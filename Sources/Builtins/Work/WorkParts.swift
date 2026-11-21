@@ -67,60 +67,67 @@ final class PlaceMark: NSView {
     }
 }
 
-/// The places outside the project as a row of hatched chips, as many as fit; the agent's own folders come last, folded
-/// into one. A chip opens what Kelp can open (a site in its browser).
+/// The places outside the project as a row of hatched chips, as many as fit whole, in order; then "+ 5 more" for
+/// the rest (the agent's own folders always among them), their names in its tooltip. A chip opens what Kelp can open
+/// (a site in its browser).
 @MainActor
 final class OutsideChips: NSView {
     var onOpen: (AgentWork.Place) -> Void = { _ in }
-    private let stack = NSStackView()
     private var places: [AgentWork.Place] = []
+    private var chips: [Chip] = []
+    private var own: [AgentWork.Place] = []
+    private let more: NSTextField = .label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        stack.spacing = Metrics.gapTight
-        stack.detachesHiddenViews = true
-        // The panel's width wins: chips past it are dropped (by their visibility priority), not squeezed.
-        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
-        pin(stack)
+        addSubview(more)
         heightAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
+        // It asks for no width: what doesn't fit goes into "+ N more".
+        setContentCompressionResistancePriority(.init(1), for: .horizontal)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: Metrics.iconButton) }
 
     func show(_ outside: [AgentWork.Place]) {
         guard outside != places else { return }
         places = outside
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        chips.forEach { $0.removeFromSuperview() }
         isHidden = outside.isEmpty
-        let shown = outside.filter { $0.kind != .own }
-        for (index, place) in shown.enumerated() {
-            let chip = Chip(place) { [weak self] in self?.onOpen(place) }
-            stack.addArrangedSubview(chip)
-            // The first ones stay; the rest give way when the panel is narrow.
-            stack.setVisibilityPriority(NSStackView.VisibilityPriority(rawValue: Float(1000 - index)), for: chip)
-        }
         own = outside.filter { $0.kind == .own }
-        stack.addArrangedSubview(more)
-        stack.setVisibilityPriority(.mustHold, for: more)
-        stack.addArrangedSubview(NSView())
+        chips = outside.filter { $0.kind != .own }.map { place in Chip(place) { [weak self] in self?.onOpen(place) } }
+        chips.forEach { addSubview($0) }
         needsLayout = true
     }
 
-    /// What didn't fit, as one grey word that always shows: "+ 5 more" (the agent's own folders counted in), with the
-    /// rest's names in its tooltip.
-    private let more = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
-    private var own: [AgentWork.Place] = []
+    /// The count of places "+ N more" stands for, as laid out last.
+    private(set) var hiddenCount = 0
 
     override func layout() {
         super.layout()
-        let hidden = stack.arrangedSubviews.compactMap { $0 as? Chip }.filter { stack.detachedViews.contains($0) }.map(
-            \.place)
-        let rest = hidden + own
-        let words = rest.isEmpty ? "" : String(localized: "+ \(rest.count) more")
-        if more.stringValue != words {
-            more.stringValue = words
-            more.toolTip = rest.map(\.name).joined(separator: ", ")
-            more.isHidden = rest.isEmpty
+        let gap = Metrics.gapTight, height = bounds.height
+        func moreWords(_ count: Int) -> String { count == 0 ? "" : String(localized: "+ \(count) more") }
+        // Each chip goes in if it and, should any be left after it, the "+ N more" after it still fit.
+        var x: CGFloat = 0, shown = 0
+        for (index, chip) in chips.enumerated() {
+            let width = chip.fittingSize.width
+            let left = chips.count - index - 1 + own.count
+            more.stringValue = moreWords(left)
+            let reserve = left == 0 ? 0 : gap + more.fittingSize.width
+            guard x + width + reserve <= bounds.width else { break }
+            chip.frame = NSRect(x: x, y: 0, width: width, height: height)
+            x += width + gap
+            shown += 1
         }
+        for (index, chip) in chips.enumerated() { chip.isHidden = index >= shown }
+        hiddenCount = chips.count - shown + own.count
+        let rest = chips.dropFirst(shown).map(\.place) + own
+        more.stringValue = moreWords(hiddenCount)
+        more.toolTip = rest.map(\.name).joined(separator: ", ")
+        more.isHidden = hiddenCount == 0
+        let size = more.fittingSize
+        more.frame = NSRect(
+            x: x, y: (height - size.height) / 2, width: min(size.width, max(0, bounds.width - x)), height: size.height)
     }
 
     private final class Chip: NSControl {
