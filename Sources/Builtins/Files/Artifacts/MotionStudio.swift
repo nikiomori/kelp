@@ -83,6 +83,8 @@ final class MotionStudio {
     private(set) var at = 0.0
     /// The page's scenes, as the timeline shows them.
     private(set) var scenes: [MotionTimeline.Clip] = []
+    /// The page's elements' lanes, as the timeline shows them.
+    private(set) var tracks: [MotionTimeline.Clip] = []
     /// The frames a second the arrows step by and a video is made at.
     var fps = 30.0
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
@@ -120,6 +122,7 @@ final class MotionStudio {
         timeline.set(
             at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes
+        tracks = state.tracks
     }
 
     /// The element chosen on the page, whose lane stands out ("" for none).

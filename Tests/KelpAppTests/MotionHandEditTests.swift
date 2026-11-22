@@ -204,3 +204,26 @@ extension OneAtATime {
     #expect(commands.count == 7)
     #expect(commands.allSatisfy { $0.enabled?() == false })
 }
+
+extension OneAtATime {
+    /// The Time row of Edit's column moves a scene by its own times, and an element by its animation's.
+    @Test func theTimeRowMovesAnElementInTime() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <body data-width="1920" data-height="1080">
+            <section data-id="a" data-start="0" data-duration="2"><h1 data-id="t">Hi</h1></section>
+            </body>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        tab.motionMessage([
+            "t": 0, "duration": 2, "scenes": [["id": "a", "title": "A", "start": 0, "duration": 2]],
+            "tracks": [["id": "t", "title": "T", "start": 0, "end": 1, "delays": [0], "lengths": [1]]]
+        ])
+        _ = tab.canvasMessage("retimeElement", ["id": "a", "start": 0.5, "length": 3])
+        #expect(editor.text.contains(#"data-id="a" data-start="0.5" data-duration="3""#))
+        _ = tab.canvasMessage("retimeElement", ["id": "t", "start": 0.2, "length": 0.6])
+        #expect(editor.text.contains("animation-delay: 0.2s; animation-duration: 0.6s"))
+    }
+}

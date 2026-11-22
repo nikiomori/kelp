@@ -38,7 +38,7 @@ extension MarkdownTab {
 
     /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
-        if arrangeMessage(kind, body) { return true }
+        if arrangeMessage(kind, body) || propsMessage(kind, body) { return true }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
@@ -225,18 +225,22 @@ extension MarkdownTab {
 
     var canvasEditLabels: CanvasEditMode.Labels {
         [
-            "title": String(localized: "Properties"), "parent": String(localized: "Parent"),
-            "asDrawn": String(localized: "As Drawn"),
+            "title": String(localized: "Properties"),
             "noID": String(localized: "This element has no data-id yet, so it can’t be changed by hand."),
             "giveID": String(localized: "Give It a data-id"),
-            "typeHint": String(localized: "Double-click it to change its text."),
             "choose": String(localized: "Click an element on a board to change its style, or double-click a text."),
-            "text": String(localized: "Text"), "layout": String(localized: "Layout"), "fill": String(localized: "Fill"),
-            "size": String(localized: "Size"), "weight": String(localized: "Weight"),
-            "colour": String(localized: "Colour"),
+            "text": String(localized: "Text"), "layout": String(localized: "Layout"),
+            "position": String(localized: "Position"), "fill": String(localized: "Fill"),
+            "time": String(localized: "Time"), "size": String(localized: "Size"),
+            "weight": String(localized: "Weight"), "colour": String(localized: "Colour"),
             "padding": String(localized: "Padding"), "gap": String(localized: "Gap"),
             "background": String(localized: "Background"), "radius": String(localized: "Radius"),
-            "opacity": String(localized: "Opacity")
+            "opacity": String(localized: "Opacity"), "offset": String(localized: "Offset"),
+            "frame": String(localized: "Frame"), "startLength": String(localized: "Start · Length"),
+            "none": String(localized: "None"), "auto": String(localized: "auto"),
+            "regular": String(localized: "Regular"), "medium": String(localized: "Medium"),
+            "semibold": String(localized: "Semibold"), "bold": String(localized: "Bold"),
+            "reset": String(localized: "Back to the Page’s Own"), "seconds": String(localized: "s")
         ]
     }
 

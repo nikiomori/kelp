@@ -93,7 +93,7 @@ extension MarkdownTab {
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
                     let edit = CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
-                    let handles = CanvasHandles.source(animated: animatedNote)
+                    let handles = CanvasHandles.source(animated: animatedNote) + CanvasEditBar.source
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,
