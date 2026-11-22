@@ -38,8 +38,10 @@ enum MotionPage {
               const e = a.effect && a.effect.target, timing = a.effect && a.effect.getComputedTiming();
               if (!e || !timing || !isFinite(timing.endTime)) continue;
               const start = (timing.delay || 0) / 1000, end = timing.endTime / 1000;
-              const track = by.get(e) || { title: named(e), start, end };
+              const track = by.get(e)
+                || { id: e.dataset.id || '', title: named(e), start, end, delays: [], lengths: [] };
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
+              track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
               by.set(e, track);
             }
             return [...by.values()].sort((a, b) => a.start - b.start);
@@ -82,6 +84,57 @@ enum MotionPage {
             position: 'absolute', left: '0', top: '0' });
           addEventListener('resize', fit);
           fit();
+          // The stage takes edits: a click chooses an element (with a data-id), a drag moves it (its `translate`),
+          // a double click on an element of text alone lets the user type over it. Each goes to the tab to write.
+          let chosen = null, grab = null;
+          const pick = e => e && e !== body && body.contains(e) ? e.closest('[data-id]') : null;
+          function choose(e, tellTab) {
+            if (chosen) chosen.style.outline = '';
+            chosen = e;
+            if (chosen) Object.assign(chosen.style, { outline: '4px solid #0a84ff', outlineOffset: '6px' });
+            if (tellTab) post({ kind: 'motionChose', id: chosen ? chosen.dataset.id : '' });
+          }
+          const stagePoint = e => { const r = body.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width,
+            (e.clientY - r.top) * H / r.height]; };
+          const moved = e => (getComputedStyle(e).translate.match(/-?[\\d.]+/g) || ['0', '0']).map(Number)
+            .concat([0]).slice(0, 2);
+          addEventListener('mousedown', ev => {
+            if (ev.detail > 1 || ev.target.isContentEditable) return;
+            const e = pick(ev.target);
+            choose(e, true);
+            if (e) { grab = { e, from: stagePoint(ev), was: moved(e), still: true }; ev.preventDefault(); }
+          });
+          addEventListener('mousemove', ev => {
+            if (!grab) return;
+            const [x, y] = stagePoint(ev), dx = x - grab.from[0], dy = y - grab.from[1];
+            if (grab.still && Math.hypot(dx, dy) < 4) return;
+            grab.still = false;
+            grab.e.style.translate = Math.round(grab.was[0] + dx) + 'px ' + Math.round(grab.was[1] + dy) + 'px';
+          });
+          addEventListener('mouseup', () => {
+            if (grab && !grab.still) {
+              post({ kind: 'motionMove', id: grab.e.dataset.id, translate: grab.e.style.translate });
+            }
+            grab = null;
+          });
+          addEventListener('dblclick', ev => {
+            const e = pick(ev.target);
+            if (!e || e.children.length) return;
+            const old = e.textContent;
+            e.contentEditable = 'true'; e.focus();
+            getSelection().selectAllChildren(e);
+            const done = keep => {
+              e.contentEditable = 'false';
+              if (!keep) { e.textContent = old; return; }
+              const text = e.textContent.trim();
+              if (text && text !== old.trim()) post({ kind: 'motionText', id: e.dataset.id, old: old.trim(), text });
+            };
+            e.addEventListener('keydown', k => {
+              if (k.key !== 'Enter' && k.key !== 'Escape') return;
+              k.preventDefault(); k.stopPropagation(); done(k.key === 'Enter'); e.blur();
+            });
+            e.addEventListener('blur', () => { if (e.isContentEditable) done(true); }, { once: true });
+          });
           window.kelpMotion = {
             duration,
             seek(at) { playing = false; seek(at); tell(true); },
@@ -94,14 +147,16 @@ enum MotionPage {
             // The stage on screen, and its own size, for the export's pictures.
             stage() { const r = body.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, W, H]; },
             // Shows the frame at `at` once it is drawn (two frames of the screen later).
+            choose(id) { choose(id ? document.querySelector('[data-id="' + CSS.escape(id) + '"]') : null, false); },
             async frameAt(at) {
+              if (chosen) choose(null, true);   // the outline isn't part of the video
               playing = false; seek(at);
               await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
               return t;
             }
           };
           addEventListener('keydown', e => {
-            if (e.metaKey || e.ctrlKey) return;
+            if (e.metaKey || e.ctrlKey || e.target.isContentEditable) return;
             if (e.key === ' ') window.kelpMotion.toggle();
             else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
               window.kelpMotion.step((e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));

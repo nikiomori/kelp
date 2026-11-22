@@ -293,7 +293,9 @@ public enum Artifacts {
           `data-height` (1080×1920 for a phone video). Give the body its size and `overflow: hidden` in CSS.
         - Time is one timeline from 0: each animation starts at its `animation-delay`, with `animation-fill-mode:
           both`, no `infinite`. A scene is an element with `data-start` and `data-duration` (seconds): Kelp shows it
-          only then, and lists it as a scene. Give every scene a `data-id` and a `data-title`.
+          only then, and lists it as a scene. Give every scene, and every element that moves or holds text, a
+          `data-id` and a `data-title`: the user moves, retimes and retypes them by hand in Kelp's studio, which
+          writes `translate`, `animation-delay` and `animation-duration` on the element itself. Keep those.
         - Fonts from the system or files beside the page; images and videos are files beside motion.html. No web
           requests.
         - Tell the user it plays beside them (Space plays, ← → step a frame) and that Export Video in its bar makes

@@ -4,12 +4,16 @@ import DesignKit
 /// The studio under a motion page, as a video editor has it: a row of controls (play, a frame back and forward, the
 /// time and the frame, the size, Export Video) over the timeline (`MotionTimeline`). The page plays itself
 /// (`MotionPage`) and tells the studio where it is (`show`); the controls call the page, and a scene moved or
-/// trimmed on the timeline goes to the page's file (`onScene`).
+/// trimmed on the timeline, or an element chosen, goes to the tab (`onClip`, `onChoose`).
 @MainActor
 final class MotionStudio {
     private(set) lazy var view: NSView = {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
-        timeline.onScene = { [weak self] id, start, length in self?.onScene?(id, start, length) }
+        timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
+        timeline.onChoose = { [weak self] id in
+            self?.chose(id)
+            self?.act("window.kelpMotion?.choose('\(id.filter { $0.isLetter || $0.isNumber || "-_".contains($0) })')")
+        }
         export.toolTip = String(localized: "An MP4 of the whole page, frame by frame")
         let controls = Bar.content(
             [
@@ -36,8 +40,8 @@ final class MotionStudio {
     private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.onExport?() }
     private let act: (String) -> Void
     var onExport: (() -> Void)?
-    /// A scene moved or trimmed: its `data-id`, its new start and length in seconds.
-    var onScene: ((String, Double, Double) -> Void)?
+    /// A clip moved or trimmed on the timeline: as it was, as it is now, and its lane (0 for the scenes).
+    var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
     private(set) var at = 0.0
 
@@ -61,6 +65,9 @@ final class MotionStudio {
         size.stringValue = "\(state.width) × \(state.height) · \(Int(fps)) fps"
         timeline.set(at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks)
     }
+
+    /// The element chosen on the page, whose lane stands out ("" for none).
+    func chose(_ id: String) { timeline.chosen = id }
 
     /// While a video is made: which frame of how many, or nil when it's done.
     func exporting(_ frame: Int?, of frames: Int) {

@@ -30880,12 +30880,12 @@
         }
       }
     },
-    "Couldn’t find scene %@ in the page as it is now.": {
+    "Couldn’t change “%@” in the page as it is now: give it a data-id.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В странице сейчас нет сцены %@."
+            "value": "Не удалось изменить «%@» в странице: дайте элементу data-id."
           }
         }
       }

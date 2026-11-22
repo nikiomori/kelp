@@ -7,8 +7,9 @@ import UniformTypeIdentifiers
 import WebKit
 import WorkbenchKit
 
-/// A motion page in its tab: the bar under the page's bar follows its time (`MotionBar`), and Export Video records the
-/// page, a frame at a time, as an MP4.
+/// A motion page in its tab: the studio under it (`MotionStudio`) follows its time, and what the user moves, retimes
+/// or retypes on the stage or the timeline is written into the page's file. Export Video records the page, a frame at
+/// a time, as an MP4.
 extension MarkdownTab {
     /// The frames a second of an exported video.
     static let videoFPS = 30.0
@@ -16,7 +17,9 @@ extension MarkdownTab {
     func makeMotionStudio() -> MotionStudio {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] in self?.exportVideo() }
-        made.onScene = { [weak self] id, start, length in self?.retime(scene: id, start: start, length: length) }
+        made.onClip = { [weak self] was, now, lane in
+            lane == 0 ? self?.retime(scene: now.id, start: now.start, length: now.length) : self?.retime(was, as: now)
+        }
         return made
     }
 
@@ -28,7 +31,9 @@ extension MarkdownTab {
                 let takes = (c[length] as? NSNumber)?.doubleValue ?? 0
                 return MotionTimeline.Clip(
                     id: c["id"] as? String ?? "", title: c["title"] as? String ?? "", start: begins,
-                    length: length == "end" ? takes - begins : takes)
+                    length: length == "end" ? takes - begins : takes,
+                    delays: (c["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                    lengths: (c["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [])
             }
         }
         motionStudio.show(
@@ -38,17 +43,56 @@ extension MarkdownTab {
                 scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end")))
     }
 
-    /// Moves or trims scene `id` to start at `start` and last `length` seconds, in the page's file: the page is drawn
-    /// again at the time it showed.
-    func retime(scene id: String, start: Double, length: Double) {
-        let seconds = { (value: Double) in String(format: "%g", (value * 100).rounded() / 100) }
-        guard
-            let moved = BoardEdit.setAttribute(editor.text, id: id, name: "data-start", value: seconds(start)),
-            let both = BoardEdit.setAttribute(moved, id: id, name: "data-duration", value: seconds(length))
-        else {
-            return Banner.show(String(localized: "Couldn’t find scene \(id) in the page as it is now."), style: .error)
+    /// Handles what the page says about its elements: one chosen, moved on the stage, or retyped.
+    func motionEdit(_ kind: String, _ body: [String: Any]) {
+        let id = body["id"] as? String ?? ""
+        switch kind {
+        case "motionChose": motionStudio.chose(id)
+        case "motionMove":
+            guard let value = body["translate"] as? String else { return }
+            rewritePage(id) { BoardEdit.setStyle($0, id: id, property: "translate", value: value) }
+        case "motionText":
+            guard let old = body["old"] as? String, let text = body["text"] as? String else { return }
+            rewritePage(id) { BoardEdit.setText($0, id: id, old: old, new: text) }
+        default: break
         }
-        editor.apply(text: both, selection: NSRange(location: 0, length: 0))
+    }
+
+    /// Moves or trims scene `id` to start at `start` and last `length` seconds.
+    func retime(scene id: String, start: Double, length: Double) {
+        rewritePage(id) { text in
+            BoardEdit.setAttribute(text, id: id, name: "data-start", value: Self.seconds(start)).flatMap {
+                BoardEdit.setAttribute($0, id: id, name: "data-duration", value: Self.seconds(length))
+            }
+        }
+    }
+
+    /// Moves an element's animations by as much as its block moved on the timeline, or, for one animation trimmed,
+    /// gives it the block's start and length. They are set on the element itself (`animation-delay`,
+    /// `animation-duration`), over what its CSS rule says.
+    func retime(_ was: MotionTimeline.Clip, as now: MotionTimeline.Clip) {
+        let shift = now.start - was.start
+        let delays = was.delays.map { $0 + shift }
+        let lengths = was.delays.count == 1 && now.length != was.length ? [now.length] : was.lengths
+        let list = { (values: [Double]) in values.map { Self.seconds(max($0, 0)) + "s" }.joined(separator: ", ") }
+        rewritePage(now.id) { text in
+            BoardEdit.setStyle(text, id: now.id, property: "animation-delay", value: list(delays)).flatMap {
+                BoardEdit.setStyle($0, id: now.id, property: "animation-duration", value: list(lengths))
+            }
+        }
+    }
+
+    private static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
+
+    /// Changes the page's text with `change`, and saves it: the page is drawn again at the time it showed. When the
+    /// element isn't found for sure, nothing changes and the banner says why.
+    private func rewritePage(_ id: String, _ change: (String) -> String?) {
+        guard let text = change(editor.text) else {
+            return Banner.show(
+                String(localized: "Couldn’t change “\(id)” in the page as it is now: give it a data-id."),
+                style: .error)
+        }
+        editor.apply(text: text, selection: NSRange(location: 0, length: 0))
         Task { _ = await saveFile?() }
     }
 
