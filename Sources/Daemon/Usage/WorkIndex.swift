@@ -20,24 +20,35 @@ final class WorkIndex: Sendable {
     /// How many files are kept; past it, the ones read longest ago go. A session with dozens of subagents is dozens of
     /// files, and two of them on screen must fit, or each read starts every file again.
     static let limit = 400
+    /// How much of a file is read and parsed at once.
+    static let piece = 8 << 20
     /// The most of a host's file read the first time, from its end.
     static let hostFirstRead: UInt64 = 16 << 20
 
     /// The log of a file on this Mac, read up to its end.
-    func log(_ url: URL) -> WorkLog? {
+    func log(_ url: URL, piece first: Int = WorkIndex.piece) -> WorkLog? {
         guard let size = Artifacts.fileStat(url.path)?.size else { return nil }
         // Taken out while it grows, so its calls aren't copied (the dictionary would share them).
         var entry = entries.withLock { $0.removeValue(forKey: url.path) } ?? Entry()
         if UInt64(size) < entry.read { entry = Entry() }   // replaced or cut: read it again
         if UInt64(size) > entry.read {
-            let from = entry.read
-            let grown = Log.session.attempt("reading \(url.lastPathComponent)") { () throws -> Data? in
+            Log.session.attempt("reading \(url.lastPathComponent)") {
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { handle.closeQuietly() }
-                try handle.seek(toOffset: from)
-                return try handle.readToEnd()
+                // A piece at a time, its parse's objects let go after each: a 100 MB transcript read whole held
+                // several times its size at once. A line longer than a piece doubles the piece.
+                var piece = first
+                while entry.read < UInt64(size) {
+                    try handle.seek(toOffset: entry.read)
+                    guard let data = try handle.read(upToCount: piece), !data.isEmpty else { break }
+                    let before = entry.read
+                    autoreleasepool { entry.log.read(data) }
+                    if entry.read == before {
+                        guard data.count == piece else { break }   // the last line isn't whole yet
+                        piece *= 2
+                    }
+                }
             }
-            if let grown, let data = grown { entry.log.read(data) }
         }
         keep(url.path, entry)
         return entry.log

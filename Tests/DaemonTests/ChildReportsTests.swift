@@ -400,7 +400,9 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// A host's answer for a work map is its files one after another, each after a `\u{1}name size start` line.
 @Test func aHostsWorkFilesAreToldApart() {
-    let out = Data("\u{1}main 120 100\n{\"a\":1}\n{\"b\":2}\n\u{1}agent-x1 9 0\n{\"c\":3}\n\u{1}meta:agent-x1 0 0\n{\"agentType\":\"Explore\"}\n".utf8)
+    let out = Data(
+        "\u{1}main 120 100\n{\"a\":1}\n{\"b\":2}\n\u{1}agent-x1 9 0\n{\"c\":3}\n\u{1}meta:agent-x1 0 0\n{\"agentType\":\"Explore\"}\n"
+            .utf8)
     let files = Conversations.HostFile.split(out)
     #expect(files.map(\.name) == ["main", "agent-x1", "meta:agent-x1"])
     #expect(files.first?.size == 120 && files.first?.start == 100)
@@ -419,13 +421,16 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let real = try #require(Paths.real(project.path))
     let folder = root.appendingPathComponent("claude/projects")
         .appendingPathComponent(String(real.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" }))
-    try FileManager.default.createDirectory(at: folder.appendingPathComponent("s1/subagents"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: folder.appendingPathComponent("s1/subagents"), withIntermediateDirectories: true)
     try Data("{\"a\":1}\n{\"b\":2}\n".utf8).write(to: folder.appendingPathComponent("s1.jsonl"))
     try Data("{\"c\":3}\n".utf8).write(to: folder.appendingPathComponent("s1/subagents/agent-x1.jsonl"))
-    try Data("{\"agentType\":\"Explore\"}".utf8).write(to: folder.appendingPathComponent("s1/subagents/agent-x1.meta.json"))
+    try Data("{\"agentType\":\"Explore\"}".utf8).write(
+        to: folder.appendingPathComponent("s1/subagents/agent-x1.meta.json"))
     func run(_ offsets: [String: UInt64]) throws -> [Conversations.HostFile] {
         let script = Conversations.workScript(
-            path: project.path, id: "s1", claude: "'" + root.appendingPathComponent("claude").path + "'", offsets: offsets)
+            path: project.path, id: "s1", claude: "'" + root.appendingPathComponent("claude").path + "'",
+            offsets: offsets)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", script]
@@ -443,4 +448,20 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let again = try run(["main": 8, "agent-x1": 8])
     #expect(again[0].start == 8 && String(decoding: again[0].data, as: UTF8.self) == "{\"b\":2}\n")
     #expect(again[1].data.isEmpty)
+}
+
+/// A transcript is read a piece at a time: what pieces give is what a whole read gives, a line longer than a piece
+/// included, and a last line not yet whole waits.
+@Test func aTranscriptIsReadInPieces() throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jsonl")
+    defer { try? FileManager.default.removeItem(at: file) }
+    let long = String(repeating: "x", count: 300)
+    let lines = (1...4).map { n in
+        #"{"type":"assistant","timestamp":"2026-11-21T12:00:0\#(n)Z","message":{"content":[{"type":"tool_use","id":"t\#(n)","name":"Bash","input":{"command":"cat a\#(n).swift # \#(n == 2 ? long : "")"}}]}}"#
+    }
+    try (lines.joined(separator: "\n") + "\n" + #"{"type":"assist"#).write(to: file, atomically: true, encoding: .utf8)
+    let whole = try #require(WorkIndex().log(file))
+    let pieces = try #require(WorkIndex().log(file, piece: 64))
+    #expect(pieces.calls.map(\.command) == whole.calls.map(\.command) && pieces.calls.count == 4)
+    #expect(pieces.offset == whole.offset)
 }
