@@ -27,8 +27,24 @@ final class MotionStudio {
                 IconButton(.symbol("forward.frame"), tip: String(localized: "A Frame Forward (→)")) { [weak self] in
                     self?.act("window.kelpMotion?.step(1)")
                 },
-                time, frame
-            ], [size, export], stretching: frame)
+                loop, speed, time, frame
+            ],
+            [
+                IconButton(.symbol("minus.magnifyingglass"), tip: String(localized: "Zoom Out")) { [weak self] in
+                    self?.zoom(by: 0.5)
+                },
+                zoomSlider,
+                IconButton(.symbol("plus.magnifyingglass"), tip: String(localized: "Zoom In")) { [weak self] in
+                    self?.zoom(by: 2)
+                },
+                TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size, export
+            ], stretching: frame)
+        speed.toolTip = String(localized: "How fast it plays")
+        zoomSlider.controlSize = .small
+        zoomSlider.target = self
+        zoomSlider.action = #selector(zoomSlid)
+        zoomSlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        timeline.onZoom = { [weak self] z in self?.zoomSlider.doubleValue = log2(z) }
         let line = NSBox()
         line.boxType = .separator
         return stacked(line, controls, timeline)
@@ -36,6 +52,13 @@ final class MotionStudio {
     private lazy var play = IconButton(.symbol("play.fill"), tip: String(localized: "Play (Space)")) {
         [weak self] in self?.act("window.kelpMotion?.toggle()")
     }
+    private lazy var loop = IconButton(.symbol("repeat"), tip: String(localized: "Play Again at the End")) {
+        [weak self] in self?.toggleLoop()
+    }
+    private lazy var speed = TextButton("1×") { [weak self] in self?.speedMenu() }
+    /// The zoom as a power of two: 0 shows the whole length, 5 a thirty-second of it.
+    private let zoomSlider = NSSlider(value: 0, minValue: 0, maxValue: log2(40), target: nil, action: nil)
+    private var looping = false
     private let time = NSTextField.label("", font: .uiDigits(TextSize.row))
     private let frame = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let size = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
@@ -81,6 +104,31 @@ final class MotionStudio {
 
     /// The element chosen on the page, whose lane stands out ("" for none).
     func chose(_ id: String) { timeline.chosen = id }
+
+    private func toggleLoop() {
+        looping.toggle()
+        loop.contentTintColor = looping ? .controlAccentColor : nil
+        act("window.kelpMotion?.setLoop(\(looping))")
+    }
+
+    private func speedMenu() {
+        let menu = NSMenu()
+        for rate in [0.25, 0.5, 1, 1.5, 2] {
+            let name = Self.rate(rate)
+            menu.add(name) { [weak self] in
+                self?.speed.title = name
+                self?.act("window.kelpMotion?.setRate(\(rate))")
+            }.state = name == speed.title ? .on : .off
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: speed.bounds.maxY + 4), in: speed)
+    }
+
+    /// 0.25 as `0.25×`, 1 as `1×`.
+    static func rate(_ value: Double) -> String { String(format: "%g×", value) }
+
+    private func zoom(by factor: Double) { timeline.setZoom(timeline.zoom * factor) }
+
+    @objc private func zoomSlid() { timeline.setZoom(pow(2, zoomSlider.doubleValue)) }
 
     /// While a video is made: which frame of how many, or nil when it's done.
     func exporting(_ frame: Int?, of frames: Int) {

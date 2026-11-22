@@ -97,7 +97,7 @@ enum MotionPage {
             }
             return [...by.values()].sort((a, b) => a.start - b.start);
           }
-          let t = 0, playing = false, last = 0, told = 0, moving = null;
+          let t = 0, playing = false, last = 0, told = 0, moving = null, rate = 1, loop = false;
           function seek(at) {
             t = Math.max(0, Math.min(at, duration()));
             for (const a of animations()) { a.pause(); a.currentTime = t * 1000; }
@@ -123,8 +123,8 @@ enum MotionPage {
           }
           function tick(at) {
             if (!playing) return;
-            t += (at - last) / 1000; last = at;
-            if (t >= duration()) { t = duration(); playing = false; }
+            t += (at - last) / 1000 * rate; last = at;
+            if (t >= duration()) { t = loop ? 0 : duration(); playing = loop; }
             seek(t); tell(!playing);
             if (playing) requestAnimationFrame(tick);
           }
@@ -148,6 +148,9 @@ enum MotionPage {
               tell(true);
             },
             step(frames) { playing = false; seek(t + frames / FPS); tell(true); },
+            // How fast it plays (1 as made), and whether it starts over at the end.
+            setRate(r) { rate = r; },
+            setLoop(on) { loop = on; },
             // The stage on screen, and its own size, for the export's pictures.
             stage() {
               const r = frame.getBoundingClientRect();

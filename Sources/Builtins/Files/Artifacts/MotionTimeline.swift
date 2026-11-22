@@ -24,6 +24,12 @@ final class MotionTimeline: NSView {
         var id: Int, time: Double, yours: Bool
     }
     private var at = 0.0, length = 1.0, scenes: [Clip] = [], tracks: [Clip] = [], marks: [Mark] = []
+    /// How close it looks: 1 shows the whole length, more shows `length / zoom` seconds from `from`.
+    private(set) var zoom = 1.0
+    private var from = 0.0
+    private var span: Double { length / zoom }
+    /// The zoom changed by a pinch or ⌘ and the wheel, for the studio's slider.
+    var onZoom: ((Double) -> Void)?
     private var drag: Drag?
     /// The clip being dragged, as it is now, and its lane.
     private var dragged: Clip?, draggedLane = 0
@@ -54,6 +60,9 @@ final class MotionTimeline: NSView {
         guard (at, length, scenes, tracks, marks) != (self.at, self.length, self.scenes, self.tracks, self.marks)
         else { return }
         (self.at, self.length, self.scenes, self.tracks, self.marks) = (at, length, scenes, tracks, marks)
+        // While it plays past what shows, the view turns the page.
+        if at < from || at > from + span { from = at - span * 0.1 }
+        from = min(max(from, 0), length - span)
         needsDisplay = true
         window?.invalidateCursorRects(for: self)
     }
@@ -63,8 +72,35 @@ final class MotionTimeline: NSView {
     private var track: NSRect {
         NSRect(x: Self.names, y: 0, width: max(bounds.width - Self.names - Metrics.inset, 1), height: bounds.height)
     }
-    private func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat(seconds / length) }
-    private func seconds(_ x: CGFloat) -> Double { Double((x - track.minX) / track.width) * length }
+    private func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat((seconds - from) / span) }
+    private func seconds(_ x: CGFloat) -> Double { from + Double((x - track.minX) / track.width) * span }
+
+    /// Zooms to `zoom` (1 to 40), keeping second `around` (the time, when nil) where it is.
+    func setZoom(_ zoom: Double, around: Double? = nil) {
+        let anchor = around ?? at, place = (anchor - from) / span
+        self.zoom = min(max(zoom, 1), 40)
+        from = min(max(anchor - place * span, 0), length - span)
+        needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+        onZoom?(self.zoom)
+    }
+
+    override func magnify(with event: NSEvent) {
+        setZoom(zoom * (1 + event.magnification), around: seconds(convert(event.locationInWindow, from: nil).x))
+    }
+
+    /// ⌘ and the wheel zoom; a sideways scroll moves along while zoomed in.
+    override func scrollWheel(with event: NSEvent) {
+        let pointer = seconds(convert(event.locationInWindow, from: nil).x)
+        if event.modifierFlags.contains(.command) {
+            return setZoom(zoom * (1 + event.scrollingDeltaY * 0.01), around: pointer)
+        }
+        let sideways = event.scrollingDeltaX != 0 ? event.scrollingDeltaX : 0
+        guard zoom > 1, sideways != 0 else { return super.scrollWheel(with: event) }
+        from = min(max(from - Double(sideways / track.width) * span, 0), length - span)
+        needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+    }
     private func laneRect(_ index: Int) -> NSRect {
         NSRect(x: 0, y: Self.ruler + marksLane + Self.lane * CGFloat(index), width: bounds.width, height: Self.lane)
     }
@@ -80,7 +116,6 @@ final class MotionTimeline: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        drawRuler()
         let font = NSFont.ui(TextSize.caption)
         let laneNames = [String(localized: "Scenes")] + tracks.prefix(Self.most).map(\.title)
         for (i, name) in laneNames.enumerated() {
@@ -91,8 +126,35 @@ final class MotionTimeline: NSView {
             }
             text(
                 name, at: NSPoint(x: Metrics.inset, y: row.midY), font: font, color: .secondaryLabelColor,
-                width: Self.names - Metrics.inset - Metrics.gap)
+                width: nameWidth)
         }
+        if !marks.isEmpty {
+            text(
+                String(localized: "Marks"), at: NSPoint(x: Metrics.inset, y: Self.ruler + Self.lane / 2), font: font,
+                color: .secondaryLabelColor, width: nameWidth)
+        }
+        NSColor.separatorColor.setFill()
+        NSRect(x: 0, y: Self.ruler - 0.5, width: bounds.width, height: 0.5).fill()
+        // What moves with the time stays right of the names, however far it's zoomed.
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: NSRect(x: track.minX - 6, y: 0, width: bounds.width, height: bounds.height)).addClip()
+        drawRuler()
+        drawClips(font)
+        let head = x(at)
+        NSColor.controlAccentColor.setFill()
+        NSRect(x: head - 1, y: 0, width: 2, height: Self.ruler + marksLane + Self.lane * CGFloat(lanes)).fill()
+        NSBezierPath(ovalIn: NSRect(x: head - 5, y: Self.ruler - 10, width: 10, height: 10)).fill()
+        if let dragged {
+            let label = String(format: "%.1f s · %.1f s", dragged.start, dragged.length)
+            let rect = box(dragged, lane: draggedLane)
+            text(label, at: NSPoint(x: rect.minX, y: rect.maxY + 9), font: font, color: .labelColor, width: 200)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private var nameWidth: CGFloat { Self.names - Metrics.inset - Metrics.gap }
+
+    private func drawClips(_ font: NSFont) {
         for scene in scenes {
             let clip = draggedLane == 0 && dragged?.id == scene.id ? dragged ?? scene : scene
             draw(
@@ -105,38 +167,24 @@ final class MotionTimeline: NSView {
                 mine, in: box(mine, lane: i + 1), fill: .fillSelected,
                 chosen: draggedLane == i + 1 || (!track.id.isEmpty && track.id == chosen), font: font)
         }
-        if !marks.isEmpty {
-            text(
-                String(localized: "Marks"), at: NSPoint(x: Metrics.inset, y: Self.ruler + Self.lane / 2), font: font,
-                color: .secondaryLabelColor, width: Self.names - Metrics.inset - Metrics.gap)
-            for m in marks {
-                let shape = NSBezierPath()
-                let r = diamond(m).insetBy(dx: 1, dy: 1)
-                shape.move(to: NSPoint(x: r.midX, y: r.minY))
-                shape.line(to: NSPoint(x: r.maxX, y: r.midY))
-                shape.line(to: NSPoint(x: r.midX, y: r.maxY))
-                shape.line(to: NSPoint(x: r.minX, y: r.midY))
-                shape.close()
-                (m.yours ? NSColor.systemOrange : NSColor.tertiaryLabelColor).setFill()
-                shape.fill()
-            }
-        }
-        let head = x(at)
-        NSColor.controlAccentColor.setFill()
-        NSRect(x: head - 1, y: 0, width: 2, height: Self.ruler + marksLane + Self.lane * CGFloat(lanes)).fill()
-        NSBezierPath(ovalIn: NSRect(x: head - 5, y: Self.ruler - 10, width: 10, height: 10)).fill()
-        if let dragged {
-            let label = String(format: "%.1f s · %.1f s", dragged.start, dragged.length)
-            let rect = box(dragged, lane: draggedLane)
-            text(label, at: NSPoint(x: rect.minX, y: rect.maxY + 9), font: font, color: .labelColor, width: 200)
+        for m in marks {
+            let shape = NSBezierPath()
+            let r = diamond(m).insetBy(dx: 1, dy: 1)
+            shape.move(to: NSPoint(x: r.midX, y: r.minY))
+            shape.line(to: NSPoint(x: r.maxX, y: r.midY))
+            shape.line(to: NSPoint(x: r.midX, y: r.maxY))
+            shape.line(to: NSPoint(x: r.minX, y: r.midY))
+            shape.close()
+            (m.yours ? NSColor.systemOrange : NSColor.tertiaryLabelColor).setFill()
+            shape.fill()
         }
     }
 
     private func drawRuler() {
         let font = NSFont.uiDigits(TextSize.caption)
-        let step = [0.5, 1, 2, 5, 10, 30].first { CGFloat($0 / length) * track.width >= 48 } ?? 60
-        var mark = 0.0
-        while mark <= length + 0.001 {
+        let step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30].first { CGFloat($0 / span) * track.width >= 48 } ?? 60
+        var mark = (from / step).rounded(.down) * step
+        while mark <= min(from + span, length) + 0.001 {
             NSColor.separatorColor.setFill()
             NSRect(x: x(mark), y: Self.ruler - 6, width: 1, height: 6).fill()
             text(
@@ -144,8 +192,6 @@ final class MotionTimeline: NSView {
                 color: .secondaryLabelColor, width: 60)
             mark += step
         }
-        NSColor.separatorColor.setFill()
-        NSRect(x: 0, y: Self.ruler - 0.5, width: bounds.width, height: 0.5).fill()
     }
 
     private func draw(_ clip: Clip, in rect: NSRect, fill: NSColor, chosen: Bool, font: NSFont) {
