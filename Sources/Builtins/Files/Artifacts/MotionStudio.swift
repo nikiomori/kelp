@@ -11,6 +11,7 @@ final class MotionStudio {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
+        timeline.onMark = { [weak self] id in self?.act("window.kelpMarks?.reveal(\(id))") }
         timeline.onDuplicate = { [weak self] id in self?.onDuplicate?(id) }
         timeline.onChoose = { [weak self] id in
             self?.chose(id)
@@ -62,6 +63,7 @@ final class MotionStudio {
     struct State {
         var at = 0.0, length = 0.0, playing = false, width = 1920, height = 1080
         var scenes: [MotionTimeline.Clip] = [], tracks: [MotionTimeline.Clip] = []
+        var marks: [MotionTimeline.Mark] = []
     }
 
     func show(_ state: State) {
@@ -72,7 +74,8 @@ final class MotionStudio {
         frame.stringValue = String(
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
         size.stringValue = "\(state.width) × \(state.height) · \(Int(fps)) fps"
-        timeline.set(at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks)
+        timeline.set(
+            at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes
     }
 

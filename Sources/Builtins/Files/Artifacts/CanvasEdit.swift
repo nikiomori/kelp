@@ -99,6 +99,8 @@ enum CanvasEdit {
             what: m => m.kind === 'area' ? L.area : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
               : m.target + (m.text ? ' «' + m.text + '»' : ''),
             where(m) {
+              const motion = window.kelpMotion;   // a mark on a motion page shows near its second only
+              if (m.time != null && motion && Math.abs(motion.time() - m.time) > 0.5) return null;
               if (m.kind === 'area' || m.kind === 'pen') {
                 const f = light(m.board); if (!f || !m.area) return null;
                 return inPage(f, ...m.area);
@@ -120,6 +122,7 @@ enum CanvasEdit {
               svg.append(path); into.append(svg);
             },
             focus(m) {
+              if (m.time != null) window.kelpMotion?.seek(m.time);
               const r = hooks.where(m); if (!r) return;
               scrollTo({ left: Math.max(0, r.x - innerWidth / 3), top: Math.max(0, r.y - innerHeight / 3),
                 behavior: 'smooth' });

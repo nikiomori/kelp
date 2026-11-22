@@ -106,7 +106,10 @@ private let page = ".kelp/artifacts/home/canvas.json"
         ArtifactMark(
             id: 3, kind: .pen, board: "boards/B.html", target: "[data-id=cta]", picture: "marks/3.png", note: "",
             rounds: [.init(note: "a link here", at: 0, reply: "Linked to /login")]),
-        ArtifactMark(id: 4, kind: .quote, text: "by December", note: "say the date")
+        ArtifactMark(id: 4, kind: .quote, text: "by December", note: "say the date"),
+        ArtifactMark(
+            id: 5, board: "motion.html", target: "[data-id=logo]", picture: "marks/5.png", time: 4.6,
+            note: "later")
     ]
     let edits = [
         HandEdit(board: "boards/A.html", id: "cta", what: "text", from: "Start", to: "Go"),
@@ -121,6 +124,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
             #3 again boards/B.html pen near [data-id=cta] (picture: .kelp/artifacts/home/marks/3.png): look at this
               (before: «a link here»; you said «Linked to /login»)
             #4 «by December»: say the date
+            #5 motion.html [data-id=logo] at 4.60 s (picture: .kelp/artifacts/home/marks/5.png): later
             Edited by the user since version 5, keep these:
               boards/A.html [data-id=cta] text «Start» → «Go»
               boards/A.html [data-id=sub] font-size none → small

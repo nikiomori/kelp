@@ -19,7 +19,11 @@ final class MotionTimeline: NSView {
     }
     private enum Drag { case time, move(Clip, Double), start(Clip), end(Clip) }
 
-    private var at = 0.0, length = 1.0, scenes: [Clip] = [], tracks: [Clip] = []
+    /// A mark at a second of the video: its number, its second, and whether it's the user's move (orange).
+    struct Mark: Equatable {
+        var id: Int, time: Double, yours: Bool
+    }
+    private var at = 0.0, length = 1.0, scenes: [Clip] = [], tracks: [Clip] = [], marks: [Mark] = []
     private var drag: Drag?
     /// The clip being dragged, as it is now, and its lane.
     private var dragged: Clip?, draggedLane = 0
@@ -29,23 +33,29 @@ final class MotionTimeline: NSView {
     /// A clip moved or trimmed: as it was, and as it is now. A scene is on lane 0.
     var onClip: ((Clip, Clip, Int) -> Void)?
     var onChoose: ((String) -> Void)?
+    /// A mark's diamond clicked: its number.
+    var onMark: ((Int) -> Void)?
     /// A clip taken out (⌫) or copied (⌘D, or from its menu): its `data-id`, and whether to copy it.
     var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
     /// The clip clicked last, which ⌫ and ⌘D act on.
     private var picked: String?
 
     private static let names: CGFloat = 112, ruler: CGFloat = 20, lane: CGFloat = 24, most = 6
+    /// The lane of marks, above the scenes, while there are any.
+    private var marksLane: CGFloat { marks.isEmpty ? 0 : Self.lane }
     private var lanes: Int { 1 + min(tracks.count, Self.most) }
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: Self.ruler + Self.lane * CGFloat(1 + Self.most) + Metrics.gap)
+        NSSize(width: NSView.noIntrinsicMetric, height: Self.ruler + Self.lane * CGFloat(2 + Self.most) + Metrics.gap)
     }
 
-    func set(at: Double, length: Double, scenes: [Clip], tracks: [Clip]) {
+    func set(at: Double, length: Double, scenes: [Clip], tracks: [Clip], marks: [Mark] = []) {
         let length = max(length, 0.1)
-        guard (at, length, scenes, tracks) != (self.at, self.length, self.scenes, self.tracks) else { return }
-        (self.at, self.length, self.scenes, self.tracks) = (at, length, scenes, tracks)
+        guard (at, length, scenes, tracks, marks) != (self.at, self.length, self.scenes, self.tracks, self.marks)
+        else { return }
+        (self.at, self.length, self.scenes, self.tracks, self.marks) = (at, length, scenes, tracks, marks)
         needsDisplay = true
+        window?.invalidateCursorRects(for: self)
     }
 
     // MARK: Places
@@ -56,7 +66,11 @@ final class MotionTimeline: NSView {
     private func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat(seconds / length) }
     private func seconds(_ x: CGFloat) -> Double { Double((x - track.minX) / track.width) * length }
     private func laneRect(_ index: Int) -> NSRect {
-        NSRect(x: 0, y: Self.ruler + Self.lane * CGFloat(index), width: bounds.width, height: Self.lane)
+        NSRect(x: 0, y: Self.ruler + marksLane + Self.lane * CGFloat(index), width: bounds.width, height: Self.lane)
+    }
+    /// Where mark `m`'s diamond is.
+    private func diamond(_ m: Mark) -> NSRect {
+        NSRect(x: x(m.time) - 6, y: Self.ruler + Self.lane / 2 - 6, width: 12, height: 12)
     }
     private func box(_ clip: Clip, lane: Int) -> NSRect {
         let row = laneRect(lane).insetBy(dx: 0, dy: 3)
@@ -91,9 +105,25 @@ final class MotionTimeline: NSView {
                 mine, in: box(mine, lane: i + 1), fill: .fillSelected,
                 chosen: draggedLane == i + 1 || (!track.id.isEmpty && track.id == chosen), font: font)
         }
+        if !marks.isEmpty {
+            text(
+                String(localized: "Marks"), at: NSPoint(x: Metrics.inset, y: Self.ruler + Self.lane / 2), font: font,
+                color: .secondaryLabelColor, width: Self.names - Metrics.inset - Metrics.gap)
+            for m in marks {
+                let shape = NSBezierPath()
+                let r = diamond(m).insetBy(dx: 1, dy: 1)
+                shape.move(to: NSPoint(x: r.midX, y: r.minY))
+                shape.line(to: NSPoint(x: r.maxX, y: r.midY))
+                shape.line(to: NSPoint(x: r.midX, y: r.maxY))
+                shape.line(to: NSPoint(x: r.minX, y: r.midY))
+                shape.close()
+                (m.yours ? NSColor.systemOrange : NSColor.tertiaryLabelColor).setFill()
+                shape.fill()
+            }
+        }
         let head = x(at)
         NSColor.controlAccentColor.setFill()
-        NSRect(x: head - 1, y: 0, width: 2, height: Self.ruler + Self.lane * CGFloat(lanes)).fill()
+        NSRect(x: head - 1, y: 0, width: 2, height: Self.ruler + marksLane + Self.lane * CGFloat(lanes)).fill()
         NSBezierPath(ovalIn: NSRect(x: head - 5, y: Self.ruler - 10, width: 10, height: 10)).fill()
         if let dragged {
             let label = String(format: "%.1f s · %.1f s", dragged.start, dragged.length)
@@ -151,6 +181,13 @@ final class MotionTimeline: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        if let m = marks.first(where: { diamond($0).insetBy(dx: -3, dy: -3).contains(p) }) {
+            at = m.time
+            needsDisplay = true
+            onSeek?(m.time)
+            onMark?(m.id)
+            return
+        }
         let lanes = [scenes] + tracks.prefix(Self.most).map { [$0] }
         for (lane, clips) in lanes.enumerated() {
             guard let clip = clips.first(where: { box($0, lane: lane).insetBy(dx: -3, dy: 0).contains(p) }) else {

@@ -58,7 +58,13 @@ extension MarkdownTab {
             MotionStudio.State(
                 at: number("t"), length: number("duration"), playing: body["playing"] as? Bool ?? false,
                 width: Int(number("width")), height: Int(number("height")),
-                scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end")))
+                scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end"),
+                marks: (body["marks"] as? [[String: Any]] ?? []).compactMap { m in
+                    guard let id = (m["id"] as? NSNumber)?.intValue, let time = (m["time"] as? NSNumber)?.doubleValue
+                    else { return nil }
+                    return MotionTimeline.Mark(
+                        id: id, time: time, yours: ["draft", "check"].contains(m["state"] as? String ?? ""))
+                }))
     }
 
     /// Moves or trims a scene: its `data-start` and `data-duration` become the block's start and length.

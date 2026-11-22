@@ -116,7 +116,9 @@ enum MotionPage {
             if (!now && at - told < 120) return;
             told = at;
             moving = moving || tracks();
-            post({ kind: 'motion', t, duration: duration(), playing, scenes: scenes(), tracks: moving,
+            const marks = (window.kelpMarks?.list?.() || []).filter(m => m.time != null && m.state !== 'done')
+              .map(m => ({ id: m.id, time: m.time, state: m.state }));
+            post({ kind: 'motion', t, duration: duration(), playing, scenes: scenes(), tracks: moving, marks,
               width: +frame.dataset.w, height: +frame.dataset.h });
           }
           function tick(at) {
@@ -133,6 +135,7 @@ enum MotionPage {
             moving = null; seek(t); tell(true);
           }
           frame.addEventListener('load', bind);
+          addEventListener('kelp-marks', () => { if (doc) tell(true); });
           if (frame.contentDocument?.readyState === 'complete') bind();
           window.kelpMotion = {
             duration,

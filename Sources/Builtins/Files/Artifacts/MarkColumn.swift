@@ -160,7 +160,7 @@ enum MarkColumn {
             if (now !== told) { told = now; post(JSON.parse(now)); }
           }
 
-          function draw() { pins(); column(); review(); }
+          function draw() { pins(); column(); review(); dispatchEvent(new CustomEvent('kelp-marks')); }
 
           // Where a new mark's note is written: beside the mark. Return keeps it, ⌘Return sends the marks, Esc takes
           // the mark away. The draft is found by its place among the drafts, which the daemon keeps.
@@ -239,6 +239,8 @@ enum MarkColumn {
               if (on && by('check').length) show(); else draw();
             },
             add(mark) {
+              // On a motion page, the second it was made at: its pin shows near that second only.
+              if (window.kelpMotion) mark.time = Math.round(window.kelpMotion.time() * 100) / 100;
               M.marks.push(Object.assign({ id: 0, kind: 'element', board: '', target: '', text: '', note: '',
                 state: 'draft', rounds: [] }, mark));
               tab = 'marks'; keep(); draw();
@@ -255,6 +257,7 @@ enum MarkColumn {
               draw();
             },
             find: id => M.marks.find(m => m.id === id),
+            list: () => M.marks,
             step, showBefore,
             finish: () => finish(by('check')[at]),
             again: () => sendAgain(by('check')[at]),
@@ -270,6 +273,11 @@ enum MarkColumn {
             draw
           };
           addEventListener('resize', () => requestAnimationFrame(pins));
+          let moved = false;   // the boards zoomed, or a motion page's time moved: the pins follow, once a frame
+          addEventListener('kelp-zoom', () => {
+            if (moved) return;
+            moved = true; requestAnimationFrame(() => { moved = false; pins(); });
+          });
         """
 
     static let style = """

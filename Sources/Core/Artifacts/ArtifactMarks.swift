@@ -61,8 +61,11 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public var area: [Double]?
     /// A stroke as an SVG path in the board's own pixels.
     public var path: String?
-    /// The picture of an area or a stroke, relative to the page's folder (`marks/2.png`).
+    /// The picture of an area or a stroke, or of a motion page's frame, relative to the page's folder
+    /// (`marks/2.png`).
     public var picture: String?
+    /// On a motion page, the second of the video it was made at.
+    public var time: Double?
     /// The note the user is writing now: a draft's note, empty once sent.
     public var note: String
     public var state: State
@@ -70,9 +73,10 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
 
     public init(
         id: Int = 0, kind: Kind = .element, board: String = "", target: String = "", text: String = "",
-        area: [Double]? = nil, path: String? = nil, picture: String? = nil, note: String = "", state: State = .draft,
-        rounds: [Round] = []
+        area: [Double]? = nil, path: String? = nil, picture: String? = nil, time: Double? = nil, note: String = "",
+        state: State = .draft, rounds: [Round] = []
     ) {
+        self.time = time
         self.id = id
         self.kind = kind
         self.board = board
@@ -330,8 +334,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
                 let near = m.target.isEmpty ? "" : " near \(m.target)"
                 let box = m.area.map { a in " " + a.map { String(Int($0.rounded())) }.joined(separator: ",") } ?? ""
                 what.append((m.kind == .area ? "area" : "pen") + (m.kind == .area ? box : near))
-                if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
             }
+            if let time = m.time { what.append(String(format: "at %.2f s", time)) }
+            if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
             let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
             let note = m.note.isEmpty ? "look at this" : m.note
             lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)

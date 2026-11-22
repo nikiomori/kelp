@@ -54,8 +54,8 @@ extension MarkdownTab {
             guard let numbered = await changed(.drafts(drafts)) else { return }
             let sending = numbered.marks.filter { $0.state == .draft }
             var pictures: [String: Data] = [:]
-            for mark in sending where mark.kind == .area || mark.kind == .pen {
-                do { pictures[String(mark.id)] = try await picture(of: mark.id) } catch {
+            for mark in sending where mark.kind == .area || mark.kind == .pen || mark.time != nil {
+                do { pictures[String(mark.id)] = try await picture(of: mark) } catch {
                     continue   // the mark goes without its picture: the message still says where it is
                 }
             }
@@ -90,10 +90,18 @@ extension MarkdownTab {
         return await actions.pickAgent()
     }
 
-    /// A picture of mark `id` as it is on screen (an area, or a stroke with the board under it), as PNG. nil when the
-    /// mark isn't on the page.
-    private func picture(of id: Int) async throws -> Data? {
-        let shown = try await web.evaluateJavaScript("window.kelpMarks?.reveal(\(id))", contentWorld: Self.world)
+    /// A picture of `mark` as it is on screen (an area, or a stroke with the board under it), or of a motion page's
+    /// whole frame at the mark's second, as PNG. nil when the mark isn't on the page.
+    private func picture(of mark: ArtifactMark) async throws -> Data? {
+        let shown: Any?
+        if let time = mark.time {
+            shown = try await web.callAsyncJavaScript(
+                "await window.kelpMotion.frameAt(at); return window.kelpMotion.stage().slice(0, 4)",
+                arguments: ["at": time], contentWorld: Self.world)
+            runJS("window.kelpMotion?.done()")
+        } else {
+            shown = try await web.evaluateJavaScript("window.kelpMarks?.reveal(\(mark.id))", contentWorld: Self.world)
+        }
         guard let box = shown as? [Double], box.count == 4 else { return nil }
         let config = WKSnapshotConfiguration()
         config.rect = CGRect(x: box[0], y: box[1], width: box[2], height: box[3]).intersection(web.bounds)

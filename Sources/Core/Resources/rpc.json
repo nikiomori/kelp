@@ -427,7 +427,7 @@
             "type" : "string"
           },
           "picture" : {
-            "description" : "The picture of an area or a stroke, relative to the page's folder (`marks/2.png`).",
+            "description" : "The picture of an area or a stroke, or of a motion page's frame, relative to the page's folder (`marks/2.png`).",
             "type" : "string"
           },
           "rounds" : {
@@ -446,6 +446,10 @@
           "text" : {
             "description" : "The start of the element's text, or the quoted words.",
             "type" : "string"
+          },
+          "time" : {
+            "description" : "On a motion page, the second of the video it was made at.",
+            "type" : "number"
           }
         },
         "required" : [
