@@ -38,6 +38,7 @@ extension MarkdownTab {
 
     /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
+        if arrangeMessage(kind, body) { return true }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
@@ -201,7 +202,7 @@ extension MarkdownTab {
     /// Writes a change made by hand (a tweak, a style, a text) into a board's file. When the file changed since the
     /// page was drawn, the edit can't be placed for sure, so nothing is written and the canvas draws again from the
     /// file. A change written is kept for the agent (`edit`, made from the file before the change).
-    private func rewrite(
+    func rewrite(
         _ board: String, edit: @escaping (String) -> HandEdit?, _ change: @escaping (String) -> String?
     ) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path

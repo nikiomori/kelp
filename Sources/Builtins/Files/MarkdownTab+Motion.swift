@@ -18,6 +18,8 @@ extension MarkdownTab {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] in self?.exportVideo() }
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
+        made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
+        made.onDuplicate = { [weak self] id in self?.duplicateElement(MotionPage.board, id) }
         made.onClip = { [weak self] was, now, lane in
             lane == 0 ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
         }
@@ -90,7 +92,7 @@ extension MarkdownTab {
         }
     }
 
-    private static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
+    static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
 
     /// The page's file name, as hand edits name it.
     private var pageFile: String { url.lastPathComponent }

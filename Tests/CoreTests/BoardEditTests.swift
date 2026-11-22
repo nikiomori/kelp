@@ -46,3 +46,19 @@ private let board = """
     #expect(BoardEdit.setAttribute(page, id: "intro", name: "style", value: "x") == nil, "only data- attributes")
     #expect(BoardEdit.setAttribute(page, id: "intro", name: "data-start", value: "1\"><script>") == nil)
 }
+
+/// An element taken out leaves no empty line; one copied comes right after it, its data-ids and those inside it
+/// numbered so each stays one of a kind.
+@Test func anElementIsTakenOutOrCopiedWhole() throws {
+    let page = "<div data-id=\"a\">\n  <p data-id=\"t\">Hi <b>x</b></p>\n  <img data-id=\"i\" src=\"a.png\">\n</div>"
+    #expect(BoardEdit.remove(page, id: "t") == "<div data-id=\"a\">\n  <img data-id=\"i\" src=\"a.png\">\n</div>")
+    #expect(BoardEdit.remove(page, id: "i") == "<div data-id=\"a\">\n  <p data-id=\"t\">Hi <b>x</b></p>\n</div>")
+    let copied = try #require(BoardEdit.duplicate(page, id: "t"))
+    #expect(copied.id == "t-2")
+    #expect(copied.text.contains("<p data-id=\"t\">Hi <b>x</b></p>\n  <p data-id=\"t-2\">Hi <b>x</b></p>"))
+    let whole = try #require(BoardEdit.duplicate(copied.text, id: "a"))
+    // t-2 is taken, so the whole copy takes the next number free for all its ids
+    #expect(whole.id == "a-3" && whole.text.contains("data-id=\"t-2-3\"") && whole.text.contains("data-id=\"t-3\""))
+    #expect(BoardEdit.setAttribute(page, id: "i", name: "src", value: "b.png")?.contains("src=\"b.png\"") == true)
+    #expect(BoardEdit.remove(page, id: "none") == nil)
+}

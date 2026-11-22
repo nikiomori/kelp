@@ -48,3 +48,33 @@ extension OneAtATime {
         #expect(try await waitFor(5) { editor.text == page })
     }
 }
+
+extension OneAtATime {
+    /// A scene copied comes right after itself in time, and the scenes after it move later by its length; an element
+    /// taken out is gone from the page.
+    @Test func aSceneCopiedComesAfterItselfAndPushesTheRest() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <body data-width="1920" data-height="1080">
+            <section data-id="a" data-start="0" data-duration="2"><h1 data-id="t">Hi</h1></section>
+            <section data-id="b" data-start="2" data-duration="3"></section>
+            </body>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        tab.motionMessage([
+            "t": 0, "duration": 5,
+            "scenes": [
+                ["id": "a", "title": "A", "start": 0, "duration": 2],
+                ["id": "b", "title": "B", "start": 2, "duration": 3]
+            ]
+        ])
+        _ = tab.canvasMessage("duplicate", ["board": "motion.html", "id": "a"])
+        #expect(editor.text.contains(#"data-id="a-2" data-start="2" data-duration="2""#))
+        #expect(editor.text.contains(#"data-id="t-2""#))
+        #expect(editor.text.contains(#"data-id="b" data-start="4""#))
+        _ = tab.canvasMessage("remove", ["board": "motion.html", "id": "t"])
+        #expect(!editor.text.contains(#"data-id="t""#) && editor.text.contains(#"data-id="t-2""#))
+    }
+}

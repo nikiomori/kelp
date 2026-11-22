@@ -29,6 +29,10 @@ final class MotionTimeline: NSView {
     /// A clip moved or trimmed: as it was, and as it is now. A scene is on lane 0.
     var onClip: ((Clip, Clip, Int) -> Void)?
     var onChoose: ((String) -> Void)?
+    /// A clip taken out (⌫) or copied (⌘D, or from its menu): its `data-id`, and whether to copy it.
+    var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
+    /// The clip clicked last, which ⌫ and ⌘D act on.
+    private var picked: String?
 
     private static let names: CGFloat = 112, ruler: CGFloat = 20, lane: CGFloat = 24, most = 6
     private var lanes: Int { 1 + min(tracks.count, Self.most) }
@@ -154,6 +158,8 @@ final class MotionTimeline: NSView {
             }
             if lane > 0 { onChoose?(clip.id) }
             guard !clip.id.isEmpty else { return }
+            picked = clip.id
+            window?.makeFirstResponder(self)
             let rect = box(clip, lane: lane)
             let edge = clip.trims ? 6.0 : 0
             drag =
@@ -195,6 +201,37 @@ final class MotionTimeline: NSView {
         dragged = nil
         draggedLane = 0
         needsDisplay = true
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        guard let picked, [51, 117].contains(event.keyCode) else { return super.keyDown(with: event) }   // ⌫, ⌦
+        onRemove?(picked)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard window?.firstResponder === self, let picked, event.modifierFlags.contains(.command),
+            event.charactersIgnoringModifiers == "d"
+        else { return super.performKeyEquivalent(with: event) }
+        onDuplicate?(picked)
+        return true
+    }
+
+    /// A clip's menu: Duplicate and Delete.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let p = convert(event.locationInWindow, from: nil)
+        let lanes = [scenes] + tracks.prefix(Self.most).map { [$0] }
+        for (lane, clips) in lanes.enumerated() {
+            guard let clip = clips.first(where: { box($0, lane: lane).contains(p) }), !clip.id.isEmpty else { continue }
+            picked = clip.id
+            let menu = NSMenu()
+            menu.add(String(localized: "Duplicate"), key: "d") { [weak self] in self?.onDuplicate?(clip.id) }
+            menu.addItem(.separator())
+            menu.add(String(localized: "Delete")) { [weak self] in self?.onRemove?(clip.id) }
+            return menu
+        }
+        return nil
     }
 
     override func resetCursorRects() {

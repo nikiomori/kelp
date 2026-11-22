@@ -8,6 +8,8 @@ import Foundation
 /// from the top left, so its lines don't break anew;
 /// - the arrows move it a point, Shift ten;
 /// - with an element chosen, pointing at another shows the distance between them in the board's points.
+/// - ⌫ takes it out and ⌘D copies it (`remove`, `duplicate`); a right click asks for its menu (`menu`), and
+/// `kelpArrange(front)` brings it in front of its siblings or sends it behind them.
 /// An element whose own animation moves or sizes it isn't moved by hand: its tag says so. What changed goes to
 /// `kelpSync` as `styles` (the board, the data-id and each property changed), once the drag ends.
 enum CanvasHandles {
@@ -187,6 +189,36 @@ enum CanvasHandles {
             Object.assign(n.style, { left: left + (x0 + x1) / 2 * k + 'px', top: top + (y0 + y1) / 2 * k + 'px' });
             guides.append(g, n);
           }
+          // ⌫ takes the chosen element out, ⌘D copies it; a right click chooses an element and asks for its menu.
+          addEventListener('keydown', ev => {
+            const t = ev.target;
+            if (K.mode() !== 'edit' || !at || !idOf(at.e)) return;
+            if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+            const kind = ev.key === 'Backspace' || ev.key === 'Delete' ? 'remove'
+              : ev.metaKey && ev.key.toLowerCase() === 'd' ? 'duplicate' : null;
+            if (!kind) return;
+            ev.preventDefault();
+            K.post({ kind, board: at.f.dataset.board, id: idOf(at.e) });
+          });
+          K.sheet.addEventListener('contextmenu', ev => {
+            if (K.mode() !== 'edit') return;
+            const hit = K.under(ev, false), id = hit && idOf(hit.e);
+            if (!id) return;
+            ev.preventDefault();
+            window.kelpSelect?.(hit.f.dataset.board, id);
+            K.post({ kind: 'selected', board: hit.f.dataset.board, id });
+            K.post({ kind: 'menu', board: hit.f.dataset.board, id, image: hit.e.tagName === 'IMG' });
+          });
+          // Brings the chosen element in front of the others beside it, or sends it behind them.
+          window.kelpArrange = front => {
+            if (!at || !idOf(at.e)) return;
+            const e = at.e, zs = [...(e.parentElement?.children || [])].filter(o => o !== e)
+              .map(o => parseInt(css(o).zIndex) || 0);
+            const z = front ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1, props = { 'z-index': String(z) };
+            if (css(e).position === 'static') props.position = 'relative';
+            for (const [p, v] of Object.entries(props)) e.style.setProperty(p, v);
+            K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(e), props });
+          };
           window.kelpHandles = { busy: () => busy };
         """
 

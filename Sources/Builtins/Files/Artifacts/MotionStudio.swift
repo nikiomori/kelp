@@ -10,6 +10,8 @@ final class MotionStudio {
     private(set) lazy var view: NSView = {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
+        timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
+        timeline.onDuplicate = { [weak self] id in self?.onDuplicate?(id) }
         timeline.onChoose = { [weak self] id in
             self?.chose(id)
             self?.onChoose?(id)
@@ -44,10 +46,14 @@ final class MotionStudio {
     var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
     private(set) var at = 0.0
+    /// The page's scenes, as the timeline shows them.
+    private(set) var scenes: [MotionTimeline.Clip] = []
     /// The frames a second the arrows step by and a video is made at.
     var fps = 30.0
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
     var onChoose: ((String) -> Void)?
+    /// A clip taken out or copied on the timeline: its `data-id`.
+    var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
 
     /// `act` runs a call on the page (`window.kelpMotion`).
     init(act: @escaping (String) -> Void) { self.act = act }
@@ -67,6 +73,7 @@ final class MotionStudio {
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
         size.stringValue = "\(state.width) × \(state.height) · \(Int(fps)) fps"
         timeline.set(at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks)
+        scenes = state.scenes
     }
 
     /// The element chosen on the page, whose lane stands out ("" for none).

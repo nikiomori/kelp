@@ -52,10 +52,10 @@ public enum BoardEdit {
         return out
     }
 
-    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none. Only a `data-` name and a
-    /// value that can't end the attribute are taken (the times a motion page's timeline sets).
+    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none. Only a `data-` name or
+    /// `src`, and a value that can't end the attribute, are taken (a motion page's times, an image replaced).
     public static func setAttribute(_ source: String, id: String, name: String, value: String) -> String? {
-        guard name.hasPrefix("data-"), name.allSatisfy({ $0.isLetter || $0 == "-" }),
+        guard name.hasPrefix("data-") || name == "src", name.allSatisfy({ $0.isLetter || $0 == "-" }),
             !value.contains(where: { "\"<>&".contains($0) }), let tag = openingTag(source, id: id)
         else { return nil }
         var opening = String(source[tag])
@@ -94,14 +94,50 @@ public enum BoardEdit {
         return start..<source.index(after: end)
     }
 
-    /// Returns the whole element with `data-id="id"`, from its opening tag to its closing one, counting the same tags
-    /// opened inside it. nil when there is no such element, more than one, or it isn't closed.
+    /// Returns the whole element with `data-id="id"` (`elementRange`).
     public static func element(_ source: String, id: String) -> String? {
+        elementRange(source, id: id).map { String(source[$0]) }
+    }
+
+    /// Takes element `id` out, with the line it stood on when it stood alone there.
+    public static func remove(_ source: String, id: String) -> String? {
+        guard var range = elementRange(source, id: id) else { return nil }
+        let before = source[..<range.lowerBound].reversed().prefix(while: { $0 == " " || $0 == "\t" })
+        if source[range.upperBound...].first == "\n",
+            source[..<range.lowerBound].dropLast(before.count).last.map({ $0 == "\n" }) ?? true
+        {
+            range = source.index(range.lowerBound, offsetBy: -before.count)..<source.index(after: range.upperBound)
+        }
+        var out = source
+        out.removeSubrange(range)
+        return out
+    }
+
+    /// Puts a copy of element `id` right after it, on a line of its own when it stood on one. The copy's data-ids,
+    /// its own and those inside it, get a number (`title-2`) that no element has yet. Returns the text and the copy's
+    /// id.
+    public static func duplicate(_ source: String, id: String) -> (text: String, id: String)? {
+        guard let range = elementRange(source, id: id) else { return nil }
+        let copy = String(source[range])
+        let ids = copy.matches(of: /data-id="([^"]*)"/).map { String($0.output.1) }
+        guard let n = (2...999).first(where: { n in ids.allSatisfy { !source.contains("data-id=\"\($0)-\(n)\"") } })
+        else { return nil }
+        let renamed = copy.replacing(/data-id="([^"]*)"/) { "data-id=\"\($0.output.1)-\(n)\"" }
+        let indent = source[..<range.lowerBound].reversed().prefix(while: { $0 == " " || $0 == "\t" })
+        let alone = source[..<range.lowerBound].dropLast(indent.count).last.map { $0 == "\n" } ?? true
+        var out = source
+        out.insert(contentsOf: (alone ? "\n" + String(indent.reversed()) : "") + renamed, at: range.upperBound)
+        return (out, "\(id)-\(n)")
+    }
+
+    /// The range of the whole element with `data-id="id"`, from its opening tag to its closing one, counting the same
+    /// tags opened inside it. nil when there is no such element, more than one, or it isn't closed.
+    static func elementRange(_ source: String, id: String) -> Range<String.Index>? {
         guard let tag = openingTag(source, id: id) else { return nil }
         let name = source[tag].dropFirst().prefix(while: { $0.isLetter || $0.isNumber || $0 == "-" }).lowercased()
         let voids: Set = ["img", "br", "hr", "input", "meta", "link", "source", "area", "col", "embed", "wbr"]
         guard !name.isEmpty else { return nil }
-        if voids.contains(name) || source[tag].hasSuffix("/>") { return String(source[tag]) }
+        if voids.contains(name) || source[tag].hasSuffix("/>") { return tag }
         var depth = 1, at = tag.upperBound
         while depth > 0, let lt = source[at...].firstIndex(of: "<") {
             let rest = source[source.index(after: lt)...]
@@ -110,7 +146,7 @@ public enum BoardEdit {
             if word.lowercased() == name { depth += closing ? -1 : 1 }
             at = source[lt...].firstIndex(of: ">").map(source.index(after:)) ?? source.endIndex
         }
-        return depth == 0 ? String(source[tag.lowerBound..<at]) : nil
+        return depth == 0 ? tag.lowerBound..<at : nil
     }
 
     static func escape(_ text: String) -> String {
