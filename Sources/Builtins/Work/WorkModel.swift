@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import WorkbenchKit
 
@@ -76,13 +77,14 @@ final class WorkModel {
     }
 
     static func icon(_ agent: AgentWork.Agent, app: AppModel?, size: CGFloat) -> NSImage? {
-        guard agent.role != .subagent else {
-            // A copy: the symbol's image may be shared, and its size is changed here.
-            let image = (NSImage.symbol("person.crop.square").copy() as? NSImage) ?? NSImage()
-            image.size = NSSize(width: size, height: size)
-            return image
-        }
-        return app?.catalog.icon(agent.agent, size: size)
+        agent.role == .subagent ? subagentMark(size) : app?.catalog.icon(agent.agent, size: size)
+    }
+
+    /// The subagents' mark, in the secondary label's colour, so it reads on light and dark alike when drawn by hand.
+    static func subagentMark(_ size: CGFloat) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: size, weight: Metrics.iconWeight)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [.secondaryLabelColor]))
+        return NSImage.symbol("person.crop.square").withSymbolConfiguration(config)
     }
 
     /// The project's folder name, for the top layer.

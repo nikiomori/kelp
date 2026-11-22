@@ -12,6 +12,8 @@ final class WorkMapView: NSView {
     var agentIcon: NSImage?
     var icons: [NSImage?] = []   // each agent's logo, by its index in the work
     var names: [String] = []
+    /// The work's agents, to tell a subagent from the session's own (`AgentMarks`).
+    var agents: [AgentWork.Agent] = []
     var now: String? { didSet { if now != oldValue { needsDisplay = true } } }
     var selected: String? { didSet { if selected != oldValue { needsDisplay = true } } }
     var onActivate: (MapNode) -> Void = { _ in }
@@ -67,7 +69,8 @@ final class WorkMapView: NSView {
         case .agent: return Metrics.iconMenu
         case .group, .folder: return text(node).size().width
         default:
-            let logos = CGFloat(node.agents.count) * (Metrics.iconSmall + Metrics.lineGap)
+            let logos =
+                CGFloat(AgentMarks.of(node.agents, agents: agents).count + 1) * (Metrics.iconSmall + Metrics.lineGap)
             let badge = node.place?.worktree.map { badgeText($0).size().width + Metrics.gap * 2 } ?? 0
             return Metrics.inset + text(node).size().width + badge + logos + Metrics.gap
         }
@@ -95,7 +98,7 @@ final class WorkMapView: NSView {
 
     private func badgeText(_ worktree: String) -> NSAttributedString {
         NSAttributedString(
-            string: "⎇ " + worktree,
+            string: "⎇ " + WorkWords.worktree(worktree),
             attributes: [.font: NSFont.ui(TextSize.micro), .foregroundColor: NSColor.secondaryLabelColor])
     }
 
@@ -170,7 +173,7 @@ final class WorkMapView: NSView {
         switch node.kind {
         case .agent:
             let s = Metrics.iconMenu
-            agentIcon?.draw(in: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s))
+            draw(agentIcon, in: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s))
         case .group, .folder:
             NSColor.secondaryLabelColor.setFill()
             NSBezierPath(ovalIn: NSRect(x: p.x - r + 0.5, y: p.y - r + 0.5, width: 2 * r - 1, height: 2 * r - 1)).fill()
@@ -236,11 +239,31 @@ final class WorkMapView: NSView {
             badge.draw(at: NSPoint(x: box.minX + Metrics.gapTight, y: box.minY + 1))
             x = box.maxX + Metrics.gap
         }
-        for agent in node.agents where icons.indices.contains(agent) {
-            let s = Metrics.iconSmall
-            icons[agent]?.draw(in: NSRect(x: x, y: p.y - s / 2, width: s, height: s))
-            x += s + Metrics.lineGap
+        let s = Metrics.iconSmall
+        for mark in AgentMarks.of(node.agents, agents: agents) {
+            switch mark {
+            case .agent(let index):
+                draw(
+                    icons.indices.contains(index) ? icons[index] : nil,
+                    in: NSRect(x: x, y: p.y - s / 2, width: s, height: s))
+                x += s + Metrics.lineGap
+            case .subagents(let list):
+                draw(WorkModel.subagentMark(s), in: NSRect(x: x, y: p.y - s / 2, width: s, height: s))
+                x += s + Metrics.lineGap
+                if list.count > 1 {
+                    let count = NSAttributedString(
+                        string: "×\(list.count)",
+                        attributes: [.font: caption, .foregroundColor: NSColor.secondaryLabelColor])
+                    count.draw(at: NSPoint(x: x, y: p.y - count.size().height / 2))
+                    x += count.size().width + Metrics.lineGap
+                }
+            }
         }
+    }
+
+    /// Draws an image the right way up in this flipped view, at its full sharpness.
+    private func draw(_ image: NSImage?, in rect: NSRect) {
+        image?.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
     }
 
     // MARK: Pointer, keys, VoiceOver

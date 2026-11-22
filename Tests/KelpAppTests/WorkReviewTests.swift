@@ -225,6 +225,21 @@ private func sampleWork() -> AgentWork {
     steps.show(work, names: ["claude", "Explore"], app: rig.app, filter: nil)
     #expect(steps.table.numberOfRows == 10)   // the subagent's two reads of one file are one row
     shot(steps.scroll, "steps")
+    // A turn with a dozen subagents that never report back: lanes close after each one's last step.
+    var crowded = work
+    crowded.agents = [work.agents[0]] + (1...12).map { .init(role: .subagent, agent: "claude", name: "Explore \($0)") }
+    let t = Date(timeIntervalSince1970: 0)
+    crowded.steps = (1...12).flatMap { n -> [AgentWork.Step] in
+        var spawn = AgentWork.Step(agent: 0, kind: .spawn, tool: "Task", detail: "look \(n)", at: t)
+        spawn.other = n
+        return [spawn, AgentWork.Step(agent: n, kind: .read, tool: "Read", detail: "Sources/F\(n).swift", at: t)]
+    } + [AgentWork.Step(agent: 0, kind: .edit, tool: "Edit", detail: "Sources/App.swift", at: t)]
+    let many = StepsList()
+    many.scroll.frame = NSRect(x: 0, y: 0, width: 300, height: 600)
+    let win3 = window(many.scroll, many.scroll.frame.size)
+    _ = win3
+    many.show(crowded, names: ["claude"] + (1...12).map { "Explore \($0)" }, app: rig.app, filter: nil)
+    shot(many.scroll, "steps-many")
     let files = WorkFileList()
     files.scroll.frame = NSRect(x: 0, y: 0, width: 380, height: 160)
     let win2 = window(files.scroll, files.scroll.frame.size)

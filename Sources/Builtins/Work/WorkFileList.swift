@@ -68,10 +68,23 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             }
         }
         if let worktree = place.worktree { parts.append(Self.badge(worktree)) }
-        for index in place.agents.sorted() where agents.indices.contains(index) {
-            let logo = NSImageView(image: WorkModel.icon(agents[index], app: app, size: Metrics.iconSmall) ?? NSImage())
-            logo.toolTip = names.indices.contains(index) ? names[index] : nil
-            parts.append(logo)
+        for mark in AgentMarks.of(place.agents, agents: agents) {
+            switch mark {
+            case .agent(let index):
+                let logo = NSImageView(
+                    image: WorkModel.icon(agents[index], app: app, size: Metrics.iconSmall) ?? NSImage())
+                logo.toolTip = names.indices.contains(index) ? names[index] : nil
+                parts.append(logo)
+            case .subagents(let list):
+                let logo = NSImageView(image: WorkModel.subagentMark(Metrics.iconSmall) ?? NSImage())
+                logo.toolTip = list.compactMap { names.indices.contains($0) ? names[$0] : nil }.joined(separator: ", ")
+                parts.append(logo)
+                if list.count > 1 {
+                    parts.append(
+                        NSTextField.label(
+                            "×\(list.count)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor))
+                }
+            }
         }
         let read = WorkWords.reads(place)
         let loop = place.reads >= 3 ? "↻ " : ""
@@ -106,7 +119,8 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 
     /// The worktree a file was touched in, as a grey chip.
     static func badge(_ worktree: String) -> NSView {
-        let label = NSTextField.label("⎇ " + worktree, font: .ui(TextSize.micro), color: .secondaryLabelColor)
+        let label = NSTextField.label(
+            "⎇ " + WorkWords.worktree(worktree), font: .ui(TextSize.micro), color: .secondaryLabelColor)
         label.wantsLayer = true
         label.layer?.backgroundColor = NSColor.fillSelected.cgColor
         label.layer?.cornerRadius = Metrics.radiusXS

@@ -36,6 +36,8 @@ final class WorkMapController: NSViewController {
     override func loadView() {
         agents.onPick = { [weak self] in self?.model.agent = $0 }
         agents.trailing = false
+        agents.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        agents.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         turnPop.target = self
         turnPop.action = #selector(pickTurn)
         turnPop.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -138,6 +140,7 @@ final class WorkMapController: NSViewController {
         agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
         let names = model.agentNames
         tree.names = names
+        tree.agents = work.agents
         tree.icons = model.icons(size: Metrics.iconSmall)
         tree.agentIcon = app.session(session).flatMap { app.catalog.icon($0.agent, size: Metrics.iconMenu) }
         let working = app.session(session)?.status == .working

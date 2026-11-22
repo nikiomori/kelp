@@ -59,10 +59,10 @@ final class WorkPanel: NSViewController {
         views.controlSize = .small
         views.selectedSegment = 1
         agents.onPick = { [weak self] in self?.model.agent = $0 }
-        turnPop.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        turnPop.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         turnPop.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.formLabel + 2 * Metrics.blockGap).isActive =
             true
-        name.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // the name gives way first
         let controls = NSStackView(views: [views, agents])
         controls.spacing = Metrics.gap
         controls.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)

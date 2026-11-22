@@ -106,7 +106,12 @@ final class OutsideChips: NSView {
     override func layout() {
         super.layout()
         let gap = Metrics.gapTight, height = bounds.height
-        func moreWords(_ count: Int) -> String { count == 0 ? "" : String(localized: "+ \(count) more") }
+        // Only the agent's own folders left over: their names say more than a count ("+ /tmp, ~/.claude").
+        func moreWords(_ count: Int) -> String {
+            if count == 0 { return "" }
+            return count == own.count
+                ? "+ " + own.map(\.name).joined(separator: ", ") : String(localized: "+ \(count) more")
+        }
         // Each chip goes in if it and, should any be left after it, the "+ N more" after it still fit.
         var x: CGFloat = 0, shown = 0
         for (index, chip) in chips.enumerated() {
@@ -114,9 +119,11 @@ final class OutsideChips: NSView {
             let left = chips.count - index - 1 + own.count
             more.stringValue = moreWords(left)
             let reserve = left == 0 ? 0 : gap + more.fittingSize.width
-            guard x + width + reserve <= bounds.width else { break }
-            chip.frame = NSRect(x: x, y: 0, width: width, height: height)
-            x += width + gap
+            // The first always shows, cut in the middle if it must, so the row never holds only "+ N more".
+            let room = bounds.width - x - reserve
+            guard width <= room || index == 0 else { break }
+            chip.frame = NSRect(x: x, y: 0, width: max(0, min(width, room)), height: height)
+            x += chip.frame.width + gap
             shown += 1
         }
         for (index, chip) in chips.enumerated() { chip.isHidden = index >= shown }

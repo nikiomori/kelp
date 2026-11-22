@@ -41,3 +41,26 @@ enum WorkWords {
         return parts.map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: " · ")
     }
 }
+
+/// Who touched a place, as marks: each of the session's own agents (its logo), then all its subagents as one mark with
+/// their count, as a turn can start dozens of them and a row of identical marks says nothing.
+enum AgentMarks {
+    enum Mark: Equatable {
+        case agent(Int)
+        case subagents([Int])
+    }
+
+    static func of(_ who: [Int], agents: [AgentWork.Agent]) -> [Mark] {
+        let known = who.sorted().filter { agents.indices.contains($0) }
+        let subagents = known.filter { agents[$0].role == .subagent }
+        let own = known.filter { agents[$0].role != .subagent }.map(Mark.agent)
+        return own + (subagents.isEmpty ? [] : [.subagents(subagents)])
+    }
+}
+
+extension WorkWords {
+    /// A worktree's name as a badge shows it: a subagent's own worktree (`agent-a3eb6caaa616ad498`) as `agent-a3eb…`.
+    static func worktree(_ name: String) -> String {
+        name.count > 14 ? String(name.prefix(10)) + "…" : name
+    }
+}

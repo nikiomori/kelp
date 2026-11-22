@@ -80,7 +80,8 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
 @Test func theMapLaysOutLeavesAndParents() {
     var site = AgentWork.Place(kind: .web, name: "example.com")
     site.agents = [0]
-    let tree = WorkTree.project(work([file("A/a.swift"), file("A/b.swift"), file("A/c.swift"), file("A/d.swift")]), rootName: "K")
+    let tree = WorkTree.project(
+        work([file("A/a.swift"), file("A/b.swift"), file("A/c.swift"), file("A/d.swift")]), rootName: "K")
     let nodes = NodeTree.nodes(project: tree, outside: [site], opened: ["A"])
     let at = NodeTree.layout(nodes, width: { _ in 50 }, step: 20, gap: 10)
     let leaves = ["A/a.swift", "A/b.swift", "A/c.swift", "A/d.swift"].compactMap { at[$0]?.y }
@@ -110,6 +111,15 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(rows[2].lane == 1)
     #expect(rows[4].lane == 1 && rows[4].after == [0])
     #expect(StepRow.make([step(0, .read), step(1, .read)], filter: 1).count == 1)
+    // A subagent that never reports gives its lane back after its last step; past five lanes, agents share the last.
+    let quiet = StepRow.make([step(0, .spawn, other: 1), step(1, .read, "x"), step(0, .edit, "y")], filter: nil)
+    #expect(quiet[1].after == [0] && quiet[2].before == [0])
+    let many = StepRow.make(
+        (1...12).flatMap { [step(0, .spawn, other: $0), step($0, .read, "f\($0)")] } + [step(0, .command)], filter: nil)
+    #expect(many.allSatisfy { $0.lane < StepRow.maxLanes })
+    let crowded = StepRow.make(
+        (1...12).map { step(0, .spawn, other: $0) } + (1...12).map { step($0, .edit, "f\($0)") }, filter: nil)
+    #expect(crowded.allSatisfy { $0.lane < StepRow.maxLanes && $0.before.count <= StepRow.maxLanes })
 }
 
 /// The card under the pointer is as wide as its words (up to its width), not squeezed to the narrowest they allow.

@@ -29,8 +29,11 @@ final class AgentPicker: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// In the panel's row it asks for no width (it takes what is left); in the Map tab's bar it asks for its own.
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: Metrics.segment.height)
+        guard !trailing else { return NSSize(width: NSView.noIntrinsicMetric, height: Metrics.segment.height) }
+        let chosen: NSView = agents.count <= 3 ? segments : popup
+        return NSSize(width: chosen.fittingSize.width, height: Metrics.segment.height)
     }
 
     /// The agents present in `work` (in its places or steps), by their index.
@@ -52,6 +55,7 @@ final class AgentPicker: NSView {
             popup.removeAllItems()
             popup.addItems(withTitles: [String(localized: "All Agents")] + names)
             needsLayout = true
+            invalidateIntrinsicContentSize()
         }
         let index = picked.flatMap { agents.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
         segments.selectedSegment = index

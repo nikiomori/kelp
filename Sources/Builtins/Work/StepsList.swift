@@ -16,6 +16,9 @@ struct StepRow: Equatable {
     var link: Int?
 
     /// Folds and lays out a turn's steps. With `filter`, only that agent's.
+    /// The most lanes beside the steps: the session's agent and four others.
+    static let maxLanes = 5
+
     static func make(_ steps: [AgentWork.Step], filter: Int?) -> [StepRow] {
         var rows: [StepRow] = []
         for step in steps where filter.map({ step.agent == $0 || step.other == $0 }) ?? true {
@@ -31,11 +34,21 @@ struct StepRow: Equatable {
             }
             rows.append(StepRow(step: step))
         }
-        var lanes: [Int: Int] = [0: 0], open: Set<Int> = [0]
+        // An agent's lane opens at its first row and closes at its last (a report, or its last step if it never
+        // reported back). At most `maxLanes`: past that, agents share the last one, so dozens of subagents stay
+        // readable.
+        var last: [Int: Int] = [:]
+        for (index, row) in rows.enumerated() {
+            last[row.step.agent] = index
+            if let other = row.step.other, row.step.kind == .spawn { last[other] = max(last[other] ?? index, index) }
+        }
+        var lanes: [Int: Int] = [0: 0], users: [Int: Set<Int>] = [0: [0]]
+        var open: Set<Int> { Set(users.filter { !$0.value.isEmpty }.keys) }
         func lane(_ agent: Int) -> Int {
             if let known = lanes[agent] { return known }
-            let free = (1...).first { !open.contains($0) } ?? 1
+            let free = (1..<maxLanes).first { users[$0, default: []].isEmpty } ?? maxLanes - 1
             lanes[agent] = free
+            users[free, default: []].insert(agent)
             return free
         }
         for index in rows.indices {
@@ -43,19 +56,16 @@ struct StepRow: Equatable {
             let step = rows[index].step
             switch step.kind {
             case .spawn:
-                let to = step.other.map(lane) ?? 0
-                rows[index].lane = to
                 rows[index].link = lane(step.agent)
-                open.insert(to)
+                rows[index].lane = step.other.map(lane) ?? 0
             case .report:
-                let from = lane(step.agent)
-                rows[index].lane = from
+                rows[index].lane = lane(step.agent)
                 rows[index].link = step.other.map(lane) ?? 0
-                open.remove(from)
             default:
-                let at = lane(step.agent)
-                rows[index].lane = at
-                open.insert(at)
+                rows[index].lane = lane(step.agent)
+            }
+            for (agent, end) in last where end == index && agent != 0 {
+                if let at = lanes[agent] { users[at]?.remove(agent) }
             }
             rows[index].after = open
         }
