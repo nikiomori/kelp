@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ImageIO
 import TestSupport
 import Testing
 
@@ -120,4 +121,23 @@ extension OneAtATime {
         tab.undoHandEdit(redo: false)
         #expect(try await waitFor(5) { editor.text == page })
     }
+}
+
+/// A GIF loops at 30 frames a second at most, and holds each frame it was given.
+@Test func aGIFHoldsEachFrameAtThirtyAtMost() throws {
+    #expect(MotionExport(format: .gif, fps: 60).rate == 30)
+    #expect(MotionExport(format: .mp4, fps: 60).rate == 60)
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("motion-\(UUID().uuidString).gif")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let gif = try MotionGIF(url, frames: 2, fps: 24)
+    let context = try #require(
+        CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let frame = try #require(context.makeImage())
+    gif.add(frame)
+    gif.add(frame)
+    try gif.finish()
+    let read = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+    #expect(CGImageSourceGetCount(read) == 2)
 }

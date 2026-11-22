@@ -167,6 +167,7 @@ enum MotionPage {
             },
             // How fast it plays (1 as made), and whether it starts over at the end.
             setRate(r) { rate = r; },
+            setFPS(f) { FPS = f; },
             setLoop(on) { loop = on; },
             // The stage on screen, and its own size, for the export's pictures.
             stage() {

@@ -30830,16 +30830,6 @@
         }
       }
     },
-    "An MP4 of the whole page, frame by frame": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MP4 всей страницы, кадр за кадром"
-          }
-        }
-      }
-    },
     "Exporting %lld%%": {
       "localizations": {
         "ru": {
@@ -31026,6 +31016,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Повторять с начала"
+          }
+        }
+      }
+    },
+    "Frame Rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частота кадров"
+          }
+        }
+      }
+    },
+    "Size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер"
+          }
+        }
+      }
+    },
+    "Export…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировать…"
+          }
+        }
+      }
+    },
+    "An MP4 or a GIF of the whole page, frame by frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MP4 или GIF всей страницы, кадр за кадром"
           }
         }
       }

@@ -19,7 +19,7 @@ final class MotionStudio {
             self?.chose(id)
             self?.onChoose?(id)
         }
-        export.toolTip = String(localized: "An MP4 of the whole page, frame by frame")
+        export.toolTip = String(localized: "An MP4 or a GIF of the whole page, frame by frame")
         let controls = Bar.content(
             [
                 play,
@@ -66,9 +66,12 @@ final class MotionStudio {
     private lazy var size = TextButton("") { [weak self] in self?.formatMenu() }
     private var stage = (width: 1920, height: 1080)
     private let timeline = MotionTimeline()
-    private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.onExport?() }
+    private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.chooseExport() }
+    /// How the last video was made, offered again.
+    private var exportOptions = MotionExport()
+    private var exportPopover: MotionExportPopover?
     private let act: (String) -> Void
-    var onExport: (() -> Void)?
+    var onExport: ((MotionExport) -> Void)?
     /// A clip moved or trimmed on the timeline: as it was, as it is now, and its lane (0 for the scenes).
     var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
@@ -143,6 +146,18 @@ final class MotionStudio {
                 .state = (f.width, f.height) == stage ? .on : .off
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: size.bounds.maxY + 4), in: size)
+    }
+
+    private func chooseExport() {
+        let popover = MotionExportPopover(exportOptions, stage: stage) { [weak self] options in
+            guard let self else { return }
+            exportOptions = options
+            fps = options.rate
+            act("window.kelpMotion?.setFPS(\(fps))")
+            onExport?(options)
+        }
+        exportPopover = popover
+        popover.show(below: export)
     }
 
     /// 0.25 as `0.25×`, 1 as `1×`.
