@@ -17,19 +17,26 @@ extension MarkdownTab {
     func makeMotionStudio() -> MotionStudio {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] in self?.exportVideo() }
+        made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onClip = { [weak self] was, now, lane in
             lane == 0 ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
         }
         return made
     }
 
-    /// The scripts a motion page is drawn with: Kelp's player at the frame rate chosen, back at the time it showed and
-    /// with the element that was chosen.
+    /// The scripts a motion page is drawn with: Kelp's player at the frame rate chosen, back at the time it showed.
     func motionScripts(at: Double) -> [String] {
-        [
-            MotionPage.source(fps: motionStudio.fps), "window.kelpMotion?.seek(\(at))",
-            "window.kelpMotion?.choose(\(Self.js(motionStudio.chosen)))"
-        ]
+        [MotionPage.source(fps: motionStudio.fps), "window.kelpMotion?.seek(\(at))"]
+    }
+
+    /// Chooses element `id` on the stage, as a click in Edit does, turning Edit on.
+    func chooseOnStage(_ id: String) {
+        if !editing {
+            setCanvasMode(.edit)
+            onPageMode?(.edit)
+        }
+        chosen = (MotionPage.board, id)
+        runJS("window.kelpSelect?.(\(Self.js(MotionPage.board)), \(Self.js(id)))")
     }
 
     func motionMessage(_ body: [String: Any]) {
@@ -50,26 +57,6 @@ extension MarkdownTab {
                 at: number("t"), length: number("duration"), playing: body["playing"] as? Bool ?? false,
                 width: Int(number("width")), height: Int(number("height")),
                 scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end")))
-    }
-
-    /// Handles what the page says about its elements: one chosen, moved on the stage, or retyped.
-    func motionEdit(_ kind: String, _ body: [String: Any]) {
-        let id = body["id"] as? String ?? ""
-        switch kind {
-        case "motionChose": motionStudio.chose(id)
-        case "motionMove":
-            guard let value = body["translate"] as? String else { return }
-            let was = BoardEdit.style(editor.text, id: id, property: "translate")
-            rewritePage(HandEdit(board: pageFile, id: id, what: "translate", from: was, to: value)) {
-                BoardEdit.setStyle($0, id: id, property: "translate", value: value)
-            }
-        case "motionText":
-            guard let old = body["old"] as? String, let text = body["text"] as? String else { return }
-            rewritePage(HandEdit(board: pageFile, id: id, what: "text", from: old, to: text)) {
-                BoardEdit.setText($0, id: id, old: old, new: text)
-            }
-        default: break
-        }
     }
 
     /// Moves or trims a scene: its `data-start` and `data-duration` become the block's start and length.
@@ -108,9 +95,10 @@ extension MarkdownTab {
     /// The page's file name, as hand edits name it.
     private var pageFile: String { url.lastPathComponent }
 
-    /// Changes the page's text with `change` and saves it, keeping `edit` for the agent and for ⌘Z. The page is drawn
-    /// again at the time it showed. When the element isn't found for sure, nothing changes and the banner says why.
-    private func rewritePage(_ edit: HandEdit, _ change: (String) -> String?) {
+    /// Changes the page's own text with `change` and saves it, keeping `edit` for the agent and for ⌘Z. It goes
+    /// through the editor, so the source shown stays in step; the page is drawn again at the time it showed. When the
+    /// element isn't found for sure, nothing changes and the banner says why.
+    func rewritePage(_ edit: HandEdit, _ change: (String) -> String?) {
         let before = editor.text
         guard let text = change(before) else {
             return Banner.show(
@@ -160,9 +148,11 @@ extension MarkdownTab {
                 try await movie.add(picture, at: at)
             }
             try await movie.finish(at: Double(frames + 1) / Self.videoFPS)
+            runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: frames)
             app.workbench.open(TabURI.file(to.path))
         } catch {
+            runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: 0)
             Banner.show(
                 String(localized: "Couldn’t make the video: \(error.localizedDescription)"), style: .error)

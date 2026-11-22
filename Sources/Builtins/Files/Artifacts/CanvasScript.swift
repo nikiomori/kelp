@@ -24,7 +24,12 @@ enum CanvasScript {
             const wide = canvas.scrollWidth + 80;
             const column = document.body.classList.contains('kelp-with-col') ? 260 : 0;
             const room = document.documentElement.clientWidth - column;
-            const z = chosen || Math.max(0.25, Math.min(1, room / wide));
+            let z = chosen || Math.max(0.25, Math.min(1, room / wide));
+            // A motion page's stage fits the pane both ways, in the middle.
+            const stage = canvas.classList.contains('kelp-motion');
+            const tall = (document.documentElement.clientHeight - 48) / canvas.scrollHeight;
+            if (stage && !chosen) z = Math.min(room / wide, tall);
+            canvas.style.marginLeft = stage ? Math.max(0, (room - 48 - canvas.scrollWidth * z) / 2) + 'px' : '';
             window.kelpZoomNow = z;
             canvas.style.setProperty('--z', z);
             canvas.style.transform = z < 1 ? 'scale(' + z + ')' : '';

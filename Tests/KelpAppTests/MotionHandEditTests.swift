@@ -16,7 +16,8 @@ extension OneAtATime {
         let page = #"<body data-width="1920" data-height="1080"><h1 data-id="title">Hi</h1></body>"#
         let editor = CodeEditor(text: page, url: url)
         let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
-        tab.motionEdit("motionMove", ["id": "title", "translate": "10px 20px"])
+        _ = tab.canvasMessage(
+            "style", ["board": "motion.html", "id": "title", "property": "translate", "value": "10px 20px"])
         let moved = editor.text
         #expect(moved.contains(#"style="translate: 10px 20px""#))
         tab.undoHandEdit(redo: false)

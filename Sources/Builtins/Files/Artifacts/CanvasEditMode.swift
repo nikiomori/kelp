@@ -3,13 +3,14 @@ import Foundation
 /// The script for Edit on a canvas, where the user changes a board by hand without the agent (`kelpEdit(true)` from
 /// the bar). It works on top of the sheet from `CanvasEdit`. A click chooses an element and outlines it. The column
 /// then shows the element's style by section (Text, Layout, Fill), with a way up to its parent. Each row offers the
-/// design system's tokens as chips or swatches, so a hand edit stays in the system. A double click on an element that
+/// design system's tokens as chips or swatches, so a hand edit stays in the system; without a system, the colours and
+/// text sizes the page already uses. A double click on an element that
 /// holds only text lets the user type over it (Enter keeps, Esc drops). It sends `selected` to `kelpSync` (to choose
 /// the element again once the canvas is drawn again), plus `style` and `text`, which the tab writes into the board's
 /// file by the element's data-id (`BoardEdit`).
 enum CanvasEditMode {
     /// The words the column shows, by key: title, parent, asDrawn, noID, typeHint, choose, text, layout, fill, size,
-    /// weight, colour, padding, gap, background, radius.
+    /// weight, colour, padding, gap, background, radius, opacity.
     typealias Labels = [String: String]
 
     static func source(tokens: [String: [String]], labels: Labels) -> String {
@@ -62,8 +63,24 @@ enum CanvasEditMode {
           const rows = [
             ['text', [['size', 'font-size', 'size'], ['weight', 'font-weight', null], ['colour', 'color', 'color']]],
             ['layout', [['padding', 'padding', 'space'], ['gap', 'gap', 'space']]],
-            ['fill', [['background', 'background', 'color'], ['radius', 'border-radius', 'radius']]]
+            ['fill', [['background', 'background', 'color'], ['radius', 'border-radius', 'radius'],
+              ['opacity', 'opacity', null]]]
           ];
+          const fixed = { 'font-weight': ['400', '500', '600'], opacity: ['0.25', '0.5', '0.75', '1'] };
+          // Without a design system, the page's own colours and text sizes are the choices: it is its own system.
+          const bare = !Object.values(T).some(g => g.length);
+          function own(doc, group) {
+            if (!bare || !['color', 'size'].includes(group)) return [];
+            const seen = new Set(), win = doc.defaultView;
+            for (const x of doc.body.querySelectorAll('*')) {
+              const st = win.getComputedStyle(x);
+              if (group === 'size') seen.add(st.fontSize);
+              else for (const c of [st.color, st.backgroundColor]) if (!/, 0\\)$|transparent/.test(c)) seen.add(c);
+            }
+            const list = [...seen].slice(0, 10);
+            if (group === 'size') list.sort((a, b) => parseFloat(a) - parseFloat(b));
+            return list.map(v => [v, v]);
+          }
           function fill() {
             const e = at.e, id = idOf(e), out = [];
             const path = [], up = K.el('button', 'kelp-pill', '↑ ' + L.parent);
@@ -84,7 +101,8 @@ enum CanvasEditMode {
               for (const [word, property, group] of items) {
                 const choices = group
                   ? T[group].map(n => ['var(--' + (group === 'color' ? n : group + '-' + n) + ')', n])
-                  : ['400', '500', '600'].map(w => [w, w]);
+                    .concat(own(e.ownerDocument, group))
+                  : fixed[property].map(w => [w, w]);
                 if (!choices.length) continue;
                 const set = e.style.getPropertyValue(property).trim();
                 const line = K.el('div', 'kelp-prop'), list = K.el('div', 'kelp-choices');
@@ -102,7 +120,7 @@ enum CanvasEditMode {
                   const look = (group === 'color' ? 'kelp-swatch' : 'kelp-chip') + (value === set ? ' on' : '');
                   const b = K.el('button', look,
                     group === 'color' ? '' : name);
-                  if (group === 'color') b.style.background = valueOf(e, '--' + name);
+                  if (group === 'color') b.style.background = name.startsWith('rgb') ? name : valueOf(e, '--' + name);
                   b.title = name;
                   b.onclick = () => pick(value);
                   list.append(b);

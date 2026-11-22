@@ -168,7 +168,8 @@ enum CanvasPage {
         return String(localized: "It isn't {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
-    private static func shell(body: String, dashboard: Bool = false) -> String {
+    /// Kelp's page around the boards. A dashboard and a motion page (`MotionPage`) get their own looks.
+    static func shell(body: String, dashboard: Bool = false, motion: Bool = false) -> String {
         """
         <!doctype html><html><head><meta charset="utf-8"><style>
         :root { color-scheme: light dark; }
@@ -189,7 +190,9 @@ enum CanvasPage {
         \(MarkColumn.style)
         \(CanvasEditMode.style)
         \(dashboard ? DashboardPage.style : "")
-        </style></head><body\(dashboard ? " class=\"kelp-dash\"" : "")>\(body)</body></html>
+        \(motion ? MotionPage.style : "")
+        </style></head><body\(dashboard ? " class=\"kelp-dash\"" : motion ? " class=\"kelp-motion-page\"" : "")>\(body)\
+        </body></html>
         """
     }
 

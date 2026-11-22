@@ -101,3 +101,18 @@ private func demo() throws -> (root: URL, folder: URL) {
         view: .init(themes: .light, writer: "Codex"))
     #expect(empty.html.contains("Codex is writing the first one"))
 }
+
+/// A motion page is drawn as a canvas of one board, its stage, at the size its body says, so Mark and Edit work on
+/// it; a stage that says no size is 1920 × 1080.
+@Test func aMotionPageIsAStageBoardAtItsOwnSize() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("motion-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let built = MotionPage.build(
+        #"<html><body data-height="1920" data-width="1080"><h1 data-id="t">Hi</h1></body></html>"#,
+        folder: folder, root: folder.path)
+    #expect(built.html.contains(#"data-board="motion.html""#))
+    #expect(built.html.contains(#"data-w="1080" data-h="1920""#))
+    #expect(built.html.contains("kelp-motion-page"))
+    #expect(MotionPage.size("<body>") == (1920, 1080))
+}

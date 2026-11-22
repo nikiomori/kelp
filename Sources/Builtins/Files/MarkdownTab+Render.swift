@@ -75,20 +75,24 @@ extension MarkdownTab {
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
                 if kind == .html { return (text, [], nil) }
-                if kind == .motion { return (text, motion, nil) }
-                if kind == .canvas {
+                if kind == .canvas || kind == .motion {
+                    let root = Self.projectRoot(of: base.path)
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
-                    let built = CanvasPage.build(
-                        snapshot, folder: base, root: Self.projectRoot(of: base.path), view: canvasView)
+                    let built =
+                        kind == .motion
+                        ? MotionPage.build(text, folder: base, root: root)
+                        : CanvasPage.build(snapshot, folder: base, root: root, view: canvasView)
                     let around = CanvasChrome.source(
-                        themes: themes.rawValue, labels: chrome, floats: !canvasView.dashboard)
+                        themes: kind == .motion ? "" : themes.rawValue, labels: chrome,
+                        floats: !canvasView.dashboard && kind != .motion)
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
                     let edit = CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,
-                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand] + dash + again,
+                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand] + dash + motion
+                            + again,
                         nil
                     )
                 }
@@ -144,7 +148,8 @@ extension MarkdownTab {
             // A canvas is Kelp's own page, so its scripts run; its boards sit in frames sandboxed without scripts
             // (`CanvasPage`).
             links.load(
-                html, baseURL: base, scripts: scripts + [place], world: Self.world, pageScripts: kind == .canvas,
+                html, baseURL: base, scripts: scripts + [place], world: Self.world,
+                pageScripts: kind == .canvas || kind == .motion,
                 in: web)
             swappable = swap
         }

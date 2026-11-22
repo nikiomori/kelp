@@ -12,7 +12,7 @@ final class MotionStudio {
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onChoose = { [weak self] id in
             self?.chose(id)
-            self?.act("window.kelpMotion?.choose('\(id.filter { $0.isLetter || $0.isNumber || "-_".contains($0) })')")
+            self?.onChoose?(id)
         }
         export.toolTip = String(localized: "An MP4 of the whole page, frame by frame")
         let controls = Bar.content(
@@ -46,8 +46,8 @@ final class MotionStudio {
     private(set) var at = 0.0
     /// The frames a second the arrows step by and a video is made at.
     var fps = 30.0
-    /// The element chosen on the page ("" for none), chosen again when the page is drawn again.
-    var chosen: String { timeline.chosen }
+    /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
+    var onChoose: ((String) -> Void)?
 
     /// `act` runs a call on the page (`window.kelpMotion`).
     init(act: @escaping (String) -> Void) { self.act = act }

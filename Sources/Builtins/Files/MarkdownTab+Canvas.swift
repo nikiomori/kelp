@@ -43,7 +43,6 @@ extension MarkdownTab {
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
         case "motion": motionMessage(body)
         case "undo": undoHandEdit(redo: body["redo"] as? Bool ?? false)
-        case "motionChose", "motionMove", "motionText": motionEdit(kind, body)
         case "review":
             let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
             reviewBar.show(
@@ -56,6 +55,7 @@ extension MarkdownTab {
                     + "canvas.json, keeping their files.")
         case "selected":
             chosen = (body["board"] as? String).flatMap { board in (body["id"] as? String).map { (board, $0) } }
+            if page == .motion { motionStudio.chose(chosen?.id ?? "") }
         case "text":
             guard let board = body["board"] as? String, let old = body["old"] as? String,
                 let text = body["text"] as? String
@@ -136,7 +136,7 @@ extension MarkdownTab {
     enum CanvasMode: Int { case view, mark, edit }
     var canvasMode: CanvasMode {
         if marking { return .mark }
-        if page == .canvas { return editing ? .edit : .view }
+        if page == .canvas || page == .motion { return editing ? .edit : .view }
         guard isViewLoaded else { return startInPreview ? .view : .edit }
         return modeSegment == 2 ? .view : .edit
     }
@@ -144,7 +144,7 @@ extension MarkdownTab {
     /// Sets the mode chosen with View / Mark / Edit in the bar.
     func setCanvasMode(_ mode: CanvasMode) {
         marking = mode == .mark
-        guard page != .canvas else {
+        guard page != .canvas && page != .motion else {
             editing = mode == .edit
             if !editing { chosen = nil }
             return runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
@@ -189,6 +189,10 @@ extension MarkdownTab {
         _ board: String, edit: @escaping (String) -> HandEdit?, _ change: @escaping (String) -> String?
     ) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
+        if path == url.path {   // a motion page's stage is the tab's own file
+            if let made = edit(editor.text) { rewritePage(made, change) }
+            return
+        }
         Task {
             guard let file = await app.call(FilesRead(path: path)) else { return }
             guard let text = change(file.text) else {
@@ -213,7 +217,8 @@ extension MarkdownTab {
             "size": String(localized: "Size"), "weight": String(localized: "Weight"),
             "colour": String(localized: "Colour"),
             "padding": String(localized: "Padding"), "gap": String(localized: "Gap"),
-            "background": String(localized: "Background"), "radius": String(localized: "Radius")
+            "background": String(localized: "Background"), "radius": String(localized: "Radius"),
+            "opacity": String(localized: "Opacity")
         ]
     }
 

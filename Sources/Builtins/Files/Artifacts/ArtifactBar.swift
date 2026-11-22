@@ -100,8 +100,10 @@ final class ArtifactBar: NSObject {
             String(localized: "Click an element to change its style, double-click a text to retype it"), forSegment: 2)
         modes.target = self
         modes.action = #selector(modeChosen)
-        modes.isHidden = ![.canvas, .markdown, .slides].contains(markdown.page)
-        if markdown.page != .canvas {
+        modes.isHidden = ![.canvas, .motion, .markdown, .slides].contains(markdown.page)
+        if markdown.page == .motion {
+            modes.setToolTip(String(localized: "Play it"), forSegment: 0)
+        } else if markdown.page != .canvas {
             modes.setToolTip(String(localized: "Read the page"), forSegment: 0)
             modes.setToolTip(
                 String(localized: "Select text to mark it, then send your notes to the agent"), forSegment: 1)

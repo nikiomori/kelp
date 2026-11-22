@@ -30899,6 +30899,26 @@
           }
         }
       }
+    },
+    "Opacity": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прозрачность"
+          }
+        }
+      }
+    },
+    "Play it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Смотреть"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
