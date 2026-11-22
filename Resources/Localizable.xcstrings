@@ -31209,6 +31209,36 @@
           }
         }
       }
+    },
+    "Play or Pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизвести или пауза"
+          }
+        }
+      }
+    },
+    "Duplicate Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать элемент"
+          }
+        }
+      }
+    },
+    "Delete Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить элемент"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

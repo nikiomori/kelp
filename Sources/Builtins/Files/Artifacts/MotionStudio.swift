@@ -164,6 +164,9 @@ final class MotionStudio {
         onFormat?(Self.formats[i].width, Self.formats[i].height)
     }
 
+    /// Opens Export Video's popover under its button (the command does it too).
+    func openExport() { chooseExport() }
+
     private func chooseExport() {
         let popover = MotionExportPopover(exportOptions, stage: stage) { [weak self] options in
             guard let self else { return }

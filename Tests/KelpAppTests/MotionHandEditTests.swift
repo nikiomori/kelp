@@ -197,3 +197,10 @@ extension OneAtATime {
             "Intro, scene, 0.0 to 2.0 seconds", "Title, hidden, 1.0 to 2.0 seconds", "Mark 3, at 2.5 seconds"
         ])
 }
+
+/// A page's commands (play, export, an element's) can't be chosen while no canvas or motion page is in front.
+@MainActor @Test func aPagesCommandsWaitForThePage() {
+    let commands = Builtins.artifactPageCommands(AppModel())
+    #expect(commands.count == 7)
+    #expect(commands.allSatisfy { $0.enabled?() == false })
+}

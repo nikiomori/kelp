@@ -125,7 +125,15 @@ extension MarkdownTab {
 
     /// Asks for a picture, copies it beside the page, and points image `id` at it.
     func replaceImage(_ board: String, _ id: String) {
-        guard let window = view.window else { return }
+        Task { await askForImage(board, id) }
+    }
+
+    /// The panel for Replace Image…, once the element is found to be an image.
+    private func askForImage(_ board: String, _ id: String) async {
+        let path = url.deletingLastPathComponent().appendingPathComponent(board).path
+        let source = path == url.path ? editor.text : await app.quiet(FilesRead(path: path))?.text
+        guard let window = view.window, BoardEdit.element(source ?? "", id: id)?.lowercased().hasPrefix("<img") == true
+        else { return NSSound.beep() }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
         panel.beginSheetModal(for: window) { [weak self] answer in

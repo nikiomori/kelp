@@ -160,7 +160,7 @@ extension Builtins {
                 cmd("editor.format", "Format Document", "ctrl+shift+i") {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }
-            ],
+            ] + artifactPageCommands(app),
             settings: [editorSettings(app), languagesSettings(app)],
             tabs: [
                 TabProvider(
