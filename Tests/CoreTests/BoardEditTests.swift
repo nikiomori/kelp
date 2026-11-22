@@ -61,4 +61,6 @@ private let board = """
     #expect(whole.id == "a-3" && whole.text.contains("data-id=\"t-2-3\"") && whole.text.contains("data-id=\"t-3\""))
     #expect(BoardEdit.setAttribute(page, id: "i", name: "src", value: "b.png")?.contains("src=\"b.png\"") == true)
     #expect(BoardEdit.remove(page, id: "none") == nil)
+    let hidden = try #require(BoardEdit.setAttribute(page, id: "t", name: "data-hidden", value: "true"))
+    #expect(BoardEdit.setAttribute(hidden, id: "t", name: "data-hidden", value: nil) == page)
 }

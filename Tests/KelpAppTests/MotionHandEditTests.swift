@@ -78,3 +78,31 @@ extension OneAtATime {
         #expect(!editor.text.contains(#"data-id="t""#) && editor.text.contains(#"data-id="t-2""#))
     }
 }
+
+extension OneAtATime {
+    /// Lanes restacked on the timeline set each element's z-index as one edit; an element hidden by its eye gets
+    /// data-hidden, and loses it when shown again.
+    @Test func layersRestackAndHideOnThePage() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = #"<body data-width="1920" data-height="1080"><p data-id="a">A</p><p data-id="b">B</p></body>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        _ = tab.canvasMessage(
+            "restyle",
+            [
+                "board": "motion.html",
+                "changes": [
+                    ["id": "b", "props": ["z-index": "2", "position": "relative"]],
+                    ["id": "a", "props": ["z-index": "1"]]
+                ]
+            ])
+        #expect(editor.text.contains(#"data-id="b" style="position: relative; z-index: 2""#))
+        #expect(editor.text.contains(#"data-id="a" style="z-index: 1""#))
+        #expect(tab.handSteps.undo.count == 1)
+        tab.hideElement("a", true)
+        #expect(editor.text.contains(#"data-hidden="true""#))
+        tab.hideElement("a", false)
+        #expect(!editor.text.contains("data-hidden"))
+    }
+}

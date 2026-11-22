@@ -9,6 +9,10 @@ import UniformTypeIdentifiers
 extension MarkdownTab {
     /// Handles `remove`, `duplicate` and `menu` from the page. Returns false for another kind.
     func arrangeMessage(_ kind: String, _ body: [String: Any]) -> Bool {
+        if kind == "restyle" {
+            restyle(body)
+            return true
+        }
         guard ["remove", "duplicate", "menu"].contains(kind) else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String else { return true }
         switch kind {
@@ -17,6 +21,38 @@ extension MarkdownTab {
         default: elementMenu(board, id, image: body["image"] as? Bool ?? false)
         }
         return true
+    }
+
+    /// Sets the properties of several elements as one edit: the layers restacked on a motion page's timeline.
+    private func restyle(_ body: [String: Any]) {
+        guard let board = body["board"] as? String, let changes = body["changes"] as? [[String: Any]] else { return }
+        let list = changes.compactMap { c -> (String, [String: String])? in
+            guard let id = c["id"] as? String, let props = c["props"] as? [String: String] else { return nil }
+            return (id, props)
+        }
+        guard !list.isEmpty else { return }
+        let edit = { (_: String) in
+            HandEdit(
+                board: board, id: list[0].0, what: "stacking", from: nil, to: list.map(\.0).joined(separator: " > "))
+        }
+        rewrite(board, edit: edit) { source in
+            list.reduce(Optional(source)) { text, change in
+                change.1.keys.sorted().reduce(text) { text, name in
+                    text.flatMap { BoardEdit.setStyle($0, id: change.0, property: name, value: change.1[name]) }
+                }
+            }
+        }
+    }
+
+    /// Hides element `id` from the page and the video (`data-hidden`), or shows it again.
+    func hideElement(_ id: String, _ hide: Bool) {
+        let edit = { (_: String) in
+            HandEdit(
+                board: MotionPage.board, id: id, what: "hidden", from: hide ? nil : "true", to: hide ? "true" : nil)
+        }
+        rewrite(MotionPage.board, edit: edit) {
+            BoardEdit.setAttribute($0, id: id, name: "data-hidden", value: hide ? "true" : nil)
+        }
     }
 
     /// Takes element `id` out of `board`.

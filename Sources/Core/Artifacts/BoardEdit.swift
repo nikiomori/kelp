@@ -52,19 +52,20 @@ public enum BoardEdit {
         return out
     }
 
-    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none. Only a `data-` name or
-    /// `src`, and a value that can't end the attribute, are taken (a motion page's times, an image replaced).
-    public static func setAttribute(_ source: String, id: String, name: String, value: String) -> String? {
+    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none, or takes it away when
+    /// `value` is nil. Only a `data-` name or `src`, and a value that can't end the attribute, are taken (a motion
+    /// page's times, an element hidden, an image replaced).
+    public static func setAttribute(_ source: String, id: String, name: String, value: String?) -> String? {
         guard name.hasPrefix("data-") || name == "src", name.allSatisfy({ $0.isLetter || $0 == "-" }),
-            !value.contains(where: { "\"<>&".contains($0) }), let tag = openingTag(source, id: id)
+            !(value ?? "").contains(where: { "\"<>&".contains($0) }), let tag = openingTag(source, id: id)
         else { return nil }
         var opening = String(source[tag])
-        let attribute = " \(name)=\"\(value)\""
+        let attribute = value.map { " \(name)=\"\($0)\"" } ?? ""
         if let start = opening.range(of: " \(name)=\""),
             let end = opening[start.upperBound...].firstIndex(of: "\"")
         {
             opening.replaceSubrange(start.lowerBound...end, with: attribute)
-        } else {
+        } else if !attribute.isEmpty {
             opening.insert(contentsOf: attribute, at: opening.index(before: opening.endIndex))
         }
         var out = source

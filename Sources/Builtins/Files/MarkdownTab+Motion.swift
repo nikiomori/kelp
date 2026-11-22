@@ -19,6 +19,8 @@ extension MarkdownTab {
         made.onExport = { [weak self] in self?.exportVideo() }
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
+        made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
+        made.onRestack = { [weak self] ids in self?.runJS("window.kelpMotion?.restack(\(Self.js(ids)))") }
         made.onDuplicate = { [weak self] id in self?.duplicateElement(MotionPage.board, id) }
         made.onClip = { [weak self] was, now, lane in
             lane == 0 ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
@@ -51,7 +53,8 @@ extension MarkdownTab {
                     id: c["id"] as? String ?? "", title: c["title"] as? String ?? "", start: begins,
                     length: length == "end" ? takes - begins : takes,
                     delays: (c["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
-                    lengths: (c["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [])
+                    lengths: (c["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                    hidden: c["hidden"] as? Bool ?? false)
             }
         }
         motionStudio.show(

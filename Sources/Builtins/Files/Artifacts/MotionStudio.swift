@@ -11,6 +11,8 @@ final class MotionStudio {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
+        timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
+        timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
         timeline.onMark = { [weak self] id in self?.act("window.kelpMarks?.reveal(\(id))") }
         timeline.onDuplicate = { [weak self] id in self?.onDuplicate?(id) }
         timeline.onChoose = { [weak self] id in
@@ -76,6 +78,8 @@ final class MotionStudio {
     var fps = 30.0
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
     var onChoose: ((String) -> Void)?
+    /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.
+    var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
     /// A clip taken out or copied on the timeline: its `data-id`.
     var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
 

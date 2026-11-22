@@ -65,6 +65,7 @@ enum MotionPage {
           let doc = null;
           const parts = () => doc ? [...doc.querySelectorAll('[data-start]')] : [];
           const animations = () => doc ? doc.getAnimations() : [];
+          const css = e => e.ownerDocument.defaultView.getComputedStyle(e);
           function duration() {
             const said = doc && parseFloat(doc.body?.dataset.duration);
             if (said > 0) return said;
@@ -89,13 +90,16 @@ enum MotionPage {
               const e = a.effect && a.effect.target, timing = a.effect && a.effect.getComputedTiming();
               if (!e || !timing || !isFinite(timing.endTime)) continue;
               const start = (timing.delay || 0) / 1000, end = timing.endTime / 1000;
-              const track = by.get(e)
-                || { id: e.dataset.id || '', title: named(e), start, end, delays: [], lengths: [] };
+              const track = by.get(e) || { id: e.dataset.id || '', title: named(e), start, end, delays: [],
+                lengths: [], hidden: e.dataset.hidden === 'true', e };
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
               track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
               by.set(e, track);
             }
-            return [...by.values()].sort((a, b) => a.start - b.start);
+            // As layers: the frontmost first (a higher z-index, then later in the page).
+            const all = [...doc.body.querySelectorAll('*')], z = e => parseInt(css(e).zIndex) || 0;
+            return [...by.values()].sort((a, b) => z(b.e) - z(a.e) || all.indexOf(b.e) - all.indexOf(a.e))
+              .map(({ e, ...track }) => track);
           }
           let t = 0, playing = false, last = 0, told = 0, moving = null, rate = 1, loop = false;
           function seek(at) {
@@ -132,6 +136,9 @@ enum MotionPage {
           function bind() {
             doc = frame.contentDocument;
             if (!doc || !doc.body) return;
+            const hide = doc.createElement('style');   // what's hidden by hand isn't in the page or the video
+            hide.textContent = '[data-hidden="true"] { visibility: hidden !important; }';
+            doc.head?.append(hide);
             moving = null; seek(t); tell(true);
           }
           frame.addEventListener('load', bind);
@@ -148,6 +155,16 @@ enum MotionPage {
               tell(true);
             },
             step(frames) { playing = false; seek(t + frames / FPS); tell(true); },
+            // Stacks elements `ids`, the frontmost first, by their z-index (made relative when static), as one edit.
+            restack(ids) {
+              const changes = ids.map((id, i) => {
+                const e = doc?.querySelector('[data-id="' + CSS.escape(id) + '"]'); if (!e) return null;
+                const props = { 'z-index': String(ids.length - i) };
+                if (css(e).position === 'static') props.position = 'relative';
+                return { id, props };
+              }).filter(Boolean);
+              if (changes.length) post({ kind: 'restyle', board: frame.dataset.board, changes });
+            },
             // How fast it plays (1 as made), and whether it starts over at the end.
             setRate(r) { rate = r; },
             setLoop(on) { loop = on; },
