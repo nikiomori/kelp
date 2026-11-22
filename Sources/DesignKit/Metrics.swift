@@ -111,6 +111,20 @@ public enum Motion {
     /// click.
     public static var soft: CAMediaTimingFunction { CAMediaTimingFunction(controlPoints: 0.25, 0.8, 0.25, 1) }
 
+    // A hidden panel at the window's edge, as Arc's sidebar does it (measured from a 120 fps recording): the pointer
+    // rests at the edge this long before the panel comes, so brushing past it brings nothing. Arc's 0.3 read as lag.
+    public static let edgeRest: TimeInterval = 0.1
+    /// The panel coming in: in place in about 85 ms, some 5 % past it (13 pt for a sidebar) at 110 ms, and back by
+    /// 200 ms. Its damping is 0.7 of critical, so it goes past once and doesn't wobble. Arc's 1 % (0.8) read as no
+    /// spring.
+    public static func slideIn(_ keyPath: String) -> CASpringAnimation {
+        let spring = CASpringAnimation(keyPath: keyPath)
+        spring.stiffness = 1500
+        spring.damping = 54
+        spring.duration = spring.settlingDuration
+        return spring
+    }
+
     // What goes on while a state lasts, one way (a breath takes this long there and this long back).
     public static let spin: TimeInterval = 1   // the ring's turn while the agent works
     public static let wait: TimeInterval = 3   // the turn of the ring of dots while it waits for its command

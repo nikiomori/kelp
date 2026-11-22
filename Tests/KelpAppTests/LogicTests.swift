@@ -75,6 +75,25 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!MainWindowController.overPeek(NSPoint(x: 400, y: 100), panel: panel, edge: edge, cards: [card]))
 }
 
+/// The pointer passing over the window's edge brings no panel; resting there `Motion.edgeRest` does, as in Arc. A
+/// second edge entered after the first was left fires after the first would have, on the same queue.
+@MainActor @Test func aHiddenPanelComesOnlyWhenThePointerRestsAtTheEdge() async throws {
+    let passed = EdgeTrigger(), rested = EdgeTrigger()
+    var came = (passed: 0, rested: 0)
+    passed.onEnter = { came.passed += 1 }
+    rested.onEnter = { came.rested += 1 }
+    let event = try #require(
+        NSEvent.enterExitEvent(
+            with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+            eventNumber: 0, trackingNumber: 0, userData: nil))
+    passed.mouseEntered(with: event)
+    passed.mouseExited(with: event)
+    rested.mouseEntered(with: event)
+    #expect(came.rested == 0)   // not at once
+    try await waitFor { came.rested == 1 }
+    #expect(came.passed == 0)
+}
+
 /// The context ring: nothing while there's room, then grey, orange, red — by share in a 200k window, by tokens in 1M.
 @MainActor @Test func theContextRingColoursAtTheTokensWhereAnswersSlip() {
     func level(_ used: Int, _ window: Int) -> Int {
