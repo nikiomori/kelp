@@ -15,9 +15,11 @@ struct WorkNode: Equatable, Sendable {
     var searched = false
     var children: [WorkNode] = []
 
-    var isFile: Bool { place != nil }
+    /// A file: a place with nothing under it. A path touched as a file and as a folder (`ls Sources/Daemon`, then a
+    /// file in it) is a folder.
+    var isFile: Bool { place != nil && children.isEmpty }
     /// The files under it, itself for a file. A searched folder with none counts one, so it still shows.
-    var weight: Int { isFile ? 1 : max(children.reduce(0) { $0 + $1.weight }, searched ? 1 : 0) }
+    var weight: Int { isFile ? 1 : max(children.reduce(0) { $0 + $1.weight }, searched || place != nil ? 1 : 0) }
     var edited: Bool { (place.map { $0.edits > 0 || $0.byCommand } ?? false) || children.contains(where: \.edited) }
     var files: [WorkNode] { isFile ? [self] : children.flatMap(\.files) }
     var agents: Set<Int> { Set(place?.agents ?? []).union(children.flatMap(\.agents)) }

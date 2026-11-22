@@ -43,7 +43,7 @@ enum WorkSummary {
 /// A place's mark beside its name: a blue square for an edit, a ring for a read, a dashed ring outside the project.
 @MainActor
 final class PlaceMark: NSView {
-    enum Kind { case edit, read, outside, folder }
+    enum Kind { case edit, read }
     var kind = Kind.read { didSet { needsDisplay = true } }
     override var intrinsicContentSize: NSSize { NSSize(width: Metrics.iconSmall, height: Metrics.iconSmall) }
 
@@ -55,14 +55,9 @@ final class PlaceMark: NSView {
         case .edit:
             NSColor.agentEditMark.setFill()
             NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS / 2, yRadius: Metrics.radiusXS / 2).fill()
-        case .read, .outside, .folder:
+        case .read:
             let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1, dy: 1))
             ring.lineWidth = Metrics.stroke
-            if kind == .outside { ring.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0) }
-            if kind == .folder {
-                NSColor.secondaryLabelColor.setFill()
-                ring.fill()
-            }
             NSColor.secondaryLabelColor.setStroke()
             ring.stroke()
         }
@@ -240,14 +235,15 @@ enum TurnMenu {
         let titles = items.map(\.0) + [String(localized: "Whole Session")]
         if pop.itemArray.filter({ !$0.isSeparatorItem }).map(\.title) != titles {
             pop.removeAllItems()
-            for (title, tag, tip) in items {
-                pop.addItem(withTitle: title)
-                pop.lastItem?.tag = tag
-                pop.lastItem?.toolTip = tip
+            // Items added to the menu itself: `addItem(withTitle:)` drops one whose title is already there (two turns
+            // asked the same thing in one minute).
+            for (title, tag, tip) in items + [(String(localized: "Whole Session"), -1, nil)] {
+                if tag < 0 { pop.menu?.addItem(.separator()) }
+                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                item.tag = tag
+                item.toolTip = tip
+                pop.menu?.addItem(item)
             }
-            pop.menu?.addItem(.separator())
-            pop.addItem(withTitle: String(localized: "Whole Session"))
-            pop.lastItem?.tag = -1
         }
         pop.selectItem(withTag: model.whole ? -1 : (model.turn ?? turns.count - 1))
     }

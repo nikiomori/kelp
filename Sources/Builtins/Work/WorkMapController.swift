@@ -200,7 +200,8 @@ final class WorkMapController: NSViewController {
         card.open { [weak self] in
             guard let self else { return }
             let content = WorkCard(
-                place: place, names: model.agentNames, icons: tree.icons, opens: model.opens(place)
+                place: place, names: model.agentNames, icons: tree.icons, opens: model.opens(place),
+                diffs: model.showsDiff
             ) { [weak self] action in
                 self?.card.close()
                 switch action {

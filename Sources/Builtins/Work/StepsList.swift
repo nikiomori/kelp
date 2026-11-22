@@ -95,6 +95,8 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private(set) lazy var scroll = table.plainList("steps")
     var onOpen: (AgentWork.Step) -> Void = { _ in }
     private var rows: [StepRow] = []
+    /// How many lanes the rows use, for each row's rail.
+    private var lanes = 1
     private var names: [String] = [], agents: [AgentWork.Agent] = []
     private var start = Date()
     private weak var app: AppModel?
@@ -123,6 +125,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         let visible = table.rows(in: table.visibleRect)
         let atEnd = rows.isEmpty || visible.location + visible.length >= rows.count
         rows = made
+        lanes = (rows.map { $0.before.union($0.after).max() ?? 0 }.max() ?? 0) + 1
         self.names = names
         table.reloadData()
         if atEnd, let last = rows.indices.last { table.scrollRowToVisible(last) }
@@ -133,7 +136,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = rows[row], step = item.step
-        let rail = Rail(item, lanes: max(rows.map { ($0.before.union($0.after)).max() ?? 0 }.max() ?? 0, 0) + 1)
+        let rail = Rail(item, lanes: lanes)
         var parts: [NSView] = [rail]
         if step.kind == .spawn, let other = step.other, agents.indices.contains(other) {
             parts.append(

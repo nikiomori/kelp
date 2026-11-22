@@ -98,20 +98,31 @@ final class WorkModel {
         return (root as NSString).lastPathComponent
     }
 
+    /// The project's folder on this Mac: the session's workspace (a remote one's local folder, not the host's path),
+    /// else the work's root.
+    var localRoot: String? {
+        session.flatMap(app.session)?.worktreeId.flatMap { id in app.worktrees.first { $0.id == id }?.path }
+            ?? work?.root
+    }
+
     /// Where a project file is on this Mac: under the worktree it was touched in, when it was.
     func path(of place: AgentWork.Place) -> String? {
-        guard let root = work?.root else { return nil }
+        guard let root = localRoot else { return nil }
         let base = place.worktree.map { root + "/.claude/worktrees/" + $0 } ?? root
         return place.name == "." ? base : base + "/" + place.name
     }
+
+    /// Whether a file's diff can be shown: the diff tab has the last turn's changes, not an earlier one's.
+    var showsDiff: Bool { turn == nil && !whole }
 
     /// Opens a project file beside the agent; with the Option key, the turn's diff of it.
     func open(_ place: AgentWork.Place, diff: Bool) {
         guard let session = session.flatMap(app.session), let workspace = session.worktreeId else { return }
         // A file edited in a worktree of the project: its diff is that worktree's, if Kelp knows it; else the file.
-        let base = place.worktree.flatMap { name in work?.root.map { $0 + "/.claude/worktrees/" + name } }
+        let base = place.worktree.flatMap { name in localRoot.map { $0 + "/.claude/worktrees/" + name } }
         let diffIn = base.map { base in app.worktrees.first { $0.path == base }?.id } ?? workspace
-        if diff, let diffIn {
+        // The diff tab shows the last turn's changes: an earlier turn's file opens as it is.
+        if diff, showsDiff, let diffIn {
             app.workbench.open(TabURI.diff(diffIn, file: place.name, source: base == nil ? .turn : nil))
         } else if let path = path(of: place) {
             _ = app.workbench.openBeside(TabURI.file(path), in: workspace)

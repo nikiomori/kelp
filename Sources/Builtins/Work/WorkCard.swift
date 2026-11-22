@@ -11,7 +11,7 @@ final class WorkCard: NSViewController {
     private let act: (Action) -> Void
 
     init(
-        place: AgentWork.Place, names: [String], icons: [NSImage?], opens: Bool = true,
+        place: AgentWork.Place, names: [String], icons: [NSImage?], opens: Bool = true, diffs: Bool = true,
         act: @escaping (Action) -> Void
     ) {
         self.place = place
@@ -19,11 +19,12 @@ final class WorkCard: NSViewController {
         self.icons = icons
         self.act = act
         self.opens = opens
+        self.diffs = diffs
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    private let opens: Bool
+    private let opens: Bool, diffs: Bool
 
     override func loadView() {
         let isFile = place.kind == .file
@@ -77,7 +78,7 @@ final class WorkCard: NSViewController {
         if isFile || opens && [.web, .tool, .outside, .own].contains(place.kind) {
             buttons.append(ClosureButton(title: String(localized: "Open")) { [act] in act(.open) })
         }
-        if isFile, place.edits > 0 || place.byCommand {
+        if isFile, diffs, place.edits > 0 || place.byCommand {
             buttons.append(ClosureButton(title: String(localized: "Show Diff")) { [act] in act(.diff) })
         }
         for case let button as NSButton in buttons {

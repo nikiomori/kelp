@@ -36,6 +36,9 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(sources.edited && !sources.children[0].edited)
     #expect(tree.weight == 5)   // four files and the searched Tests
     #expect(WorkTree.project(work([file("a.swift", agents: [1])]), rootName: "K", agents: [0]).children.isEmpty)
+    // A path touched as a file and as a folder (`ls Daemon`, then a file in it) is a folder with its files.
+    let both = WorkTree.project(work([file("Daemon"), file("Daemon/A.swift"), file("Daemon/B.swift")]), rootName: "K")
+    #expect(both.children.first.map { !$0.isFile && $0.files.count == 2 } == true)
 }
 
 /// A block is as wide as the files under it, not as often as they were read; siblings too narrow to see merge into one

@@ -166,7 +166,7 @@ private func sampleWork() -> AgentWork {
 
 /// The layers: a click picks a block, a double click on a folder goes into it, the arrows move along a row; the chips
 /// row shows what fits and drops the rest.
-@MainActor @Test func theLayersAnswerThePointerAndTheKeys() {
+@MainActor @Test func theLayersAnswerThePointerAndTheKeys() throws {
     let work = sampleWork()
     let tree = WorkTree.project(work, rootName: "Kelp")
     let icicle = IcicleView(frame: NSRect(x: 0, y: 0, width: 356, height: 118))
@@ -185,16 +185,14 @@ private func sampleWork() -> AgentWork {
     icicle.onSelect = { picked = $0 }
     icicle.onZoom = { zoomed = .some($0) }
     // The root isn't a row: its folders are the top one.
-    let sources = icicle.blocks.first { $0.path == "Sources" }
-    #expect(sources?.depth == 0 && sources?.rect.minY == 0)
+    let sources = try #require(icicle.blocks.first { $0.path == "Sources" })
+    #expect(sources.depth == 0 && sources.rect.minY == 0)
     #expect(!icicle.blocks.contains { $0.path == "" })
-    if let sources {
-        let at = NSPoint(x: sources.rect.midX, y: sources.rect.midY)
-        icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle))
-        #expect(picked == "Sources")
-        icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle, clicks: 2))
-        #expect(zoomed == .some("Sources"))
-    }
+    let at = NSPoint(x: sources.rect.midX, y: sources.rect.midY)
+    icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle))
+    #expect(picked == "Sources")
+    icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle, clicks: 2))
+    #expect(zoomed == .some("Sources"))
     icicle.selected = "Sources"
     icicle.keyDown(with: key(NSRightArrowFunctionKey))
     #expect(picked == "Tests/DaemonTests")   // one folder in Tests: the chain is one block
@@ -351,4 +349,21 @@ private func sampleWork() -> AgentWork {
         let frame = field.convert(field.alignmentRect(forFrame: field.bounds), to: card.view)
         #expect(frame.minX >= Metrics.inset - 0.5 && frame.maxX <= card.view.bounds.width - Metrics.inset + 0.5)
     }
+}
+
+/// The turn menu keeps every turn, two asked the same thing in one minute included, and Whole Session last; built
+/// again only when the turns change.
+@MainActor @Test func theTurnMenuKeepsTurnsOfOneTitle() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    let model = WorkModel(app: rig.app, choices: WorkChoices())
+    let at = Date(timeIntervalSince1970: 0)
+    var work = AgentWork()
+    work.turns = [.init(prompt: "go on", at: at), .init(prompt: "go on", at: at), .init(prompt: "push", at: at)]
+    let pop = NSPopUpButton()
+    TurnMenu.fill(pop, work: work, model: model)
+    #expect(pop.itemArray.filter { !$0.isSeparatorItem }.map(\.tag) == [2, 1, 0, -1])
+    let first = pop.itemArray.first
+    TurnMenu.fill(pop, work: work, model: model)
+    #expect(pop.itemArray.first === first)
 }
