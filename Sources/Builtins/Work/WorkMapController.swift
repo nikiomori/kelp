@@ -209,7 +209,7 @@ final class WorkMapController: NSViewController {
 
     private func hover(_ node: MapNode?, _ rect: NSRect) {
         guard let node, node.kind == .file || node.kind == .outside, let place = node.place else {
-            return card.closeSoon()
+            return card.closeSoon(unlessInside: true)   // the pointer may be on its way to the card's buttons
         }
         card.open { [weak self] in
             guard let self else { return }

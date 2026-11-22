@@ -205,7 +205,9 @@ private func sampleWork() -> AgentWork {
     chips.layout()
     let shown = chips.subviews.filter { !$0.isHidden && !($0 is NSTextField) }
     #expect(!shown.isEmpty)
-    for chip in shown { #expect(chip.frame.maxX <= chips.bounds.width + 0.5 && chip.frame.width >= chip.fittingSize.width - 0.5) }
+    for chip in shown {
+        #expect(chip.frame.maxX <= chips.bounds.width + 0.5 && chip.frame.width >= chip.fittingSize.width - 0.5)
+    }
     #expect(chips.hiddenCount == 8 - shown.count)
     let more = chips.subviews.compactMap { $0 as? NSTextField }.first
     #expect(more?.stringValue == "+ \(8 - shown.count) more")
@@ -229,11 +231,12 @@ private func sampleWork() -> AgentWork {
     var crowded = work
     crowded.agents = [work.agents[0]] + (1...12).map { .init(role: .subagent, agent: "claude", name: "Explore \($0)") }
     let t = Date(timeIntervalSince1970: 0)
-    crowded.steps = (1...12).flatMap { n -> [AgentWork.Step] in
-        var spawn = AgentWork.Step(agent: 0, kind: .spawn, tool: "Task", detail: "look \(n)", at: t)
-        spawn.other = n
-        return [spawn, AgentWork.Step(agent: n, kind: .read, tool: "Read", detail: "Sources/F\(n).swift", at: t)]
-    } + [AgentWork.Step(agent: 0, kind: .edit, tool: "Edit", detail: "Sources/App.swift", at: t)]
+    crowded.steps =
+        (1...12).flatMap { n -> [AgentWork.Step] in
+            var spawn = AgentWork.Step(agent: 0, kind: .spawn, tool: "Task", detail: "look \(n)", at: t)
+            spawn.other = n
+            return [spawn, AgentWork.Step(agent: n, kind: .read, tool: "Read", detail: "Sources/F\(n).swift", at: t)]
+        } + [AgentWork.Step(agent: 0, kind: .edit, tool: "Edit", detail: "Sources/App.swift", at: t)]
     let many = StepsList()
     many.scroll.frame = NSRect(x: 0, y: 0, width: 300, height: 600)
     let win3 = window(many.scroll, many.scroll.frame.size)
@@ -277,7 +280,9 @@ private func sampleWork() -> AgentWork {
         panel.view.layoutSubtreeIfNeeded()
         shot(panel.view, name)
         func all(_ v: NSView) -> [NSView] { v.subviews.flatMap { [$0] + all($0) } }
-        let words = all(panel.view).filter { !$0.isHiddenOrHasHiddenAncestor }.compactMap { ($0 as? NSTextField)?.stringValue }
+        let words = all(panel.view).filter { !$0.isHiddenOrHasHiddenAncestor }.compactMap {
+            ($0 as? NSTextField)?.stringValue
+        }
         #expect(words.contains("In the project"))
         #expect(panel.view.frame.width == CGFloat(width))
     }
@@ -302,4 +307,44 @@ private func sampleWork() -> AgentWork {
     let shown = all(panel.view).filter { !$0.isHiddenOrHasHiddenAncestor && $0.frame.height > 0 }
     #expect(shown.contains { ($0 as? NSTextField)?.stringValue == "No project files in this turn" })
     #expect(shown.contains { $0 is OutsideChips })
+}
+
+/// A file's row in a narrow panel keeps its name and lines and drops what doesn't fit whole, never a sliver; the card
+/// under the pointer keeps every line inside its margins.
+@MainActor @Test func aRowAndACardStayWithinTheirWidth() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    var work = sampleWork()
+    work.places[2].worktree = "agent-a9e8be3e7cccd0c8a"
+    work.agents += (0..<5).map { _ in .init(role: .subagent, agent: "claude", name: "general-purpose") }
+    work.places[2].agents = [0, 1, 2, 3, 4]
+    let files = WorkFileList()
+    files.scroll.frame = NSRect(x: 0, y: 0, width: 260, height: 200)
+    let win = window(files.scroll, files.scroll.frame.size)
+    _ = win
+    files.show(
+        WorkTree.project(work, rootName: "Kelp"), names: work.agents.map(\.name), app: rig.app, agents: work.agents)
+    files.scroll.layoutSubtreeIfNeeded()
+    shot(files.scroll, "files-narrow")
+    for row in 0..<min(files.table.numberOfRows, 6) {
+        guard let cell = files.table.view(atColumn: 0, row: row, makeIfNecessary: true) else { continue }
+        cell.layoutSubtreeIfNeeded()
+        for part in cell.subviews where !part.isHidden && !(part is NSTextField && part === cell.subviews[1]) {
+            #expect(part.frame.width >= part.fittingSize.width - 0.5, "squeezed in row \(row): \(type(of: part))")
+            #expect(part.frame.maxX <= cell.bounds.width + 0.5)
+        }
+    }
+    var place = work.places[2]
+    place.name = "Sources/KelpKit/Shell/A/Very/Deep/Folder/MainWindow.swift"
+    let card = WorkCard(place: place, names: work.agents.map(\.name), icons: []) { _ in }
+    let popup = window(card.view, card.view.fittingSize)
+    _ = popup
+    card.view.layoutSubtreeIfNeeded()
+    shot(card.view, "card")
+    func all(_ v: NSView) -> [NSView] { v.subviews.flatMap { [$0] + all($0) } }
+    for field in all(card.view).compactMap({ $0 as? NSTextField }) {
+        // The text's own box (a field's frame has a little room around its text).
+        let frame = field.convert(field.alignmentRect(forFrame: field.bounds), to: card.view)
+        #expect(frame.minX >= Metrics.inset - 0.5 && frame.maxX <= card.view.bounds.width - Metrics.inset + 0.5)
+    }
 }
