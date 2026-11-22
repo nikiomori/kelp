@@ -63,4 +63,8 @@ private let board = """
     #expect(BoardEdit.remove(page, id: "none") == nil)
     let hidden = try #require(BoardEdit.setAttribute(page, id: "t", name: "data-hidden", value: "true"))
     #expect(BoardEdit.setAttribute(hidden, id: "t", name: "data-hidden", value: nil) == page)
+    let stage = #"<body data-width="1920" data-height="1080"><p data-id="t">x</p></body>"#
+    #expect(
+        BoardEdit.setAttribute(stage, id: nil, name: "data-width", value: "1080")
+            == #"<body data-width="1080" data-height="1080"><p data-id="t">x</p></body>"#)
 }

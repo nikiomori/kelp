@@ -63,7 +63,8 @@ final class MotionStudio {
     private var looping = false
     private let time = NSTextField.label("", font: .uiDigits(TextSize.row))
     private let frame = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
-    private let size = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
+    private lazy var size = TextButton("") { [weak self] in self?.formatMenu() }
+    private var stage = (width: 1920, height: 1080)
     private let timeline = MotionTimeline()
     private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.onExport?() }
     private let act: (String) -> Void
@@ -78,6 +79,8 @@ final class MotionStudio {
     var fps = 30.0
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
     var onChoose: ((String) -> Void)?
+    /// A shape chosen for the stage: its width and height in pixels.
+    var onFormat: ((Int, Int) -> Void)?
     /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.
     var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
     /// A clip taken out or copied on the timeline: its `data-id`.
@@ -100,7 +103,8 @@ final class MotionStudio {
         time.stringValue = Self.clock(state.at) + " / " + Self.clock(state.length)
         frame.stringValue = String(
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
-        size.stringValue = "\(state.width) × \(state.height) · \(Int(fps)) fps"
+        size.title = "\(state.width) × \(state.height) · \(Int(fps)) fps"
+        stage = (state.width, state.height)
         timeline.set(
             at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes
@@ -125,6 +129,20 @@ final class MotionStudio {
             }.state = name == speed.title ? .on : .off
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: speed.bounds.maxY + 4), in: speed)
+    }
+
+    /// The stage's shapes: a ratio and its size in pixels.
+    static let formats: [(name: String, width: Int, height: Int)] = [
+        ("16:9", 1920, 1080), ("9:16", 1080, 1920), ("1:1", 1080, 1080), ("4:5", 1080, 1350)
+    ]
+
+    private func formatMenu() {
+        let menu = NSMenu()
+        for f in Self.formats {
+            menu.add("\(f.name)  ·  \(f.width) × \(f.height)") { [weak self] in self?.onFormat?(f.width, f.height) }
+                .state = (f.width, f.height) == stage ? .on : .off
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: size.bounds.maxY + 4), in: size)
     }
 
     /// 0.25 as `0.25×`, 1 as `1×`.

@@ -52,12 +52,13 @@ public enum BoardEdit {
         return out
     }
 
-    /// Sets attribute `name` of element `id` to `value`, adding it when the element has none, or takes it away when
-    /// `value` is nil. Only a `data-` name or `src`, and a value that can't end the attribute, are taken (a motion
-    /// page's times, an element hidden, an image replaced).
-    public static func setAttribute(_ source: String, id: String, name: String, value: String?) -> String? {
+    /// Sets attribute `name` of element `id` (the page's `<body>` when nil) to `value`, adding it when the element has
+    /// none, or takes it away when `value` is nil. Only a `data-` name or `src`, and a value that can't end the
+    /// attribute, are taken (a motion page's times and size, an element hidden, an image replaced).
+    public static func setAttribute(_ source: String, id: String?, name: String, value: String?) -> String? {
         guard name.hasPrefix("data-") || name == "src", name.allSatisfy({ $0.isLetter || $0 == "-" }),
-            !(value ?? "").contains(where: { "\"<>&".contains($0) }), let tag = openingTag(source, id: id)
+            !(value ?? "").contains(where: { "\"<>&".contains($0) }),
+            let tag = id.map({ openingTag(source, id: $0) }) ?? bodyTag(source)
         else { return nil }
         var opening = String(source[tag])
         let attribute = value.map { " \(name)=\"\($0)\"" } ?? ""
@@ -82,6 +83,14 @@ public enum BoardEdit {
             if pair.count == 2, pair[0] == property { return pair[1] }
         }
         return nil
+    }
+
+    /// The range of the page's one `<body …>` tag.
+    static func bodyTag(_ source: String) -> Range<String.Index>? {
+        let found = source.ranges(of: /<body[\s>]/.ignoresCase())
+        guard found.count == 1, let at = found.first, let end = source[at.lowerBound...].firstIndex(of: ">")
+        else { return nil }
+        return at.lowerBound..<source.index(after: end)
     }
 
     /// Returns the range of the opening tag, from `<` to `>`, of the one element with `data-id="id"`. nil when there is

@@ -20,6 +20,7 @@ extension MarkdownTab {
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
+        made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
         made.onRestack = { [weak self] ids in self?.runJS("window.kelpMotion?.restack(\(Self.js(ids)))") }
         made.onDuplicate = { [weak self] id in self?.duplicateElement(MotionPage.board, id) }
         made.onClip = { [weak self] was, now, lane in
@@ -68,6 +69,18 @@ extension MarkdownTab {
                     return MotionTimeline.Mark(
                         id: id, time: time, yours: ["draft", "check"].contains(m["state"] as? String ?? ""))
                 }))
+    }
+
+    /// Gives the stage another shape: the body's `data-width` and `data-height`. The page's own layout is the
+    /// user's or the agent's to fit to it.
+    func resizeStage(_ width: Int, _ height: Int) {
+        let (w, h) = MotionPage.size(editor.text)
+        let edit = HandEdit(board: pageFile, id: "body", what: "size", from: "\(w) × \(h)", to: "\(width) × \(height)")
+        rewritePage(edit) { text in
+            BoardEdit.setAttribute(text, id: nil, name: "data-width", value: String(width)).flatMap {
+                BoardEdit.setAttribute($0, id: nil, name: "data-height", value: String(height))
+            }
+        }
     }
 
     /// Moves or trims a scene: its `data-start` and `data-duration` become the block's start and length.

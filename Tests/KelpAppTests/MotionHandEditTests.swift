@@ -106,3 +106,18 @@ extension OneAtATime {
         #expect(!editor.text.contains("data-hidden"))
     }
 }
+
+extension OneAtATime {
+    /// A shape chosen for the stage sets the body's size, as a hand edit ⌘Z takes back.
+    @Test func aStageTakesAnotherShape() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = #"<html><body data-width="1920" data-height="1080"><p data-id="a">A</p></body></html>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        tab.resizeStage(1080, 1920)
+        #expect(editor.text.contains(#"<body data-width="1080" data-height="1920">"#))
+        tab.undoHandEdit(redo: false)
+        #expect(try await waitFor(5) { editor.text == page })
+    }
+}
