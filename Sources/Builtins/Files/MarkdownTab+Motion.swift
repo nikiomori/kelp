@@ -18,9 +18,18 @@ extension MarkdownTab {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] in self?.exportVideo() }
         made.onClip = { [weak self] was, now, lane in
-            lane == 0 ? self?.retime(scene: now.id, start: now.start, length: now.length) : self?.retime(was, as: now)
+            lane == 0 ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
         }
         return made
+    }
+
+    /// The scripts a motion page is drawn with: Kelp's player at the frame rate chosen, back at the time it showed and
+    /// with the element that was chosen.
+    func motionScripts(at: Double) -> [String] {
+        [
+            MotionPage.source(fps: motionStudio.fps), "window.kelpMotion?.seek(\(at))",
+            "window.kelpMotion?.choose(\(Self.js(motionStudio.chosen)))"
+        ]
     }
 
     func motionMessage(_ body: [String: Any]) {
@@ -50,19 +59,28 @@ extension MarkdownTab {
         case "motionChose": motionStudio.chose(id)
         case "motionMove":
             guard let value = body["translate"] as? String else { return }
-            rewritePage(id) { BoardEdit.setStyle($0, id: id, property: "translate", value: value) }
+            let was = BoardEdit.style(editor.text, id: id, property: "translate")
+            rewritePage(HandEdit(board: pageFile, id: id, what: "translate", from: was, to: value)) {
+                BoardEdit.setStyle($0, id: id, property: "translate", value: value)
+            }
         case "motionText":
             guard let old = body["old"] as? String, let text = body["text"] as? String else { return }
-            rewritePage(id) { BoardEdit.setText($0, id: id, old: old, new: text) }
+            rewritePage(HandEdit(board: pageFile, id: id, what: "text", from: old, to: text)) {
+                BoardEdit.setText($0, id: id, old: old, new: text)
+            }
         default: break
         }
     }
 
-    /// Moves or trims scene `id` to start at `start` and last `length` seconds.
-    func retime(scene id: String, start: Double, length: Double) {
-        rewritePage(id) { text in
-            BoardEdit.setAttribute(text, id: id, name: "data-start", value: Self.seconds(start)).flatMap {
-                BoardEdit.setAttribute($0, id: id, name: "data-duration", value: Self.seconds(length))
+    /// Moves or trims a scene: its `data-start` and `data-duration` become the block's start and length.
+    func retime(scene was: MotionTimeline.Clip, as now: MotionTimeline.Clip) {
+        let edit = HandEdit(
+            board: pageFile, id: now.id, what: "data-start/data-duration",
+            from: "\(Self.seconds(was.start))/\(Self.seconds(was.length))",
+            to: "\(Self.seconds(now.start))/\(Self.seconds(now.length))")
+        rewritePage(edit) { text in
+            BoardEdit.setAttribute(text, id: now.id, name: "data-start", value: Self.seconds(now.start)).flatMap {
+                BoardEdit.setAttribute($0, id: now.id, name: "data-duration", value: Self.seconds(now.length))
             }
         }
     }
@@ -75,7 +93,10 @@ extension MarkdownTab {
         let delays = was.delays.map { $0 + shift }
         let lengths = was.delays.count == 1 && now.length != was.length ? [now.length] : was.lengths
         let list = { (values: [Double]) in values.map { Self.seconds(max($0, 0)) + "s" }.joined(separator: ", ") }
-        rewritePage(now.id) { text in
+        let edit = HandEdit(
+            board: pageFile, id: now.id, what: "animation-delay/animation-duration",
+            from: list(was.delays) + "/" + list(was.lengths), to: list(delays) + "/" + list(lengths))
+        rewritePage(edit) { text in
             BoardEdit.setStyle(text, id: now.id, property: "animation-delay", value: list(delays)).flatMap {
                 BoardEdit.setStyle($0, id: now.id, property: "animation-duration", value: list(lengths))
             }
@@ -84,16 +105,21 @@ extension MarkdownTab {
 
     private static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
 
-    /// Changes the page's text with `change`, and saves it: the page is drawn again at the time it showed. When the
-    /// element isn't found for sure, nothing changes and the banner says why.
-    private func rewritePage(_ id: String, _ change: (String) -> String?) {
-        guard let text = change(editor.text) else {
+    /// The page's file name, as hand edits name it.
+    private var pageFile: String { url.lastPathComponent }
+
+    /// Changes the page's text with `change` and saves it, keeping `edit` for the agent and for ⌘Z. The page is drawn
+    /// again at the time it showed. When the element isn't found for sure, nothing changes and the banner says why.
+    private func rewritePage(_ edit: HandEdit, _ change: (String) -> String?) {
+        let before = editor.text
+        guard let text = change(before) else {
             return Banner.show(
-                String(localized: "Couldn’t change “\(id)” in the page as it is now: give it a data-id."),
+                String(localized: "Couldn’t change “\(edit.id)” in the page as it is now: give it a data-id."),
                 style: .error)
         }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
         Task { _ = await saveFile?() }
+        didHandEdit(edit, path: url.path, before: before, after: text)
     }
 
     /// Asks where to save the video, then records it.

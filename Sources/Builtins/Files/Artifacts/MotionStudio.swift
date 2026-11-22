@@ -44,6 +44,10 @@ final class MotionStudio {
     var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
     private(set) var at = 0.0
+    /// The frames a second the arrows step by and a video is made at.
+    var fps = 30.0
+    /// The element chosen on the page ("" for none), chosen again when the page is drawn again.
+    var chosen: String { timeline.chosen }
 
     /// `act` runs a call on the page (`window.kelpMotion`).
     init(act: @escaping (String) -> Void) { self.act = act }
@@ -59,7 +63,6 @@ final class MotionStudio {
         at = state.at
         play.image = .symbol(state.playing ? "pause.fill" : "play.fill", state.playing ? "Pause" : "Play")
         time.stringValue = Self.clock(state.at) + " / " + Self.clock(state.length)
-        let fps = MarkdownTab.videoFPS
         frame.stringValue = String(
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
         size.stringValue = "\(state.width) × \(state.height) · \(Int(fps)) fps"

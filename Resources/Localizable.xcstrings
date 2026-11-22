@@ -30889,6 +30889,16 @@
           }
         }
       }
+    },
+    "The page changed since that edit, so it can’t be taken back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница изменилась после этой правки, отменить её нельзя."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

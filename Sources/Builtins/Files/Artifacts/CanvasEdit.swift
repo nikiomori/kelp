@@ -307,6 +307,12 @@ enum CanvasEdit {
             else return;
             e.preventDefault(); present();
           });
+          // ⌘Z and ⇧⌘Z take back what was changed by hand on the boards; a field being typed in keeps its own.
+          addEventListener('keydown', e => {
+            const t = e.target, typing = t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName);
+            if (!e.metaKey || e.key.toLowerCase() !== 'z' || typing) return;
+            e.preventDefault(); post({ kind: 'undo', redo: e.shiftKey });
+          });
           addEventListener('resize', () => { if (at >= 0) present(); });
           addEventListener('resize', draw);
           new ResizeObserver(() => requestAnimationFrame(draw)).observe(document.body);

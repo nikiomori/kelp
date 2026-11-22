@@ -8,8 +8,10 @@ import Foundation
 /// playing; `window.kelpMotion` is what the tab's studio (`MotionStudio`) and the export (`MarkdownTab.exportVideo`)
 /// call.
 enum MotionPage {
-    static let source = """
-        (function () {
+    /// The script, stepping by frames of `fps`.
+    static func source(fps: Double) -> String { "(function (FPS) {\n" + body + "\n})(\(fps));" }
+
+    private static let body = """
           const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
           const html = document.documentElement, body = document.body;
           if (!body) return;
@@ -100,6 +102,7 @@ enum MotionPage {
             .concat([0]).slice(0, 2);
           addEventListener('mousedown', ev => {
             if (ev.detail > 1 || ev.target.isContentEditable) return;
+            if (playing) { playing = false; tell(true); }   // a drag sets the frame it was let go on
             const e = pick(ev.target);
             choose(e, true);
             if (e) { grab = { e, from: stagePoint(ev), was: moved(e), still: true }; ev.preventDefault(); }
@@ -143,7 +146,7 @@ enum MotionPage {
               if (playing) { if (t >= duration()) t = 0; last = performance.now(); requestAnimationFrame(frame); }
               tell(true);
             },
-            step(frames) { playing = false; seek(t + frames / 30); tell(true); },
+            step(frames) { playing = false; seek(t + frames / FPS); tell(true); },
             // The stage on screen, and its own size, for the export's pictures.
             stage() { const r = body.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, W, H]; },
             // Shows the frame at `at` once it is drawn (two frames of the screen later).
@@ -156,7 +159,11 @@ enum MotionPage {
             }
           };
           addEventListener('keydown', e => {
-            if (e.metaKey || e.ctrlKey || e.target.isContentEditable) return;
+            if (e.target.isContentEditable) return;
+            if (e.metaKey && e.key.toLowerCase() === 'z') {
+              e.preventDefault(); post({ kind: 'undo', redo: e.shiftKey });
+            }
+            if (e.metaKey || e.ctrlKey) return;
             if (e.key === ' ') window.kelpMotion.toggle();
             else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
               window.kelpMotion.step((e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));
@@ -164,6 +171,5 @@ enum MotionPage {
             e.preventDefault();
           });
           seek(0); tell(true);
-        })();
         """
 }

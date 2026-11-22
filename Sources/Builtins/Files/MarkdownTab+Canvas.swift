@@ -42,6 +42,7 @@ extension MarkdownTab {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
         case "motion": motionMessage(body)
+        case "undo": undoHandEdit(redo: body["redo"] as? Bool ?? false)
         case "motionChose", "motionMove", "motionText": motionEdit(kind, body)
         case "review":
             let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
@@ -196,7 +197,7 @@ extension MarkdownTab {
             }
             let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp))
             if let written, written.conflict == nil, written.missing != true, let made = edit(file.text) {
-                keepHandEdit(made)
+                didHandEdit(made, path: path, before: file.text, after: text)
             }
         }
     }
