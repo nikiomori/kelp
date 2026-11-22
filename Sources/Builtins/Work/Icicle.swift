@@ -58,7 +58,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
         didSet { if root != oldValue { relayout(flashNew: oldValue.path == root.path && !oldValue.children.isEmpty) } }
     }
     /// Blocks that just came in, lit for as long as Needs You flashes.
-    private var flashing: Set<String> = []
+    private let flash = Flash()
     var selected: String? { didSet { if selected != oldValue { needsDisplay = true } } }
     /// Where the agent is now, ringed while it works.
     var now: String? { didSet { if now != oldValue { needsDisplay = true } } }
@@ -71,6 +71,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
     /// The rows shown under the root, which isn't one: the heading above names it.
     static let rows = 3
     private(set) var blocks: [Icicle.Block] = []
+    private var usedRows = 1
     private var elements: [NSAccessibilityElement] = []
     private var rowHeight: CGFloat { TextSize.of(Metrics.row) - Metrics.lineGap }
 
@@ -104,16 +105,14 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             addToolTip(block.rect, owner: self, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
         }
         elements = blocks.map(element)
-        invalidateIntrinsicContentSize()
-        flashing = flashNew && !Motion.reduced ? Set(blocks.compactMap(\.path)).subtracting(before) : []
-        if !flashing.isEmpty {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.flash
-                animator().alphaValue = 1
-            } completionHandler: { [weak self] in
-                self?.flashing = []
-                self?.needsDisplay = true
-            }
+        // Its height changes only with the rows used: asking again from inside layout would lay it out again.
+        let rows = (blocks.map(\.depth).max() ?? 0) + 1
+        if rows != usedRows {
+            usedRows = rows
+            invalidateIntrinsicContentSize()
+        }
+        if flashNew {
+            flash.start(Set(blocks.compactMap(\.path)).subtracting(before)) { [weak self] in self?.needsDisplay = true }
         }
         needsDisplay = true
     }
@@ -133,14 +132,14 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             if block.path == selected, block.path != nil { ring(rect, .keyboardFocusIndicatorColor) }
             // Where the agent is now: a dot at the end of the deepest block it is in, not a second ring.
             if block == nowBlock {
-                let r = Metrics.lineGap + 1
+                let r = Metrics.lineGap * 1.5
                 NSColor.labelColor.setFill()
                 NSBezierPath(
                     ovalIn: NSRect(
                         x: rect.maxX - Metrics.gapTight - 2 * r, y: rect.midY - r, width: 2 * r, height: 2 * r)
                 ).fill()
             }
-            if let path = block.path, flashing.contains(path) { ring(rect, .agentEdited) }
+            if let path = block.path, flash.lit.contains(path) { ring(rect, .agentEdited) }
             let name = node?.name ?? (block.merged > 0 ? "…" : "")
             // A block too narrow for its whole name gets none (a cut name like "A…ta" reads as noise): the name is in
             // its tooltip and the list.
@@ -176,8 +175,9 @@ final class IcicleView: NSView, NSViewToolTipOwner {
 
     private func ring(_ rect: NSRect, _ color: NSColor) {
         let path = NSBezierPath(
-            roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: Metrics.radiusXS - 1, yRadius: Metrics.radiusXS - 1)
-        path.lineWidth = 2
+            roundedRect: rect.insetBy(dx: Metrics.lineGap / 2, dy: Metrics.lineGap / 2),
+            xRadius: Metrics.radiusXS - Metrics.lineGap / 2, yRadius: Metrics.radiusXS - Metrics.lineGap / 2)
+        path.lineWidth = Metrics.lineGap
         color.setStroke()
         path.stroke()
     }

@@ -48,7 +48,7 @@ final class PlaceMark: NSView {
     override var intrinsicContentSize: NSSize { NSSize(width: Metrics.iconSmall, height: Metrics.iconSmall) }
 
     override func draw(_ dirtyRect: NSRect) {
-        let side = Metrics.iconSmall - 3,
+        let side = Metrics.iconSmall - 2 * Metrics.lineGap,
             box = NSRect(
                 x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
         switch kind {
@@ -56,7 +56,7 @@ final class PlaceMark: NSView {
             NSColor.agentEditMark.setFill()
             NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS / 2, yRadius: Metrics.radiusXS / 2).fill()
         case .read:
-            let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1, dy: 1))
+            let ring = NSBezierPath(ovalIn: box.insetBy(dx: Metrics.lineGap / 2, dy: Metrics.lineGap / 2))
             ring.lineWidth = Metrics.stroke
             NSColor.secondaryLabelColor.setStroke()
             ring.stroke()
@@ -252,5 +252,27 @@ enum TurnMenu {
         let tag = pop.selectedTag()
         model.whole = tag < 0
         model.turn = tag < 0 || tag == (model.work?.turns.count ?? 0) - 1 ? nil : tag
+    }
+}
+
+/// What just came into a drawing, lit for as long as Needs You flashes. A newer flash starts the time again.
+@MainActor
+final class Flash {
+    private(set) var lit: Set<String> = []
+    private var timer: Timer?
+
+    /// Lights `ids` (none with Reduce Motion), and calls `changed` now and when they go out.
+    func start(_ ids: Set<String>, changed: @escaping @MainActor () -> Void) {
+        timer?.invalidate()
+        lit = Motion.reduced ? [] : ids
+        changed()
+        guard !lit.isEmpty else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: Motion.flash, repeats: false) { [weak self] _ in
+            // A timer scheduled on the main run loop fires on the main thread.
+            MainActor.assumeIsolated {
+                self?.lit = []
+                changed()
+            }
+        }
     }
 }

@@ -23,7 +23,7 @@ final class WorkMapView: NSView {
     private var hits: [(id: String, rect: NSRect)] = []
     private var hovered: String? { didSet { if hovered != oldValue { needsDisplay = true } } }
     private var lit: Set<String> = []   // the hovered node's path to the agent
-    private var flashing: Set<String> = []
+    private let flash = Flash()
     private var elements: [NSAccessibilityElement] = []
     private let font = NSFont.ui(TextSize.row), bold = NSFont.ui(TextSize.row, weight: .medium)
     private let caption = NSFont.uiDigits(TextSize.caption)
@@ -37,19 +37,7 @@ final class WorkMapView: NSView {
         let before = Set(at.keys)
         at = NodeTree.layout(nodes, width: labelWidth, step: step, gap: Metrics.blockGap + Metrics.inset)
         if flashNew {
-            flashing = Set(at.keys).subtracting(before)
-            // The new nodes light up for as long as Needs You flashes, then go back to plain.
-            if !flashing.isEmpty, !Motion.reduced {
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = Motion.flash
-                    animator().alphaValue = 1
-                } completionHandler: { [weak self] in
-                    self?.flashing = []
-                    self?.needsDisplay = true
-                }
-            } else {
-                flashing = []
-            }
+            flash.start(Set(at.keys).subtracting(before)) { [weak self] in self?.needsDisplay = true }
         }
         let maxX = nodes.map { (at[$0.id]?.x ?? 0) + labelWidth($0) }.max() ?? 0
         let maxY = at.values.map(\.y).max() ?? 0
@@ -127,7 +115,7 @@ final class WorkMapView: NSView {
             let y = (first + last) / 2, line = NSBezierPath()
             line.move(to: NSPoint(x: left - Metrics.inset, y: y))
             line.line(to: NSPoint(x: bounds.maxX - pad, y: y))
-            line.setLineDash([Metrics.gapTight, Metrics.gapTight], count: 2, phase: 0)
+            line.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0)
             NSColor.separatorColor.setStroke()
             line.stroke()
         }
@@ -169,9 +157,10 @@ final class WorkMapView: NSView {
             path.stroke()
             return path
         }
-        if flashing.contains(node.id) {
+        if flash.lit.contains(node.id) {
             NSColor.agentEditedFolder.setFill()
-            NSBezierPath(ovalIn: NSRect(x: p.x - 2.5 * r, y: p.y - 2.5 * r, width: 5 * r, height: 5 * r)).fill()
+            let halo = Metrics.iconSmall / 2 + Metrics.lineGap
+            NSBezierPath(ovalIn: NSRect(x: p.x - halo, y: p.y - halo, width: 2 * halo, height: 2 * halo)).fill()
         }
         switch node.kind {
         case .agent:
@@ -179,7 +168,8 @@ final class WorkMapView: NSView {
             draw(agentIcon, in: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s))
         case .group, .folder:
             NSColor.secondaryLabelColor.setFill()
-            NSBezierPath(ovalIn: NSRect(x: p.x - r + 0.5, y: p.y - r + 0.5, width: 2 * r - 1, height: 2 * r - 1)).fill()
+            let dot = r - Metrics.lineGap / 4
+            NSBezierPath(ovalIn: NSRect(x: p.x - dot, y: p.y - dot, width: 2 * dot, height: 2 * dot)).fill()
         case .file:
             if node.edited {
                 let s = Metrics.iconSmall
@@ -192,12 +182,12 @@ final class WorkMapView: NSView {
                 _ = ring(r)
             }
         case .folded:
-            _ = ring(r + 1)
+            _ = ring(r + Metrics.lineGap / 2)
             let plus = NSBezierPath()
-            plus.move(to: NSPoint(x: p.x - r / 2 - 0.5, y: p.y))
-            plus.line(to: NSPoint(x: p.x + r / 2 + 0.5, y: p.y))
-            plus.move(to: NSPoint(x: p.x, y: p.y - r / 2 - 0.5))
-            plus.line(to: NSPoint(x: p.x, y: p.y + r / 2 + 0.5))
+            plus.move(to: NSPoint(x: p.x - r / 2 - Metrics.lineGap / 4, y: p.y))
+            plus.line(to: NSPoint(x: p.x + r / 2 + Metrics.lineGap / 4, y: p.y))
+            plus.move(to: NSPoint(x: p.x, y: p.y - r / 2 - Metrics.lineGap / 4))
+            plus.line(to: NSPoint(x: p.x, y: p.y + r / 2 + Metrics.lineGap / 4))
             plus.lineWidth = Metrics.stroke
             plus.stroke()
         case .more:
@@ -206,11 +196,11 @@ final class WorkMapView: NSView {
                 roundedRect: NSRect(x: p.x - 2 * r, y: p.y - r, width: 4 * r, height: 2 * r), xRadius: r, yRadius: r
             ).fill()
         case .outside:
-            _ = ring(r + 0.5, dashed: true)
+            _ = ring(r + Metrics.lineGap / 4, dashed: true)
         }
         // The selection is the system's focus ring; where the agent is now, a dot beneath the mark.
         if node.id == selected {
-            let radius = Metrics.iconSmall - 1
+            let radius = Metrics.iconSmall - Metrics.lineGap / 2
             let ring = NSBezierPath(
                 ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
             ring.lineWidth = Metrics.lineGap
@@ -243,10 +233,11 @@ final class WorkMapView: NSView {
         if let worktree = WorkWords.badged(node.place?.worktree) {
             let badge = badgeText(worktree), bs = badge.size()
             let box = NSRect(
-                x: x, y: p.y - bs.height / 2 - 1, width: bs.width + 2 * Metrics.gapTight, height: bs.height + 2)
+                x: x, y: p.y - bs.height / 2 - Metrics.lineGap / 2, width: bs.width + 2 * Metrics.gapTight,
+                height: bs.height + Metrics.lineGap)
             NSColor.fillSelected.setFill()
             NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
-            badge.draw(at: NSPoint(x: box.minX + Metrics.gapTight, y: box.minY + 1))
+            badge.draw(at: NSPoint(x: box.minX + Metrics.gapTight, y: box.minY + Metrics.lineGap / 2))
             x = box.maxX + Metrics.gap
         }
         let s = Metrics.iconSmall

@@ -112,8 +112,8 @@ final class WorkModel {
         return place.name == "." ? base : base + "/" + place.name
     }
 
-    /// Whether a file's diff can be shown: the diff tab has the last turn's changes, not an earlier one's.
-    var showsDiff: Bool { turn == nil && !whole }
+    /// Whether a file's diff can be shown: a turn's, not the whole session's.
+    var showsDiff: Bool { !whole }
 
     /// Opens a project file beside the agent; with the Option key, the turn's diff of it.
     func open(_ place: AgentWork.Place, diff: Bool) {
@@ -121,9 +121,24 @@ final class WorkModel {
         // A file edited in a worktree of the project: its diff is that worktree's, if Kelp knows it; else the file.
         let base = place.worktree.flatMap { name in localRoot.map { $0 + "/.claude/worktrees/" + name } }
         let diffIn = base.map { base in app.worktrees.first { $0.path == base }?.id } ?? workspace
-        // The diff tab shows the last turn's changes: an earlier turn's file opens as it is.
         if diff, showsDiff, let diffIn {
-            app.workbench.open(TabURI.diff(diffIn, file: place.name, source: base == nil ? .turn : nil))
+            guard base == nil, let turn, let work, work.turns.indices.contains(turn) else {
+                // The last turn's diff; a worktree's own changes.
+                return app.workbench.open(TabURI.diff(diffIn, file: place.name, source: base == nil ? .turn : nil))
+            }
+            // An earlier turn's: the snapshot Kelp took when it began names it to the diff tab.
+            let start = work.turns[turn].at,
+                end = turn + 1 < work.turns.count ? work.turns[turn + 1].at : .distantFuture
+            let id = session.id, file = path(of: place)
+            Task { [app] in
+                let marks = await app.quiet(SessionTurns(id: id)) ?? []
+                guard let mark = marks.first(where: { $0.at >= start.addingTimeInterval(-5) && $0.at < end }) else {
+                    // No snapshot of that turn: the file as it is.
+                    return _ = file.map { app.workbench.openBeside(TabURI.file($0), in: workspace) }
+                }
+                app.workbench.open(
+                    TabURI.diff(diffIn, file: place.name, source: .turn, session: mark.session, turn: mark.id))
+            }
         } else if let path = path(of: place) {
             _ = app.workbench.openBeside(TabURI.file(path), in: workspace)
         }

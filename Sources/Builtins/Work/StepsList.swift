@@ -28,6 +28,8 @@ struct StepRow: Equatable {
         for step in steps where filter.map({ $0.contains(step.agent) || step.other.map($0.contains) == true }) ?? true {
             if folded.contains(step.agent) {
                 if step.kind != .report, let at = spawnRow[step.agent] { rows[at].inside += 1 }
+                // A subagent it started is folded onto the same row: its steps count there too.
+                if step.kind == .spawn, let other = step.other, let at = spawnRow[step.agent] { spawnRow[other] = at }
                 continue
             }
             if step.kind == .spawn, let other = step.other { spawnRow[other] = rows.count }
@@ -260,12 +262,12 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
                 NSBezierPath(ovalIn: box).fill()
             case .spawn, .report:
                 color.setFill()
-                NSBezierPath(ovalIn: box.insetBy(dx: -1, dy: -1)).fill()
+                NSBezierPath(ovalIn: box.insetBy(dx: -Metrics.lineGap / 2, dy: -Metrics.lineGap / 2)).fill()
             case .command:
                 NSColor.secondaryLabelColor.setFill()
-                NSBezierPath(ovalIn: box.insetBy(dx: 0.5, dy: 0.5)).fill()
+                NSBezierPath(ovalIn: box.insetBy(dx: Metrics.lineGap / 4, dy: Metrics.lineGap / 4)).fill()
             default:
-                let ring = NSBezierPath(ovalIn: box.insetBy(dx: 0.5, dy: 0.5))
+                let ring = NSBezierPath(ovalIn: box.insetBy(dx: Metrics.lineGap / 4, dy: Metrics.lineGap / 4))
                 NSColor.windowBackgroundColor.setFill()
                 ring.fill()
                 ring.lineWidth = Metrics.stroke

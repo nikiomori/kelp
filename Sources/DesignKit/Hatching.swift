@@ -5,6 +5,8 @@ import AppKit
 public enum Hatching {
     /// Between two lines.
     public static let step: CGFloat = 4
+    /// The lines' colour.
+    public static let color = NSColor.tertiaryLabelColor
 
     /// Fills `path` with the resting fill and the lines, in the current graphics context.
     @MainActor public static func fill(_ path: NSBezierPath) {
@@ -21,7 +23,7 @@ public enum Hatching {
             x += step
         }
         lines.lineWidth = 1
-        NSColor.tertiaryLabelColor.setStroke()
+        color.setStroke()
         lines.stroke()
     }
 }

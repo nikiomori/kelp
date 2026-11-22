@@ -113,7 +113,7 @@ private func sampleWork() -> AgentWork {
 
 /// The Map: the pointer on a file lights its path to the agent; a click on a folded folder asks to open it; the arrows
 /// walk the tree; where the agent is now is ringed on the node that stands for it.
-@MainActor @Test func theMapAnswersThePointerAndTheKeys() {
+@MainActor @Test func theMapAnswersThePointerAndTheKeys() throws {
     let work = sampleWork()
     let project = WorkTree.project(work, rootName: "Kelp")
     let view = WorkMapView()
@@ -134,33 +134,35 @@ private func sampleWork() -> AgentWork {
     let target = "Sources/Daemon/Sessions/ChildReports.swift"
     let point = view.accessibilityChildren()?.compactMap { $0 as? NSAccessibilityElement }
         .first { ($0.accessibilityLabel() ?? "").hasPrefix("ChildReports.swift") }?.accessibilityFrameInParentSpace()
-    #expect(point != nil)
-    if let point {
-        view.mouseMoved(with: mouse(.mouseMoved, at: NSPoint(x: point.midX, y: point.midY), in: view))
-        #expect(hovered?.id == target)
-        shot(view, "map-hover")
-    }
+    let at = try #require(point)
+    view.mouseMoved(with: mouse(.mouseMoved, at: NSPoint(x: at.midX, y: at.midY), in: view))
+    #expect(hovered?.id == target)
+    shot(view, "map-hover")
 
     var activated: MapNode?
     view.onActivate = { activated = $0 }
-    if let folded = nodes.first(where: { $0.kind == .folded }),
-        let rect = view.accessibilityChildren()?.compactMap({ $0 as? NSAccessibilityElement })
+    let folded = try #require(nodes.first { $0.kind == .folded })
+    let rect = try #require(
+        view.accessibilityChildren()?.compactMap({ $0 as? NSAccessibilityElement })
             .first(where: { ($0.accessibilityLabel() ?? "").hasPrefix(folded.label) })?
-            .accessibilityFrameInParentSpace()
-    {
-        view.mouseDown(with: mouse(.leftMouseDown, at: NSPoint(x: rect.midX, y: rect.midY), in: view))
-        #expect(activated?.kind == .folded)
-    }
+            .accessibilityFrameInParentSpace())
+    view.mouseDown(with: mouse(.leftMouseDown, at: NSPoint(x: rect.midX, y: rect.midY), in: view))
+    #expect(activated?.kind == .folded)
 
     view.selected = target
     view.keyDown(with: key(NSLeftArrowFunctionKey))
     #expect(view.selected == "Sources/Daemon/Sessions")
     view.keyDown(with: key(NSRightArrowFunctionKey))
     #expect(view.selected == nodes.first { $0.parent == "Sources/Daemon/Sessions" }?.id)
+    let siblings = nodes.filter { $0.parent == "Sources/Daemon/Sessions" }.map(\.id)
+    #expect(siblings.count > 1)
     view.keyDown(with: key(NSDownArrowFunctionKey))
-    #expect(view.selected != target || nodes.filter { $0.parent == "Sources/Daemon/Sessions" }.count == 1)
-    view.now = WorkMapController.visible(work.places[work.now ?? 0], in: nodes)
-    #expect(view.now == "Sources/Core/Values/Models.swift" || view.now == "Sources/Core/Values")
+    #expect(view.selected == siblings[1])
+    // Where the agent is now: its file's node, or the folded folder it is in.
+    let now = work.places[try #require(work.now)].name
+    view.now = WorkMapController.visible(work.places[try #require(work.now)], in: nodes)
+    let shown = try #require(view.now)
+    #expect(nodes.contains { $0.id == shown } && (shown == now || Paths.relative(now, to: shown) != nil))
     shot(view, "map-keys")
 }
 
@@ -366,4 +368,22 @@ private func sampleWork() -> AgentWork {
     let first = pop.itemArray.first
     TurnMenu.fill(pop, work: work, model: model)
     #expect(pop.itemArray.first === first)
+}
+
+/// A remote session's work names the host's folder; its files open from its workspace's folder on this Mac.
+@MainActor @Test func aRemoteSessionsFilesOpenFromTheFolderHere() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    rig.app.sessions = [
+        Session(id: "s1", worktreeId: rig.workspace.id, cwd: "/home/me/proj", command: "claude", agent: "claude")
+    ]
+    let model = WorkModel(app: rig.app, choices: WorkChoices())
+    model.show("s1")
+    var work = AgentWork()
+    work.root = "/home/me/proj"
+    model.received(work)
+    var place = AgentWork.Place(kind: .file, name: "Sources/a.swift")
+    #expect(model.path(of: place) == rig.workspace.path + "/Sources/a.swift")
+    place.worktree = "fix"
+    #expect(model.path(of: place) == rig.workspace.path + "/.claude/worktrees/fix/Sources/a.swift")
 }

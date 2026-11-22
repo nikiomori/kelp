@@ -123,6 +123,11 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
         filter: nil, folded: [1])
     #expect(folded.map(\.step.kind) == [.spawn, .edit] && folded[0].inside == 2 && folded[0].lane == 0)
     #expect(folded.allSatisfy { $0.before.union($0.after) == [0] })
+    // One it started is folded onto the same row: its steps count there too.
+    let nested = StepRow.make(
+        [step(0, .spawn, other: 1), step(1, .spawn, other: 2), step(2, .read, "x"), step(2, .edit, "x")],
+        filter: nil, folded: [1, 2])
+    #expect(nested.count == 1 && nested[0].inside == 3)
     // A subagent that never reports gives its lane back after its last step; past five lanes, agents share the last.
     let quiet = StepRow.make([step(0, .spawn, other: 1), step(1, .read, "x"), step(0, .edit, "y")], filter: nil)
     #expect(quiet[1].after == [0] && quiet[2].before == [0])
