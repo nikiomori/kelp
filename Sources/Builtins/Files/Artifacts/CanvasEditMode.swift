@@ -127,14 +127,17 @@ enum CanvasEditMode {
           function outline() {
             if (!at) return;
             const b = K.box(at.f, at.e);
-            K.place(chosen, b);
+            // The 2-point line straddles the element's edge, where the corners' handles sit.
+            K.place(chosen, { x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
             Object.assign(tag.style, { left: b.x + 'px', top: (b.y - 20) + 'px' });
           }
           window.kelpOutline = outline;
           function draw() {
             if (K.mode() !== 'edit') return;
             if (!at) return C.open([K.el('span', 'kelp-grow', L.title)], [K.el('p', 'kelp-note', L.choose)]);
-            C.open([K.el('span', 'kelp-grow', titleOf(at.e))], inspector());
+            const head = K.el('div', 'kelp-ihd');
+            head.append(K.el('div', 'kelp-ittl', titleOf(at.e)), crumb(at.e));
+            C.open([head], inspector());
           }
           function choose(next, quiet) {
             at = next;
@@ -227,8 +230,11 @@ enum CanvasEditMode {
             const slider = K.el('span', 'kelp-islide'), range = K.el('input'), pct = K.el('span', 'kelp-ival');
             range.type = 'range'; range.min = 0; range.max = 100;
             range.value = Math.round(parseFloat(css(e).opacity) * 100);
-            pct.textContent = range.value + ' %';
-            range.oninput = () => { pct.textContent = range.value + ' %'; e.style.opacity = range.value / 100; };
+            const show = () => {
+              pct.textContent = range.value + ' %'; range.style.setProperty('--v', range.value + '%');
+            };
+            show();
+            range.oninput = () => { show(); e.style.opacity = range.value / 100; };
             range.onchange = () => set('opacity', String(range.value / 100));
             slider.append(range, pct);
             const rows = ['background', 'radius'].filter(has).map(popup);
@@ -242,17 +248,19 @@ enum CanvasEditMode {
               field('', sec(when[0]), v => send(num(v) || 0, when[1])),
               field('', sec(when[1]), v => send(when[0], num(v) || when[1]))), false)]);
           }
-          function inspector() {
-            const e = at.e, id = idOf(e), out = [];
-            const head = K.el('div', 'kelp-ihead'), crumb = K.el('div', 'kelp-icrumb'), p = e.parentElement;
+          // The way up: the parent's name (a click chooses it) › the element's tag and data-id.
+          function crumb(e) {
+            const line = K.el('div', 'kelp-icrumb'), p = e.parentElement;
             if (p && p !== e.ownerDocument.body) {
               const up = K.el('button', 'kelp-ilink', titleOf(p));
               up.onclick = () => choose({ f: at.f, e: p });
-              crumb.append(up, ' › ');
+              line.append(up, ' › ');
             }
-            crumb.append(nameOf(e));
-            head.append(crumb);
-            out.push(head);
+            line.append(nameOf(e));
+            return line;
+          }
+          function inspector() {
+            const e = at.e, id = idOf(e), out = [];
             if (!id) {
               // Found again by its place among the body's elements of its tag, to write a data-id into its file.
               const give = K.el('button', 'kelp-pill', L.giveID), doc = e.ownerDocument;
@@ -314,13 +322,18 @@ enum CanvasEditMode {
     /// The CSS for the chosen element's outline and name tag, the inspector's rows, and the field the user types over
     /// an element.
     static let style = """
-        .kelp-chosen { position: absolute; display: none; border: 2px solid var(--k-accent); border-radius: 3px; }
+        .kelp-chosen { position: absolute; display: none; box-sizing: border-box; border: 2px solid var(--k-accent);
+          border-radius: 2px; }
         .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: 4px;
           background: var(--k-accent); color: #fff; font: 500 10px/16px -apple-system, sans-serif;
           white-space: nowrap; }
         .kelp-q { color: var(--k-sec); }
-        .kelp-ihead { padding: 0 12px 8px; border-bottom: 1px solid var(--k-sep); }
-        .kelp-icrumb { color: var(--k-sec); font-size: 11px; }
+        .kelp-col-head:has(.kelp-ihd) { height: auto; padding: 10px 12px 8px; }
+        .kelp-ihd { min-width: 0; }
+        .kelp-ittl { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; }
+        .kelp-icrumb { color: var(--k-sec); font-size: 11px; font-weight: 400; margin-top: 1px; white-space: nowrap;
+          overflow: hidden; text-overflow: ellipsis; }
         .kelp-ilink { border: 0; background: none; color: var(--k-sec); font: inherit; padding: 0 2px;
           border-radius: 4px; }
         .kelp-ilink:hover { background: var(--k-hover); color: var(--k-label); }
@@ -349,7 +362,13 @@ enum CanvasEditMode {
           font: 12px -apple-system, sans-serif; font-variant-numeric: tabular-nums; padding: 0; }
         .kelp-ifld:focus-within { box-shadow: 0 0 0 2px var(--k-accent); }
         .kelp-islide { display: flex; align-items: center; gap: 8px; }
-        .kelp-islide input { flex: 1; min-width: 0; accent-color: var(--k-sec); }
+        .kelp-islide input { flex: 1; min-width: 0; height: 14px; margin: 0; background: none;
+          -webkit-appearance: none; }
+        .kelp-islide input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+          background: linear-gradient(var(--k-sec), var(--k-sec)) 0 / var(--v, 100%) 100% no-repeat, var(--k-sel); }
+        .kelp-islide input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+          margin-top: -5px;
+          border-radius: 50%; background: #e5e5e7; box-shadow: 0 1px 2px rgba(0,0,0,.45); }
         .kelp-type { position: absolute; z-index: 26; margin: 0; padding: 0; border: 0; resize: none;
           overflow: hidden; background: rgba(0,122,255,.08); outline: 2px solid var(--k-accent); border-radius: 2px; }
         """

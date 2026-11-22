@@ -45,6 +45,7 @@ enum CanvasEdit {
           let mode = null;
           const setMode = m => {
             mode = m; outline.style.display = 'none'; sheet.style.display = m ? 'block' : 'none';
+            outline.classList.toggle('kelp-outline-edit', m === 'edit');   // orange is Mark's: a mark waits for you
           };
           const pointed = e => e.closest('[data-id]') || e;
           const describe = e => {
@@ -330,6 +331,7 @@ enum CanvasEdit {
         .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }
         .kelp-with-col .kelp-sheet { right: 260px; }
         .kelp-outline { position: absolute; display: none; border: 1.5px solid var(--k-orange); border-radius: 3px; }
+        .kelp-outline.kelp-outline-edit { border: 1px solid var(--k-accent); opacity: .6; }
         .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
           color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;
           box-shadow: 0 0 0 2px var(--k-card); }
