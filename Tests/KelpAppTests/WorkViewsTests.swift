@@ -165,3 +165,13 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     let later = AgentPicker.entries(work, names: work.agents.map(\.name))
     #expect(later.first { $0.key == plan }?.members == [3])
 }
+
+/// The summary counts files by path, as the map draws them: one file read in two worktrees is one; the counts come
+/// before the prompt, so a narrow panel cuts the prompt.
+@Test func theSummaryCountsFilesByPath() {
+    var inTree = file("Sources/a.swift", edits: 1)
+    inTree.worktree = "agent-a1"
+    var turn = work([file("Sources/a.swift"), inTree, file("Sources/b.swift")])
+    turn.turns = [.init(prompt: "fix it", at: Date())]
+    #expect(WorkSummary.line(turn, turn: 0) == "2 files · 1 edited · «fix it»")
+}

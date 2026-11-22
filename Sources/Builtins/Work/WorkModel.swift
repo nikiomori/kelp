@@ -139,6 +139,18 @@ final class WorkModel {
         app.workbench.focus(session: id)
     }
 
+    /// Whether `open(outside:)` has somewhere to take a place: a host or a web search has none.
+    func opens(_ place: AgentWork.Place) -> Bool {
+        switch place.kind {
+        case .web: !place.name.contains(" ")
+        case .tool: true
+        case .outside, .own:
+            work?.root
+                == session.flatMap(app.session)?.worktreeId.flatMap { id in app.worktrees.first { $0.id == id } }?.path
+        default: false
+        }
+    }
+
     /// Opens a place outside the project where Kelp can: a site in its browser, an MCP server in Skills & MCP, a folder
     /// on this Mac in Finder. A host has nowhere to go from here.
     func open(outside place: AgentWork.Place) {

@@ -6,14 +6,16 @@ import KelpKit
 /// The line under the panel's bar: what was asked, and how much was touched.
 enum WorkSummary {
     static func line(_ work: AgentWork, turn: Int?) -> String {
-        let files = work.places.filter { $0.kind == .file }
-        let edited = files.filter { $0.edits > 0 || $0.byCommand }.count
+        // By path: one file read in a dozen subagents' worktrees is one file, as the map draws it.
+        let places = work.places.filter { $0.kind == .file }
+        let files = Set(places.map(\.name))
+        let edited = Set(places.filter { $0.edits > 0 || $0.byCommand }.map(\.name)).count
         let outside = work.places.filter { ![.file, .folder].contains($0.kind) }.count
-        var parts: [String] = []
-        if let turn, work.turns.indices.contains(turn) { parts.append("«\(work.turns[turn].prompt)»") }
-        parts.append(String(localized: "\(files.count) files"))
+        // The counts first, so a narrow panel cuts the prompt, which the turn menu also shows.
+        var parts = files.isEmpty ? [] : [String(localized: "\(files.count) files")]
         if edited > 0 { parts.append(String(localized: "\(edited) edited")) }
         if outside > 0 { parts.append(String(localized: "\(outside) outside")) }
+        if let turn, work.turns.indices.contains(turn) { parts.append("«\(work.turns[turn].prompt)»") }
         return parts.joined(separator: " · ")
     }
 
@@ -51,12 +53,12 @@ final class PlaceMark: NSView {
                 x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
         switch kind {
         case .edit:
-            NSColor.systemBlue.setFill()
+            NSColor.agentEditMark.setFill()
             NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS / 2, yRadius: Metrics.radiusXS / 2).fill()
         case .read, .outside, .folder:
             let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1, dy: 1))
-            ring.lineWidth = 1.4
-            if kind == .outside { ring.setLineDash([2, 1.5], count: 2, phase: 0) }
+            ring.lineWidth = Metrics.stroke
+            if kind == .outside { ring.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0) }
             if kind == .folder {
                 NSColor.secondaryLabelColor.setFill()
                 ring.fill()
@@ -73,21 +75,31 @@ final class PlaceMark: NSView {
 @MainActor
 final class OutsideChips: NSView {
     var onOpen: (AgentWork.Place) -> Void = { _ in }
+    /// Whether a place has somewhere to go on a click (a site, a tool, a folder on this Mac).
+    var opens: (AgentWork.Place) -> Bool = { _ in true }
     private var places: [AgentWork.Place] = []
     private var chips: [Chip] = []
     private var own: [AgentWork.Place] = []
-    private let more: NSTextField = .label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private lazy var more = TextButton("", target: self, action: #selector(showRest))
+    /// The most rows of chips; past them, "+ N more" opens a menu of the rest.
+    static let rows = 3
+    private var usedRows = 1
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        more.font = .ui(TextSize.caption)
         addSubview(more)
-        heightAnchor.constraint(equalToConstant: Metrics.iconButton).isActive = true
-        // It asks for no width: what doesn't fit goes into "+ N more".
+        // It asks for no width: it wraps into the width it is given.
         setContentCompressionResistancePriority(.init(1), for: .horizontal)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: Metrics.iconButton) }
+    override var intrinsicContentSize: NSSize {
+        NSSize(
+            width: NSView.noIntrinsicMetric,
+            height: CGFloat(usedRows) * Metrics.iconButton + CGFloat(usedRows - 1) * Metrics.gapTight)
+    }
+    override var isFlipped: Bool { true }
 
     func show(_ outside: [AgentWork.Place]) {
         guard outside != places else { return }
@@ -95,52 +107,91 @@ final class OutsideChips: NSView {
         chips.forEach { $0.removeFromSuperview() }
         isHidden = outside.isEmpty
         own = outside.filter { $0.kind == .own }
-        chips = outside.filter { $0.kind != .own }.map { place in Chip(place) { [weak self] in self?.onOpen(place) } }
+        chips = outside.filter { $0.kind != .own }.map { place in
+            Chip(place, tap: opens(place) ? { [weak self] in self?.onOpen(place) } : nil)
+        }
         chips.forEach { addSubview($0) }
         needsLayout = true
     }
 
     /// The count of places "+ N more" stands for, as laid out last.
     private(set) var hiddenCount = 0
+    private var rest: [AgentWork.Place] = []
 
     override func layout() {
         super.layout()
-        let gap = Metrics.gapTight, height = bounds.height
+        let gap = Metrics.gapTight, height = Metrics.iconButton
         // Only the agent's own folders left over: their names say more than a count ("+ /tmp, ~/.claude").
         func moreWords(_ count: Int) -> String {
             if count == 0 { return "" }
             return count == own.count
                 ? "+ " + own.map(\.name).joined(separator: ", ") : String(localized: "+ \(count) more")
         }
-        // Each chip goes in if it and, should any be left after it, the "+ N more" after it still fit.
-        var x: CGFloat = 0, shown = 0
+        // Chips fill rows left to right; on the last row each goes in if, should any be left after it, the "+ N more"
+        // after it still fits. A chip wider than a row is cut in the middle.
+        var x: CGFloat = 0, row = 0, shown = 0
         for (index, chip) in chips.enumerated() {
-            let width = chip.fittingSize.width
+            let width = min(chip.fittingSize.width, bounds.width)
             let left = chips.count - index - 1 + own.count
-            more.stringValue = moreWords(left)
-            let reserve = left == 0 ? 0 : gap + more.fittingSize.width
-            // The first always shows, cut in the middle if it must, so the row never holds only "+ N more".
-            let room = bounds.width - x - reserve
-            guard width <= room || index == 0 else { break }
-            chip.frame = NSRect(x: x, y: 0, width: max(0, min(width, room)), height: height)
-            x += chip.frame.width + gap
+            more.title = moreWords(left)
+            let last = row == Self.rows - 1
+            let reserve = left == 0 || !last ? 0 : gap + more.fittingSize.width
+            if x > 0, x + width + reserve > bounds.width {
+                guard !last else { break }
+                (x, row) = (0, row + 1)
+                if row == Self.rows - 1, width + (left == 0 ? 0 : gap + more.fittingSize.width) > bounds.width,
+                    index > 0
+                {
+                    break
+                }
+            }
+            let fit = max(0, min(width, bounds.width - x - (row == Self.rows - 1 ? reserve : 0)))
+            chip.frame = NSRect(x: x, y: CGFloat(row) * (height + gap), width: fit, height: height)
+            x += fit + gap
             shown += 1
         }
         for (index, chip) in chips.enumerated() { chip.isHidden = index >= shown }
         hiddenCount = chips.count - shown + own.count
-        let rest = chips.dropFirst(shown).map(\.place) + own
-        more.stringValue = moreWords(hiddenCount)
-        more.toolTip = rest.map(\.name).joined(separator: ", ")
+        rest = chips.dropFirst(shown).map(\.place) + own
+        more.title = moreWords(hiddenCount)
         more.isHidden = hiddenCount == 0
+        if !more.isHidden, x > 0, x + more.fittingSize.width > bounds.width, row < Self.rows - 1 {
+            (x, row) = (0, row + 1)
+        }
         let size = more.fittingSize
         more.frame = NSRect(
-            x: x, y: (height - size.height) / 2, width: min(size.width, max(0, bounds.width - x)), height: size.height)
+            x: x, y: CGFloat(row) * (height + gap) + (height - size.height) / 2,
+            width: min(size.width, max(0, bounds.width - x)), height: size.height)
+        if row + 1 != usedRows {
+            usedRows = row + 1
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    /// The places that didn't fit, as a menu: each does what its chip would.
+    @objc private func showRest() {
+        let menu = NSMenu()
+        for (index, place) in rest.enumerated() {
+            let item = NSMenuItem(title: place.name, action: #selector(openRest(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.image = .symbol(WorkSummary.symbol(place.kind))
+            item.isEnabled = opens(place)
+            menu.addItem(item)
+        }
+        menu.autoenablesItems = false
+        menu.popUp(positioning: nil, at: NSPoint(x: more.frame.minX, y: more.frame.maxY), in: self)
+    }
+
+    @objc private func openRest(_ item: NSMenuItem) {
+        if rest.indices.contains(item.tag) { onOpen(rest[item.tag]) }
     }
 
     private final class Chip: NSControl {
         let place: AgentWork.Place, label: NSTextField, icon = NSImageView()
-        let tap: () -> Void
-        init(_ place: AgentWork.Place, tap: @escaping () -> Void) {
+        let tap: (() -> Void)?
+        /// Without `tap`, a place there's nowhere to go from (a host, a web search): it shows, but isn't a button.
+        init(_ place: AgentWork.Place, tap: (() -> Void)?) {
             self.place = place
             self.tap = tap
             label = .label(place.name, font: .ui(TextSize.caption), truncation: .byTruncatingMiddle)
@@ -156,17 +207,54 @@ final class OutsideChips: NSView {
             row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
             pin(row)
             toolTip = [place.name, place.detail].compactMap { $0 }.joined(separator: " · ")
-            setAccessibilityRole(.button)
+            setAccessibilityRole(tap == nil ? .staticText : .button)
             setAccessibilityLabel(toolTip)
         }
         required init?(coder: NSCoder) { fatalError() }
         override func draw(_ dirtyRect: NSRect) {
             Hatching.fill(NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM))
         }
-        override func mouseDown(with event: NSEvent) { tap() }
+        override func mouseDown(with event: NSEvent) { tap?() }
         override func accessibilityPerformPress() -> Bool {
-            tap()
-            return true
+            tap?()
+            return tap != nil
         }
+    }
+}
+
+/// The turn menu the panel and the Map tab share: the last turn first, then each earlier one by its prompt and time,
+/// then the whole session. Built again only when the turns change, so a menu held open while the agent works stays.
+@MainActor
+enum TurnMenu {
+    static func fill(_ pop: NSPopUpButton, work: AgentWork?, model: WorkModel) {
+        let turns = work?.turns ?? []
+        pop.isHidden = turns.isEmpty
+        let items = turns.enumerated().reversed().map { index, turn in
+            (
+                index == turns.count - 1
+                    ? String(localized: "Last Turn")
+                    : "“\(turn.prompt.prefix(40))” · \(turn.at.formatted(date: .omitted, time: .shortened))", index,
+                turn.prompt
+            )
+        }
+        let titles = items.map(\.0) + [String(localized: "Whole Session")]
+        if pop.itemArray.filter({ !$0.isSeparatorItem }).map(\.title) != titles {
+            pop.removeAllItems()
+            for (title, tag, tip) in items {
+                pop.addItem(withTitle: title)
+                pop.lastItem?.tag = tag
+                pop.lastItem?.toolTip = tip
+            }
+            pop.menu?.addItem(.separator())
+            pop.addItem(withTitle: String(localized: "Whole Session"))
+            pop.lastItem?.tag = -1
+        }
+        pop.selectItem(withTag: model.whole ? -1 : (model.turn ?? turns.count - 1))
+    }
+
+    static func pick(_ pop: NSPopUpButton, model: WorkModel) {
+        let tag = pop.selectedTag()
+        model.whole = tag < 0
+        model.turn = tag < 0 || tag == (model.work?.turns.count ?? 0) - 1 ? nil : tag
     }
 }

@@ -50,8 +50,9 @@ enum AgentMarks {
         case subagents([Int])
     }
 
+    /// The marks of `who`, without the session's own agent: a place it alone touched needs no mark.
     static func of(_ who: [Int], agents: [AgentWork.Agent]) -> [Mark] {
-        let known = who.sorted().filter { agents.indices.contains($0) }
+        let known = who.sorted().filter { agents.indices.contains($0) && agents[$0].role != .main }
         let subagents = known.filter { agents[$0].role == .subagent }
         let own = known.filter { agents[$0].role != .subagent }.map(Mark.agent)
         return own + (subagents.isEmpty ? [] : [.subagents(subagents)])
@@ -62,5 +63,11 @@ extension WorkWords {
     /// A worktree's name as a badge shows it: a subagent's own worktree (`agent-a3eb6caaa616ad498`) as `agent-a3eb…`.
     static func worktree(_ name: String) -> String {
         name.count > 14 ? String(name.prefix(10)) + "…" : name
+    }
+
+    /// Whether a row shows its worktree's badge: not for a subagent's own worktree (`agent-…`), which its subagent
+    /// mark already says; the card names it.
+    static func badged(_ name: String?) -> String? {
+        name.flatMap { $0.hasPrefix("agent-") ? nil : $0 }
     }
 }

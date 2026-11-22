@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Map tab's controller: its bar (turn, this turn or the whole session, which agent, zoom), the tree in a scroll
+/// The Map tab's controller: its bar (the turn or the whole session, which agent, zoom), the tree in a scroll
 /// view that zooms, the card a node shows under the pointer, and what a click on a node does.
 @MainActor
 final class WorkMapController: NSViewController {
@@ -12,9 +12,6 @@ final class WorkMapController: NSViewController {
     let tree = WorkMapView()
     private let scroll = NSScrollView()
     private let turnPop = NSPopUpButton()
-    private lazy var scope = CapsuleSegments(
-        labels: [String(localized: "This Turn"), String(localized: "Whole Session")], target: self,
-        action: #selector(pickScope))
     private let agents = AgentPicker()
     private let now = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
@@ -22,6 +19,8 @@ final class WorkMapController: NSViewController {
     private let card = HoverPopover()
     private var watched: Watched?
     private var opened: Set<String> = []
+    /// What the view was last fitted to (turn, scope, agents): a new choice fits the tree again.
+    private var fitted: String?
     private let session: String
 
     init(app: AppModel, session: String, choices: WorkChoices) {
@@ -48,11 +47,11 @@ final class WorkMapController: NSViewController {
         }
         let fit = IconButton(
             .symbol("arrow.up.left.and.down.right.magnifyingglass"), tip: String(localized: "Zoom to Fit")
-        ) { [weak self] in self?.fit() }
+        ) { [weak self] in self?.fit(animated: true) }
         let zoomIn = IconButton(.symbol("plus.magnifyingglass"), tip: String(localized: "Zoom In")) { [weak self] in
             self?.zoom(by: 1.25)
         }
-        let header = Bar.content([turnPop, scope, agents, now], [zoomOut, fit, zoomIn])
+        let header = Bar.content([turnPop, agents, now], [zoomOut, fit, zoomIn])
         scroll.documentView = tree
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
@@ -150,6 +149,12 @@ final class WorkMapController: NSViewController {
         tree.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.flatMap { place in
             Self.visible(place, in: nodes)
         }
+        let choice = "\(model.turn ?? -1) \(model.whole) \(model.picked ?? "")"
+        if choice != fitted {
+            fitted = choice
+            view.layoutSubtreeIfNeeded()
+            fit(animated: false)
+        }
     }
 
     /// The node standing for a place: its own, or the folded folder it is in.
@@ -165,30 +170,11 @@ final class WorkMapController: NSViewController {
         return "outside/" + place.kind.rawValue + "/" + place.name
     }
 
-    private func fillTurns(_ work: AgentWork?) {
-        turnPop.removeAllItems()
-        let turns = work?.turns ?? []
-        turnPop.isHidden = turns.isEmpty || model.whole
-        for (index, turn) in turns.enumerated().reversed() {
-            let when = turn.at.formatted(date: .omitted, time: .shortened)
-            turnPop.addItem(
-                withTitle: index == turns.count - 1
-                    ? String(localized: "Last Turn") : "“\(turn.prompt.prefix(40))” · \(when)")
-            turnPop.lastItem?.tag = index
-            turnPop.lastItem?.toolTip = turn.prompt
-        }
-        turnPop.selectItem(withTag: model.turn ?? turns.count - 1)
-        scope.selectedSegment = model.whole ? 1 : 0
-    }
+    private func fillTurns(_ work: AgentWork?) { TurnMenu.fill(turnPop, work: work, model: model) }
 
     // MARK: Actions
 
-    @objc private func pickTurn() {
-        let tag = turnPop.selectedTag()
-        model.turn = tag == (model.work?.turns.count ?? 0) - 1 ? nil : tag
-    }
-
-    @objc private func pickScope() { model.whole = scope.selectedSegment == 1 }
+    @objc private func pickTurn() { TurnMenu.pick(turnPop, model: model) }
 
     private func activate(_ node: MapNode) {
         switch node.kind {
@@ -213,7 +199,9 @@ final class WorkMapController: NSViewController {
         }
         card.open { [weak self] in
             guard let self else { return }
-            let content = WorkCard(place: place, names: model.agentNames, icons: tree.icons) { [weak self] action in
+            let content = WorkCard(
+                place: place, names: model.agentNames, icons: tree.icons, opens: model.opens(place)
+            ) { [weak self] action in
                 self?.card.close()
                 switch action {
                 case .open:
@@ -234,10 +222,18 @@ final class WorkMapController: NSViewController {
             scroll.maxMagnification, max(scroll.minMagnification, scroll.magnification * factor))
     }
 
-    private func fit() {
+    /// Shrinks the tree to the room, down to where its words still read, and shows the agent at the left: a turn
+    /// too big to fit opens where it starts, not at its first folder's corner.
+    private func fit(animated: Bool) {
         let size = tree.frame.size, room = scroll.contentSize
         guard size.width > 0, size.height > 0 else { return }
-        scroll.animator().magnification = min(
-            1, max(scroll.minMagnification, min(room.width / size.width, room.height / size.height)))
+        let readable: CGFloat = 0.6
+        let scale = min(1, max(readable, min(room.width / size.width, room.height / size.height)))
+        (animated ? scroll.animator() : scroll).magnification = scale
+        guard let agent = tree.rect(of: "agent") else { return }
+        let visible = scroll.contentView.bounds.size
+        let y = min(max(0, agent.midY - visible.height / 2), max(0, size.height - visible.height))
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
+        scroll.reflectScrolledClipView(scroll.contentView)
     }
 }

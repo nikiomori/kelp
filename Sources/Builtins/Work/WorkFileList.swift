@@ -54,8 +54,20 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         mark.kind = place.edits > 0 || place.byCommand ? .edit : .read
         let name = NSTextField.label(
             (place.name as NSString).lastPathComponent, font: .ui(TextSize.row), truncation: .byTruncatingMiddle)
-        // What goes after the name, the more needed first: the panel drops the last ones whole when it is narrow.
+        // What goes after the name, the more needed first: the panel drops the last ones whole when it is narrow. The
+        // folder first: it is what tells two files of one name apart.
         var extras: [NSView] = []
+        // Two File.swift in two folders read apart only by their folders: each says where it is under the block.
+        let folder = (place.name as NSString).deletingLastPathComponent
+        if spansFolders, !folder.isEmpty {
+            let shown = under.isEmpty ? folder : Paths.relative(folder, to: under) ?? folder
+            if !shown.isEmpty {
+                extras.append(
+                    NSTextField.label(
+                        shown, font: .ui(TextSize.caption), color: .tertiaryLabelColor, truncation: .byTruncatingMiddle)
+                )
+            }
+        }
         let read = WorkWords.reads(place)
         if !read.isEmpty {
             extras.append(
@@ -68,22 +80,9 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
                     String(localized: "by a command"), font: .ui(TextSize.caption), color: .secondaryLabelColor))
         }
         // The panel's own agent goes without saying; subagents and the agents it started are marked.
-        let others = AgentMarks.of(place.agents, agents: agents).filter {
-            if case .agent(let index) = $0 { agents[index].role != .main } else { true }
-        }
+        let others = AgentMarks.of(place.agents, agents: agents)
         if !others.isEmpty { extras.append(marks(others)) }
-        if let worktree = place.worktree { extras.append(Self.badge(worktree)) }
-        // Two File.swift in two folders read apart only by their folders: each says where it is under the block.
-        let folder = (place.name as NSString).deletingLastPathComponent
-        if spansFolders, !folder.isEmpty {
-            let shown = under.isEmpty ? folder : Paths.relative(folder, to: under) ?? folder
-            if !shown.isEmpty {
-                extras.append(
-                    NSTextField.label(
-                        shown, font: .ui(TextSize.caption), color: .tertiaryLabelColor, truncation: .byTruncatingMiddle)
-                )
-            }
-        }
+        if let worktree = WorkWords.badged(place.worktree) { extras.append(Self.badge(worktree)) }
         let cell = FileRow(mark: mark, name: name, extras: extras, lines: Self.lines(place))
         cell.toolTip = place.name
         cell.setAccessibilityElement(true)
@@ -128,9 +127,12 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     static func badge(_ worktree: String) -> NSView {
         let label = NSTextField.label(
             "⎇ " + WorkWords.worktree(worktree), font: .ui(TextSize.micro), color: .secondaryLabelColor)
+        // Its fill drawn by the field, so it follows light and dark; the layer only rounds it.
+        label.drawsBackground = true
+        label.backgroundColor = .fillSelected
         label.wantsLayer = true
-        label.layer?.backgroundColor = NSColor.fillSelected.cgColor
         label.layer?.cornerRadius = Metrics.radiusXS
+        label.layer?.masksToBounds = true
         label.toolTip = String(localized: "Touched in the worktree \(worktree)")
         return label
     }
@@ -156,8 +158,8 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 }
 
 /// One file's row: its mark and name at the left, its lines at the right edge, and between them as many of `extras`
-/// as fit whole, in order (the rest are left out, never squeezed). The name is cut in the middle only when nothing
-/// else is left to drop.
+/// as fit whole, the first first (the rest are left out, never squeezed). The name is cut in the middle only when
+/// nothing else is left to drop.
 @MainActor
 final class FileRow: NSView {
     private let mark: NSView, name: NSTextField, extras: [NSView], lines: NSView
@@ -169,8 +171,8 @@ final class FileRow: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// How many of `extras` show, as laid out last.
-    private(set) var shownExtras = 0
+    /// Which of `extras` show, as laid out last.
+    private(set) var shown: Set<Int> = []
 
     override func layout() {
         super.layout()
@@ -187,18 +189,18 @@ final class FileRow: NSView {
         var x = left + size(mark).width + gap
         let nameWidth = size(name).width
         var room = end - x - nameWidth
-        shownExtras = 0
-        for extra in extras {
+        shown = []
+        for (index, extra) in extras.enumerated() {
             let width = size(extra).width + gap
-            guard width <= room else { break }
+            guard width <= room else { continue }   // one too wide is left out; a smaller one after it may still fit
             room -= width
-            shownExtras += 1
+            shown.insert(index)
         }
         place(name, x: x, width: min(nameWidth, end - x))
         x += min(nameWidth, end - x) + gap
         for (index, extra) in extras.enumerated() {
-            extra.isHidden = index >= shownExtras
-            guard index < shownExtras else { continue }
+            extra.isHidden = !shown.contains(index)
+            guard shown.contains(index) else { continue }
             let width = size(extra).width
             place(extra, x: x, width: width)
             x += width + gap

@@ -10,14 +10,20 @@ final class WorkCard: NSViewController {
     private let place: AgentWork.Place, names: [String], icons: [NSImage?]
     private let act: (Action) -> Void
 
-    init(place: AgentWork.Place, names: [String], icons: [NSImage?], act: @escaping (Action) -> Void) {
+    init(
+        place: AgentWork.Place, names: [String], icons: [NSImage?], opens: Bool = true,
+        act: @escaping (Action) -> Void
+    ) {
         self.place = place
         self.names = names
         self.icons = icons
         self.act = act
+        self.opens = opens
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private let opens: Bool
 
     override func loadView() {
         let isFile = place.kind == .file
@@ -68,7 +74,7 @@ final class WorkCard: NSViewController {
             lines.append(NSTextField.label(span, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor))
         }
         var buttons: [NSView] = []
-        if isFile || [.web, .tool, .outside, .own].contains(place.kind) {
+        if isFile || opens && [.web, .tool, .outside, .own].contains(place.kind) {
             buttons.append(ClosureButton(title: String(localized: "Open")) { [act] in act(.open) })
         }
         if isFile, place.edits > 0 || place.byCommand {

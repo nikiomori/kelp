@@ -119,10 +119,13 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             work.turn.flatMap { work.turns.indices.contains($0) ? work.turns[$0].at : nil } ?? work.steps.first?.at
             ?? Date()
         guard made != rows || names != self.names else { return }
+        // Follows the agent only while the list is at its end: someone reading an earlier step stays where they are.
+        let visible = table.rows(in: table.visibleRect)
+        let atEnd = rows.isEmpty || visible.location + visible.length >= rows.count
         rows = made
         self.names = names
         table.reloadData()
-        if let last = rows.indices.last { table.scrollRowToVisible(last) }
+        if atEnd, let last = rows.indices.last { table.scrollRowToVisible(last) }
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
@@ -204,7 +207,8 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             Metrics.gap + CGFloat(lane) * (Metrics.inset + Metrics.gap) + Metrics.gapTight
         }
         static func color(_ lane: Int) -> NSColor {
-            [NSColor.tertiaryLabelColor, .systemPurple, .systemTeal, .systemIndigo, .systemBrown][lane % 5]
+            // Colour is state in Kelp, not who: the session's agent's lane is quieter than the others'.
+            lane == 0 ? .tertiaryLabelColor : .secondaryLabelColor
         }
 
         override func draw(_ dirtyRect: NSRect) {
@@ -246,7 +250,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             let color = Self.color(row.lane)
             switch row.step.kind {
             case .edit:
-                NSColor.systemBlue.setFill()
+                NSColor.agentEditMark.setFill()
                 NSBezierPath(roundedRect: box, xRadius: Metrics.lineGap, yRadius: Metrics.lineGap).fill()
             case .failed:
                 NSColor.systemRed.setFill()
@@ -261,8 +265,8 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
                 let ring = NSBezierPath(ovalIn: box.insetBy(dx: 0.5, dy: 0.5))
                 NSColor.windowBackgroundColor.setFill()
                 ring.fill()
-                ring.lineWidth = 1.4
-                if row.step.kind == .ask { ring.setLineDash([2, 1.5], count: 2, phase: 0) }
+                ring.lineWidth = Metrics.stroke
+                if row.step.kind == .ask { ring.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0) }
                 (row.lane == 0 ? NSColor.secondaryLabelColor : color).setStroke()
                 ring.stroke()
             }

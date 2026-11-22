@@ -59,6 +59,9 @@ final class WorkMapView: NSView {
         needsDisplay = true
     }
 
+    /// Where a node is drawn, in the view's coordinates.
+    func rect(of id: String) -> NSRect? { hits.first { $0.id == id }?.rect }
+
     private func point(_ id: String) -> CGPoint? {
         at[id].map { CGPoint(x: $0.x + pad + Metrics.iconMenu / 2, y: $0.y + pad + step / 2) }
     }
@@ -71,7 +74,7 @@ final class WorkMapView: NSView {
         default:
             let logos =
                 CGFloat(AgentMarks.of(node.agents, agents: agents).count + 1) * (Metrics.iconSmall + Metrics.lineGap)
-            let badge = node.place?.worktree.map { badgeText($0).size().width + Metrics.gap * 2 } ?? 0
+            let badge = WorkWords.badged(node.place?.worktree).map { badgeText($0).size().width + Metrics.gap * 2 } ?? 0
             return Metrics.inset + text(node).size().width + badge + logos + Metrics.gap
         }
     }
@@ -139,14 +142,14 @@ final class WorkMapView: NSView {
             let blue = node.edited, on = lit.isEmpty || lit.contains(node.id)
             path.lineWidth = blue || lit.contains(node.id) ? Metrics.lineGap : 1.2
             (lit.contains(node.id) ? NSColor.themeAccent : blue ? NSColor.agentEdited : NSColor.tertiaryLabelColor)
-                .withAlphaComponent(on ? 1 : Metrics.paneDim / 2).setStroke()
+                .withAlphaComponent(on ? 1 : Metrics.unlit).setStroke()
             path.stroke()
         }
         for node in nodes {
             guard let p = point(node.id) else { continue }
             let dim = !lit.isEmpty && !lit.contains(node.id)
             NSGraphicsContext.saveGraphicsState()
-            if dim { NSGraphicsContext.current?.cgContext.setAlpha(Metrics.paneDim / 2) }
+            if dim { NSGraphicsContext.current?.cgContext.setAlpha(Metrics.unlit) }
             mark(node, at: p)
             label(node, at: p)
             NSGraphicsContext.restoreGraphicsState()
@@ -158,8 +161,8 @@ final class WorkMapView: NSView {
         func ring(_ radius: CGFloat, dashed: Bool = false) -> NSBezierPath {
             let path = NSBezierPath(
                 ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
-            path.lineWidth = 1.4
-            if dashed { path.setLineDash([2, 1.5], count: 2, phase: 0) }
+            path.lineWidth = Metrics.stroke
+            if dashed { path.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0) }
             NSColor.textBackgroundColor.setFill()
             path.fill()
             NSColor.secondaryLabelColor.setStroke()
@@ -180,10 +183,10 @@ final class WorkMapView: NSView {
         case .file:
             if node.edited {
                 let s = Metrics.iconSmall
-                NSColor.systemBlue.setFill()
+                NSColor.agentEditMark.setFill()
                 NSBezierPath(
                     roundedRect: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s),
-                    xRadius: Metrics.lineGap + 0.5, yRadius: Metrics.lineGap + 0.5
+                    xRadius: Metrics.lineGap, yRadius: Metrics.lineGap
                 ).fill()
             } else {
                 _ = ring(r)
@@ -195,7 +198,7 @@ final class WorkMapView: NSView {
             plus.line(to: NSPoint(x: p.x + r / 2 + 0.5, y: p.y))
             plus.move(to: NSPoint(x: p.x, y: p.y - r / 2 - 0.5))
             plus.line(to: NSPoint(x: p.x, y: p.y + r / 2 + 0.5))
-            plus.lineWidth = 1.2
+            plus.lineWidth = Metrics.stroke
             plus.stroke()
         case .more:
             NSColor.fillSelected.setFill()
@@ -205,16 +208,23 @@ final class WorkMapView: NSView {
         case .outside:
             _ = ring(r + 0.5, dashed: true)
         }
-        if node.id == now { ring2(p, color: .labelColor) }
-        if node.id == selected { ring2(p, color: .themeAccent) }
-    }
-
-    private func ring2(_ p: CGPoint, color: NSColor) {
-        let radius = Metrics.iconSmall - 1
-        let path = NSBezierPath(ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
-        path.lineWidth = Metrics.lineGap
-        color.setStroke()
-        path.stroke()
+        // The selection is the system's focus ring; where the agent is now, a dot beneath the mark.
+        if node.id == selected {
+            let radius = Metrics.iconSmall - 1
+            let ring = NSBezierPath(
+                ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
+            ring.lineWidth = Metrics.lineGap
+            NSColor.keyboardFocusIndicatorColor.setStroke()
+            ring.stroke()
+        }
+        if node.id == now {
+            let y = p.y + Metrics.iconSmall / 2 + Metrics.lineGap
+            NSColor.labelColor.setFill()
+            NSBezierPath(
+                ovalIn: NSRect(x: p.x - Metrics.lineGap, y: y, width: 2 * Metrics.lineGap, height: 2 * Metrics.lineGap)
+            )
+            .fill()
+        }
     }
 
     private func label(_ node: MapNode, at p: CGPoint) {
@@ -230,7 +240,7 @@ final class WorkMapView: NSView {
         words.draw(at: origin)
         guard ![.group, .folder].contains(node.kind) else { return }
         var x = origin.x + size.width + Metrics.gap
-        if let worktree = node.place?.worktree {
+        if let worktree = WorkWords.badged(node.place?.worktree) {
             let badge = badgeText(worktree), bs = badge.size()
             let box = NSRect(
                 x: x, y: p.y - bs.height / 2 - 1, width: bs.width + 2 * Metrics.gapTight, height: bs.height + 2)
@@ -304,6 +314,12 @@ final class WorkMapView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        // The keys take over from the pointer: its lit path would leave the selection dimmed.
+        if !lit.isEmpty || hovered != nil {
+            hovered = nil
+            lit = []
+            onHover(nil, .zero)
+        }
         let current = nodes.first { $0.id == selected } ?? nodes.first
         guard let current else { return super.keyDown(with: event) }
         let siblings = nodes.filter { $0.parent == current.parent }

@@ -61,6 +61,9 @@ public enum Metrics {
     public static let iconGap: CGFloat = 2   // between two icon buttons side by side
     public static let iconGlow: CGFloat = 7   // the blur of a project's colour around its icon
     public static let paneDim: CGFloat = 0.5   // how far a pane without focus fades toward the background
+    public static let unlit: CGFloat = 0.25   // what is off the pointer's path in a drawn map
+    public static let stroke: CGFloat = 1.4   // a drawn ring or curve: a map's nodes, a list's lanes
+    public static let dash: [CGFloat] = [2, 1.5]   // a dashed ring: a place outside, a question
     public static let tabDim: CGFloat = 0.7   // the opacity a dimmed tab strip's tabs keep
 
     // Segments: one icon of a segmented capsule (the inspector's panels), `iconGap` apart from each other and from the

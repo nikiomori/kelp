@@ -174,7 +174,7 @@ private func sampleWork() -> AgentWork {
     let holder = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 220))
     holder.addSubview(icicle)
     icicle.frame.origin = NSPoint(x: 12, y: 90)
-    let chips = OutsideChips(frame: NSRect(x: 12, y: 40, width: 356, height: 22))
+    let chips = OutsideChips(frame: NSRect(x: 12, y: 40, width: 356, height: 74))
     holder.addSubview(chips)
     chips.show(WorkTree.outside(work))
     let win = window(holder, holder.frame.size)
@@ -184,12 +184,10 @@ private func sampleWork() -> AgentWork {
     var picked: String?, zoomed: String??
     icicle.onSelect = { picked = $0 }
     icicle.onZoom = { zoomed = .some($0) }
-    let blocks = Icicle.layout(
-        tree, width: icicle.bounds.width, rows: IcicleView.rows,
-        row: .init(height: TextSize.of(Metrics.row) - Metrics.lineGap, gap: Metrics.lineGap),
-        narrowest: Metrics.gapTight)
-    let sources = blocks.first { $0.path == "Sources" }
-    #expect(sources != nil)
+    // The root isn't a row: its folders are the top one.
+    let sources = icicle.blocks.first { $0.path == "Sources" }
+    #expect(sources?.depth == 0 && sources?.rect.minY == 0)
+    #expect(!icicle.blocks.contains { $0.path == "" })
     if let sources {
         let at = NSPoint(x: sources.rect.midX, y: sources.rect.midY)
         icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle))
@@ -201,17 +199,18 @@ private func sampleWork() -> AgentWork {
     icicle.keyDown(with: key(NSRightArrowFunctionKey))
     #expect(picked == "Tests/DaemonTests")   // one folder in Tests: the chain is one block
     shot(holder, "layers")
-    // The chips that fit show whole, inside the row; the rest are counted, the agent's own folders with them.
+    // The chips wrap into rows and show whole, inside the panel; what is left is "+ …", a button for a menu of it.
     chips.layout()
-    let shown = chips.subviews.filter { !$0.isHidden && !($0 is NSTextField) }
+    let shown = chips.subviews.filter { !$0.isHidden && !($0 is TextButton) }
     #expect(!shown.isEmpty)
     for chip in shown {
         #expect(chip.frame.maxX <= chips.bounds.width + 0.5 && chip.frame.width >= chip.fittingSize.width - 0.5)
+        #expect(chip.frame.maxY <= chips.intrinsicContentSize.height + 0.5)
     }
     #expect(chips.hiddenCount == 8 - shown.count)
-    let more = chips.subviews.compactMap { $0 as? NSTextField }.first
-    #expect(more?.stringValue == "+ \(8 - shown.count) more")
-    #expect((more?.frame.maxX ?? 999) <= chips.bounds.width + 0.5)
+    let more = chips.subviews.compactMap { $0 as? TextButton }.first
+    #expect(more?.isHidden == (chips.hiddenCount == 0))
+    #expect((more?.frame.maxX ?? 0) <= chips.bounds.width + 0.5)
 }
 
 /// The steps list draws every kind of step on its lanes.

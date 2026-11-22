@@ -45,10 +45,13 @@ enum NodeTree {
         -> [MapNode]
     {
         var out = [MapNode(id: "agent", kind: .agent, label: "")]
-        out.append(
-            MapNode(
-                id: "project", parent: "agent", kind: .group, label: project.name,
-                detail: String(localized: "\(project.files.count) files")))
+        // A turn that only reached outside has no project branch ("Kelp, 0 files" would say nothing).
+        if !project.children.isEmpty || project.searched {
+            out.append(
+                MapNode(
+                    id: "project", parent: "agent", kind: .group, label: project.name,
+                    detail: String(localized: "\(project.files.count) files")))
+        }
         func add(_ node: WorkNode, under parent: String, depth: Int) {
             let folders = node.children.filter { !$0.isFile }, files = node.children.filter(\.isFile)
             for folder in folders {

@@ -95,9 +95,10 @@ extension NSColor {
     /// A merge conflict's sides in the editor, as VS Code shows them: the current side as `diffAdded`, the incoming one
     /// blue.
     public static let conflictIncoming = tint(.systemBlue, 0.14)
-    /// What an agent edited, in its work map: a file's block, and the lighter fill of a folder that holds an edit. The
-    /// solid mark beside an edited file's name is `systemBlue` itself. Blue, because amber is Source Control's
-    /// "modified" and orange is kept for an agent that waits for you.
+    /// What an agent edited, in its work map: a file's block, and the lighter fill of a folder that holds an edit; the
+    /// solid mark beside an edited file's name (`agentEditMark`). Blue, because amber is Source Control's "modified"
+    /// and orange is kept for an agent that waits for you.
+    public static let agentEditMark = NSColor.systemBlue
     public static let agentEdited = appearanceTint(.systemBlue, light: 0.38, dark: 0.55)
     public static let agentEditedFolder = appearanceTint(.systemBlue, light: 0.16, dark: 0.24)
     private static func appearanceTint(_ color: NSColor, light: CGFloat, dark: CGFloat) -> NSColor {

@@ -5,9 +5,9 @@ import KelpKit
 import WorkbenchKit
 
 /// The inspector's Work panel: where the agent in focus worked. Steps shows its turn step by step, as the commit graph
-/// shows commits (agents as lanes); Map shows its project in layers (folders over files, as wide as the files touched),
-/// the places outside the project as chips, and the files of the block picked. The bar names the agent, picks the turn
-/// and opens the Map tab. It reads only while it is on screen.
+/// shows commits (agents as lanes); Places shows its project in layers (folders over files, as wide as the files
+/// touched), the places outside the project as chips, and the files of the block picked. The bar names the agent, picks
+/// the turn and opens the Map tab. It reads only while it is on screen.
 @MainActor
 final class WorkPanel: NSViewController {
     let app: AppModel
@@ -16,11 +16,11 @@ final class WorkPanel: NSViewController {
     private let name = NSTextField.label("", font: .ui(TextSize.row, weight: .medium))
     private let turnPop = NSPopUpButton()
     private lazy var openTab = IconButton(
-        .symbol("arrow.up.left.and.arrow.down.right"), tip: String(localized: "Open the Map as a Tab"), target: self,
+        .symbol("map"), tip: String(localized: "Open Map"), target: self,
         action: #selector(openAsTab))
     private let summary = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private lazy var views = CapsuleSegments(
-        labels: [String(localized: "Steps"), String(localized: "Map")], target: self, action: #selector(switchView))
+        labels: [String(localized: "Steps"), String(localized: "Places")], target: self, action: #selector(switchView))
     private let agents = AgentPicker()
     let icicle = IcicleView()
     let chips = OutsideChips()
@@ -80,6 +80,7 @@ final class WorkPanel: NSViewController {
             model.open(place, diff: NSEvent.modifierFlags.contains(.option))
         }
         chips.onOpen = { [weak self] in self?.model.open(outside: $0) }
+        chips.opens = { [weak self] in self?.model.opens($0) ?? false }
         files.onOpen = { [weak self] place, diff in self?.model.open(place, diff: diff) }
         steps.onOpen = { [weak self] in self?.model.open(step: $0) }
         let headingRow = NSStackView(views: [heading, NSView(), back])
@@ -226,7 +227,11 @@ final class WorkPanel: NSViewController {
         summary.stringValue =
             WorkSummary.now(work, working: working, names: model.agentNames) ?? WorkSummary.line(work, turn: work.turn)
         let tree = WorkTree.project(work, rootName: model.projectName, agents: model.agents)
-        let shownRoot = tree.node(at: zoom) ?? tree
+        // A folder alone under the root ("Kelp" over "Sources") says nothing as a row of its own: start below it.
+        var shownRoot = tree.node(at: zoom) ?? tree
+        while shownRoot.children.count == 1, let only = shownRoot.children.first, !only.isFile, !shownRoot.searched {
+            shownRoot = only
+        }
         let noFiles = tree.children.isEmpty
         icicle.superview?.isHidden = noFiles
         files.scroll.isHidden = noFiles
@@ -235,7 +240,7 @@ final class WorkPanel: NSViewController {
         icicle.root = shownRoot
         icicle.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.map(\.name)
         let pickedNode = picked.flatMap(shownRoot.node(at:)) ?? shownRoot
-        icicle.selected = pickedNode.path
+        icicle.selected = picked == nil ? nil : pickedNode.path
         heading.stringValue =
             noFiles
             ? String(localized: "No project files in this turn")
@@ -261,32 +266,12 @@ final class WorkPanel: NSViewController {
         controlRows.forEach { $0.isHidden = true }
     }
 
-    /// The turn picker: the last turn first, then each earlier one by its prompt and time, then the whole session.
-    private func fillTurns(_ work: AgentWork?) {
-        turnPop.removeAllItems()
-        let turns = work?.turns ?? []
-        turnPop.isHidden = turns.isEmpty
-        for (index, turn) in turns.enumerated().reversed() {
-            let when = turn.at.formatted(date: .omitted, time: .shortened)
-            turnPop.addItem(
-                withTitle: index == turns.count - 1
-                    ? String(localized: "Last Turn") : "“\(turn.prompt.prefix(40))” · \(when)")
-            turnPop.lastItem?.tag = index
-            turnPop.lastItem?.toolTip = turn.prompt
-        }
-        turnPop.menu?.addItem(.separator())
-        turnPop.addItem(withTitle: String(localized: "Whole Session"))
-        turnPop.lastItem?.tag = -1
-        let chosen = model.whole ? -1 : (model.turn ?? turns.count - 1)
-        turnPop.selectItem(withTag: chosen)
-    }
+    private func fillTurns(_ work: AgentWork?) { TurnMenu.fill(turnPop, work: work, model: model) }
 
     // MARK: Actions
 
     @objc private func pickTurn() {
-        let tag = turnPop.selectedTag()
-        model.whole = tag < 0
-        model.turn = tag < 0 || tag == (model.work?.turns.count ?? 0) - 1 ? nil : tag
+        TurnMenu.pick(turnPop, model: model)
         picked = nil
         zoom = ""
     }

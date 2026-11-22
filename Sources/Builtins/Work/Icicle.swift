@@ -68,8 +68,9 @@ final class IcicleView: NSView, NSViewToolTipOwner {
     /// The agents' names, by their index in the work, for tooltips and VoiceOver.
     var agentNames: [String] = []
 
-    static let rows = 5
-    private var blocks: [Icicle.Block] = []
+    /// The rows shown under the root, which isn't one: the heading above names it.
+    static let rows = 3
+    private(set) var blocks: [Icicle.Block] = []
     private var elements: [NSAccessibilityElement] = []
     private var rowHeight: CGFloat { TextSize.of(Metrics.row) - Metrics.lineGap }
 
@@ -88,9 +89,16 @@ final class IcicleView: NSView, NSViewToolTipOwner {
 
     private func relayout(flashNew: Bool = false) {
         let before = Set(blocks.compactMap(\.path))
+        let step = rowHeight + Metrics.lineGap
         blocks = Icicle.layout(
-            root, width: bounds.width, rows: Self.rows, row: .init(height: rowHeight, gap: Metrics.lineGap),
-            narrowest: Metrics.gapTight)
+            root, width: bounds.width, rows: Self.rows + 1, row: .init(height: rowHeight, gap: Metrics.lineGap),
+            narrowest: Metrics.gapTight
+        ).filter { $0.depth > 0 }.map { block in
+            var block = block
+            block.depth -= 1
+            block.rect.origin.y -= step
+            return block
+        }
         removeAllToolTips()
         for (index, block) in blocks.enumerated() {
             addToolTip(block.rect, owner: self, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
@@ -114,6 +122,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
         let font = NSFont.ui(TextSize.micro, weight: .medium), plain = NSFont.ui(TextSize.micro)
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byTruncatingMiddle
+        let nowBlock = nowBlock
         for block in blocks {
             let rect = block.rect.insetBy(dx: Metrics.lineGap / 2, dy: 0)
             guard rect.width >= 1 else { continue }
@@ -121,25 +130,41 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             let node = block.path.flatMap { root.node(at: $0) }
             fill(for: node).setFill()
             shape.fill()
-            if block.path == selected, block.path != nil { ring(rect, NSColor.themeAccent) }
-            if let now, block.path == now { ring(rect, .labelColor) }
+            if block.path == selected, block.path != nil { ring(rect, .keyboardFocusIndicatorColor) }
+            // Where the agent is now: a dot at the end of the deepest block it is in, not a second ring.
+            if block == nowBlock {
+                let r = Metrics.lineGap + 1
+                NSColor.labelColor.setFill()
+                NSBezierPath(
+                    ovalIn: NSRect(
+                        x: rect.maxX - Metrics.gapTight - 2 * r, y: rect.midY - r, width: 2 * r, height: 2 * r)
+                ).fill()
+            }
             if let path = block.path, flashing.contains(path) { ring(rect, .agentEdited) }
             let name = node?.name ?? (block.merged > 0 ? "…" : "")
-            // A block too narrow for a word gets none: its name is in the tooltip and the list.
-            guard rect.width >= Metrics.iconButton + Metrics.inset || name == "…" && rect.width >= Metrics.inset else {
-                continue
-            }
+            // A block too narrow for its whole name gets none (a cut name like "A…ta" reads as noise): the name is in
+            // its tooltip and the list.
+            let inset = Metrics.gapTight + Metrics.lineGap / 2
+            let room = rect.width - 2 * inset
+            let whole = NSAttributedString(string: name, attributes: [.font: node?.isFile == false ? font : plain])
+            guard whole.size().width <= room, !name.isEmpty else { continue }
             let text = NSAttributedString(
                 string: name,
                 attributes: [
                     .font: node?.isFile == false ? font : plain, .foregroundColor: NSColor.labelColor,
                     .paragraphStyle: style
                 ])
-            let inset = Metrics.gapTight + 1
             let height = text.size().height
             text.draw(
                 in: NSRect(
                     x: rect.minX + inset, y: rect.midY - height / 2, width: rect.width - 2 * inset, height: height))
+        }
+    }
+
+    private var nowBlock: Icicle.Block? {
+        guard let now else { return nil }
+        return blocks.filter { $0.path.map { now == $0 || Paths.relative(now, to: $0) != nil } == true }.max {
+            $0.depth < $1.depth
         }
     }
 
@@ -165,10 +190,11 @@ final class IcicleView: NSView, NSViewToolTipOwner {
         window?.makeFirstResponder(self)
         guard let hit = block(at: convert(event.locationInWindow, from: nil)) else { return }
         guard let path = hit.path else {
-            return onZoom(
-                blocks.first {
-                    $0.depth == hit.depth - 1 && $0.rect.minX <= hit.rect.minX && $0.rect.maxX >= hit.rect.maxX
-                }?.path)
+            // Merged small blocks: into their parent, where they get room (the top row's parent is the root shown).
+            let parent = blocks.first {
+                $0.depth == hit.depth - 1 && $0.rect.minX <= hit.rect.minX && $0.rect.maxX >= hit.rect.maxX
+            }
+            return parent?.path.map { onZoom($0) } ?? ()
         }
         if event.clickCount == 2 {
             if root.node(at: path)?.isFile == true { onOpen(path) } else { onZoom(path) }
