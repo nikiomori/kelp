@@ -183,7 +183,7 @@ final class SessionSetup: Sendable {
     /// `secrets` are read from the keychain, which can wait for a locked login. They aren't read for a running program,
     /// whose environment is long set, because nobody is served while kelpd takes sessions over.
     func hookedEnv(_ manifest: AgentManifest, _ rec: Session, secrets: Bool = true) -> [String: String] {
-        var env = secrets ? manifest.resolvedEnv : manifest.env
+        var env = (secrets ? manifest.resolvedEnv : manifest.env).merging(rec.env ?? [:]) { $1 }
         if let name = rec.profile, let prof = profile(name, agent: manifest.id) { env[prof.key] = prof.dir }
         // Not set for tmux, because its server keeps the first client's environment for every pane, whichever tab
         // they're shown in.

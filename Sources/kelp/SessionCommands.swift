@@ -6,10 +6,13 @@ extension Main {
     static func sessions(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("session", "new"):
+            // First, so a value such as `--arg --oss` isn't read as a flag of its own.
+            let extra = all("--arg"), env = variables(all("--env"))
             let wait = has("--wait"), split = flag("--split"), outlive = has("--outlive")
             var request = SessionCreate(
                 agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"),
                 title: flag("--title"))
+            (request.env, request.args) = (env.isEmpty ? nil : env, extra.isEmpty ? nil : extra)
             // Inside an agent, an agent it starts becomes its child, and a command goes on its line, split or not.
             // Agents keep asking for a split out of habit, and the line exists to spare a pane. The daemon ignores this
             // for anything else.

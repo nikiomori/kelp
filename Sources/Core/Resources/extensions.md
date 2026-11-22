@@ -129,8 +129,20 @@ Exactly one of:
 | `run` | runs the command in the background; output shown only on failure |
 | `open` | opens a URL (browser tab) or a path (file tab) |
 | `agent` | starts the default agent in a new tab with this prompt |
+| `session` | starts that agent in a new tab: `{ "agent": "claude", "model": "${name}", "env": {…}, "args": […] }` |
 
-Optional: `confirm` (question shown first), `icon`.
+Optional: `confirm` (question shown first), `icon`, and on a row's action `if`: a field of the row, and the row offers
+the action only while that field is true or has text (`"if": "running"`).
+
+`session` is how an extension starts an agent on something of its own, e.g. Claude Code on a local model's server:
+```json
+{ "title": "Start Claude Code", "if": "tools",
+  "session": { "agent": "claude", "model": "${name}",
+               "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434", "ANTHROPIC_AUTH_TOKEN": "ollama" } } }
+```
+Each value is one word or one variable, never shell text. The variables stay the session's, so a restart talks to the
+same server; they are kept and shown as its command line is, so they're no place for a secret. A `run` command can't
+start a session: what Kelp runs for an extension is held to an agent's rules.
 
 ## commands
 ```json

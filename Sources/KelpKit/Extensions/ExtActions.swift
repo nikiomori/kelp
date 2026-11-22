@@ -101,6 +101,14 @@ struct ExtActions {
         }
     }
 
+    /// Whether a row offers the action: always, or, with `if`, while that field of the row is true or has text. A
+    /// toolbar's or a command's action has no row and is always there.
+    static func offered(_ spec: ExtManifest.ActionDef, on item: JSONValue?) -> Bool {
+        guard let field = spec.when, let item else { return true }
+        let value = item[field].map(text) ?? ""
+        return !["", "false", "0"].contains(value)
+    }
+
     /// Does what the action says. `busy` hears when a `run` command has gone on for a second (true) and when it ends
     /// (false, also when its question is answered Cancel), for the button or row that ran it to show the wait.
     func perform(
@@ -152,6 +160,12 @@ struct ExtActions {
         // someone else's words.
         else if let prompt = spec.agent {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
+        } else if let session = spec.session {
+            // Each value is one word of the agent's command line or one variable, never shell text.
+            let fill = { (text: String) in self.expand(text, item: item, quote: false) }
+            app.workbench.starterForNewTab?.newAgent(
+                fill(session.agent), model: session.model.map(fill), env: session.env?.mapValues(fill),
+                args: session.args?.map(fill))
         } else if let script = spec.run {
             let cmd = expand(script, item: item, quote: true)
             let slow = whileSlow { busy?(true) }

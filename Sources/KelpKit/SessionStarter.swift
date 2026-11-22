@@ -11,16 +11,18 @@ package struct SessionStarter {
     private var app: AppModel { area.app }
     private var workspaceId: String { area.workspaceId }
 
-    /// Starts an agent. With `draft`, the prompt is typed in for the user to send, not sent.
+    /// Starts an agent. With `draft`, the prompt is typed in for the user to send, not sent. `env` and `args` go on top
+    /// of the agent's own (an extension's `session` action).
     package func newAgent(
         _ agent: String? = nil, prompt: String? = nil, draft: Bool = false, split: SplitDirection? = nil,
-        focus: Bool = true
+        focus: Bool = true, model: String? = nil, env: [String: String]? = nil, args: [String]? = nil
     ) {
-        createSession(
-            SessionCreate(
-                worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent,
-                prompt: prompt?.isEmpty == false ? prompt : nil,
-                draft: draft ? true : nil), split: split, focus: focus)
+        var create = SessionCreate(
+            worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent,
+            model: model?.isEmpty == false ? model : nil, prompt: prompt?.isEmpty == false ? prompt : nil,
+            draft: draft ? true : nil)
+        (create.env, create.args) = (env, args)
+        createSession(create, split: split, focus: focus)
     }
     package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
         createSession(SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: split, focus: focus)

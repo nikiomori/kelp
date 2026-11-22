@@ -29,6 +29,7 @@ extension SessionCreate: Handled {
         }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var launch = Sessions.Launch(self)
+        launch.env = env.flatMap { $0.isEmpty ? nil : $0 }
         // Asked from inside a session, the parent asked for is that one, whatever id was sent (`Callers.caller`).
         let asked = parent.map { Sessions.asker ?? $0 }
         launch.parent = try sessions.parent(asked, of: self)
@@ -53,11 +54,10 @@ extension SessionCreate: Handled {
                 launch.argv = Tmux.argv(Tmux.own())
             }
         }
-        return try sessions.spawn(
-            cwd: dir,
-            manifest: sessions.setup.manifest(
-                tmux == nil ? agent : Session.shellAgent, command: tmux == nil ? command : nil),
-            worktreeId: worktreeId, launch)
+        var manifest = try sessions.setup.manifest(
+            tmux == nil ? agent : Session.shellAgent, command: tmux == nil ? command : nil)
+        manifest.args += args ?? []
+        return try sessions.spawn(cwd: dir, manifest: manifest, worktreeId: worktreeId, launch)
     }
 }
 
@@ -105,6 +105,7 @@ extension SessionRestart: Handled {
         launch.startedBy = old.startedBy
         launch.origin = old.origin
         launch.role = old.role
+        launch.env = old.env
         if launch.profile == nil { launch.profile = old.profile }   // the same account unless told otherwise
         // When a remote agent is still running in its tmux session on the host, the new tab attaches to it (after a
         // dropped connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
@@ -135,6 +136,7 @@ extension SessionFork: Handled {
         launch.argv = try Self.argv(old, manifest, sessions)
         launch.title = (old.title.isEmpty ? manifest.name : old.title) + " (fork)"
         launch.profile = old.profile   // the same account: its conversations are there
+        launch.env = old.env   // the same server
         if let cols, let rows, cols > 0, rows > 0 { (launch.cols, launch.rows) = (UInt16(cols), UInt16(rows)) }
         return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
     }

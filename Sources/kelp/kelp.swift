@@ -10,6 +10,7 @@ let usage = """
       worktree create <branch> [--repo id] [--base b] [--no-setup] | list [--all] | current | note <text>
              | remove <id> [--force] [--drop-commits] | archive <id>
       session new [--agent id] [--worktree id] [--cmd "..."] [--prompt text] [--title t] [--model m] [--split right|down] [--wait] [--outlive] | list
+                                           [--env NAME=value]… [--arg word]…: on top of the agent's, kept on restart
                                            from inside an agent, --agent starts its child: its news comes to the agent as input, and it ends
                                            with the agent. --outlive: not a child
                                            --cmd there goes on the line under its terminal, --split or not, and goes on
@@ -100,6 +101,23 @@ func flag(_ name: String) -> String? {
     let value = args[index + 1]
     args.removeSubrange(index...index + 1)
     return value
+}
+/// Every value of a flag given more than once (`--env A=1 --env B=2`).
+func all(_ name: String) -> [String] {
+    var values: [String] = []
+    while let value = flag(name) { values.append(value) }
+    return values
+}
+/// `NAME=value` pairs as variables. A value may be empty (`ANTHROPIC_API_KEY=`); a pair without `=` stops the command.
+func variables(_ pairs: [String]) -> [String: String] {
+    Dictionary(
+        pairs.map { pair in
+            guard let eq = pair.firstIndex(of: "="), eq != pair.startIndex else {
+                fail("--env takes NAME=value, not \(pair)")
+            }
+            return (String(pair[..<eq]), String(pair[pair.index(after: eq)...]))
+        }
+    ) { $1 }
 }
 func has(_ name: String) -> Bool {
     if let index = args.firstIndex(of: name) {

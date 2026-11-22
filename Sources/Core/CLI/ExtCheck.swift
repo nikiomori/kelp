@@ -70,9 +70,16 @@ public enum ExtCheck {
     private static func action(_ item: [String: Any], at path: String) -> [String] {
         var out: [String] = []
         if (item["title"] as? String ?? "").isEmpty { out.append("\(path): “title” is missing.") }
-        let does = ["terminal", "run", "open", "agent"].filter { item[$0] is String }
+        let does =
+            ["terminal", "run", "open", "agent"].filter { item[$0] is String }
+            + (item["session"] is [String: Any] ? ["session"] : [])
         let has = does.isEmpty ? "none" : does.joined(separator: ", ")
-        if does.count != 1 { out.append("\(path): needs exactly one of terminal, run, open, agent (has \(has)).") }
+        if does.count != 1 {
+            out.append("\(path): needs exactly one of terminal, run, open, agent, session (has \(has)).")
+        }
+        if let session = item["session"] as? [String: Any], (session["agent"] as? String ?? "").isEmpty {
+            out.append("\(path).session: “agent” is missing: the id of the agent it starts.")
+        }
         return out
     }
 }
