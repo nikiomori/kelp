@@ -150,7 +150,13 @@ struct WorkReader {
 
     /// The watch's event: its stamp changes whenever any conversation behind the session's work grows.
     func event(_ id: String) throws -> WorkEvent? {
-        guard let session = try session(id), let found = try sources(session) else { return nil }
+        guard let session = try session(id) else { return nil }
+        // A host's agent that isn't working won't grow its files: no ssh read each pass for it. Its stamp changes when
+        // it stops, so what it wrote last is read once more.
+        if usage.conversations.host(of: session) != nil, session.status != .working {
+            return WorkEvent(session: id, stamp: "idle")
+        }
+        guard let found = try sources(session) else { return nil }
         let stamp = found.sources.map { "\($0.log.offset):\($0.log.calls.count)" }.joined(separator: ",")
         return WorkEvent(session: id, stamp: stamp)
     }

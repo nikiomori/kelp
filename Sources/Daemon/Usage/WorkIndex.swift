@@ -16,9 +16,9 @@ final class WorkIndex: Sendable {
     }
 
     private let entries = OSAllocatedUnfairLock<[String: Entry]>(initialState: [:])
+    // Limit: by files, not bytes; a call is kept small (`WorkLog.add`), so this many stays in tens of MB.
     /// How many files are kept; past it, the ones read longest ago go. A session with dozens of subagents is dozens of
     /// files, and two of them on screen must fit, or each read starts every file again.
-    // Limit: by files, not bytes; a call is kept small (`WorkLog.add`), so this many stays in tens of MB.
     static let limit = 400
     /// The most of a host's file read the first time, from its end.
     static let hostFirstRead: UInt64 = 16 << 20
