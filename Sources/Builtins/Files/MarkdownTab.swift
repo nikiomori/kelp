@@ -223,7 +223,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             for subview in [bar, split] { subview.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
             view = column
         } else {
-            view = page == .motion ? stacked(split, motionStudio.view) : stacked(split)
+            view = page == .motion ? MotionSplit(stage: split, studio: motionStudio.view) : stacked(split)
         }
         view.addSubview(selectionBar)   // over the text, placed by frame
         let before = editor.onSelection   // the breadcrumbs and the conflict bar follow the selection too

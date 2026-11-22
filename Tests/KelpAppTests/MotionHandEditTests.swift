@@ -155,3 +155,31 @@ extension OneAtATime {
         #expect(tab.chosen?.id == "p-1")
     }
 }
+
+/// A double click on the line over the motion studio folds it to its row of controls, and another opens it again.
+@MainActor @Test func aDoubleClickFoldsTheMotionStudio() throws {
+    _ = NSApplication.shared
+    let studio = NSView(), stage = NSView()
+    let split = MotionSplit(stage: stage, studio: studio)
+    split.autosaveName = nil
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 600, height: 600), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = split
+    split.setPosition(350, ofDividerAt: 0)
+    split.layoutSubtreeIfNeeded()
+    let open = studio.frame.height
+    func doubleClick() throws {
+        let y = studio.frame.minY - split.dividerThickness / 2
+        let event = try #require(
+            NSEvent.mouseEvent(
+                with: .leftMouseDown, location: split.convert(NSPoint(x: 300, y: y), to: nil), modifierFlags: [],
+                timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 2,
+                pressure: 1))
+        split.mouseDown(with: event)
+        split.layoutSubtreeIfNeeded()
+    }
+    try doubleClick()
+    #expect(studio.frame.height < 40)
+    try doubleClick()
+    #expect(abs(studio.frame.height - open) < 2)
+}

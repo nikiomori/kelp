@@ -189,8 +189,8 @@ import Testing
 @Test func defaultsHoldOnlyWhatOneMacPrefers() throws {
     let all = try matches(#"\bUserDefaults\b"#, in: ["Sources"])
     let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
-    #expect(app.count <= 68, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
-    #expect(app.count >= 68, "\(app.count) now: lower this")
+    #expect(app.count <= 69, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(app.count >= 69, "\(app.count) now: lower this")
     #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
 }
 
