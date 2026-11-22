@@ -82,7 +82,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var worktreeId: String?
     var commitHash: String?
     /// One-file mode: the path, what it's read from, and the commit.
-    var single: (file: String, source: DiffSource, commit: String?)?
+    /// One file's diff: its source, a commit's, or one turn's (its agent and `SessionTurns.Mark` id).
+    var single: (file: String, source: DiffSource, commit: String?, turn: (session: String, id: String)?)?
     /// What the source menu has picked.
     var sourcePicked: DiffSource {
         get { DiffSource(rawValue: source.indexOfSelectedItem) ?? .uncommitted }
@@ -293,8 +294,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     /// Shows one file, like VS Code's diff editor: no file list, just this file's changes.
-    func showFile(_ path: String, source: DiffSource, commit: String?) {
-        single = (path, source, commit)
+    func showFile(_ path: String, source: DiffSource, commit: String?, turn: (session: String, id: String)? = nil) {
+        single = (path, source, commit, turn)
         placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
         let pathText = NSMutableAttributedString(

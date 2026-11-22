@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import Testing
+import WorkbenchKit
 
 @testable import BuiltinGit
 @testable import BuiltinIssues
@@ -116,4 +117,19 @@ func aCommitsMenuListsItsActionsInOrder(commit: String, items: String) throws {
         return key.isEmpty ? item.title : item.title + " " + key
     }
     #expect(shown.joined(separator: "|") == items)
+}
+
+/// A file's turn diff opened for one turn (the Work panel's earlier turn) asks for that turn's changes, not the last
+/// turn's; the tab's address carries the turn.
+@MainActor @Test func aFilesTurnDiffAsksForTheTurnItNames() {
+    let uri = TabURI.diff("w", file: "a.swift", source: .turn, session: "s1", turn: "m1")
+    let items = URLComponents(string: uri)?.queryItems ?? []
+    #expect(items.first { $0.name == "turn" }?.value == "m1" && items.first { $0.name == "session" }?.value == "s1")
+    let vc = DiffViewController(app: AppModel(builtins: Builtins.all))
+    _ = vc.view
+    vc.showFile("a.swift", source: .turn, commit: nil, turn: (session: "s1", id: "m1"))
+    let asked = vc.diffRequest()
+    #expect(asked.source == .turn && asked.file == "a.swift" && asked.session == "s1" && asked.turn == "m1")
+    vc.showFile("a.swift", source: .turn, commit: nil)
+    #expect(vc.diffRequest().turn == nil)
 }
