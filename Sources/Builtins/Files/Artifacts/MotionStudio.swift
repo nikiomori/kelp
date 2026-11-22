@@ -11,6 +11,7 @@ final class MotionStudio {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
+        timeline.onDropFiles = { [weak self] files, at in self?.onDropFiles?(files, at) }
         timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
         timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
         timeline.onMark = { [weak self] id in self?.act("window.kelpMarks?.reveal(\(id))") }
@@ -82,6 +83,8 @@ final class MotionStudio {
     var fps = 30.0
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
     var onChoose: ((String) -> Void)?
+    /// Files dropped on the timeline, and the second they were dropped at.
+    var onDropFiles: (([URL], Double) -> Void)?
     /// A shape chosen for the stage: its width and height in pixels.
     var onFormat: ((Int, Int) -> Void)?
     /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.

@@ -219,6 +219,14 @@ enum CanvasHandles {
             for (const [p, v] of Object.entries(props)) e.style.setProperty(p, v);
             K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(e), props });
           };
+          // What is at a point of the page (a drop): the board, the image there with its data-id, and the point in
+          // the board's own points.
+          window.kelpPointAt = (x, y) => {
+            const hit = K.under({ clientX: x, clientY: y }, true); if (!hit) return null;
+            const fr = hit.f.getBoundingClientRect(), k = scaleOf(hit.f), img = hit.e.closest('img');
+            return { board: hit.f.dataset.board, image: !!img, id: img ? idOf(img) || '' : '',
+              x: (x - fr.left) / k, y: (y - fr.top) / k };
+          };
           window.kelpHandles = { busy: () => busy };
         """
 

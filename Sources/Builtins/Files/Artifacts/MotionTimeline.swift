@@ -316,6 +316,25 @@ final class MotionTimeline: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    /// Files dropped from Finder: they join the page from the second they were dropped at (`onDropFiles`).
+    var onDropFiles: (([URL], Double) -> Void)? {
+        didSet { registerForDraggedTypes(onDropFiles == nil ? [] : [.fileURL]) }
+    }
+
+    private func files(_ sender: NSDraggingInfo) -> [URL] {
+        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+            as? [URL] ?? []
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { files(sender).isEmpty ? [] : .copy }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = files(sender), x = convert(sender.draggingLocation, from: nil).x
+        guard !urls.isEmpty, x >= track.minX else { return false }
+        onDropFiles?(urls, min(max(seconds(x), 0), length))
+        return true
+    }
+
     override func keyDown(with event: NSEvent) {
         guard let picked, [51, 117].contains(event.keyCode) else { return super.keyDown(with: event) }   // ⌫, ⌦
         onRemove?(picked)

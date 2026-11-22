@@ -14,7 +14,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
     let url: URL
     let app: AppModel
-    let web = WKWebView()
+    let web = DropWebView()
     let links: PreviewLinks
     /// The script world where Kelp's scripts for the preview run, and the only world `kelpSync` listens to. The page's
     /// own scripts don't run (`PreviewLinks`).
@@ -205,7 +205,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
-        web.allowsMagnification = page == .canvas   // pinch to look closer at a board
+        setUpPointer()
         web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view)
         split.addArrangedSubview(web)

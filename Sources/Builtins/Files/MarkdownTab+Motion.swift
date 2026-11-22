@@ -18,10 +18,14 @@ extension MarkdownTab {
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
+        made.onDropFiles = { [weak self] files, at in
+            Task { for file in files where Self.isMedia(file) { await self?.addMedia(file, at: nil, time: at) } }
+        }
         made.onRestack = { [weak self] ids in self?.runJS("window.kelpMotion?.restack(\(Self.js(ids)))") }
         made.onDuplicate = { [weak self] id in self?.duplicateElement(MotionPage.board, id) }
         made.onClip = { [weak self] was, now, lane in
-            lane == 0 ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
+            // A scene, or a picture or video with its own time (no animations), moves by its data-start
+            lane == 0 || now.delays.isEmpty ? self?.retime(scene: was, as: now) : self?.retime(was, as: now)
         }
         return made
     }

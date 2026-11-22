@@ -97,13 +97,24 @@ public enum BoardEdit {
             }
             from = found.upperBound
         }
-        guard opens.indices.contains(index),
-            let id = (1...9999).lazy.map({ "\(tag.lowercased())-\($0)" })
-                .first(where: { !source.contains("data-id=\"\($0)\"") })
-        else { return nil }
+        guard opens.indices.contains(index) else { return nil }
+        let id = freeID(source, tag.lowercased())
         var out = source
         out.insert(contentsOf: " data-id=\"\(id)\"", at: source.index(opens[index].lowerBound, offsetBy: tag.count + 1))
         return (out, id)
+    }
+
+    /// Puts `html` at the end of the page's body, on a line of its own, or at the end when it has no `</body>`.
+    public static func appendToBody(_ source: String, _ html: String) -> String {
+        var out = source
+        let end = source.range(of: "</body>", options: [.caseInsensitive, .backwards])?.lowerBound ?? source.endIndex
+        out.insert(contentsOf: html + "\n", at: end)
+        return out
+    }
+
+    /// The first `prefix-1`, `prefix-2`… that no element has as its data-id.
+    public static func freeID(_ source: String, _ prefix: String) -> String {
+        (1...).lazy.map { "\(prefix)-\($0)" }.first { !source.contains("data-id=\"\($0)\"") } ?? prefix
     }
 
     /// The range of the page's one `<body …>` tag.

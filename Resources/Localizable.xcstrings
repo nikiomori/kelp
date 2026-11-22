@@ -31079,6 +31079,36 @@
           }
         }
       }
+    },
+    "Drop a picture on an image with a data-id to replace it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бросьте картинку на изображение с data-id, чтобы заменить его."
+          }
+        }
+      }
+    },
+    "Couldn’t copy the file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать файл."
+          }
+        }
+      }
+    },
+    "Rename “%@” without quotes or < > &, then drop it again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименуйте «%@» без кавычек и < > &, затем бросьте снова."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

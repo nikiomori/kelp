@@ -77,7 +77,9 @@ enum MotionPage {
             for (const e of parts()) end = Math.max(end, (+e.dataset.start || 0) + (+e.dataset.duration || 0));
             return end || 5;
           }
-          const scenes = () => parts().map(e => ({ id: e.dataset.id || '',
+          // A picture or a video with its own time is a layer of its own, not a scene.
+          const media = e => /^(IMG|VIDEO)$/.test(e.tagName);
+          const scenes = () => parts().filter(e => !media(e)).map(e => ({ id: e.dataset.id || '',
             title: e.dataset.title || e.dataset.id || '', start: +e.dataset.start || 0,
             duration: +e.dataset.duration || 0 }));
           // Each element that moves, as a track: its name and when its animations run.
@@ -95,6 +97,11 @@ enum MotionPage {
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
               track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
               by.set(e, track);
+            }
+            for (const e of parts().filter(media)) {
+              const start = +e.dataset.start || 0;
+              by.set(e, { id: e.dataset.id || '', title: named(e), start, end: start + (+e.dataset.duration || 0),
+                delays: [], lengths: [], hidden: e.dataset.hidden === 'true', e });
             }
             // As layers: the frontmost first (a higher z-index, then later in the page).
             const all = [...doc.body.querySelectorAll('*')], z = e => parseInt(css(e).zIndex) || 0;
