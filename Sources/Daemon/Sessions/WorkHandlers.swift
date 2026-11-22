@@ -69,7 +69,7 @@ struct WorkReader {
             sources.append(WorkMap.Source(agent: role, log: childLog))
         }
         let root = try session.worktreeId.flatMap { try store.worktree($0)?.path } ?? log.cwd ?? session.cwd
-        return (sources, WorkMap.Places(root: root, home: NSHomeDirectory()))
+        return (sources, WorkMap.Places(root: root, home: NSHomeDirectory(), remote: WorkMap.Places.remote(of: root)))
     }
 
     /// A subagent's source, from its file's name (`agent-<id>`) and its `.meta.json`.
@@ -133,7 +133,9 @@ struct WorkReader {
         let marks = (Log.store.attempt("reading \(session.id)'s turns") { try store.turns(session: session.id) } ?? [])
             .sorted { $0.at < $1.at }
         guard let from = marks.firstIndex(where: { $0.at >= start.addingTimeInterval(-5) && $0.at < end }),
-            from + 1 < marks.count
+            from + 1 < marks.count,
+            // The next snapshot must be this turn's end: one taken later holds a later turn's changes too.
+            marks[from + 1].at <= end.addingTimeInterval(5)
         else { return [] }
         let (a, b) = (marks[from], marks[from + 1])
         let out = Log.session.attempt("reading turn \(a.id)'s changes") {

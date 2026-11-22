@@ -171,8 +171,27 @@ public struct WorkLog: Sendable {
         }
     }
 
+    /// Keeps a call as small as the map needs it, since a session's calls stay in memory while its map is shown: a
+    /// command without its heredocs' text (`cat > f <<EOF` holds a whole file), a task's first words, a patch's file
+    /// lines and one character of each changed line (what `WorkMap.patchFiles` counts).
     private mutating func add(_ call: Call) {
+        var call = call
+        if let command = call.command {
+            call.command = String(ShellTouches.withoutHeredocs(command).prefix(Self.longest))
+        }
+        call.task = call.task.map { String($0.prefix(200)) }
+        call.query = call.query.map { String($0.prefix(200)) }
+        call.patch = call.patch.map { Self.compact(patch: $0) }
         byId[call.id] = calls.count
         calls.append(call)
+    }
+
+    /// The most of a command kept: past it, what it names is left out of the map.
+    static let longest = 4000
+
+    static func compact(patch: String) -> String {
+        patch.split(separator: "\n").compactMap { line in
+            line.hasPrefix("***") ? String(line) : line.first.flatMap { "+-".contains($0) ? String($0) : nil }
+        }.joined(separator: "\n")
     }
 }

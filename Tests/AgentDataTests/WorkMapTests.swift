@@ -25,7 +25,11 @@ import Testing
         ("curl -s http://127.0.0.1:8765/v1/models", [.site("127.0.0.1:8765", verb: "curl")]),
         ("curl 'https://ollama.com/library?q=x' -o /tmp/o.html", [.site("ollama.com", verb: "curl")]),
         ("gh pr view 53 --json title", [.remote("github.com", verb: "gh pr view")]),
-        ("git push origin main", [.remote("git remote", verb: "git push")]),
+        ("git push origin main", [.remote("", verb: "git push")]),
+        ("wc -l Sources/Work/*.swift", [.read("Sources/Work", search: true)]),
+        ("rg -n retry Sources/**/*.swift", [.read("Sources", search: true)]),
+        ("kelp browser open https://example.com/a", [.site("example.com", verb: "kelp browser")]),
+        ("kelp vm run ubuntu -- cat /etc/os-release", [.host("ubuntu", verb: "kelp vm run")]),
         ("git status", []),
         ("ssh niko@mini.local 'swift test'", [.host("mini.local", verb: "ssh")]),
         ("rsync -a dist/ host1:/srv/app", [.host("host1", verb: "rsync")]),
@@ -208,6 +212,8 @@ private func sources() -> [WorkMap.Source] {
         item(["type": "web_search_call", "id": "ws", "action": ["query": "swift regex"]], at(2, 2))
     ])
     #expect(rollout.cwd == "/p")
+    // Kept small: a patch's file lines and one character of each changed line.
+    #expect(rollout.calls[1].patch == "*** Begin Patch\n*** Update File: Sources/a.swift\n-\n+\n+\n*** End Patch")
     #expect(rollout.prompts.map(\.text) == ["review the diff"])
     let work = WorkMap.build(
         [WorkMap.Source(agent: .init(role: .main, agent: "codex", name: "codex"), log: rollout)], places: layout,
@@ -217,4 +223,23 @@ private func sources() -> [WorkMap.Source] {
     #expect(edited?.edits == 1 && edited?.added == 2 && edited?.removed == 1)
     #expect(work.places.contains { $0.kind == .web && $0.name == "Web Search" })
     #expect(work.steps.first?.kind == .failed)
+}
+
+/// `git push` goes to the project's origin: its host read from the repository's config, a worktree's followed to it.
+@Test func aProjectsRemoteIsItsOriginsHost() throws {
+    #expect(WorkMap.Places.host(ofRemote: "git@github.com:o/r.git") == "github.com")
+    #expect(WorkMap.Places.host(ofRemote: "https://gitlab.example.org/o/r") == "gitlab.example.org")
+    #expect(WorkMap.Places.host(ofRemote: "ssh://git@host.lan:22/r") == "host.lan")
+    let repo = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: repo) }
+    let git = repo.appendingPathComponent(".git"), tree = repo.appendingPathComponent("tree")
+    try FileManager.default.createDirectory(
+        at: git.appendingPathComponent("worktrees/t"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: tree, withIntermediateDirectories: true)
+    try "[core]\n\tbare = false\n[remote \"origin\"]\n\turl = git@github.com:o/r.git\n".write(
+        to: git.appendingPathComponent("config"), atomically: true, encoding: .utf8)
+    try "gitdir: \(git.path)/worktrees/t\n".write(
+        to: tree.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+    #expect(WorkMap.Places.remote(of: repo.path) == "github.com")
+    #expect(WorkMap.Places.remote(of: tree.path) == "github.com")
 }

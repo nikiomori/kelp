@@ -55,8 +55,8 @@ public enum ShellTouches {
     private static func touches(verb: String, args: [String]) -> [Touch] {
         let paths = args.filter { !$0.hasPrefix("-") && looksLikePath($0) && isPlainPath($0) }
         switch verb {
-        case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd", "jq":
-            return paths.map { .read($0, search: false) }
+        case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd", "jq", "ls":
+            return paths.map { .read($0, search: false) } + globs(args)
         case "sed":
             // The first word that isn't a flag is the script, unless -e gave it.
             let words = args.filter { !$0.hasPrefix("-") && !$0.isEmpty }
@@ -75,8 +75,9 @@ public enum ShellTouches {
             // The first word that isn't a flag is the pattern (fd's too); the rest are where it looked.
             var rest = args.filter { !$0.hasPrefix("-") }
             if !args.contains("-e"), !args.contains("-f"), !rest.isEmpty { rest.removeFirst() }
-            let targets = rest.filter(isPlainPath)
-            return (targets.isEmpty ? ["."] : targets).map { .read($0, search: !isFile($0)) }
+            let targets = rest.filter(isPlainPath), globbed = globs(rest)
+            if targets.isEmpty && !globbed.isEmpty { return globbed }
+            return (targets.isEmpty ? ["."] : targets).map { .read($0, search: !isFile($0)) } + globbed
         case "tee": return paths.map { .wrote($0) }
         case "touch", "rm", "truncate": return paths.map { .wrote($0) }
         case "mv", "cp", "ln", "install": return paths.last.map { [.wrote($0)] } ?? []
@@ -91,11 +92,17 @@ public enum ShellTouches {
                 guard !arg.hasPrefix("-"), let colon = arg.firstIndex(of: ":"), !arg.hasPrefix("/") else { return nil }
                 return .host(hostPart(String(arg[..<colon])), verb: verb)
             }
+        case "kelp":
+            // Kelp's own commands that leave the project: a page in its browser, a command in one of its machines.
+            let sub = Array(args.prefix { $0 != "--" })
+            if sub.first == "browser" { return sub.compactMap(site).map { .site($0, verb: "kelp browser") } }
+            if sub.first == "vm", sub.count > 2, sub[1] != "list" { return [.host(sub[2], verb: "kelp vm " + sub[1])] }
+            return []
         case "gh": return [.remote("github.com", verb: (["gh"] + args.prefix(2)).joined(separator: " "))]
         case "git":
             let sub = args.first { !$0.hasPrefix("-") } ?? ""
             return ["push", "pull", "fetch", "clone", "ls-remote"].contains(sub)
-                ? [.remote("git remote", verb: "git " + sub)] : []
+                ? [.remote("", verb: "git " + sub)] : []
         case "brew", "npm", "pnpm", "yarn", "pip", "pip3", "cargo", "gem", "bun", "uv", "swift", "go":
             let sub = args.first { !$0.hasPrefix("-") } ?? ""
             let installs = ["install", "i", "add", "update", "upgrade", "resolve", "get", "sync"]
@@ -220,6 +227,16 @@ public enum ShellTouches {
             index += 2
         }
         return (plain, writes)
+    }
+
+    /// The folders a glob looked through (`Sources/X/*.swift` → `Sources/X`), as searches.
+    private static func globs(_ args: [String]) -> [Touch] {
+        args.filter { !$0.hasPrefix("-") && $0.contains("*") }.compactMap { word in
+            let folder = word.split(separator: "/", omittingEmptySubsequences: false).prefix { !$0.contains("*") }
+                .joined(separator: "/")
+            if folder.isEmpty { return word.hasPrefix("/") ? nil : .read(".", search: true) }
+            return isPlainPath(folder) ? .read(folder, search: true) : nil
+        }
     }
 
     private static func looksLikePath(_ word: String) -> Bool {

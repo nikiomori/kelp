@@ -16,15 +16,18 @@ final class WorkIndex: Sendable {
     }
 
     private let entries = OSAllocatedUnfairLock<[String: Entry]>(initialState: [:])
-    /// How many files are kept; past it, the ones read longest ago go.
-    static let limit = 48
+    /// How many files are kept; past it, the ones read longest ago go. A session with dozens of subagents is dozens of
+    /// files, and two of them on screen must fit, or each read starts every file again.
+    // Limit: by files, not bytes; a call is kept small (`WorkLog.add`), so this many stays in tens of MB.
+    static let limit = 400
     /// The most of a host's file read the first time, from its end.
     static let hostFirstRead: UInt64 = 16 << 20
 
     /// The log of a file on this Mac, read up to its end.
     func log(_ url: URL) -> WorkLog? {
         guard let size = Artifacts.fileStat(url.path)?.size else { return nil }
-        var entry = entries.withLock { $0[url.path] } ?? Entry()
+        // Taken out while it grows, so its calls aren't copied (the dictionary would share them).
+        var entry = entries.withLock { $0.removeValue(forKey: url.path) } ?? Entry()
         if UInt64(size) < entry.read { entry = Entry() }   // replaced or cut: read it again
         if UInt64(size) > entry.read {
             let from = entry.read
