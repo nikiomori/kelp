@@ -30770,16 +30770,6 @@
         }
       }
     },
-    "↩ add  ·  ⌘↩ send  ·  esc remove": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "↩ добавить  ·  ⌘↩ отправить  ·  esc убрать"
-          }
-        }
-      }
-    },
     "Scenes": {
       "localizations": {
         "ru": {
@@ -31156,6 +31146,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Форма кадра"
+          }
+        }
+      }
+    },
+    "↩ add  ·  ⌘↩ send  ·  ⎋ remove": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ добавить  ·  ⌘↩ отправить  ·  ⎋ убрать"
           }
         }
       }

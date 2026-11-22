@@ -60,7 +60,8 @@ extension MarkdownTab {
                 accent = NSColor.controlAccentColor.hexString
             }
             // Kelp's own page takes the Mac's accent, as the window around it does (Graphite is grey there too).
-            let ownAccent = "document.documentElement.style.setProperty('--k-accent', '\(accent)')"
+            let ownAccent =
+                "document.documentElement.style.setProperty('--k-accent', '\(accent)');" + PageSymbols.script()
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
             let animatedNote = String(localized: "Its animation moves it: change that instead")

@@ -61,7 +61,7 @@ enum MarkColumn {
             const head = el('div', 'kelp-row');
             head.append(num(m), el('span', 'kelp-grow kelp-what', page ? page.what(m) : ''));
             if (m.state === 'draft') {
-              const x = el('button', 'kelp-ib', '×'); x.title = L.remove;
+              const x = el('button', 'kelp-ib'); x.append(el('span', 'kelp-sym-xmark')); x.title = L.remove;
               x.onclick = e => { e.stopPropagation(); M.marks = M.marks.filter(k => k !== m); keep(); draw(); };
               head.append(x);
             } else if (m.state === 'sent') {
@@ -106,13 +106,25 @@ enum MarkColumn {
             return box;
           }
 
+          // A value as people read it: a colour as its swatch and hex, nothing as a dash.
+          function shown(v) {
+            if (v == null || v === '') return '—';
+            const rgb = String(v).match(/^rgba?\\(([^)]+)\\)/), hex = rgb
+              ? '#' + rgb[1].split(/[ ,\\/]+/).slice(0, 3).map(n => (+n).toString(16).padStart(2, '0')).join('') : null;
+            if (!hex && !/^#[0-9a-f]{3,8}$/i.test(v)) return String(v);
+            const out = el('span', 'kelp-value'), swatch = el('span', 'kelp-edit-swatch');
+            swatch.style.background = v;
+            out.append(swatch, hex || v);
+            return out;
+          }
+
           function edits() {
             return M.edits.map(e => {
               const r = el('div', 'kelp-row kelp-edit');
-              const change = e.what === 'text' ? '«' + (e.from ?? '') + '» → «' + (e.to ?? '') + '»'
-                : e.what + ' ' + (e.from ?? '—') + ' → ' + (e.to ?? '—');
-              r.append(el('span', 'kelp-pen', '✎'), el('span', 'kelp-what-id', e.id),
-                el('span', 'kelp-grow kelp-what', change));
+              const change = el('span', 'kelp-grow kelp-what');
+              if (e.what === 'text') change.textContent = '«' + (e.from ?? '') + '» → «' + (e.to ?? '') + '»';
+              else change.append(e.what + ' ', shown(e.from), ' → ', shown(e.to));
+              r.append(el('span', 'kelp-pen kelp-sym-pencil'), el('span', 'kelp-what-id', e.id), change);
               return r;
             });
           }
@@ -281,6 +293,8 @@ enum MarkColumn {
         """
 
     static let style = """
+        .kelp-edit-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 3px;
+          vertical-align: -1px; box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-marks { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 11; }
         .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
           color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;

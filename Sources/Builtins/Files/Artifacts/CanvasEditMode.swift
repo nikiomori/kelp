@@ -85,7 +85,8 @@ enum CanvasEditMode {
           }
           function fill() {
             const e = at.e, id = idOf(e), out = [];
-            const path = [], up = K.el('button', 'kelp-pill', '↑ ' + L.parent);
+            const path = [], up = K.el('button', 'kelp-pill');
+            up.append(K.el('span', 'kelp-sym-arrow-up'), ' ' + L.parent);
             for (let p = e.parentElement; p && p !== e.ownerDocument.body && path.length < 3; p = p.parentElement)
               path.unshift(idOf(p) || p.tagName.toLowerCase());
             up.onclick = () => {
@@ -107,7 +108,7 @@ enum CanvasEditMode {
               return [...out, K.el('p', 'kelp-note', L.noID), row];
             }
             for (const [section, items] of rows) {
-              out.push(K.el('div', 'kelp-sec', L[section]));
+              const lines = [];   // a section without a choice isn't shown
               for (const [word, property, group] of items) {
                 const choices = group
                   ? T[group].map(n => ['var(--' + (group === 'color' ? n : group + '-' + n) + ')', n])
@@ -135,8 +136,9 @@ enum CanvasEditMode {
                   b.onclick = () => pick(value);
                   list.append(b);
                 }
-                out.push(line);
+                lines.push(line);
               }
+              if (lines.length) out.push(K.el('div', 'kelp-sec', L[section]), ...lines);
             }
             if (!e.children.length && e.textContent.trim()) out.push(K.el('p', 'kelp-note', L.typeHint));
             return out;
