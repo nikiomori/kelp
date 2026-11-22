@@ -30,11 +30,11 @@ struct WorkNode: Equatable, Sendable {
 }
 
 enum WorkTree {
-    /// The project's files and searched folders as a tree named `rootName`. With `agent`, only what that agent touched.
-    static func project(_ work: AgentWork, rootName: String, agent: Int? = nil) -> WorkNode {
+    /// The project's files and searched folders as a tree named `rootName`. With `agents`, only what they touched.
+    static func project(_ work: AgentWork, rootName: String, agents: Set<Int>? = nil) -> WorkNode {
         var root = WorkNode(path: "", name: rootName)
         for place in work.places where place.kind == .file || place.kind == .folder {
-            guard agent.map({ place.agents.contains($0) }) ?? true else { continue }
+            guard agents.map({ !$0.isDisjoint(with: place.agents) }) ?? true else { continue }
             let parts = place.name == "." ? [] : place.name.split(separator: "/").map(String.init)
             insert(place, parts: parts[...], into: &root, prefix: "")
         }
@@ -45,10 +45,10 @@ enum WorkTree {
 
     /// The places outside the project, in the order the panel lists them: sites, machines, tools, packages, other
     /// folders, then the agent's own folders.
-    static func outside(_ work: AgentWork, agent: Int? = nil) -> [AgentWork.Place] {
+    static func outside(_ work: AgentWork, agents: Set<Int>? = nil) -> [AgentWork.Place] {
         let order: [AgentWork.Kind] = [.web, .machine, .tool, .packages, .outside, .own]
         return work.places.filter { place in
-            order.contains(place.kind) && (agent.map { place.agents.contains($0) } ?? true)
+            order.contains(place.kind) && (agents.map { !$0.isDisjoint(with: place.agents) } ?? true)
         }
         .sorted {
             let (a, b) = (order.firstIndex(of: $0.kind) ?? 0, order.firstIndex(of: $1.kind) ?? 0)

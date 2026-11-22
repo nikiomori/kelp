@@ -58,7 +58,7 @@ final class WorkPanel: NSViewController {
         let header = Bar.panel([face, name], [turnPop, openTab])
         views.controlSize = .small
         views.selectedSegment = 1
-        agents.onPick = { [weak self] in self?.model.agent = $0 }
+        agents.onPick = { [weak self] in self?.model.picked = $0 }
         turnPop.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         turnPop.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.formLabel + 2 * Metrics.blockGap).isActive =
             true
@@ -138,7 +138,7 @@ final class WorkPanel: NSViewController {
         }
         track(owner: self) { [weak self] in
             Values(
-                self?.model.work, self?.model.agent, self?.model.error,
+                self?.model.work, self?.model.picked, self?.model.error,
                 self?.model.session.flatMap { self?.app.session($0)?.status })
         } changed: {
             [weak self] _ in
@@ -221,11 +221,11 @@ final class WorkPanel: NSViewController {
         }
         empty.show(nil)
         controlRows.forEach { $0.isHidden = false }
-        agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
+        agents.show(AgentPicker.entries(work, names: model.agentNames), picked: model.picked)
         let working = model.session.flatMap(app.session)?.status == .working
         summary.stringValue =
             WorkSummary.now(work, working: working, names: model.agentNames) ?? WorkSummary.line(work, turn: work.turn)
-        let tree = WorkTree.project(work, rootName: model.projectName, agent: model.agent)
+        let tree = WorkTree.project(work, rootName: model.projectName, agents: model.agents)
         let shownRoot = tree.node(at: zoom) ?? tree
         let noFiles = tree.children.isEmpty
         icicle.superview?.isHidden = noFiles
@@ -242,8 +242,8 @@ final class WorkPanel: NSViewController {
             : pickedNode.path.isEmpty ? String(localized: "In the project") : pickedNode.path
         back.isHidden = zoom.isEmpty
         files.show(pickedNode, names: model.agentNames, app: app, agents: work.agents)
-        chips.show(WorkTree.outside(work, agent: model.agent))
-        steps.show(work, names: model.agentNames, app: app, filter: model.agent)
+        chips.show(WorkTree.outside(work, agents: model.agents))
+        steps.show(work, names: model.agentNames, app: app, filter: model.agents)
         views.setEnabled(!model.whole, forSegment: 0)
         let stepsOn = views.selectedSegment == 0 && !model.whole
         mapColumn.isHidden = stepsOn
@@ -312,7 +312,7 @@ final class WorkPanel: NSViewController {
     @objc func zoomOut() {
         guard !zoom.isEmpty else { return }
         let parent = (zoom as NSString).deletingLastPathComponent
-        let tree = model.work.map { WorkTree.project($0, rootName: model.projectName, agent: model.agent) }
+        let tree = model.work.map { WorkTree.project($0, rootName: model.projectName, agents: model.agents) }
         // A merged folder chain ("Daemon/Sessions") is one node: step out past the whole chain.
         var up = parent
         while !up.isEmpty, tree?.node(at: up) == nil { up = (up as NSString).deletingLastPathComponent }

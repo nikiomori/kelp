@@ -34,7 +34,7 @@ final class WorkMapController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        agents.onPick = { [weak self] in self?.model.agent = $0 }
+        agents.onPick = { [weak self] in self?.model.picked = $0 }
         agents.trailing = false
         agents.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         agents.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
@@ -85,7 +85,7 @@ final class WorkMapController: NSViewController {
         }
         track(owner: self) { [weak self] in
             Values(
-                self?.model.work, self?.model.agent, self?.model.error,
+                self?.model.work, self?.model.picked, self?.model.error,
                 self.flatMap { $0.app.session($0.session)?.status })
         } changed: {
             [weak self] _ in
@@ -126,8 +126,8 @@ final class WorkMapController: NSViewController {
             scroll.isHidden = model.loaded
             return
         }
-        let project = WorkTree.project(work, rootName: model.projectName, agent: model.agent)
-        let outside = WorkTree.outside(work, agent: model.agent)
+        let project = WorkTree.project(work, rootName: model.projectName, agents: model.agents)
+        let outside = WorkTree.outside(work, agents: model.agents)
         guard !project.children.isEmpty || !outside.isEmpty else {
             empty.show(
                 String(localized: "Nothing Touched Yet"), symbol: "map",
@@ -137,7 +137,7 @@ final class WorkMapController: NSViewController {
         }
         empty.show(nil)
         scroll.isHidden = false
-        agents.show(AgentPicker.present(work), names: model.agentNames, picked: model.agent)
+        agents.show(AgentPicker.entries(work, names: model.agentNames), picked: model.picked)
         let names = model.agentNames
         tree.names = names
         tree.agents = work.agents

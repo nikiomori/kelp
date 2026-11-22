@@ -23,10 +23,15 @@ final class WorkModel {
         get { choices[session].whole }
         set { choices[session].whole = newValue }
     }
-    /// Only this agent's touches (an index into `work.agents`), or nil for all.
-    var agent: Int? {
-        get { choices[session].agent }
-        set { choices[session].agent = newValue }
+    /// The picker's choice (`AgentPicker.Entry.key`), nil for all.
+    var picked: String? {
+        get { choices[session].agents }
+        set { choices[session].agents = newValue }
+    }
+    /// Only these agents' touches (indices into `work.agents`), or nil for all.
+    var agents: Set<Int>? {
+        guard let picked, let work else { return nil }
+        return AgentPicker.entries(work, names: agentNames).first { $0.key == picked }?.members
     }
     private(set) var work: AgentWork?
     private(set) var error: String?
@@ -103,8 +108,11 @@ final class WorkModel {
     /// Opens a project file beside the agent; with the Option key, the turn's diff of it.
     func open(_ place: AgentWork.Place, diff: Bool) {
         guard let session = session.flatMap(app.session), let workspace = session.worktreeId else { return }
-        if diff {
-            app.workbench.open(TabURI.diff(workspace, file: place.name, source: .turn))
+        // A file edited in a worktree of the project: its diff is that worktree's, if Kelp knows it; else the file.
+        let base = place.worktree.flatMap { name in work?.root.map { $0 + "/.claude/worktrees/" + name } }
+        let diffIn = base.map { base in app.worktrees.first { $0.path == base }?.id } ?? workspace
+        if diff, let diffIn {
+            app.workbench.open(TabURI.diff(diffIn, file: place.name, source: base == nil ? .turn : nil))
         } else if let path = path(of: place) {
             _ = app.workbench.openBeside(TabURI.file(path), in: workspace)
         }
@@ -123,7 +131,8 @@ final class WorkModel {
             }
         }
         if [.read, .edit].contains(step.kind),
-            let place = work.places.first(where: { $0.kind == .file && step.detail.hasPrefix($0.name) })
+            let first = step.detail.components(separatedBy: ", ").first,
+            let place = work.places.first(where: { $0.kind == .file && $0.name == first })
         {
             return open(place, diff: NSEvent.modifierFlags.contains(.option))
         }
@@ -159,7 +168,9 @@ final class WorkChoices {
     struct Choice: Equatable {
         var turn: Int?
         var whole = false
-        var agent: Int?
+        /// The agents picked, by `AgentPicker.Entry.key`: one agent, or all subagents of one kind. Not an index, so a
+        /// subagent that appears later doesn't shift the pick.
+        var agents: String?
     }
     private var bySession: [String: Choice] = [:]
 

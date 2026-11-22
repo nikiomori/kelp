@@ -35,7 +35,7 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(sources.children[1].children.map(\.name) == ["a.swift", "b.swift"])
     #expect(sources.edited && !sources.children[0].edited)
     #expect(tree.weight == 5)   // four files and the searched Tests
-    #expect(WorkTree.project(work([file("a.swift", agents: [1])]), rootName: "K", agent: 0).children.isEmpty)
+    #expect(WorkTree.project(work([file("a.swift", agents: [1])]), rootName: "K", agents: [0]).children.isEmpty)
 }
 
 /// A block is as wide as the files under it, not as often as they were read; siblings too narrow to see merge into one
@@ -110,7 +110,16 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(rows[1].lane == 1 && rows[1].link == 0 && rows[1].after == [0, 1])
     #expect(rows[2].lane == 1)
     #expect(rows[4].lane == 1 && rows[4].after == [0])
-    #expect(StepRow.make([step(0, .read), step(1, .read)], filter: 1).count == 1)
+    #expect(StepRow.make([step(0, .read), step(1, .read)], filter: [1]).count == 1)
+    // Folded, a subagent is the one row that started it, with its steps counted there and no lane of its own.
+    let folded = StepRow.make(
+        [
+            step(0, .spawn, other: 1), step(1, .read, "c"), step(1, .edit, "c"), step(1, .report, other: 0),
+            step(0, .edit)
+        ],
+        filter: nil, folded: [1])
+    #expect(folded.map(\.step.kind) == [.spawn, .edit] && folded[0].inside == 2 && folded[0].lane == 0)
+    #expect(folded.allSatisfy { $0.before.union($0.after) == [0] })
     // A subagent that never reports gives its lane back after its last step; past five lanes, agents share the last.
     let quiet = StepRow.make([step(0, .spawn, other: 1), step(1, .read, "x"), step(0, .edit, "y")], filter: nil)
     #expect(quiet[1].after == [0] && quiet[2].before == [0])
@@ -133,4 +142,26 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     let width = card.view.fittingSize.width
     #expect(width > 150)
     #expect(width <= 300)
+}
+
+/// The picker lists a kind of subagent once, and names a pick by who it is, so a subagent that appears later (its file
+/// sorting first) leaves the pick where it was.
+@MainActor @Test func thePickerGroupsSubagentsAndKeepsItsPick() {
+    func agent(_ name: String, _ id: String) -> AgentWork.Agent {
+        .init(role: .subagent, agent: "claude", name: name, id: id)
+    }
+    var work = AgentWork()
+    work.agents = [
+        .init(role: .main, agent: "claude", name: "claude"), agent("Explore", "b"), agent("Plan", "c"),
+        agent("Explore", "d")
+    ]
+    work.places = [file("a.swift", agents: [0, 1, 2, 3])]
+    let names = work.agents.map(\.name)
+    let entries = AgentPicker.entries(work, names: names)
+    #expect(entries.map(\.label) == ["claude", "Explore ×2", "Plan"])
+    let plan = entries[2].key
+    work.agents.insert(agent("Review", "a"), at: 1)
+    work.places = [file("a.swift", agents: [0, 1, 2, 3, 4])]
+    let later = AgentPicker.entries(work, names: work.agents.map(\.name))
+    #expect(later.first { $0.key == plan }?.members == [3])
 }

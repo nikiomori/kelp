@@ -14,19 +14,31 @@ struct StepRow: Equatable {
     var lane = 0
     /// For a spawn or a report: the lane joined from or to.
     var link: Int?
+    /// For a folded subagent's spawn: how many steps it took.
+    var inside = 0
 
-    /// Folds and lays out a turn's steps. With `filter`, only that agent's.
     /// The most lanes beside the steps: the session's agent and four others.
     static let maxLanes = 5
 
-    static func make(_ steps: [AgentWork.Step], filter: Int?) -> [StepRow] {
-        var rows: [StepRow] = []
-        for step in steps where filter.map({ step.agent == $0 || step.other == $0 }) ?? true {
+    /// Folds and lays out a turn's steps. With `filter`, only those agents'. The steps of the agents in `folded` are
+    /// counted on the row that started them instead of listed, so a turn with dozens of subagents reads as the main
+    /// agent's steps with one row per subagent.
+    static func make(_ steps: [AgentWork.Step], filter: Set<Int>?, folded: Set<Int> = []) -> [StepRow] {
+        var rows: [StepRow] = [], spawnRow: [Int: Int] = [:]
+        for step in steps where filter.map({ $0.contains(step.agent) || step.other.map($0.contains) == true }) ?? true {
+            if folded.contains(step.agent) {
+                if step.kind != .report, let at = spawnRow[step.agent] { rows[at].inside += 1 }
+                continue
+            }
+            if step.kind == .spawn, let other = step.other { spawnRow[other] = rows.count }
             if var last = rows.last, last.step.agent == step.agent, last.step.kind == step.kind,
                 [.read, .search].contains(step.kind)
             {
                 last.count += 1
-                if !last.step.detail.contains(step.detail) {
+                let name = (step.detail as NSString).lastPathComponent
+                if !last.step.detail.components(separatedBy: ", ").map({ ($0 as NSString).lastPathComponent })
+                    .contains(name)
+                {
                     last.step.detail += ", " + (step.detail as NSString).lastPathComponent
                 }
                 rows[rows.count - 1] = last
@@ -55,6 +67,8 @@ struct StepRow: Equatable {
             rows[index].before = open
             let step = rows[index].step
             switch step.kind {
+            case .spawn where step.other.map(folded.contains) == true:
+                rows[index].lane = lane(step.agent)   // a folded subagent stays on the row: no lane of its own
             case .spawn:
                 rows[index].link = lane(step.agent)
                 rows[index].lane = step.other.map(lane) ?? 0
@@ -96,8 +110,9 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         table.onReturn = { [weak self] in self?.clicked() }
     }
 
-    func show(_ work: AgentWork, names: [String], app: AppModel, filter: Int?) {
-        let made = StepRow.make(work.steps, filter: filter)
+    func show(_ work: AgentWork, names: [String], app: AppModel, filter: Set<Int>?) {
+        let subagents = Set(work.agents.indices.filter { work.agents[$0].role == .subagent })
+        let made = StepRow.make(work.steps, filter: filter, folded: filter == nil ? subagents : [])
         self.app = app
         agents = work.agents
         start =
@@ -124,8 +139,9 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         let title = NSTextField.label(
             Self.title(item, names: names), font: .ui(TextSize.row, weight: step.kind == .spawn ? .medium : .regular))
         title.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        let words = item.inside > 0 ? String(localized: "\(item.inside) steps") + " · " + step.detail : step.detail
         let detail = NSTextField.label(
-            step.detail, font: .ui(TextSize.caption), color: .secondaryLabelColor, truncation: .byTruncatingMiddle)
+            words, font: .ui(TextSize.caption), color: .secondaryLabelColor, truncation: .byTruncatingTail)
         parts += [title, detail, NSView()]
         if step.kind == .edit, step.added + step.removed > 0 {
             var place = AgentWork.Place(kind: .file, name: "")

@@ -225,8 +225,11 @@ private func sampleWork() -> AgentWork {
     let win = window(steps.scroll, steps.scroll.frame.size)
     _ = win
     steps.show(work, names: ["claude", "Explore"], app: rig.app, filter: nil)
-    #expect(steps.table.numberOfRows == 10)   // the subagent's two reads of one file are one row
+    #expect(steps.table.numberOfRows == 7)   // the subagent is the one row that started it
     shot(steps.scroll, "steps")
+    steps.show(work, names: ["claude", "Explore"], app: rig.app, filter: [0, 1])
+    #expect(steps.table.numberOfRows == 10)   // picked, its steps show, its two reads of one file one row
+    shot(steps.scroll, "steps-lanes")
     // A turn with a dozen subagents that never report back: lanes close after each one's last step.
     var crowded = work
     crowded.agents = [work.agents[0]] + (1...12).map { .init(role: .subagent, agent: "claude", name: "Explore \($0)") }
@@ -258,7 +261,9 @@ private func sampleWork() -> AgentWork {
 @MainActor @Test func theAgentPickerFitsANarrowRow() {
 
     let picker = AgentPicker(frame: NSRect(x: 0, y: 0, width: 120, height: 22))
-    picker.show([0, 1, 2], names: ["Claude Code", "general-purpose", "Explore"], picked: nil)
+    picker.show(
+        ["Claude Code", "general-purpose", "Explore"].enumerated().map { .init(key: $1, label: $1, members: [$0]) },
+        picked: nil)
     picker.layout()
     let shown = picker.subviews.filter { !$0.isHidden }
     #expect(shown.count == 1 && shown.first is NSPopUpButton)
