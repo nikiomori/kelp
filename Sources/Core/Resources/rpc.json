@@ -4365,6 +4365,13 @@
           "cwd" : {
             "type" : "string"
           },
+          "env" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Variables the session was started with on top of its agent's own (`kelp session new --env`), kept so a restart or a wake reaches the same server. They are stored and shown as the command line is: not for secrets.",
+            "type" : "object"
+          },
           "exitCode" : {
             "description" : "How the session's program ended: the exit code, or 128 plus the signal that stopped it. nil while it runs.",
             "type" : "integer"
@@ -12307,7 +12314,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`. `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session that started this one, if an agent did (see `Session.parent`, `Session.startedBy`).",
+      "description" : "Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`. `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session that started this one, if an agent did (see `Session.parent`, `Session.startedBy`). `env` and `args` go on top of the agent's own (Claude Code on a local model's server, say) and stay the session's (`Session.env`).",
       "name" : "session.create",
       "paramStructure" : "by-name",
       "params" : [
@@ -12316,6 +12323,16 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "args",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {
@@ -12351,6 +12368,16 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "env",
+          "required" : false,
+          "schema" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
           }
         },
         {

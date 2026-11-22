@@ -23,13 +23,14 @@ public protocol LaunchOptions {
 
 /// Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`.
 /// `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session
-/// that started this one, if an agent did (see `Session.parent`, `Session.startedBy`).
+/// that started this one, if an agent did (see `Session.parent`, `Session.startedBy`). `env` and `args` go on top of
+/// the agent's own (Claude Code on a local model's server, say) and stay the session's (`Session.env`).
 public struct SessionCreate: RPCMethod, LaunchOptions, StartsSized {
     public static let name = "session.create"
     public typealias Result = Session
     public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?
     public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
-        openURLs: Bool?, cols: Int?, rows: Int?, role: SessionRole?
+        openURLs: Bool?, cols: Int?, rows: Int?, role: SessionRole?, env: [String: String]?, args: [String]?
     public init(
         cwd: String? = nil, worktreeId: String? = nil, agent: String? = nil, command: String? = nil,
         tmux: String? = nil,

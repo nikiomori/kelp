@@ -299,6 +299,9 @@ extension Store {
             try db.create(index: "session_worktreeId", on: "session", columns: ["worktreeId"])
             try db.create(index: "session_parent", on: "session", columns: ["parent"])
         }
+        migrator.registerMigration("session.env") { db in   // what `kelp session new --env` set (`Session.env`)
+            try db.alter(table: "session") { t in t.add(column: "env", .text) }
+        }
         return migrator
     }
 }
