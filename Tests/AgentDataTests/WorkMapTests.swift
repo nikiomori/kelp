@@ -33,7 +33,15 @@ import Testing
         ("FOO=1 npm install", [.packages("npm", verb: "npm install")]),
         ("swift package resolve", [.packages("SwiftPM", verb: "swift package resolve")]),
         ("python3 -c \"print('cat a.py')\"", []),
-        ("(cd Vendor/Kit.xcframework && cat Info.plist)", [.read("Vendor/Kit.xcframework/Info.plist", search: false)])
+        ("(cd Vendor/Kit.xcframework && cat Info.plist)", [.read("Vendor/Kit.xcframework/Info.plist", search: false)]),
+        (
+            "find Sources Tests -name '*.swift' -exec sed -i '' 's|old|new|g' {} +",
+            [.read("Sources", search: true), .read("Tests", search: true)]
+        ),
+        ("grep -rn foo $W 2 | awk '{print $1}'", [.read(".", search: true)]),
+        ("rg -l 'x' Sources/a+b.swift", [.read("Sources/a+b.swift", search: false)]),
+        ("sed -i '' -e 's|/ a probe.s terminal|/ a probe|g' Sources/x.swift", [.wrote("Sources/x.swift")]),
+        ("cd $W && cat a.swift /etc/hosts", [.read("/etc/hosts", search: false)])
     ] as [(String, [ShellTouches.Touch])])
 func aShellCommandSaysWhatItTouched(command: String, touches: [ShellTouches.Touch]) {
     #expect(ShellTouches.parse(command) == touches)

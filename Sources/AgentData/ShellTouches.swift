@@ -24,7 +24,7 @@ public enum ShellTouches {
     /// Returns what `command` touched. Relative paths are kept relative to the folder each part runs in: the start one,
     /// or the one a `cd` before it moved to, so `cd Sources && cat a.swift` reads `Sources/a.swift`.
     public static func parse(_ command: String) -> [Touch] {
-        var out: [Touch] = [], dir = ""
+        var out: [Touch] = [], dir = "", lost = false
         for part in parts(of: withoutHeredocs(command)) {
             // A subshell's parentheses aren't part of its words: `(cd Vendor && ls)`.
             let (words, redirects) = split(
@@ -35,10 +35,17 @@ public enum ShellTouches {
             guard let verb = plain.first.map({ ($0 as NSString).lastPathComponent }) else { continue }
             let args = Array(plain.dropFirst())
             if verb == "cd" {
-                if let to = args.first { dir = to.hasPrefix("/") || to.hasPrefix("~") ? to : join(dir, to) }
+                // A folder named at run time (`cd $W`) leaves where the rest runs unknown: its relative paths are left
+                // out rather than put under a folder called "$W".
+                guard let to = args.first, isPlainPath(to) else {
+                    lost = true
+                    continue
+                }
+                dir = to.hasPrefix("/") || to.hasPrefix("~") ? to : join(dir, to)
+                if to.hasPrefix("/") || to.hasPrefix("~") { lost = false }
                 continue
             }
-            out += touches(verb: verb, args: args).map { relative($0, to: dir) }
+            out += touches(verb: verb, args: args).filter { !lost || Self.isAbsolute($0) }.map { relative($0, to: dir) }
         }
         var seen: [Touch] = []
         for touch in out where !seen.contains(touch) { seen.append(touch) }
@@ -46,25 +53,29 @@ public enum ShellTouches {
     }
 
     private static func touches(verb: String, args: [String]) -> [Touch] {
-        let paths = args.filter { !$0.hasPrefix("-") && looksLikePath($0) }
+        let paths = args.filter { !$0.hasPrefix("-") && looksLikePath($0) && isPlainPath($0) }
         switch verb {
         case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd", "jq":
             return paths.map { .read($0, search: false) }
         case "sed":
             // The first word that isn't a flag is the script, unless -e gave it.
             let words = args.filter { !$0.hasPrefix("-") && !$0.isEmpty }
-            let files = (args.contains("-e") ? words[...] : words.dropFirst()).filter(looksLikePath)
+            let files = (args.contains("-e") ? words[...] : words.dropFirst()).filter {
+                looksLikePath($0) && isPlainPath($0)
+            }
             if args.contains(where: { $0 == "-i" || $0.hasPrefix("-i") && $0.count <= 3 }) {
                 return files.map { .wrote($0) }
             }
             return args.contains("-n") ? files.map { .read($0, search: false) } : []
-        case "rg", "grep", "ag", "ack", "fd", "find":
-            // The first word that isn't a flag is the pattern (find's is the folder).
+        case "find":
+            // Its folders come first; everything from the first expression on (-name, -exec sed …, \() is no path.
+            let folders = args.prefix { !$0.hasPrefix("-") && $0 != "(" && $0 != "!" }.filter(isPlainPath)
+            return (folders.isEmpty ? ["."] : folders).map { .read($0, search: true) }
+        case "rg", "grep", "ag", "ack", "fd":
+            // The first word that isn't a flag is the pattern (fd's too); the rest are where it looked.
             var rest = args.filter { !$0.hasPrefix("-") }
-            if verb != "find" && verb != "fd", !args.contains("-e"), !args.contains("-f"), !rest.isEmpty {
-                rest.removeFirst()
-            }
-            let targets = rest.filter { !$0.contains("://") && !$0.hasPrefix("$") && !$0.contains("*") }
+            if !args.contains("-e"), !args.contains("-f"), !rest.isEmpty { rest.removeFirst() }
+            let targets = rest.filter(isPlainPath)
             return (targets.isEmpty ? ["."] : targets).map { .read($0, search: !isFile($0)) }
         case "tee": return paths.map { .wrote($0) }
         case "touch", "rm", "truncate": return paths.map { .wrote($0) }
@@ -218,6 +229,15 @@ public enum ShellTouches {
         return word.contains("/") || word.contains(".") || word == "."
     }
 
+    /// A word that can only be a path as written: letters, digits, `. _ - / ~ @ +` (a file name like `a+b.swift`),
+    /// not a number, a variable, a glob or a script (`s|a|b|`, `{}`, `$W`).
+    private static func isPlainPath(_ word: String) -> Bool {
+        guard !word.isEmpty, word.allSatisfy({ $0.isLetter || $0.isNumber || "._-/~@+".contains($0) }),
+            !word.allSatisfy({ $0.isNumber || $0 == "+" || $0 == "." && word.count > 2 })
+        else { return false }
+        return word.contains("/") || word.contains(".") || word.first?.isLetter == true
+    }
+
     private static func isFile(_ word: String) -> Bool {
         let last = (word as NSString).lastPathComponent
         return last.contains(".") && !last.hasPrefix(".") && !word.hasSuffix("/") && last != "." && last != ".."
@@ -237,6 +257,13 @@ public enum ShellTouches {
     private static func join(_ dir: String, _ path: String) -> String {
         if dir.isEmpty || path.hasPrefix("/") || path.hasPrefix("~") { return path }
         return (dir as NSString).appendingPathComponent(path)
+    }
+
+    private static func isAbsolute(_ touch: Touch) -> Bool {
+        switch touch {
+        case .read(let path, _), .wrote(let path): path.hasPrefix("/") || path.hasPrefix("~")
+        default: true
+        }
     }
 
     private static func relative(_ touch: Touch, to dir: String) -> Touch {

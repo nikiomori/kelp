@@ -277,6 +277,8 @@ public enum WorkMap {
             if parts.count >= 3, parts[0] == ".claude", parts[1] == "worktrees" {
                 return (parts.count == 3 ? "." : parts.dropFirst(3).joined(separator: "/"), String(parts[2]))
             }
+            // The worktrees' own folder, looked into: the project, not a folder of it.
+            if parts.count == 2, parts[0] == ".claude", parts[1] == "worktrees" { return (".", nil) }
             return (relative, nil)
         }
 
