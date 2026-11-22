@@ -31159,6 +31159,56 @@
           }
         }
       }
+    },
+    "Timeline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Таймлайн"
+          }
+        }
+      }
+    },
+    "%@, scene, %@ to %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, сцена, с %2$@ до %3$@ с"
+          }
+        }
+      }
+    },
+    "%@%@, %@ to %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@%2$@, с %3$@ до %4$@ с"
+          }
+        }
+      }
+    },
+    ", hidden": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", скрыт"
+          }
+        }
+      }
+    },
+    "Mark %lld, at %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка %1$lld, на %2$@ с"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

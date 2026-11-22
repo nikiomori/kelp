@@ -149,7 +149,7 @@ final class MotionTimeline: NSView {
             height: Self.lane)
     }
     /// Where mark `m`'s diamond is.
-    private func diamond(_ m: Mark) -> NSRect {
+    func diamond(_ m: Mark) -> NSRect {
         NSRect(x: x(m.time) - 6, y: Self.ruler + Self.lane / 2 - 6, width: 12, height: 12)
     }
     func box(_ clip: Clip, lane: Int) -> NSRect {

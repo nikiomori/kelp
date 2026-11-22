@@ -183,3 +183,17 @@ extension OneAtATime {
     try doubleClick()
     #expect(abs(studio.frame.height - open) < 2)
 }
+
+/// VoiceOver reads the timeline's clips and marks by name and time.
+@MainActor @Test func theTimelineReadsToVoiceOver() {
+    let timeline = MotionTimeline(frame: NSRect(x: 0, y: 0, width: 600, height: 220))
+    timeline.set(
+        at: 0, length: 5, scenes: [.init(id: "a", title: "Intro", start: 0, length: 2)],
+        tracks: [.init(id: "t", title: "Title", start: 1, length: 1, hidden: true)],
+        marks: [.init(id: 3, time: 2.5, yours: true)])
+    let labels = (timeline.accessibilityChildren() as? [NSAccessibilityElement])?.compactMap { $0.accessibilityLabel() }
+    #expect(
+        labels == [
+            "Intro, scene, 0.0 to 2.0 seconds", "Title, hidden, 1.0 to 2.0 seconds", "Mark 3, at 2.5 seconds"
+        ])
+}
