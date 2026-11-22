@@ -46,7 +46,10 @@ struct WorkReader {
         guard
             let file = found?.transcriptPath.map(URL.init(fileURLWithPath:))
                 ?? conversations.conversationFile(of: session, live: found),
-            let log = index.log(file)
+            let log = index.log(file),
+            // A file read through with no prompt or call in it is a transcript `WorkLog` can't read (another agent's
+            // format): no transcript, not a turn that touched nothing.
+            !(log.offset > 0 && log.prompts.isEmpty && log.calls.isEmpty)
         else { return nil }
         let agent = session.agent ?? ""
         var sources = [WorkMap.Source(agent: .init(role: .main, agent: agent, name: agent), log: log)]

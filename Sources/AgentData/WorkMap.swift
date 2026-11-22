@@ -119,11 +119,14 @@ public enum WorkMap {
         for index in builder.steps.indices where builder.steps[index].kind == .spawn {
             builder.steps[index].other = builder.spawnCalls[index].flatMap { byCall[$0] }
         }
-        for call in sources.first?.log.calls ?? [] where window.contains(call.at) {
-            guard let child = byCall[call.id], let done = call.done else { continue }
-            var step = AgentWork.Step(agent: child, kind: .report, tool: "Report", detail: "", at: done)
-            step.other = 0
-            builder.steps.append(step)
+        // A subagent reports back to whoever started it: the session's agent, or a subagent that started its own.
+        for (parent, source) in sources.enumerated() {
+            for call in source.log.calls where window.contains(call.at) {
+                guard let child = byCall[call.id], child != parent, let done = call.done else { continue }
+                var step = AgentWork.Step(agent: child, kind: .report, tool: "Report", detail: "", at: done)
+                step.other = parent
+                builder.steps.append(step)
+            }
         }
     }
 
@@ -138,7 +141,14 @@ public enum WorkMap {
         /// The call id behind each spawn step, by the step's index.
         var spawnCalls: [Int: String] = [:]
 
-        init(places: Places) { self.layout = places }
+        /// The project's root as an agent may write it: as Kelp has it, with or without `/private`, and as it really is
+        /// on this Mac (a root reached through a link; a host's path isn't on this Mac and stays as written).
+        let roots: [String]
+
+        init(places: Places) {
+            layout = places
+            roots = Builder.variants(places.root) + (Paths.real(places.root).map(Builder.variants) ?? [])
+        }
 
         var places: [AgentWork.Place] {
             list.enumerated().map { index, place in
@@ -288,7 +298,7 @@ public enum WorkMap {
             if !path.hasPrefix("/") { path = ((cwd ?? layout.root) as NSString).appendingPathComponent(path) }
             path = URL(fileURLWithPath: path, isDirectory: false).standardized.path   // no disk lookup
             // The paths are compared as the agent wrote them, not resolved: a host's paths can't be resolved here.
-            for root in Self.variants(layout.root) {
+            for root in roots {
                 if path == root { return .project(".", worktree: nil) }
                 if let below = Paths.relative(path, to: root) {
                     let unfolded = Self.unfolded(below)

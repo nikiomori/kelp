@@ -273,3 +273,38 @@ private func sources() -> [WorkMap.Source] {
     #expect(work.places.isEmpty)
     #expect(work.steps.map(\.kind) == [.failed, .failed])
 }
+
+/// A subagent started by a subagent reports back to the one that started it.
+@Test func aNestedSubagentReportsToItsParent() {
+    let main = log([prompt("go", at(1)), use("t1", "Task", ["subagent_type": "Plan"], at(1, 1)), result("t1", at(1, 9))]
+    )
+    let sub = log([use("t2", "Task", ["subagent_type": "Explore"], at(1, 2)), result("t2", at(1, 5))])
+    let nested = log([use("r1", "Read", ["file_path": "/p/a.swift"], at(1, 3)), result("r1", at(1, 4))])
+    let work = WorkMap.build(
+        [
+            WorkMap.Source(agent: .init(role: .main, agent: "claude", name: "claude"), log: main),
+            WorkMap.Source(agent: .init(role: .subagent, agent: "claude", name: "Plan"), log: sub, startedBy: "t1"),
+            WorkMap.Source(
+                agent: .init(role: .subagent, agent: "claude", name: "Explore"), log: nested, startedBy: "t2")
+        ], places: layout, turn: nil, whole: false, working: false)
+    let reports = work.steps.filter { $0.kind == .report }.map { [$0.agent, $0.other ?? -1] }
+    #expect(reports.contains([2, 1]) && reports.contains([1, 0]))
+    #expect(work.steps.first { $0.kind == .spawn && $0.agent == 1 }?.other == 2)
+}
+
+/// A project reached through a link is the project when the agent writes its real path.
+@Test func aLinkedRootIsTheProject() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let real = dir.appendingPathComponent("real"), link = dir.appendingPathComponent("link")
+    try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+    let realPath = try #require(Paths.real(real.path))
+    let read = log([
+        prompt("go", at(1)), use("r1", "Read", ["file_path": realPath + "/a.swift"], at(1, 1), cwd: realPath)
+    ])
+    let work = WorkMap.build(
+        [WorkMap.Source(agent: .init(role: .main, agent: "claude", name: "claude"), log: read)],
+        places: WorkMap.Places(root: link.path, home: "/Users/me"), turn: nil, whole: false, working: false)
+    #expect(work.places.map(\.name) == ["a.swift"] && work.places.first?.kind == .file)
+}

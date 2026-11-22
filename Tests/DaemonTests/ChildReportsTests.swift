@@ -366,6 +366,11 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(work.places.contains { $0.kind == .web && $0.name == "example.com" })
     #expect(work.steps.first { $0.kind == .spawn }?.other == 1)
     #expect(try await c.call(SessionWork(id: id, whole: true))?.steps.isEmpty == true)
+    // A transcript in a format it can't read is no transcript, not a turn that touched nothing.
+    let other = dir.appendingPathComponent("pi.jsonl")
+    try Data(#"{"role":"user","parts":[{"text":"hi"}]}"#.utf8 + Data("\n".utf8)).write(to: other)
+    _ = try await c.call(SessionHook(id: id, event: "working", transcript: other.path))
+    #expect(try await c.call(SessionWork(id: id)) == nil)
 }
 
 /// A command an agent starts belongs to it, unlike an agent it starts it's no child: it hears nothing of it, and it goes on
