@@ -47,6 +47,26 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(ExtActions.text(.null) == "")
 }
 
+/// A row offers an action with `if` only while that field is true or has text (a model that can call tools, a server
+/// that runs); without `if`, or without a row (a toolbar), it's always there.
+@MainActor @Test func aRowOffersOnlyTheActionsItsFieldAllows() throws {
+    let spec = try JSONDecoder().decode(
+        ExtManifest.ActionDef.self,
+        from: Data(
+            #"{"title": "Start Claude Code", "if": "tools", "session": {"agent": "claude", "model": "${name}"}}"#.utf8))
+    #expect(spec.session?.agent == "claude")
+    for (row, offered) in [
+        (JSONValue.object(["tools": .bool(true)]), true), (.object(["tools": .string("yes")]), true),
+        (.object(["tools": .bool(false)]), false), (.object(["tools": .string("")]), false),
+        (.object(["tools": .int(0)]), false), (.object([:]), false)
+    ] {
+        #expect(ExtActions.offered(spec, on: row) == offered, "\(row)")
+    }
+    #expect(ExtActions.offered(spec, on: nil))
+    let always = try JSONDecoder().decode(ExtManifest.ActionDef.self, from: Data(#"{"title": "Go", "run": "x"}"#.utf8))
+    #expect(ExtActions.offered(always, on: .object([:])))
+}
+
 @MainActor @Test func listOutputIsAnArrayOrOneObjectPerLine() {
     #expect(ExtListView.parse(#"[{"a":1},{"a":2}]"#).count == 2)
     #expect(ExtListView.parse("{\"a\":1}\n{\"a\":2}\nnot json\n").count == 2)   // a line that isn't JSON is skipped, not fatal

@@ -568,7 +568,14 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let found = ExtCheck.problems(in: dir)
     #expect(found.contains("“name” is missing: a non-empty string.") && found.contains("Unknown key “nmae” (a typo?)."))
     #expect(found.contains("contributes.panels[0]: needs exactly one of “list” or “web”."))
-    #expect(found.contains("contributes.commands[0]: needs exactly one of terminal, run, open, agent (has run, open)."))
+    #expect(
+        found.contains(
+            "contributes.commands[0]: needs exactly one of terminal, run, open, agent, session (has run, open)."))
+    try write(#"{"id":"x","name":"X","contributes":{"commands":[{"title":"Go","session":{"model":"m"}}]}}"#)
+    #expect(
+        ExtCheck.problems(in: dir) == [
+            "contributes.commands[0].session: “agent” is missing: the id of the agent it starts."
+        ])
     try write("{ not json")
     #expect(ExtCheck.problems(in: dir).first?.hasPrefix("extension.json isn't valid JSON") == true)
 }

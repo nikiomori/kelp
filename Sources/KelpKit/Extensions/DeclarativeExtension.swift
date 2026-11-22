@@ -47,7 +47,7 @@ struct ExtManifest: Decodable {
         var empty: String?
         var actions: [ActionDef]?, toolbar: [ActionDef]?
     }
-    /// A list action, toolbar button or command: exactly one of terminal / run / open / agent.
+    /// A list action, toolbar button or command: exactly one of terminal / run / open / agent / session.
     struct ActionDef: Decodable {
         var id: String?
         var title: String
@@ -57,6 +57,22 @@ struct ExtManifest: Decodable {
         var terminal: String?, run: String?, open: String?, agent: String?
         /// The title in a menu or on a button: an action that asks first (`confirm`) ends in "…".
         var shownTitle: String { confirm == nil || title.hasSuffix("…") ? title : title + "…" }
+        /// Starts an agent in a tab, as the window does: a command can't, since what Kelp runs for an extension is held
+        /// to an agent's rules.
+        var session: SessionDef?
+        /// A row's field: the row offers the action only while that field is true or has text (`offered(on:)`).
+        var when: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case id, title, icon, key, confirm, menu, terminal, run, open, agent, session, when = "if"
+        }
+    }
+    /// The agent a `session` action starts, and what goes on top of its own launch (`SessionCreate.env`, `args`).
+    struct SessionDef: Decodable {
+        var agent: String
+        var model: String?
+        var env: [String: String]?
+        var args: [String]?
     }
     var id: String
     var name: String

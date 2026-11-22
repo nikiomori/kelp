@@ -107,10 +107,12 @@ extension ExtListView {
 
     // MARK: Actions
 
-    /// A double-click, or Return on the selected row, runs the first action.
+    /// A double-click, or Return on the selected row, runs the first action the row offers (`ExtActions.offered`).
     @objc func doubleClicked() { runFirst(on: table.clickedRow) }
     func runFirst(on row: Int) {
-        guard items.indices.contains(row), let action = def.actions?.first else { return }
+        guard items.indices.contains(row),
+            let action = def.actions?.first(where: { ExtActions.offered($0, on: items[row]) })
+        else { return }
         perform(action, items[row], key: rowKeys[row])
     }
     /// Runs a row's action unless that one is still under way there. A `run` that takes over a second puts the
@@ -146,12 +148,12 @@ extension ExtListView {
         table.reloadData(forRowIndexes: [row], columnIndexes: [0])
     }
 
-    /// A row's right-click menu: every action, with its symbol when it names one.
+    /// A row's right-click menu: every action the row offers, with its symbol when it names one.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard items.indices.contains(table.clickedRow) else { return }
         let item = items[table.clickedRow], key = rowKeys[table.clickedRow]
-        for action in def.actions ?? [] {
+        for action in def.actions ?? [] where ExtActions.offered(action, on: item) {
             menu.add(action.shownTitle, symbol: action.icon) { [weak self] in self?.perform(action, item, key: key) }
         }
     }
