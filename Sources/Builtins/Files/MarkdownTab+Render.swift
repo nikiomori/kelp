@@ -53,11 +53,14 @@ extension MarkdownTab {
             guard !Task.isCancelled else { return }
             let text = shownVersion ?? editor.text, base = url.deletingLastPathComponent(), shown = shownVersion
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            var page: (background: String, text: String)?
+            var page: (background: String, text: String)?, accent = ""
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
+                accent = NSColor.controlAccentColor.hexString
             }
+            // Kelp's own page takes the Mac's accent, as the window around it does (Graphite is grey there too).
+            let ownAccent = "document.documentElement.style.setProperty('--k-accent', '\(accent)')"
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
             let animatedNote = String(localized: "Its animation moves it: change that instead")
@@ -93,8 +96,8 @@ extension MarkdownTab {
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,
-                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand, handles] + dash
-                            + motion
+                        [ownAccent, CanvasScript.source(issues: built.issues), around, column, edit, byHand, handles]
+                            + dash + motion
                             + again,
                         nil
                     )
@@ -128,7 +131,7 @@ extension MarkdownTab {
                 let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
                 html += PageMarks.style
                 scripts += [
-                    CanvasChrome.source(themes: "", labels: chrome, floats: false),
+                    ownAccent, CanvasChrome.source(themes: "", labels: chrome, floats: false),
                     MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
