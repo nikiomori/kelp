@@ -30919,6 +30919,16 @@
           }
         }
       }
+    },
+    "Its animation moves it: change that instead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его двигает анимация: меняйте её"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

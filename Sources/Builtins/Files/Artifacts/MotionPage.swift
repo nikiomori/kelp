@@ -162,7 +162,7 @@ enum MotionPage {
           };
           addEventListener('keydown', e => {
             const typing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
-            if (typing || e.metaKey || e.ctrlKey) return;
+            if (typing || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
             if (e.key === ' ') window.kelpMotion.toggle();
             else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
               window.kelpMotion.step((e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));

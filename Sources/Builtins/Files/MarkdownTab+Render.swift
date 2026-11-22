@@ -60,6 +60,7 @@ extension MarkdownTab {
             }
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
+            let animatedNote = String(localized: "Its animation moves it: change that instead")
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
@@ -88,10 +89,12 @@ extension MarkdownTab {
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
                     let edit = CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
+                    let handles = CanvasHandles.source(animated: animatedNote)
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,
-                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand] + dash + motion
+                        [CanvasScript.source(issues: built.issues), around, column, edit, byHand, handles] + dash
+                            + motion
                             + again,
                         nil
                     )

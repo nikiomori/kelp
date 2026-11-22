@@ -76,6 +76,22 @@ extension MarkdownTab {
                     to: value)
             }
             rewrite(board, edit: edit) { BoardEdit.setStyle($0, id: id, property: property, value: value) }
+        case "styles":
+            guard let board = body["board"] as? String, let id = body["id"] as? String,
+                let props = body["props"] as? [String: Any], !props.isEmpty
+            else { return true }
+            let names = props.keys.sorted(), value = { (name: String) in props[name] as? String }
+            let edit = { (source: String) in
+                HandEdit(
+                    board: board, id: id, what: names.joined(separator: ", "),
+                    from: names.map { BoardEdit.style(source, id: id, property: $0) ?? "none" }.joined(separator: ", "),
+                    to: names.map { value($0) ?? "none" }.joined(separator: ", "))
+            }
+            rewrite(board, edit: edit) { source in
+                names.reduce(Optional(source)) { text, name in
+                    text.flatMap { BoardEdit.setStyle($0, id: id, property: name, value: value(name)) }
+                }
+            }
         case "present":
             presentingBoards = false
             onPresentEnded?()

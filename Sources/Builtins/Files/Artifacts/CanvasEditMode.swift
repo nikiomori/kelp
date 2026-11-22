@@ -42,8 +42,10 @@ enum CanvasEditMode {
             K.place(chosen, b);
             Object.assign(tag.style, { left: b.x + 'px', top: (b.y - 20) + 'px' });
           }
+          window.kelpOutline = outline;
           function choose(next, quiet) {
             at = next;
+            dispatchEvent(new CustomEvent('kelp-chosen', { detail: K.mode() === 'edit' ? at : null }));
             chosen.style.display = tag.style.display = at ? 'block' : 'none';
             const which = at ? { board: at.f.dataset.board, id: idOf(at.e) } : {};
             if (!quiet) K.post(Object.assign({ kind: 'selected' }, which));
@@ -131,7 +133,9 @@ enum CanvasEditMode {
             if (!e.children.length && e.textContent.trim()) out.push(K.el('p', 'kelp-note', L.typeHint));
             return out;
           }
-          K.sheet.addEventListener('click', ev => { if (K.mode() === 'edit') choose(K.under(ev, true)); });
+          K.sheet.addEventListener('click', ev => {
+            if (K.mode() === 'edit' && !window.kelpHandles?.busy()) choose(K.under(ev, true));
+          });
           K.sheet.addEventListener('dblclick', ev => {
             const hit = K.mode() === 'edit' && K.under(ev, true);
             if (hit && !hit.e.children.length && hit.e.textContent.trim()) typeOver(hit);
