@@ -227,7 +227,8 @@ extension MarkdownTab {
         [
             "title": String(localized: "Properties"), "parent": String(localized: "Parent"),
             "asDrawn": String(localized: "As Drawn"),
-            "noID": String(localized: "This element has no data-id: mark it and ask the agent to give it one."),
+            "noID": String(localized: "This element has no data-id yet, so it can’t be changed by hand."),
+            "giveID": String(localized: "Give It a data-id"),
             "typeHint": String(localized: "Double-click it to change its text."),
             "choose": String(localized: "Click an element on a board to change its style, or double-click a text."),
             "text": String(localized: "Text"), "layout": String(localized: "Layout"), "fill": String(localized: "Fill"),

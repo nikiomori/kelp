@@ -9,8 +9,8 @@ import Foundation
 /// the element again once the canvas is drawn again), plus `style` and `text`, which the tab writes into the board's
 /// file by the element's data-id (`BoardEdit`).
 enum CanvasEditMode {
-    /// The words the column shows, by key: title, parent, asDrawn, noID, typeHint, choose, text, layout, fill, size,
-    /// weight, colour, padding, gap, background, radius, opacity.
+    /// The words the column shows, by key: title, parent, asDrawn, noID, giveID, typeHint, choose, text, layout, fill,
+    /// size, weight, colour, padding, gap, background, radius, opacity.
     typealias Labels = [String: String]
 
     static func source(tokens: [String: [String]], labels: Labels) -> String {
@@ -97,7 +97,15 @@ enum CanvasEditMode {
             const what = K.el('div', 'kelp-row');
             what.append(K.el('b', 'kelp-grow', nameOf(e)));
             out.push(where, what);
-            if (!id) return [...out, K.el('p', 'kelp-note', L.noID)];
+            if (!id) {
+              // Found again by its place among the body's elements of its tag, to write a data-id into its file.
+              const give = K.el('button', 'kelp-pill', L.giveID), doc = e.ownerDocument;
+              give.onclick = () => K.post({ kind: 'giveID', board: at.f.dataset.board, tag: e.tagName.toLowerCase(),
+                index: [...doc.body.getElementsByTagName(e.tagName)].indexOf(e) });
+              const row = K.el('div', 'kelp-row kelp-end');
+              row.append(give);
+              return [...out, K.el('p', 'kelp-note', L.noID), row];
+            }
             for (const [section, items] of rows) {
               out.push(K.el('div', 'kelp-sec', L[section]));
               for (const [word, property, group] of items) {

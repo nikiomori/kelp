@@ -13,6 +13,10 @@ extension MarkdownTab {
             restyle(body)
             return true
         }
+        if kind == "giveID" {
+            giveID(body)
+            return true
+        }
         guard ["remove", "duplicate", "menu"].contains(kind) else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String else { return true }
         switch kind {
@@ -42,6 +46,20 @@ extension MarkdownTab {
                 }
             }
         }
+    }
+
+    /// Writes a data-id into the element found as the `index`th `<tag>` of the board, and chooses it, so Edit can
+    /// change it.
+    private func giveID(_ body: [String: Any]) {
+        guard let board = body["board"] as? String, let tag = body["tag"] as? String,
+            let index = (body["index"] as? NSNumber)?.intValue, index >= 0
+        else { return }
+        let edit = { [weak self] (source: String) -> HandEdit? in
+            guard let given = BoardEdit.giveID(source, tag: tag, index: index) else { return nil }
+            self?.chosen = (board, given.id)
+            return HandEdit(board: board, id: given.id, what: "data-id", from: nil, to: given.id)
+        }
+        rewrite(board, edit: edit) { BoardEdit.giveID($0, tag: tag, index: index)?.text }
     }
 
     /// Hides element `id` from the page and the video (`data-hidden`), or shows it again.

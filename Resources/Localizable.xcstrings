@@ -31059,6 +31059,26 @@
           }
         }
       }
+    },
+    "This element has no data-id yet, so it can’t be changed by hand.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У элемента ещё нет data-id, поэтому руками его не поменять."
+          }
+        }
+      }
+    },
+    "Give It a data-id": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дать data-id"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

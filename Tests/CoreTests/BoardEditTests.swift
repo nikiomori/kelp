@@ -68,3 +68,13 @@ private let board = """
         BoardEdit.setAttribute(stage, id: nil, name: "data-width", value: "1080")
             == #"<body data-width="1080" data-height="1080"><p data-id="t">x</p></body>"#)
 }
+
+/// An element without a data-id gets one, found as the nth of its tag in the page's body; the id is new.
+@Test func anElementWithoutAnIDGetsOne() throws {
+    let page = #"<html><head><style>p{}</style></head><body><p>a</p><P data-id="p-1">b</P><p>c</p></body></html>"#
+    let given = try #require(BoardEdit.giveID(page, tag: "p", index: 2))
+    #expect(given.id == "p-2")
+    #expect(given.text.contains(#"<p data-id="p-2">c</p>"#))
+    #expect(BoardEdit.giveID(page, tag: "p", index: 3) == nil)
+    #expect(BoardEdit.giveID(page, tag: "p\"", index: 0) == nil)
+}

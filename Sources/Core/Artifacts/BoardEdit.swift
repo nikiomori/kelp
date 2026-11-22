@@ -85,6 +85,27 @@ public enum BoardEdit {
         return nil
     }
 
+    /// Gives the `index`th `<tag>` of the page's body (or of a board's fragment) a data-id made from the tag, the first
+    /// of `h2-1`, `h2-2`… no element has. Returns the text and the id, or nil when there is no such tag.
+    public static func giveID(_ source: String, tag: String, index: Int) -> (text: String, id: String)? {
+        guard !tag.isEmpty, tag.allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
+        let start = bodyTag(source)?.upperBound ?? source.startIndex
+        var opens: [Range<String.Index>] = [], from = start
+        while let found = source.range(of: "<" + tag, options: .caseInsensitive, range: from..<source.endIndex) {
+            if source[found.upperBound...].first.map({ $0.isWhitespace || $0 == ">" || $0 == "/" }) ?? false {
+                opens.append(found)
+            }
+            from = found.upperBound
+        }
+        guard opens.indices.contains(index),
+            let id = (1...9999).lazy.map({ "\(tag.lowercased())-\($0)" })
+                .first(where: { !source.contains("data-id=\"\($0)\"") })
+        else { return nil }
+        var out = source
+        out.insert(contentsOf: " data-id=\"\(id)\"", at: source.index(opens[index].lowerBound, offsetBy: tag.count + 1))
+        return (out, id)
+    }
+
     /// The range of the page's one `<body …>` tag.
     static func bodyTag(_ source: String) -> Range<String.Index>? {
         let found = source.ranges(of: /<body[\s>]/.ignoresCase())

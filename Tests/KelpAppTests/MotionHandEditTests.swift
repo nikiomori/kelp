@@ -141,3 +141,17 @@ extension OneAtATime {
     let read = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
     #expect(CGImageSourceGetCount(read) == 2)
 }
+
+extension OneAtATime {
+    /// An element chosen without a data-id gets one written into the page, and is chosen as it.
+    @Test func anElementChosenWithoutAnIDGetsOne() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = #"<html><body data-width="1920" data-height="1080"><p>A</p><p>B</p></body></html>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        _ = tab.canvasMessage("giveID", ["board": "motion.html", "tag": "p", "index": 1])
+        #expect(editor.text.contains(#"<p>A</p><p data-id="p-1">B</p>"#))
+        #expect(tab.chosen?.id == "p-1")
+    }
+}
