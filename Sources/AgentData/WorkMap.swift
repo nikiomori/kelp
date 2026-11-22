@@ -182,11 +182,12 @@ public enum WorkMap {
             }
             var kind: AgentWork.Step.Kind = .other, detail = ""
             switch lower {
+            // A read or an edit that failed touched nothing: it shows as a failed step, not as a place.
             case "read", "notebookread", "view":
-                file(call.path)
+                if !call.failed { file(call.path) }
                 (kind, detail) = (.read, shown(call.path))
             case "edit", "multiedit", "write", "notebookedit", "str_replace_based_edit_tool":
-                file(call.path, edit: true, added: call.added, removed: call.removed)
+                if !call.failed { file(call.path, edit: true, added: call.added, removed: call.removed) }
                 (kind, detail) = (.edit, shown(call.path))
             case "grep", "glob", "ls":
                 file(call.path ?? call.cwd ?? layout.root, search: true)
@@ -211,7 +212,7 @@ public enum WorkMap {
                 let line = command.split(separator: "\n").first.map(String.init) ?? command
                 (kind, detail) = (call.failed ? .failed : .command, String(line.prefix(200)))
             case "apply_patch":
-                for (path, added, removed) in Self.patchFiles(call.patch ?? "") {
+                for (path, added, removed) in Self.patchFiles(call.patch ?? "") where !call.failed {
                     file(path, edit: true, added: added, removed: removed)
                 }
                 (kind, detail) = (.edit, Self.patchFiles(call.patch ?? "").map { shown($0.0) }.joined(separator: ", "))
@@ -285,7 +286,7 @@ public enum WorkMap {
             var path = raw
             if path == "~" || path.hasPrefix("~/") { path = layout.home + path.dropFirst() }
             if !path.hasPrefix("/") { path = ((cwd ?? layout.root) as NSString).appendingPathComponent(path) }
-            path = URL(fileURLWithPath: path).standardized.path
+            path = URL(fileURLWithPath: path, isDirectory: false).standardized.path   // no disk lookup
             // The paths are compared as the agent wrote them, not resolved: a host's paths can't be resolved here.
             for root in Self.variants(layout.root) {
                 if path == root { return .project(".", worktree: nil) }

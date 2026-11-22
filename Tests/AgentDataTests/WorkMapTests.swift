@@ -45,7 +45,12 @@ import Testing
         ("grep -rn foo $W 2 | awk '{print $1}'", [.read(".", search: true)]),
         ("rg -l 'x' Sources/a+b.swift", [.read("Sources/a+b.swift", search: false)]),
         ("sed -i '' -e 's|/ a probe.s terminal|/ a probe|g' Sources/x.swift", [.wrote("Sources/x.swift")]),
-        ("cd $W && cat a.swift /etc/hosts", [.read("/etc/hosts", search: false)])
+        ("cd $W && cat a.swift /etc/hosts", [.read("/etc/hosts", search: false)]),
+        ("ls -la Sources/Daemon README.md", [.read("Sources/Daemon", search: true), .read("README.md", search: false)]),
+        ("grep -rn -A 3 retry Sources", [.read("Sources", search: true)]),
+        ("rg -t swift -g '*.md' retry Docs", [.read("Docs", search: true)]),
+        ("jq .version package.json", [.read("package.json", search: false)]),
+        ("cd $W && echo hi > notes.txt", [])
     ] as [(String, [ShellTouches.Touch])])
 func aShellCommandSaysWhatItTouched(command: String, touches: [ShellTouches.Touch]) {
     #expect(ShellTouches.parse(command) == touches)
@@ -207,13 +212,24 @@ private func sources() -> [WorkMap.Source] {
                 "type": "function_call_output", "call_id": "c1",
                 "output": line(["output": "", "metadata": ["exit_code": 1]])
             ], at(1, 6)),
+        item(
+            [
+                "type": "function_call", "name": "exec_command", "call_id": "c3",
+                "arguments": line(["cmd": "swift build"])
+            ], at(1, 7)),
+        item(
+            [
+                "type": "function_call_output", "call_id": "c3",
+                "output": "Chunk ID: 1\nWall time: 2s\nProcess exited with code 2\nOutput:\nerror"
+            ], at(1, 8)),
         item(["type": "custom_tool_call", "name": "apply_patch", "call_id": "c2", "input": patch], at(2)),
         item(["type": "custom_tool_call_output", "call_id": "c2", "output": "ok"], at(2, 1)),
         item(["type": "web_search_call", "id": "ws", "action": ["query": "swift regex"]], at(2, 2))
     ])
     #expect(rollout.cwd == "/p")
     // Kept small: a patch's file lines and one character of each changed line.
-    #expect(rollout.calls[1].patch == "*** Begin Patch\n*** Update File: Sources/a.swift\n-\n+\n+\n*** End Patch")
+    #expect(rollout.calls[1].failed)   // its output in plain text, as newer Codex writes it
+    #expect(rollout.calls[2].patch == "*** Begin Patch\n*** Update File: Sources/a.swift\n-\n+\n+\n*** End Patch")
     #expect(rollout.prompts.map(\.text) == ["review the diff"])
     let work = WorkMap.build(
         [WorkMap.Source(agent: .init(role: .main, agent: "codex", name: "codex"), log: rollout)], places: layout,
@@ -242,4 +258,18 @@ private func sources() -> [WorkMap.Source] {
         to: tree.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
     #expect(WorkMap.Places.remote(of: repo.path) == "github.com")
     #expect(WorkMap.Places.remote(of: tree.path) == "github.com")
+}
+
+/// A read or an edit that failed touched nothing: it is a failed step, not a place.
+@Test func aFailedCallTouchesNothing() {
+    let failed = log([
+        prompt("try", at(1)),
+        use("e1", "Edit", ["file_path": "/p/Sources/Nope.swift"], at(1, 1)), result("e1", at(1, 2), error: true),
+        use("r1", "Read", ["file_path": "/p/Sources/Gone.swift"], at(1, 3)), result("r1", at(1, 4), error: true)
+    ])
+    let work = WorkMap.build(
+        [WorkMap.Source(agent: .init(role: .main, agent: "claude", name: "claude"), log: failed)], places: layout,
+        turn: nil, whole: false, working: false)
+    #expect(work.places.isEmpty)
+    #expect(work.steps.map(\.kind) == [.failed, .failed])
 }

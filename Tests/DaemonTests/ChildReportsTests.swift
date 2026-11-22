@@ -442,12 +442,15 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
         return Conversations.HostFile.split(out)
     }
     let first = try run([:])
-    #expect(first.map(\.name) == ["main", "agent-x1", "meta:agent-x1"])
+    #expect(first.map(\.name) == ["main.s1", "agent-x1", "meta:agent-x1"])   // the conversation named by its id
     #expect(String(decoding: first[0].data, as: UTF8.self) == "{\"a\":1}\n{\"b\":2}\n")
     #expect(String(decoding: first[2].data, as: UTF8.self).contains("Explore"))
-    let again = try run(["main": 8, "agent-x1": 8])
+    let again = try run(["main.s1": 8, "agent-x1": 8])
     #expect(again[0].start == 8 && String(decoding: again[0].data, as: UTF8.self) == "{\"b\":2}\n")
     #expect(again[1].data.isEmpty)
+    // A file now shorter than where it was read to (rewritten) is sent from its start.
+    let shrunk = try run(["main.s1": 999, "agent-x1": 8])
+    #expect(shrunk[0].start == 0)
 }
 
 /// A transcript is read a piece at a time: what pieces give is what a whole read gives, a line longer than a piece

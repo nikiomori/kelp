@@ -16,6 +16,9 @@ final class WorkIndex: Sendable {
     }
 
     private let entries = OSAllocatedUnfairLock<[String: Entry]>(initialState: [:])
+    /// One lock per file, held while it is read: a second reader (the watch's pass beside `session.work`) waits for
+    /// the first instead of parsing the file from its start too.
+    private let reading = OSAllocatedUnfairLock<[String: NSLock]>(initialState: [:])
     // Limit: by files, not bytes; a call is kept small (`WorkLog.add`), so this many stays in tens of MB.
     /// How many files are kept; past it, the ones read longest ago go. A session with dozens of subagents is dozens of
     /// files, and two of them on screen must fit, or each read starts every file again.
@@ -27,6 +30,14 @@ final class WorkIndex: Sendable {
 
     /// The log of a file on this Mac, read up to its end.
     func log(_ url: URL, piece first: Int = WorkIndex.piece) -> WorkLog? {
+        let lock = reading.withLock { locks in
+            if let lock = locks[url.path] { return lock }
+            let lock = NSLock()
+            locks[url.path] = lock
+            return lock
+        }
+        lock.lock()
+        defer { lock.unlock() }
         guard let size = Artifacts.fileStat(url.path)?.size else { return nil }
         // Taken out while it grows, so its calls aren't copied (the dictionary would share them).
         var entry = entries.withLock { $0.removeValue(forKey: url.path) } ?? Entry()
@@ -77,8 +88,10 @@ final class WorkIndex: Sendable {
 
 extension Conversations {
     /// A remote Claude Code's conversation and its subagents', as the host has them: each file from where it was last
-    /// read (`offsets`, by name: "main" or "agent-<id>"), and the subagents' `.meta.json`. A long conversation is read
-    /// from its last `WorkIndex.hostFirstRead` bytes the first time. Uses only an open connection, like `remoteTail`.
+    /// read (`offsets`, by name: "main.<id>", so another conversation is another name, or "agent-<id>"), and the
+    /// subagents' `.meta.json`. A long conversation is read from its last `WorkIndex.hostFirstRead` bytes the first
+    /// time; a file shorter than where it was read to is read from its start. Uses only an open connection, like
+    /// `remoteTail`.
     func remoteWork(of session: Session, offsets: [String: UInt64]) -> [HostFile]? {
         guard session.agent == Session.claudeAgent, let remote = remotes.of(session.cwd), remote.connection != nil
         else { return nil }
@@ -95,18 +108,19 @@ extension Conversations {
     /// The script for sh on the host behind `remoteWork`: each file's `\u{1}name size start` line, then its bytes from
     /// `start`; the subagents' `.meta.json` as `meta:<name>`.
     static func workScript(path: String, id: String?, claude: String, offsets: [String: UInt64]) -> String {
-        let known = offsets.filter { $0.key.wholeMatch(of: /(main|agent-[A-Za-z0-9]+)/) != nil }
+        let known = offsets.filter { $0.key.wholeMatch(of: /(main\.[A-Za-z0-9-]+|agent-[A-Za-z0-9]+)/) != nil }
         let cases = known.map { "\($0.key)) o=\($0.value);;" }.joined(separator: " ")
         let first = WorkIndex.hostFirstRead
         let read = [
             #"emit() {"#,
             #"  s=$(wc -c <"$1" | tr -d ' ')"#,
             #"  case "$2" in "# + cases + #" *) o=0;; esac"#,
+            #"  [ "$s" -lt "$o" ] && o=0"#,
             #"  [ "$o" = 0 ] && [ "$s" -gt \#(first) ] && o=$((s - \#(first)))"#,
             #"  printf '\001%s %s %s\n' "$2" "$s" "$o""#,
             #"  [ "$s" -gt "$o" ] && tail -c +$((o + 1)) "$1""#,
             #"}"#,
-            #"emit "$f" main"#,
+            #"emit "$f" "main.$(basename "$f" .jsonl)""#,
             #"for a in "${f%.jsonl}"/subagents/agent-*.jsonl; do"#,
             #"  [ -f "$a" ] || continue"#,
             #"  n=$(basename "$a" .jsonl)"#,

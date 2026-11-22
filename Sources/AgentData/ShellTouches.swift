@@ -31,7 +31,9 @@ public enum ShellTouches {
                 part.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "()")) }.filter { !$0.isEmpty })
             var plain = words[...]
             while let first = plain.first, first.contains("="), first.first?.isLetter == true { plain.removeFirst() }
-            for target in redirects { out.append(.wrote(join(dir, target))) }
+            for target in redirects where !lost || target.hasPrefix("/") || target.hasPrefix("~") {
+                out.append(.wrote(join(dir, target)))
+            }
             guard let verb = plain.first.map({ ($0 as NSString).lastPathComponent }) else { continue }
             let args = Array(plain.dropFirst())
             if verb == "cd" {
@@ -55,8 +57,16 @@ public enum ShellTouches {
     private static func touches(verb: String, args: [String]) -> [Touch] {
         let paths = args.filter { !$0.hasPrefix("-") && looksLikePath($0) && isPlainPath($0) }
         switch verb {
-        case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd", "jq", "ls":
+        case "jq":
+            // The first word that isn't a flag is the filter (`.version`); the files follow it.
+            return args.filter { !$0.hasPrefix("-") }.dropFirst().filter { looksLikePath($0) && isPlainPath($0) }.map {
+                .read($0, search: false)
+            }
+        case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd":
             return paths.map { .read($0, search: false) } + globs(args)
+        case "ls":
+            // A folder listed was looked through, not read as a file.
+            return paths.map { .read($0, search: !isFile($0)) } + globs(args)
         case "sed":
             // The first word that isn't a flag is the script, unless -e gave it.
             let words = args.filter { !$0.hasPrefix("-") && !$0.isEmpty }
@@ -73,7 +83,20 @@ public enum ShellTouches {
             return (folders.isEmpty ? ["."] : folders).map { .read($0, search: true) }
         case "rg", "grep", "ag", "ack", "fd":
             // The first word that isn't a flag is the pattern (fd's too); the rest are where it looked.
-            var rest = args.filter { !$0.hasPrefix("-") }
+            // A flag's value isn't a target: `grep -A 3 pat`, `rg -t swift`, `rg -g '*.md'`; `-e`'s is the pattern.
+            let valued: Set = [
+                "-A", "-B", "-C", "-m", "-e", "-f", "-g", "-t", "-T", "--type", "--glob", "--max-count", "-E"
+            ]
+            var rest: [String] = [], skip = false
+            for arg in args {
+                if skip {
+                    skip = false
+                } else if arg.hasPrefix("-") {
+                    skip = valued.contains(arg) && !(verb == "grep" && arg == "-E")
+                } else {
+                    rest.append(arg)
+                }
+            }
             if !args.contains("-e"), !args.contains("-f"), !rest.isEmpty { rest.removeFirst() }
             let targets = rest.filter(isPlainPath), globbed = globs(rest)
             if targets.isEmpty && !globbed.isEmpty { return globbed }

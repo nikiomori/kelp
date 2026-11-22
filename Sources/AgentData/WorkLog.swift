@@ -53,7 +53,7 @@ public struct WorkLog: Sendable {
                 if let payload = entry["payload"] as? [String: Any], payload["type"] as? String == "user_message",
                     let text = (payload["message"] as? String).flatMap(JSONL.typed)
                 {
-                    prompts.append(Prompt(text: text, at: at))
+                    prompts.append(Prompt(text: String(text.prefix(500)), at: at))
                 }
             case "response_item": codex(entry["payload"] as? [String: Any] ?? [:], at: at)
             default: break
@@ -72,7 +72,7 @@ public struct WorkLog: Sendable {
         let results = blocks.filter { $0["type"] as? String == "tool_result" }
         if results.isEmpty {
             if entry["isSidechain"] as? Bool != true, let text = JSONL.promptText(content) {
-                prompts.append(Prompt(text: text, at: at))
+                prompts.append(Prompt(text: String(text.prefix(500)), at: at))
             }
             return
         }
@@ -145,7 +145,10 @@ public struct WorkLog: Sendable {
             let meta =
                 ((output as? String).flatMap { JSONL.object(Data($0.utf8)) } ?? output as? [String: Any])?[
                     "metadata"] as? [String: Any]
-            if let code = meta?["exit_code"] as? Int, code != 0 { calls[index].failed = true }
+            // Older rollouts give JSON with `metadata.exit_code`; newer ones plain text ending "Process exited with
+            // code N".
+            let plain = (output as? String)?.firstMatch(of: /Process exited with code (-?\d+)/).flatMap { Int($0.1) }
+            if let code = meta?["exit_code"] as? Int ?? plain, code != 0 { calls[index].failed = true }
             if let patch = calls[index].patch { Self.count(patch: patch, into: &calls[index]) }
         case "web_search_call":
             var call = Call(id: payload["id"] as? String ?? UUID().uuidString, tool: "WebSearch", at: at, cwd: cwd)

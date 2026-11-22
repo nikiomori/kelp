@@ -61,7 +61,9 @@ struct WorkReader {
         }
         for child in try store.children(of: [session.id]) {
             guard let childAgent = child.agent,
-                let childFile = conversations.conversationFile(of: child, live: live[child.id]),
+                // The live agent's own path first: finding its file otherwise asks pgrep and lsof, on every pass.
+                let childFile = live[child.id]?.transcriptPath.map(URL.init(fileURLWithPath:))
+                    ?? conversations.conversationFile(of: child, live: live[child.id]),
                 let childLog = index.log(childFile)
             else { continue }
             let role = AgentWork.Agent(
@@ -109,10 +111,10 @@ struct WorkReader {
             index.keep(key + file.name, entry)
             names.append(file.name)
         }
-        guard names.contains("main") else { return nil }
-        let agent = session.agent ?? "", main = index.entry(key + "main").log
+        guard let mainName = names.first(where: { $0.hasPrefix("main.") }) else { return nil }
+        let agent = session.agent ?? "", main = index.entry(key + mainName).log
         var sources = [WorkMap.Source(agent: .init(role: .main, agent: agent, name: agent), log: main)]
-        for name in names.filter({ $0 != "main" }).sorted() {
+        for name in names.filter({ $0 != mainName }).sorted() {
             sources.append(Self.subagent(name, meta: metas[name], agent: agent, log: index.entry(key + name).log))
         }
         let root = main.cwd ?? path
@@ -124,8 +126,10 @@ struct WorkReader {
     /// turn's end, for the last), so a file a command changed counts too. Git runs where the project is, on its host
     /// for a remote one. Empty while the turn goes on and for a turn Kelp kept no snapshot of.
     func turnChanges(_ session: Session, turn: Int?, prompts: [WorkLog.Prompt]) -> [WorkMap.Changed] {
-        guard !prompts.isEmpty, session.status != .working else { return [] }
+        guard !prompts.isEmpty else { return [] }
         let picked = turn.map { min(max($0, 0), prompts.count - 1) } ?? prompts.count - 1
+        // Only the turn still going on has no end to compare with: an earlier one's changes are known.
+        if session.status == .working, picked == prompts.count - 1 { return [] }
         let start = prompts[picked].at, end = picked + 1 < prompts.count ? prompts[picked + 1].at : Date.distantFuture
         if picked == prompts.count - 1, let last = live[session.id]?.lastTurn {
             return last.files.map { WorkMap.Changed(path: $0.path, added: $0.added, removed: $0.removed) }
