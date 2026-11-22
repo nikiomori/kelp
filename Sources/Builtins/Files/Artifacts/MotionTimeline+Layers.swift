@@ -3,12 +3,12 @@ import DesignKit
 
 /// The elements' lanes as layers: the frontmost on top. A lane dragged by its name to another place restacks the
 /// elements (`onRestack`), its eye hides the element from the page and the video (`onHide`), and the lanes scroll when
-/// there are more than fit.
+/// there are more than fit. The eye shows on the lane under the pointer, and always on a hidden one.
 extension MotionTimeline {
     /// Where lane `lane`'s eye is, at the end of its name.
     func eyeRect(lane: Int) -> NSRect {
         let row = laneRect(lane)
-        return NSRect(x: Self.names - Metrics.gap - 16, y: row.midY - 8, width: 16, height: 16)
+        return NSRect(x: names - Metrics.gap - 16, y: row.midY - 8, width: 16, height: 16)
     }
 
     func drawEye(lane: Int, hidden: Bool) {
@@ -20,6 +20,21 @@ extension MotionTimeline {
         tinted.draw(
             in: NSRect(x: r.midX - size.width / 2, y: r.midY - size.height / 2, width: size.width, height: size.height),
             from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    }
+
+    /// The lane under the pointer shows its eye, whose tooltip says what a click does.
+    func pointerMoved(to p: NSPoint) {
+        let lane = lanesArea.contains(p) ? layer(at: NSPoint(x: 0, y: p.y)) : nil
+        if lane != hoveredLane {
+            hoveredLane = lane
+            needsDisplay = true
+        }
+        guard let lane, eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) else {
+            toolTip = nil
+            return
+        }
+        toolTip =
+            tracks[lane - 1].hidden ? String(localized: "Show in the Video") : String(localized: "Hide in the Video")
     }
 
     /// While a lane is dragged, a line where it would go.

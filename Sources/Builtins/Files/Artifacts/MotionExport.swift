@@ -43,28 +43,47 @@ final class MotionExportPopover: NSObject {
             control.target = self
             control.action = #selector(changed)
         }
-        let rows = [
+        // As the system's popovers have it: each part's name over its choices, and one main button.
+        var parts: [NSView] = []
+        for (name, control) in [
             (String(localized: "Format"), format), (String(localized: "Frame Rate"), rate),
             (String(localized: "Size"), size)
-        ].map { name, control in
-            NSStackView(views: [NSTextField.label(name, font: .ui(TextSize.row), color: .secondaryLabelColor), control])
+        ] {
+            control.controlSize = .small
+            let label = NSTextField.label(
+                name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+            parts.append(label)
+            parts.append(control)
         }
-        let export = TextButton(String(localized: "Export…")) { [weak self] in
-            guard let self else { return }
-            popover.performClose(nil)
-            go(options)
-        }
-        let stack = NSStackView(views: rows + [export])
+        let export = NSButton(title: String(localized: "Export…"), target: self, action: #selector(go(_:)))
+        export.keyEquivalent = "\r"
+        export.controlSize = .regular
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let foot = NSStackView(views: [spacer, export])   // the main button at the trailing edge
+        let stack = NSStackView(views: parts + [foot])
         stack.orientation = .vertical
-        stack.alignment = .trailing
-        stack.spacing = Metrics.gap
+        stack.alignment = .leading
+        stack.spacing = Metrics.gapWide
+        for (i, view) in parts.enumerated() where i % 2 == 0 { stack.setCustomSpacing(Metrics.gapTight, after: view) }
+        stack.setCustomSpacing(Metrics.inset, after: size)
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
+        foot.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.inset).isActive = true
+        stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         let controller = NSViewController()
         controller.view = stack
         popover.contentViewController = controller
         popover.behavior = .transient
         popover.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
+    }
+
+    /// The popover's width, as the system's are.
+    static let width: CGFloat = 300
+
+    @objc private func go(_ sender: Any?) {
+        popover.performClose(nil)
+        go(options)
     }
 
     @objc private func changed() {

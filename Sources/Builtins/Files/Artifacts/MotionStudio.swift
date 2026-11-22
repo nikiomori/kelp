@@ -33,16 +33,20 @@ final class MotionStudio {
                 loop, speed, time, frame
             ],
             [
-                IconButton(.symbol("minus.magnifyingglass"), tip: String(localized: "Zoom Out")) { [weak self] in
-                    self?.zoom(by: 0.5)
-                },
-                zoomSlider,
-                IconButton(.symbol("plus.magnifyingglass"), tip: String(localized: "Zoom In")) { [weak self] in
-                    self?.zoom(by: 2)
-                },
-                TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size, export
+                zoomSlider, TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size,
+                export
             ], stretching: frame)
         speed.toolTip = String(localized: "How fast it plays")
+        zoomSlider.toolTip = String(localized: "How close the timeline looks (or pinch, or ⌘ and scroll)")
+        for rate in Self.rates { speed.addItem(withTitle: Self.rate(rate)) }
+        speed.selectItem(withTitle: Self.rate(1))
+        speed.font = .uiDigits(TextSize.row)
+        speed.target = self
+        speed.action = #selector(speedChosen)
+        size.font = .uiDigits(TextSize.row)
+        size.target = self
+        size.action = #selector(formatChosen)
+        size.toolTip = String(localized: "The stage’s shape")
         zoomSlider.controlSize = .small
         zoomSlider.target = self
         zoomSlider.action = #selector(zoomSlid)
@@ -58,13 +62,13 @@ final class MotionStudio {
     private lazy var loop = IconButton(.symbol("repeat"), tip: String(localized: "Play Again at the End")) {
         [weak self] in self?.toggleLoop()
     }
-    private lazy var speed = TextButton("1×") { [weak self] in self?.speedMenu() }
+    private let speed = PointerPopUpButton()
     /// The zoom as a power of two: 0 shows the whole length, 5 a thirty-second of it.
     private let zoomSlider = NSSlider(value: 0, minValue: 0, maxValue: log2(40), target: nil, action: nil)
     private var looping = false
     private let time = NSTextField.label("", font: .uiDigits(TextSize.row))
-    private let frame = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
-    private lazy var size = TextButton("") { [weak self] in self?.formatMenu() }
+    private let frame = NSTextField.label("", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+    private let size = PointerPopUpButton()
     private var stage = (width: 1920, height: 1080)
     private let timeline = MotionTimeline()
     private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.chooseExport() }
@@ -109,8 +113,10 @@ final class MotionStudio {
         time.stringValue = Self.clock(state.at) + " / " + Self.clock(state.length)
         frame.stringValue = String(
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
-        size.title = "\(state.width) × \(state.height) · \(Int(fps)) fps"
-        stage = (state.width, state.height)
+        if stage != (state.width, state.height) || size.numberOfItems == 0 {
+            stage = (state.width, state.height)
+            fillFormats()
+        }
         timeline.set(
             at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes
@@ -121,20 +127,19 @@ final class MotionStudio {
 
     private func toggleLoop() {
         looping.toggle()
-        loop.contentTintColor = looping ? .controlAccentColor : nil
+        // On speaks through the filled symbol, as the system's switches do.
+        loop.image = .symbol(looping ? "repeat.circle.fill" : "repeat", String(localized: "Play Again at the End"))
+        loop.toolTip =
+            looping
+            ? String(localized: "Play Again at the End: On") : String(localized: "Play Again at the End")
         act("window.kelpMotion?.setLoop(\(looping))")
     }
 
-    private func speedMenu() {
-        let menu = NSMenu()
-        for rate in [0.25, 0.5, 1, 1.5, 2] {
-            let name = Self.rate(rate)
-            menu.add(name) { [weak self] in
-                self?.speed.title = name
-                self?.act("window.kelpMotion?.setRate(\(rate))")
-            }.state = name == speed.title ? .on : .off
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: speed.bounds.maxY + 4), in: speed)
+    static let rates = [0.25, 0.5, 1, 1.5, 2]
+
+    @objc private func speedChosen() {
+        let rate = Self.rates[max(speed.indexOfSelectedItem, 0)]
+        act("window.kelpMotion?.setRate(\(rate))")
     }
 
     /// The stage's shapes: a ratio and its size in pixels.
@@ -142,13 +147,21 @@ final class MotionStudio {
         ("16:9", 1920, 1080), ("9:16", 1080, 1920), ("1:1", 1080, 1080), ("4:5", 1080, 1350)
     ]
 
-    private func formatMenu() {
-        let menu = NSMenu()
-        for f in Self.formats {
-            menu.add("\(f.name)  ·  \(f.width) × \(f.height)") { [weak self] in self?.onFormat?(f.width, f.height) }
-                .state = (f.width, f.height) == stage ? .on : .off
+    /// The shapes, the stage's own chosen; a size that is none of them comes first, as it is.
+    private func fillFormats() {
+        size.removeAllItems()
+        if !Self.formats.contains(where: { ($0.width, $0.height) == stage }) {
+            size.addItem(withTitle: "\(stage.width) × \(stage.height)")
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: size.bounds.maxY + 4), in: size)
+        for f in Self.formats { size.addItem(withTitle: "\(f.name) · \(f.width) × \(f.height)") }
+        let own = Self.formats.firstIndex { ($0.width, $0.height) == stage }
+        size.selectItem(at: own.map { $0 + size.numberOfItems - Self.formats.count } ?? 0)
+    }
+
+    @objc private func formatChosen() {
+        let i = size.indexOfSelectedItem - (size.numberOfItems - Self.formats.count)
+        guard Self.formats.indices.contains(i) else { return }
+        onFormat?(Self.formats[i].width, Self.formats[i].height)
     }
 
     private func chooseExport() {
@@ -165,8 +178,6 @@ final class MotionStudio {
 
     /// 0.25 as `0.25×`, 1 as `1×`.
     static func rate(_ value: Double) -> String { String(format: "%g×", value) }
-
-    private func zoom(by factor: Double) { timeline.setZoom(timeline.zoom * factor) }
 
     @objc private func zoomSlid() { timeline.setZoom(pow(2, zoomSlider.doubleValue)) }
 

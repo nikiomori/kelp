@@ -25,12 +25,32 @@ final class MotionTimeline: NSView {
     struct Mark: Equatable {
         var id: Int, time: Double, yours: Bool
     }
-    private var at = 0.0, length = 1.0, scenes: [Clip] = [], marks: [Mark] = []
+    private(set) var at = 0.0, length = 1.0, scenes: [Clip] = [], marks: [Mark] = []
     /// The elements' lanes, the frontmost first, as layers.
     private(set) var tracks: [Clip] = []
     /// How far the lanes are scrolled down, and a lane being dragged to another place among the layers.
     var laneOffset: CGFloat = 0
     var laneDrag: (from: Int, to: Int)?
+    /// The element lane under the pointer (1 and on), which shows its eye.
+    var hoveredLane: Int?
+    private var hoverArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) { pointerMoved(to: convert(event.locationInWindow, from: nil)) }
+
+    override func mouseExited(with event: NSEvent) {
+        hoveredLane = nil
+        needsDisplay = true
+    }
     /// An element hidden or shown again (its `data-id`), and the elements in their new order, the frontmost first.
     var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
     /// How close it looks: 1 shows the whole length, more shows `length / zoom` seconds from `from`.
@@ -52,10 +72,17 @@ final class MotionTimeline: NSView {
     var onMark: ((Int) -> Void)?
     /// A clip taken out (⌫) or copied (⌘D, or from its menu): its `data-id`, and whether to copy it.
     var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
+    /// Files dropped from Finder: they join the page from the second they were dropped at (`onDropFiles`).
+    var onDropFiles: (([URL], Double) -> Void)? {
+        didSet { registerForDraggedTypes(onDropFiles == nil ? [] : [.fileURL]) }
+    }
     /// The clip clicked last, which ⌫ and ⌘D act on.
-    private var picked: String?
+    var picked: String?
 
-    static let names: CGFloat = 112, ruler: CGFloat = 20, lane: CGFloat = 24, shown = 6
+    /// A lane's height is a row's; the ruler is a little lower.
+    static let ruler = Metrics.row - Metrics.gapTight, lane = Metrics.row, shown = 6
+    /// The names' column: as wide as the longest name and its eye, from 120 to 180.
+    private(set) var names: CGFloat = 120
     /// The lane of marks, above the scenes, while there are any.
     var marksLane: CGFloat { marks.isEmpty ? 0 : Self.lane }
     private var lanes: Int { 1 + tracks.count }
@@ -69,6 +96,11 @@ final class MotionTimeline: NSView {
         guard (at, length, scenes, tracks, marks) != (self.at, self.length, self.scenes, self.tracks, self.marks)
         else { return }
         (self.at, self.length, self.scenes, self.tracks, self.marks) = (at, length, scenes, tracks, marks)
+        let widest =
+            ([String(localized: "Scenes")] + tracks.map(\.title)).map {
+                NSAttributedString(string: $0, attributes: [.font: NSFont.ui(TextSize.row)]).size().width
+            }.max() ?? 0
+        names = min(max(widest + Metrics.inset + Metrics.gapWide + 18 + Metrics.gap, 120), 180)
         // While it plays past what shows, the view turns the page.
         if at < from || at > from + span { from = at - span * 0.1 }
         from = min(max(from, 0), length - span)
@@ -79,10 +111,10 @@ final class MotionTimeline: NSView {
     // MARK: Places
 
     var track: NSRect {
-        NSRect(x: Self.names, y: 0, width: max(bounds.width - Self.names - Metrics.inset, 1), height: bounds.height)
+        NSRect(x: names, y: 0, width: max(bounds.width - names - Metrics.inset, 1), height: bounds.height)
     }
     private func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat((seconds - from) / span) }
-    private func seconds(_ x: CGFloat) -> Double { from + Double((x - track.minX) / track.width) * span }
+    func seconds(_ x: CGFloat) -> Double { from + Double((x - track.minX) / track.width) * span }
 
     /// Zooms to `zoom` (1 to 40), keeping second `around` (the time, when nil) where it is.
     func setZoom(_ zoom: Double, around: Double? = nil) {
@@ -120,7 +152,7 @@ final class MotionTimeline: NSView {
     private func diamond(_ m: Mark) -> NSRect {
         NSRect(x: x(m.time) - 6, y: Self.ruler + Self.lane / 2 - 6, width: 12, height: 12)
     }
-    private func box(_ clip: Clip, lane: Int) -> NSRect {
+    func box(_ clip: Clip, lane: Int) -> NSRect {
         let row = laneRect(lane).insetBy(dx: 0, dy: 3)
         return NSRect(x: x(clip.start), y: row.minY, width: max(x(clip.end) - x(clip.start), 4), height: row.height)
     }
@@ -128,7 +160,7 @@ final class MotionTimeline: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        let font = NSFont.ui(TextSize.caption)
+        let font = NSFont.ui(TextSize.caption), nameFont = NSFont.ui(TextSize.row)
         let laneNames = [String(localized: "Scenes")] + tracks.map(\.title)
         NSGraphicsContext.saveGraphicsState()
         lanesArea.clip()
@@ -140,15 +172,16 @@ final class MotionTimeline: NSView {
             }
             let hidden = i > 0 && tracks[i - 1].hidden
             text(
-                name, at: NSPoint(x: Metrics.inset, y: row.midY), font: font,
+                name, at: NSPoint(x: Metrics.inset, y: row.midY), font: nameFont,
                 color: hidden ? .tertiaryLabelColor : .secondaryLabelColor, width: nameWidth - (i > 0 ? 18 : 0))
-            if i > 0 { drawEye(lane: i, hidden: hidden) }
+            if i > 0, hidden || i == hoveredLane { drawEye(lane: i, hidden: hidden) }
         }
         drawLaneDrag()
         NSGraphicsContext.restoreGraphicsState()
         if !marks.isEmpty {
             text(
-                String(localized: "Marks"), at: NSPoint(x: Metrics.inset, y: Self.ruler + Self.lane / 2), font: font,
+                String(localized: "Marks"), at: NSPoint(x: Metrics.inset, y: Self.ruler + Self.lane / 2),
+                font: nameFont,
                 color: .secondaryLabelColor, width: nameWidth)
         }
         NSColor.separatorColor.setFill()
@@ -170,7 +203,7 @@ final class MotionTimeline: NSView {
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    private var nameWidth: CGFloat { Self.names - Metrics.inset - Metrics.gap }
+    private var nameWidth: CGFloat { names - Metrics.inset - Metrics.gap }
     /// Where the lanes are, under the ruler and the marks.
     var lanesArea: NSRect {
         NSRect(x: 0, y: Self.ruler + marksLane, width: bounds.width, height: bounds.height - Self.ruler - marksLane)
@@ -194,7 +227,7 @@ final class MotionTimeline: NSView {
         for scene in scenes {
             let clip = draggedLane == 0 && dragged?.id == scene.id ? dragged ?? scene : scene
             draw(
-                clip, in: box(clip, lane: 0), fill: NSColor.fillTint(.controlAccentColor),
+                clip, in: box(clip, lane: 0), fill: .fillRest,
                 chosen: draggedLane == 0 && dragged?.id == scene.id, font: font)
         }
         for (i, track) in tracks.enumerated() {
@@ -221,10 +254,11 @@ final class MotionTimeline: NSView {
 
     private func draw(_ clip: Clip, in rect: NSRect, fill: NSColor, chosen: Bool, font: NSFont) {
         fill.setFill()
-        let shape = NSBezierPath(roundedRect: rect, xRadius: Metrics.gapTight, yRadius: Metrics.gapTight)
+        let shape = NSBezierPath(roundedRect: rect, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
         shape.fill()
-        if chosen || fill != .fillSelected {   // a scene, or the clip chosen
-            NSColor.controlAccentColor.setStroke()
+        // A scene has a hairline round it; the accent marks only the clip chosen or dragged.
+        if chosen || fill == .fillRest {
+            (chosen ? NSColor.controlAccentColor : .separatorColor).setStroke()
             shape.lineWidth = chosen ? 2 : 1
             shape.stroke()
         }
@@ -312,56 +346,6 @@ final class MotionTimeline: NSView {
         dragged = nil
         draggedLane = 0
         needsDisplay = true
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-
-    /// Files dropped from Finder: they join the page from the second they were dropped at (`onDropFiles`).
-    var onDropFiles: (([URL], Double) -> Void)? {
-        didSet { registerForDraggedTypes(onDropFiles == nil ? [] : [.fileURL]) }
-    }
-
-    private func files(_ sender: NSDraggingInfo) -> [URL] {
-        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
-            as? [URL] ?? []
-    }
-
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { files(sender).isEmpty ? [] : .copy }
-
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let urls = files(sender), x = convert(sender.draggingLocation, from: nil).x
-        guard !urls.isEmpty, x >= track.minX else { return false }
-        onDropFiles?(urls, min(max(seconds(x), 0), length))
-        return true
-    }
-
-    override func keyDown(with event: NSEvent) {
-        guard let picked, [51, 117].contains(event.keyCode) else { return super.keyDown(with: event) }   // ⌫, ⌦
-        onRemove?(picked)
-    }
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard window?.firstResponder === self, let picked, event.modifierFlags.contains(.command),
-            event.charactersIgnoringModifiers == "d"
-        else { return super.performKeyEquivalent(with: event) }
-        onDuplicate?(picked)
-        return true
-    }
-
-    /// A clip's menu: Duplicate and Delete.
-    override func menu(for event: NSEvent) -> NSMenu? {
-        let p = convert(event.locationInWindow, from: nil)
-        let lanes = [scenes] + tracks.map { [$0] }
-        for (lane, clips) in lanes.enumerated() {
-            guard let clip = clips.first(where: { box($0, lane: lane).contains(p) }), !clip.id.isEmpty else { continue }
-            picked = clip.id
-            let menu = NSMenu()
-            menu.add(String(localized: "Duplicate"), key: "d") { [weak self] in self?.onDuplicate?(clip.id) }
-            menu.addItem(.separator())
-            menu.add(String(localized: "Delete")) { [weak self] in self?.onRemove?(clip.id) }
-            return menu
-        }
-        return nil
     }
 
     override func resetCursorRects() {

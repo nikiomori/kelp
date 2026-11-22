@@ -31109,6 +31109,56 @@
           }
         }
       }
+    },
+    "Show in the Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в ролике"
+          }
+        }
+      }
+    },
+    "Hide in the Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть в ролике"
+          }
+        }
+      }
+    },
+    "Play Again at the End: On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторять с начала: вкл."
+          }
+        }
+      }
+    },
+    "How close the timeline looks (or pinch, or ⌘ and scroll)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Масштаб таймлайна (или жест, или ⌘ и прокрутка)"
+          }
+        }
+      }
+    },
+    "The stage’s shape": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Форма кадра"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
