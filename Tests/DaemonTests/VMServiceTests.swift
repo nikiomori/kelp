@@ -497,7 +497,8 @@ import os
     await expectRefusal(says: "didn't allow making deb") { try await denied.value }
     #expect(VMService(home: w.d.root, helper: "").list().isEmpty)
     await expectRefusal(says: "A machine's name") { try await ask("Not_A_Name").value }
-    #expect(try summary().isEmpty)
+    // The row lets go of the denied question on the session's status queue, after the refusal is thrown.
+    #expect(try await waitFor { try summary().isEmpty })
     let allowed = ask("box", image: "nope")
     #expect(try await waitFor { try summary().hasPrefix("Allow making a machine, box") })
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: try summary())))
