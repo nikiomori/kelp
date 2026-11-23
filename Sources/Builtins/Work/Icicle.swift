@@ -204,11 +204,13 @@ final class IcicleView: NSView, NSViewToolTipOwner {
     }
 
     override func keyDown(with event: NSEvent) {
-        let current = blocks.first { $0.path == selected } ?? blocks.first
+        // The block picked, else the first named one: a merged "…" block is never where the keys start.
+        let current = blocks.first { $0.path != nil && $0.path == selected } ?? blocks.first { $0.path != nil }
         guard let current else { return super.keyDown(with: event) }
         switch event.specialKey {
         case .leftArrow?, .rightArrow?:
             let row = blocks.filter { $0.depth == current.depth && $0.path != nil }
+            guard !row.isEmpty else { return }
             let index = row.firstIndex { $0.path == current.path } ?? 0
             let next = row[max(0, min(row.count - 1, index + (event.specialKey == .leftArrow ? -1 : 1)))]
             next.path.map(onSelect)

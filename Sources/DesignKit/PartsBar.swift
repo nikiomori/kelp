@@ -48,7 +48,7 @@ public struct PartsBar: View {
                     x += Hatching.step
                 }
                 // The same lines `Hatching` draws in AppKit.
-                context.stroke(path, with: .color(Color(nsColor: Hatching.color)), lineWidth: 1)
+                context.stroke(path, with: .color(Color(nsColor: Hatching.color)), lineWidth: Metrics.hairline)
             }
             .background(Color(nsColor: .fillRest))
         }

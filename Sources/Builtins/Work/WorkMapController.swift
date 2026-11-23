@@ -43,21 +43,21 @@ final class WorkMapController: NSViewController {
         turnPop.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.formLabel + 2 * Metrics.blockGap).isActive =
             true
         let zoomOut = IconButton(.symbol("minus.magnifyingglass"), tip: String(localized: "Zoom Out")) { [weak self] in
-            self?.zoom(by: 0.8)
+            self?.zoom(by: 1 / Metrics.zoomStep)
         }
         let fit = IconButton(
             .symbol("arrow.up.left.and.down.right.magnifyingglass"), tip: String(localized: "Zoom to Fit")
         ) { [weak self] in self?.fit(animated: true) }
         let zoomIn = IconButton(.symbol("plus.magnifyingglass"), tip: String(localized: "Zoom In")) { [weak self] in
-            self?.zoom(by: 1.25)
+            self?.zoom(by: Metrics.zoomStep)
         }
         let header = Bar.content([turnPop, agents, now], [zoomOut, fit, zoomIn])
         scroll.documentView = tree
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.allowsMagnification = true
-        scroll.minMagnification = 0.3
-        scroll.maxMagnification = 2
+        scroll.minMagnification = Metrics.zoom.lowerBound
+        scroll.maxMagnification = Metrics.zoom.upperBound
         scroll.drawsBackground = true
         scroll.backgroundColor = .textBackgroundColor
         tree.onActivate = { [weak self] in self?.activate($0) }
@@ -165,9 +165,9 @@ final class WorkMapController: NSViewController {
                 if nodes.contains(where: { $0.id == path }) { return path }
                 path = (path as NSString).deletingLastPathComponent
             }
-            return "project"
+            return NodeTree.projectId
         }
-        return "outside/" + place.kind.rawValue + "/" + place.name
+        return NodeTree.outsideId(place)
     }
 
     private func fillTurns(_ work: AgentWork?) { TurnMenu.fill(turnPop, work: work, model: model) }
@@ -228,10 +228,9 @@ final class WorkMapController: NSViewController {
     private func fit(animated: Bool) {
         let size = tree.frame.size, room = scroll.contentSize
         guard size.width > 0, size.height > 0 else { return }
-        let readable: CGFloat = 0.6
-        let scale = min(1, max(readable, min(room.width / size.width, room.height / size.height)))
+        let scale = min(1, max(Metrics.zoomReadable, min(room.width / size.width, room.height / size.height)))
         (animated ? scroll.animator() : scroll).magnification = scale
-        guard let agent = tree.rect(of: "agent") else { return }
+        guard let agent = tree.rect(of: NodeTree.agentId) else { return }
         let visible = scroll.contentView.bounds.size
         let y = min(max(0, agent.midY - visible.height / 2), max(0, size.height - visible.height))
         scroll.contentView.scroll(to: NSPoint(x: 0, y: y))

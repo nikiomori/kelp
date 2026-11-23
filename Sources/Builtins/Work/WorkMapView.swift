@@ -107,11 +107,12 @@ final class WorkMapView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         // The line between the project and what is outside: halfway from the project's last row to the outside's first.
-        let outsideRows = nodes.filter { $0.parent == "outside" }.compactMap { point($0.id)?.y }
-        let projectRows = nodes.filter { ![.agent, .group].contains($0.kind) && $0.parent != "outside" }.compactMap {
-            point($0.id)?.y
-        }
-        if let first = outsideRows.min(), let last = projectRows.max(), let left = point("outside")?.x {
+        let outsideRows = nodes.filter { $0.parent == NodeTree.outsideId }.compactMap { point($0.id)?.y }
+        let projectRows = nodes.filter { ![.agent, .group].contains($0.kind) && $0.parent != NodeTree.outsideId }
+            .compactMap {
+                point($0.id)?.y
+            }
+        if let first = outsideRows.min(), let last = projectRows.max(), let left = point(NodeTree.outsideId)?.x {
             let y = (first + last) / 2, line = NSBezierPath()
             line.move(to: NSPoint(x: left - Metrics.inset, y: y))
             line.line(to: NSPoint(x: bounds.maxX - pad, y: y))
@@ -128,7 +129,7 @@ final class WorkMapView: NSView {
                 to: NSPoint(x: to.x - Metrics.gap, y: to.y), controlPoint1: NSPoint(x: midX, y: from.y),
                 controlPoint2: NSPoint(x: midX, y: to.y))
             let blue = node.edited, on = lit.isEmpty || lit.contains(node.id)
-            path.lineWidth = blue || lit.contains(node.id) ? Metrics.lineGap : 1.2
+            path.lineWidth = blue || lit.contains(node.id) ? Metrics.lineGap : Metrics.stroke
             (lit.contains(node.id) ? NSColor.themeAccent : blue ? NSColor.agentEdited : NSColor.tertiaryLabelColor)
                 .withAlphaComponent(on ? 1 : Metrics.unlit).setStroke()
             path.stroke()

@@ -37147,16 +37147,6 @@
         }
       }
     },
-    "Show Map": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показать карту"
-          }
-        }
-      }
-    },
     "Steps": {
       "localizations": {
         "ru": {
@@ -37373,16 +37363,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "worktree %@"
-          }
-        }
-      }
-    },
-    "‹ Back": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "‹ Назад"
           }
         }
       }

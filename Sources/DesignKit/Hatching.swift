@@ -22,7 +22,7 @@ public enum Hatching {
             lines.line(to: NSPoint(x: x + box.height, y: box.minY))
             x += step
         }
-        lines.lineWidth = 1
+        lines.lineWidth = Metrics.hairline
         color.setStroke()
         lines.stroke()
     }

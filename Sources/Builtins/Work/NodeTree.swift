@@ -22,6 +22,13 @@ struct MapNode: Equatable {
 }
 
 enum NodeTree {
+    /// The ids of the nodes that aren't paths: a character no path has in front, so a project's folder named `agent`,
+    /// `project` or `outside` is its own node.
+    static let agentId = "\u{1}agent", projectId = "\u{1}project", outsideId = "\u{1}outside"
+    static func outsideId(_ place: AgentWork.Place) -> String {
+        outsideId + "/" + place.kind.rawValue + "/" + place.name
+    }
+
     static let budget = 40
 
     static func nodes(
@@ -44,12 +51,12 @@ enum NodeTree {
     private static func build(_ project: WorkNode, outside: [AgentWork.Place], opened: Set<String>, strict: Bool)
         -> [MapNode]
     {
-        var out = [MapNode(id: "agent", kind: .agent, label: "")]
+        var out = [MapNode(id: agentId, kind: .agent, label: "")]
         // A turn that only reached outside has no project branch ("Kelp, 0 files" would say nothing).
         if !project.children.isEmpty || project.searched {
             out.append(
                 MapNode(
-                    id: "project", parent: "agent", kind: .group, label: project.name,
+                    id: projectId, parent: agentId, kind: .group, label: project.name,
                     detail: String(localized: "\(project.files.count) files")))
         }
         func add(_ node: WorkNode, under parent: String, depth: Int) {
@@ -85,16 +92,16 @@ enum NodeTree {
                         label: String(localized: "+ \(reads.count - keep) read"), opens: node.path))
             }
         }
-        add(project, under: "project", depth: 0)
+        add(project, under: projectId, depth: 0)
         if !outside.isEmpty {
             out.append(
                 MapNode(
-                    id: "outside", parent: "agent", kind: .group, label: String(localized: "Outside"),
+                    id: outsideId, parent: agentId, kind: .group, label: String(localized: "Outside"),
                     detail: "\(outside.count)"))
             for place in outside {
                 out.append(
                     MapNode(
-                        id: "outside/" + place.kind.rawValue + "/" + place.name, parent: "outside", kind: .outside,
+                        id: outsideId(place), parent: outsideId, kind: .outside,
                         label: place.name,
                         detail: place.detail ?? "", place: place, agents: place.agents))
             }
@@ -122,10 +129,11 @@ enum NodeTree {
         let byId = Dictionary(nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for node in nodes { if let parent = node.parent { children[parent, default: []].append(node.id) } }
         func setDepth(_ id: String, _ d: Int) {
+            guard depth[id] == nil else { return }   // a cycle can't be, but must not overflow the stack if it were
             depth[id] = d
             for child in children[id] ?? [] { setDepth(child, d + 1) }
         }
-        setDepth("agent", 0)
+        setDepth(agentId, 0)
         var columns: [CGFloat] = []
         for node in nodes {
             let d = depth[node.id] ?? 0
@@ -148,12 +156,12 @@ enum NodeTree {
             at[id] = CGPoint(x: x[min(depth[id] ?? 0, x.count - 1)], y: mid)
             return mid
         }
-        for top in children["agent"] ?? [] {
-            if byId[top]?.id == "outside" { y += step / 2 }
+        for top in children[agentId] ?? [] {
+            if byId[top]?.id == outsideId { y += step / 2 }
             _ = place(top)
         }
-        let tops = (children["agent"] ?? []).compactMap { at[$0]?.y }
-        at["agent"] = CGPoint(x: 0, y: ((tops.first ?? 0) + (tops.last ?? 0)) / 2)
+        let tops = (children[agentId] ?? []).compactMap { at[$0]?.y }
+        at[agentId] = CGPoint(x: 0, y: ((tops.first ?? 0) + (tops.last ?? 0)) / 2)
         return at
     }
 }

@@ -54,7 +54,10 @@ struct StepRow: Equatable {
         var last: [Int: Int] = [:]
         for (index, row) in rows.enumerated() {
             last[row.step.agent] = index
-            if let other = row.step.other, row.step.kind == .spawn { last[other] = max(last[other] ?? index, index) }
+            // A lane stays until what joins it ends: the subagent a spawn starts, the parent a report comes back to.
+            if let other = row.step.other, [.spawn, .report].contains(row.step.kind) {
+                last[other] = max(last[other] ?? index, index)
+            }
         }
         var lanes: [Int: Int] = [0: 0], users: [Int: Set<Int>] = [0: [0]]
         var open: Set<Int> { Set(users.filter { !$0.value.isEmpty }.keys) }

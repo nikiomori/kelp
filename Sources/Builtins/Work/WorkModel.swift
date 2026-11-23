@@ -118,30 +118,38 @@ final class WorkModel {
     /// Opens a project file beside the agent; with the Option key, the turn's diff of it.
     func open(_ place: AgentWork.Place, diff: Bool) {
         guard let session = session.flatMap(app.session), let workspace = session.worktreeId else { return }
-        // A file edited in a worktree of the project: its diff is that worktree's, if Kelp knows it; else the file.
-        let base = place.worktree.flatMap { name in localRoot.map { $0 + "/.claude/worktrees/" + name } }
-        let diffIn = base.map { base in app.worktrees.first { $0.path == base }?.id } ?? workspace
-        if diff, showsDiff, let diffIn {
-            guard base == nil, let turn, let work, work.turns.indices.contains(turn) else {
-                // The last turn's diff; a worktree's own changes.
-                return app.workbench.open(TabURI.diff(diffIn, file: place.name, source: base == nil ? .turn : nil))
-            }
-            // An earlier turn's: the snapshot Kelp took when it began names it to the diff tab.
-            let start = work.turns[turn].at,
-                end = turn + 1 < work.turns.count ? work.turns[turn + 1].at : .distantFuture
-            let id = session.id, file = path(of: place)
-            Task { [app] in
-                let marks = await app.quiet(SessionTurns(id: id)) ?? []
-                guard let mark = marks.first(where: { $0.at >= start.addingTimeInterval(-5) && $0.at < end }) else {
-                    // No snapshot of that turn: the file as it is.
-                    return _ = file.map { app.workbench.openBeside(TabURI.file($0), in: workspace) }
-                }
-                app.workbench.open(
-                    TabURI.diff(diffIn, file: place.name, source: .turn, session: mark.session, turn: mark.id))
-            }
-        } else if let path = path(of: place) {
-            _ = app.workbench.openBeside(TabURI.file(path), in: workspace)
+        let file = path(of: place)
+        guard diff, showsDiff, let work else {
+            return _ = file.map { app.workbench.openBeside(TabURI.file($0), in: workspace) }
         }
+        guard let turn, work.turns.indices.contains(turn), turn < work.turns.count - 1 else {
+            if let uri = diffURI(place, mark: nil) { return app.workbench.open(uri) }
+            return _ = file.map { app.workbench.openBeside(TabURI.file($0), in: workspace) }
+        }
+        // An earlier turn's: the snapshot Kelp took when it began names it to the diff tab.
+        let start = work.turns[turn].at, end = work.turns[turn + 1].at, id = session.id
+        Task { [app] in
+            let marks = await app.quiet(SessionTurns(id: id)) ?? []
+            // The oldest in the turn's window, as the daemon takes it for the turn's command changes.
+            let mark = marks.last { $0.at >= start.addingTimeInterval(-5) && $0.at < end }
+            // No snapshot of that turn: the file as it is.
+            guard let mark, let uri = self.diffURI(place, mark: mark) else {
+                return _ = file.map { app.workbench.openBeside(TabURI.file($0), in: workspace) }
+            }
+            app.workbench.open(uri)
+        }
+    }
+
+    /// The diff tab for a file's changes in the turn shown: the last turn's (`mark` nil) or the turn `mark` began, its
+    /// agent named; a file edited in a worktree of the project, that worktree's changes, if Kelp knows it.
+    func diffURI(_ place: AgentWork.Place, mark: SessionTurns.Mark?) -> String? {
+        guard let id = session, let workspace = app.session(id)?.worktreeId else { return nil }
+        if let name = place.worktree {
+            let base = localRoot.map { $0 + "/.claude/worktrees/" + name }
+            guard let tree = app.worktrees.first(where: { $0.path == base }) else { return nil }
+            return TabURI.diff(tree.id, file: place.name)
+        }
+        return TabURI.diff(workspace, file: place.name, source: .turn, session: id, turn: mark?.id)
     }
 
     /// Opens what a step touched: its file, a subagent's journal, an agent it started, else the agent's terminal.

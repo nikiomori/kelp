@@ -26,13 +26,11 @@ final class WorkPanel: NSViewController {
     let chips = OutsideChips()
     private let heading = NSTextField.label(
         "", font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-    private lazy var back = TextButton(String(localized: "‹ Back"), target: self, action: #selector(zoomOut))
+    private lazy var back = TextButton(String(localized: "Back"), target: self, action: #selector(zoomOut))
     let files = WorkFileList()
     let steps = StepsList()
     private let mapColumn = NSStackView(), stepsColumn = NSStackView()
     private var controlRows: [NSView] = []
-    /// Takes the room under the map's rows when there is no file list to fill it, so they stay at the top.
-    private let filler = NSView()
     private let empty = EmptyStateView()
     /// While a long conversation is read the first time (a 50 MB transcript takes a few seconds).
     private let loading = LoadingView(rows: true)
@@ -235,7 +233,6 @@ final class WorkPanel: NSViewController {
         let noFiles = tree.children.isEmpty
         icicle.superview?.isHidden = noFiles
         files.scroll.isHidden = noFiles
-        filler.isHidden = !noFiles
         icicle.agentNames = model.agentNames
         icicle.root = shownRoot
         icicle.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.map(\.name)

@@ -25,16 +25,6 @@ extension Builtins {
                         let title = WorkTab.title(app.session(TabURI.body(uri)), app: app)
                         return (title, .symbol("map"), nil)
                     })
-            ],
-            rowMenu: [
-                { row, menu in
-                    guard case .agent(let id) = row, app.session(id)?.isAgent == true else { return }
-                    menu.addItem(.separator())
-                    menu.add(String(localized: "Show Map")) {
-                        guard let workspace = app.session(id)?.worktreeId else { return }
-                        _ = app.workbench.openBeside(WorkTab.uri(id), in: workspace)
-                    }
-                }
             ]
         )
     }

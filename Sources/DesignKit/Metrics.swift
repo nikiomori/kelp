@@ -63,6 +63,10 @@ public enum Metrics {
     public static let paneDim: CGFloat = 0.5   // how far a pane without focus fades toward the background
     public static let unlit: CGFloat = 0.25   // what is off the pointer's path in a drawn map
     public static let stroke: CGFloat = 1.4   // a drawn ring or curve: a map's nodes, a list's lanes
+    public static let hairline: CGFloat = 1   // the thinnest drawn line: hatching
+    public static let zoom: ClosedRange<CGFloat> = 0.3...2   // how far a drawn map zooms out and in
+    public static let zoomReadable: CGFloat = 0.6   // the smallest a fitted map shrinks to, its words still read
+    public static let zoomStep: CGFloat = 1.25   // one press of Zoom In (Zoom Out divides by it)
     public static let dash: [CGFloat] = [2, 1.5]   // a dashed ring: a place outside, a question
     public static let tabDim: CGFloat = 0.7   // the opacity a dimmed tab strip's tabs keep
 

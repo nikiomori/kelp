@@ -68,7 +68,8 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     #expect(nodes.contains { $0.id == "Sources/Kit/edit.swift" && $0.edited })
     #expect(nodes.first { $0.id == "Sources/Other" }?.kind == .folded)
     #expect(nodes.first { $0.kind == .more && $0.parent == "Sources/Kit" }?.label == "+ 4 read")
-    #expect(nodes.first { $0.id == "Tests/Only/OnlyTests.swift" }?.prefix == "Tests/Only/")   // the folders Tests/Only, merged, then one file
+    // The folders Tests/Only, merged, then one file.
+    #expect(nodes.first { $0.id == "Tests/Only/OnlyTests.swift" }?.prefix == "Tests/Only/")
     let opened = NodeTree.nodes(project: tree, outside: [], opened: ["Sources/Other", "Sources/Kit"])
     #expect(opened.filter { $0.parent == "Sources/Other" }.count == 5)
     #expect(!opened.contains { $0.kind == .more })
@@ -90,8 +91,18 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     let leaves = ["A/a.swift", "A/b.swift", "A/c.swift", "A/d.swift"].compactMap { at[$0]?.y }
     #expect(leaves == [0, 20, 40, 60])
     #expect(at["A"]?.y == 30)
-    #expect((at["outside/web/example.com"]?.y ?? 0) > 60)
-    #expect((at["A"]?.x ?? 0) > (at["project"]?.x ?? 0))
+    #expect((at[NodeTree.outsideId(site)]?.y ?? 0) > 60)
+    #expect((at["A"]?.x ?? 0) > (at[NodeTree.projectId]?.x ?? 0))
+    // A project folder named like the map's own nodes is a folder of its own.
+    let named = WorkTree.project(
+        work([file("agent/a.swift"), file("project/b.swift"), file("outside/c.swift")]), rootName: "K")
+    let clash = NodeTree.layout(
+        NodeTree.nodes(project: named, outside: [site], opened: ["agent", "project", "outside"]), width: { _ in 50 },
+        step: 20, gap: 10)
+    #expect(
+        ["agent/a.swift", "project/b.swift", "outside/c.swift", NodeTree.outsideId(site)].allSatisfy {
+            clash[$0] != nil
+        })
 }
 
 /// Steps fold an agent's reads in a row; a subagent gets a lane where it was started and gives it back when it
@@ -128,6 +139,11 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
         [step(0, .spawn, other: 1), step(1, .spawn, other: 2), step(2, .read, "x"), step(2, .edit, "x")],
         filter: nil, folded: [1, 2])
     #expect(nested.count == 1 && nested[0].inside == 3)
+    // Shown unfolded, a parent's lane waits for its child's report, though its own last step came before.
+    let waits = StepRow.make(
+        [step(0, .spawn, other: 1), step(1, .spawn, other: 2), step(2, .read, "x"), step(2, .report, other: 1)],
+        filter: nil)
+    #expect(waits[2].before.contains(waits[0].lane) && waits[3].before.contains(waits[0].lane))
     // A subagent that never reports gives its lane back after its last step; past five lanes, agents share the last.
     let quiet = StepRow.make([step(0, .spawn, other: 1), step(1, .read, "x"), step(0, .edit, "y")], filter: nil)
     #expect(quiet[1].after == [0] && quiet[2].before == [0])

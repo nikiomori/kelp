@@ -195,6 +195,11 @@ private func sampleWork() -> AgentWork {
     #expect(picked == "Sources")
     icicle.mouseDown(with: mouse(.leftMouseDown, at: at, in: icicle, clicks: 2))
     #expect(zoomed == .some("Sources"))
+    // With nothing picked the keys start at the first named block, never a merged "…".
+    icicle.selected = nil
+    picked = nil
+    icicle.keyDown(with: key(NSRightArrowFunctionKey))
+    #expect(picked.map { path in icicle.blocks.contains { $0.path == path } } == true)
     icicle.selected = "Sources"
     icicle.keyDown(with: key(NSRightArrowFunctionKey))
     #expect(picked == "Tests/DaemonTests")   // one folder in Tests: the chain is one block
@@ -386,4 +391,30 @@ private func sampleWork() -> AgentWork {
     #expect(model.path(of: place) == rig.workspace.path + "/Sources/a.swift")
     place.worktree = "fix"
     #expect(model.path(of: place) == rig.workspace.path + "/.claude/worktrees/fix/Sources/a.swift")
+}
+
+/// Show Diff for the last turn names the agent whose turn it is, as git.diff needs; an earlier turn's names its mark
+/// too; a file of a worktree Kelp doesn't know has no diff to show.
+@MainActor @Test func aFilesDiffNamesWhoseTurnItIs() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    rig.app.sessions = [
+        Session(id: "s1", worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude")
+    ]
+    let model = WorkModel(app: rig.app, choices: WorkChoices())
+    model.show("s1")
+    var work = AgentWork()
+    work.root = rig.repo
+    model.received(work)
+    var place = AgentWork.Place(kind: .file, name: "a.swift")
+    func items(_ uri: String?) -> [String: String] {
+        Dictionary(
+            uniqueKeysWithValues: (URLComponents(string: uri ?? "")?.queryItems ?? []).map { ($0.name, $0.value ?? "") }
+        )
+    }
+    #expect(items(model.diffURI(place, mark: nil)) == ["file": "a.swift", "source": "turn", "session": "s1"])
+    let mark = SessionTurns.Mark(id: "m1", session: "s1", tree: "t", head: nil, folder: rig.repo, prompt: "p")
+    #expect(items(model.diffURI(place, mark: mark))["turn"] == "m1")
+    place.worktree = "gone"
+    #expect(model.diffURI(place, mark: nil) == nil)
 }
