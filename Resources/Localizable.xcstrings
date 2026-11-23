@@ -36815,6 +36815,59 @@
           }
         }
       }
+    },
+    "5h": {
+      "comment": "a 5-hour plan limit, beside its percent",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5ч"
+          }
+        }
+      }
+    },
+    "wk": {
+      "comment": "a weekly plan limit, beside its percent",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нед"
+          }
+        }
+      }
+    },
+    "mo": {
+      "comment": "a monthly plan limit, beside its percent",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "мес"
+          }
+        }
+      }
+    },
+    "Hide in Sidebar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть на боковой панели"
+          }
+        }
+      }
+    },
+    "Show in Sidebar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать на боковой панели"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

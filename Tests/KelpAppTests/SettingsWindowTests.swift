@@ -144,6 +144,9 @@ import Testing
         "keys": "the shortcuts set by hand: Settings › Keyboard is a page of its own",
         "extensions.library": "where the library's index is: settings.json only, for someone running their own",
         "usage.readClaudePlan": "Show plan limits' old name, read while the new one isn't set",
+        "usage.bars.shown": "the eyes beside the limits in the plan limits' hover card",
+        "usage.bars.hidden": "the eyes beside the limits in the plan limits' hover card",
+        "usage.hiddenAgents": "the Agents checks in the plan limits' right-click menu",
         "workbench.inspector.panelOrder": "the inspector's icons as they were dragged"
     ]
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
