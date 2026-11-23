@@ -473,3 +473,20 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(pieces.calls.map(\.command) == whole.calls.map(\.command) && pieces.calls.count == 4)
     #expect(pieces.offset == whole.offset)
 }
+
+/// An answer asked for again within its time is the one kept (the panel, the Map tab and the watch asking at once
+/// read a host once); past it, or for nothing made, it is made again.
+@Test func anAnswerIsKeptForAMoment() {
+    let index = WorkIndex(), made = OSAllocatedUnfairLock(initialState: 0)
+    func ask(_ fresh: TimeInterval) -> Int? {
+        index.recent("k", fresh: fresh) {
+            made.withLock {
+                $0 += 1
+                return $0
+            }
+        }
+    }
+    #expect(ask(60) == 1 && ask(60) == 1)
+    #expect(ask(0) == 2)
+    #expect(index.recent("none", fresh: 60) { Int?.none } == nil && index.recent("none", fresh: 60) { 7 } == 7)
+}

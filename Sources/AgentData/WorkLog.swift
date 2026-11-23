@@ -134,7 +134,12 @@ public struct WorkLog: Sendable {
             let command = args["command"] ?? args["cmd"]
             call.command = (command as? [String]).map(Self.unwrapShell) ?? command as? String
             if name == "apply_patch" {
-                call.patch = raw as? String ?? args["input"] as? String ?? args["patch"] as? String
+                // The JSON tool's patch is its `input`; the freeform tool's is the call's text itself.
+                call.patch = args["input"] as? String ?? args["patch"] as? String ?? raw as? String
+            } else if let argv = command as? [String], argv.first == "apply_patch", argv.count > 1 {
+                // Older rollouts ran it through the shell: `["apply_patch", "<patch>"]`.
+                call.tool = "apply_patch"
+                call.patch = argv[1]
             }
             call.path = args["path"] as? String
             add(call)
@@ -147,7 +152,9 @@ public struct WorkLog: Sendable {
                     "metadata"] as? [String: Any]
             // Older rollouts give JSON with `metadata.exit_code`; newer ones plain text ending "Process exited with
             // code N".
-            let plain = (output as? String)?.firstMatch(of: /Process exited with code (-?\d+)/).flatMap { Int($0.1) }
+            let text = output as? String
+            let exited = text?.firstMatch(of: /Process exited with code (-?\d+)/)
+            let plain = (exited ?? text?.firstMatch(of: /^Exit code: (-?\d+)/)).flatMap { Int($0.1) }
             if let code = meta?["exit_code"] as? Int ?? plain, code != 0 { calls[index].failed = true }
             if let patch = calls[index].patch { Self.count(patch: patch, into: &calls[index]) }
         case "web_search_call":
@@ -169,7 +176,7 @@ public struct WorkLog: Sendable {
     }
 
     private static func count(patch: String, into call: inout Call) {
-        for line in patch.split(separator: "\n") where !line.hasPrefix("+++") && !line.hasPrefix("---") {
+        for line in patch.split(separator: "\n") {   // kept compact: `+` and `-` for each changed line
             if line.hasPrefix("+") { call.added += 1 } else if line.hasPrefix("-") { call.removed += 1 }
         }
     }

@@ -50,7 +50,16 @@ import Testing
         ("grep -rn -A 3 retry Sources", [.read("Sources", search: true)]),
         ("rg -t swift -g '*.md' retry Docs", [.read("Docs", search: true)]),
         ("jq .version package.json", [.read("package.json", search: false)]),
-        ("cd $W && echo hi > notes.txt", [])
+        ("cd $W && echo hi > notes.txt", []),
+        ("ps aux | grep kelp", []),
+        ("git log | rg fix", []),
+        ("grep foo", []),
+        ("sed -i -e 's/foo/bar/' f.txt", [.wrote("f.txt")]),
+        ("ssh -i ~/.ssh/id host", [.host("host", verb: "ssh")]),
+        ("ssh -p 2222 box uptime", [.host("box", verb: "ssh")]),
+        ("(cd Vendor && make) && cat README.md", [.read("README.md", search: false)]),
+        ("echo 1.2.3 > VERSION && cat Makefile", [.wrote("VERSION"), .read("Makefile", search: false)]),
+        ("cat <<< hello\ncat a.txt", [.read("a.txt", search: false)])
     ] as [(String, [ShellTouches.Touch])])
 func aShellCommandSaysWhatItTouched(command: String, touches: [ShellTouches.Touch]) {
     #expect(ShellTouches.parse(command) == touches)
@@ -223,6 +232,25 @@ private func sources() -> [WorkMap.Source] {
                 "output": "Chunk ID: 1\nWall time: 2s\nProcess exited with code 2\nOutput:\nerror"
             ], at(1, 8)),
         item(["type": "custom_tool_call", "name": "apply_patch", "call_id": "c2", "input": patch], at(2)),
+        // The JSON apply_patch tool, and an older rollout's patch through the shell; a freeform shell's failure.
+        item(
+            [
+                "type": "function_call", "name": "apply_patch", "call_id": "c4",
+                "arguments": line(["input": patch.replacingOccurrences(of: "a.swift", with: "b.swift")])
+            ], at(2, 3)),
+        item(
+            [
+                "type": "function_call", "name": "shell", "call_id": "c5",
+                "arguments": line([
+                    "command": ["apply_patch", patch.replacingOccurrences(of: "a.swift", with: "c.swift")]
+                ])
+            ], at(2, 4)),
+        item(
+            ["type": "function_call", "name": "shell", "call_id": "c6", "arguments": line(["command": ["make"]])],
+            at(2, 5)),
+        item(
+            ["type": "function_call_output", "call_id": "c6", "output": "Exit code: 2\nWall time: 1s\nOutput:\n"],
+            at(2, 6)),
         item(["type": "custom_tool_call_output", "call_id": "c2", "output": "ok"], at(2, 1)),
         item(["type": "web_search_call", "id": "ws", "action": ["query": "swift regex"]], at(2, 2))
     ])
@@ -239,6 +267,11 @@ private func sources() -> [WorkMap.Source] {
     #expect(edited?.edits == 1 && edited?.added == 2 && edited?.removed == 1)
     #expect(work.places.contains { $0.kind == .web && $0.name == "Web Search" })
     #expect(work.steps.first?.kind == .failed)
+    #expect(
+        ["Sources/b.swift", "Sources/c.swift"].allSatisfy { name in
+            work.places.contains { $0.name == name && $0.edits == 1 }
+        })
+    #expect(rollout.calls.first { $0.id == "c6" }?.failed == true)
 }
 
 /// `git push` goes to the project's origin: its host read from the repository's config, a worktree's followed to it.

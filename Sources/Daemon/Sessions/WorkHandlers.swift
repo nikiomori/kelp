@@ -40,12 +40,20 @@ struct WorkReader {
     /// The conversations behind a session's work, the session's own first, and where its project is. nil when its
     /// agent keeps no conversation Kelp reads, or a host's isn't reachable now.
     func sources(_ session: Session) throws -> (sources: [WorkMap.Source], places: WorkMap.Places)? {
-        if let remote = usage.conversations.host(of: session) { return hostSources(session, path: remote.path) }
+        if let remote = usage.conversations.host(of: session) {
+            // One host read at a time per session, its answer kept a moment for the views asking with it.
+            return usage.work.locked("host:\(session.id)") {
+                usage.work.recent("host:\(session.id)", fresh: 1.5) { hostSources(session, path: remote.path) }
+            }
+        }
         let conversations = usage.conversations, index = usage.work
         let found = live[session.id]
         guard
             let file = found?.transcriptPath.map(URL.init(fileURLWithPath:))
-                ?? conversations.conversationFile(of: session, live: found),
+                // Found by looking (lsof for a live Codex): kept a while, its file doesn't change.
+                ?? index.recent(
+                    "file:\(session.id)", fresh: WorkIndex.idle,
+                    { conversations.conversationFile(of: session, live: found) }),
             let log = index.log(file),
             // A file read through with no prompt or call in it is a transcript `WorkLog` can't read (another agent's
             // format): no transcript, not a turn that touched nothing.
@@ -145,8 +153,13 @@ struct WorkReader {
             marks[from + 1].at <= end.addingTimeInterval(5)
         else { return [] }
         let (a, b) = (marks[from], marks[from + 1])
-        let out = Log.session.attempt("reading turn \(a.id)'s changes") {
-            try Git.run(["diff", "--numstat", "--no-renames", "-z", a.tree, b.tree], cwd: a.folder, remotes: remotes)
+        // Two snapshots' difference never changes: kept, so an earlier turn shown while the agent works isn't diffed
+        // again on every pass.
+        let out = usage.work.recent("diff:\(a.tree):\(b.tree)", fresh: WorkIndex.idle) {
+            Log.session.attempt("reading turn \(a.id)'s changes") {
+                try Git.run(
+                    ["diff", "--numstat", "--no-renames", "-z", a.tree, b.tree], cwd: a.folder, remotes: remotes)
+            }
         }
         return (out ?? "").split(separator: "\0").compactMap { line in
             let fields = line.split(separator: "\t", maxSplits: 2)
@@ -164,7 +177,10 @@ struct WorkReader {
             return WorkEvent(session: id, stamp: "idle")
         }
         guard let found = try sources(session) else { return nil }
-        let stamp = found.sources.map { "\($0.log.offset):\($0.log.calls.count)" }.joined(separator: ",")
-        return WorkEvent(session: id, stamp: stamp)
+        // Its files, and its status and the turn's end: a turn that stopped after its last write is read again, for
+        // where it is now and the files its commands changed.
+        let files = found.sources.map { "\($0.log.offset):\($0.log.calls.count)" }.joined(separator: ",")
+        let ended = live[id]?.lastTurn.map { "\($0.files.count)" } ?? "-"
+        return WorkEvent(session: id, stamp: "\(files) \(session.status.rawValue) \(ended)")
     }
 }

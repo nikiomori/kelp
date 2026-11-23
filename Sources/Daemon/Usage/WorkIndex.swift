@@ -28,16 +28,47 @@ final class WorkIndex: Sendable {
     /// The most of a host's file read the first time, from its end.
     static let hostFirstRead: UInt64 = 16 << 20
 
-    /// The log of a file on this Mac, read up to its end.
-    func log(_ url: URL, piece first: Int = WorkIndex.piece) -> WorkLog? {
+    /// How long a file nobody reads stays kept: the panel closed, it goes.
+    static let idle: TimeInterval = 600
+    /// Answers kept a moment, so the panel, the Map tab and the watch's pass asking at once read once (an ssh read, a
+    /// git diff), by key.
+    private let answers = OSAllocatedUnfairLock<[String: (at: Date, value: any Sendable)]>(initialState: [:])
+
+    /// Runs `body` holding `key`'s lock: one reader of a file (or a host session) at a time, the next one waits and
+    /// continues from where it got to, instead of reading it again from the start.
+    func locked<T>(_ key: String, _ body: () throws -> T) rethrows -> T {
         let lock = reading.withLock { locks in
-            if let lock = locks[url.path] { return lock }
+            if let lock = locks[key] { return lock }
             let lock = NSLock()
-            locks[url.path] = lock
+            locks[key] = lock
             return lock
         }
         lock.lock()
         defer { lock.unlock() }
+        return try body()
+    }
+
+    /// `make`'s answer for `key`, made again only when the one kept is older than `fresh`.
+    func recent<T: Sendable>(_ key: String, fresh: TimeInterval, _ make: () -> T?) -> T? {
+        if let kept = answers.withLock({ $0[key] }), Date().timeIntervalSince(kept.at) < fresh,
+            let value = kept.value as? T
+        {
+            return value
+        }
+        guard let value = make() else { return nil }
+        answers.withLock { all in
+            all[key] = (Date(), value)
+            all = all.filter { Date().timeIntervalSince($0.value.at) < Self.idle }
+        }
+        return value
+    }
+
+    /// The log of a file on this Mac, read up to its end.
+    func log(_ url: URL, piece first: Int = WorkIndex.piece) -> WorkLog? {
+        locked(url.path) { read(url, piece: first) }
+    }
+
+    private func read(_ url: URL, piece first: Int) -> WorkLog? {
         guard let size = Artifacts.fileStat(url.path)?.size else { return nil }
         // Taken out while it grows, so its calls aren't copied (the dictionary would share them).
         var entry = entries.withLock { $0.removeValue(forKey: url.path) } ?? Entry()
@@ -77,12 +108,18 @@ final class WorkIndex: Sendable {
         var used = entry
         used.used = Date()
         let kept = used
-        entries.withLock { all in
+        let gone = entries.withLock { all -> [String] in
             all[key] = kept
+            // What nobody read for a while goes, and past the limit the one read longest ago.
+            var gone = all.filter { kept.used.timeIntervalSince($0.value.used) > Self.idle }.map(\.key)
+            gone.forEach { all[$0] = nil }
             if all.count > Self.limit, let oldest = all.min(by: { $0.value.used < $1.value.used })?.key {
                 all[oldest] = nil
+                gone.append(oldest)
             }
+            return gone
         }
+        if !gone.isEmpty { reading.withLock { locks in gone.forEach { locks[$0] = nil } } }
     }
 }
 
@@ -108,7 +145,7 @@ extension Conversations {
     /// The script for sh on the host behind `remoteWork`: each file's `\u{1}name size start` line, then its bytes from
     /// `start`; the subagents' `.meta.json` as `meta:<name>`.
     static func workScript(path: String, id: String?, claude: String, offsets: [String: UInt64]) -> String {
-        let known = offsets.filter { $0.key.wholeMatch(of: /(main\.[A-Za-z0-9-]+|agent-[A-Za-z0-9]+)/) != nil }
+        let known = offsets.filter { $0.key.wholeMatch(of: /(main\.[A-Za-z0-9-]+|agent-[A-Za-z0-9-]+)/) != nil }
         let cases = known.map { "\($0.key)) o=\($0.value);;" }.joined(separator: " ")
         let first = WorkIndex.hostFirstRead
         let read = [

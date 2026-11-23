@@ -24,8 +24,17 @@ public enum ShellTouches {
     /// Returns what `command` touched. Relative paths are kept relative to the folder each part runs in: the start one,
     /// or the one a `cd` before it moved to, so `cd Sources && cat a.swift` reads `Sources/a.swift`.
     public static func parse(_ command: String) -> [Touch] {
-        var out: [Touch] = [], dir = "", lost = false
-        for part in parts(of: withoutHeredocs(command)) {
+        var out: [Touch] = [], dir = "", lost = false, outer: (dir: String, lost: Bool)?
+        for whole in parts(of: withoutHeredocs(command)) {
+            let piped = whole.first == Self.piped, part = piped ? Array(whole.dropFirst()) : whole
+            // A subshell's `cd` ends with it: `(cd Vendor && make) && cat README.md` reads ./README.md.
+            if part.first?.hasPrefix("(") == true, outer == nil { outer = (dir, lost) }
+            defer {
+                if part.last?.hasSuffix(")") == true, let back = outer {
+                    (dir, lost) = back
+                    outer = nil
+                }
+            }
             // A subshell's parentheses aren't part of its words: `(cd Vendor && ls)`.
             let (words, redirects) = split(
                 part.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "()")) }.filter { !$0.isEmpty })
@@ -47,14 +56,16 @@ public enum ShellTouches {
                 if to.hasPrefix("/") || to.hasPrefix("~") { lost = false }
                 continue
             }
-            out += touches(verb: verb, args: args).filter { !lost || Self.isAbsolute($0) }.map { relative($0, to: dir) }
+            out += touches(verb: verb, args: args, piped: piped).filter { !lost || Self.isAbsolute($0) }.map {
+                relative($0, to: dir)
+            }
         }
         var seen: [Touch] = []
         for touch in out where !seen.contains(touch) { seen.append(touch) }
         return seen
     }
 
-    private static func touches(verb: String, args: [String]) -> [Touch] {
+    private static func touches(verb: String, args: [String], piped: Bool = false) -> [Touch] {
         let paths = args.filter { !$0.hasPrefix("-") && looksLikePath($0) && isPlainPath($0) }
         switch verb {
         case "jq":
@@ -63,14 +74,25 @@ public enum ShellTouches {
                 .read($0, search: false)
             }
         case "cat", "head", "tail", "less", "more", "nl", "wc", "bat", "file", "stat", "strings", "xxd":
-            return paths.map { .read($0, search: false) } + globs(args)
+            // What these name is a file, with or without a dot in its name (`cat Makefile`).
+            return args.filter { !$0.hasPrefix("-") && isPlainPath($0) }.map { .read($0, search: false) } + globs(args)
         case "ls":
             // A folder listed was looked through, not read as a file.
             return paths.map { .read($0, search: !isFile($0)) } + globs(args)
         case "sed":
-            // The first word that isn't a flag is the script, unless -e gave it.
-            let words = args.filter { !$0.hasPrefix("-") && !$0.isEmpty }
-            let files = (args.contains("-e") ? words[...] : words.dropFirst()).filter {
+            // The first word that isn't a flag is the script, unless -e (or -f) gave it: then the word after each is.
+            var words: [String] = [], skip = false
+            for arg in args where !arg.isEmpty {
+                if skip {
+                    skip = false
+                } else if arg.hasPrefix("-") {
+                    skip = arg == "-e" || arg == "-f"
+                } else {
+                    words.append(arg)
+                }
+            }
+            let given = args.contains("-e") || args.contains("-f")
+            let files = (given ? words[...] : words.dropFirst()).filter {
                 looksLikePath($0) && isPlainPath($0)
             }
             if args.contains(where: { $0 == "-i" || $0.hasPrefix("-i") && $0.count <= 3 }) {
@@ -100,6 +122,13 @@ public enum ShellTouches {
             if !args.contains("-e"), !args.contains("-f"), !rest.isEmpty { rest.removeFirst() }
             let targets = rest.filter(isPlainPath), globbed = globs(rest)
             if targets.isEmpty && !globbed.isEmpty { return globbed }
+            // With no target it searches what a pipe gives it (`ps aux | grep kelp`); grep without -r reads its
+            // input; else the folder it runs in.
+            let recursive =
+                verb != "grep"
+                || args.contains { $0.hasPrefix("-") && !$0.hasPrefix("--") && ($0.contains("r") || $0.contains("R")) }
+                || args.contains("--recursive")
+            if targets.isEmpty && (piped || !recursive) { return globbed }
             return (targets.isEmpty ? ["."] : targets).map { .read($0, search: !isFile($0)) } + globbed
         case "tee": return paths.map { .wrote($0) }
         case "touch", "rm", "truncate": return paths.map { .wrote($0) }
@@ -109,7 +138,21 @@ public enum ShellTouches {
         case "open":
             return args.compactMap(site).map { .site($0, verb: verb) }
         case "ssh", "mosh":
-            return args.first { !$0.hasPrefix("-") }.map { [.host(hostPart($0), verb: verb)] } ?? []
+            // A flag's value isn't the host: `ssh -i ~/.ssh/key box`, `ssh -p 2222 box`.
+            let valued: Set = [
+                "-i", "-p", "-l", "-o", "-F", "-J", "-b", "-c", "-D", "-E", "-L", "-R", "-S", "-W", "-w", "-m"
+            ]
+            var skip = false
+            for arg in args {
+                if skip {
+                    skip = false
+                } else if arg.hasPrefix("-") {
+                    skip = valued.contains(arg)
+                } else {
+                    return [.host(hostPart(arg), verb: verb)]
+                }
+            }
+            return []
         case "scp", "rsync", "sftp":
             return args.compactMap { arg -> Touch? in
                 guard !arg.hasPrefix("-"), let colon = arg.firstIndex(of: ":"), !arg.hasPrefix("/") else { return nil }
@@ -140,6 +183,9 @@ public enum ShellTouches {
 
     /// The command's parts, split at `&&`, `||`, `;`, `|`, `&` and newlines, each as words with quotes taken off. A
     /// redirection is a word of its own (`>`, `>>`, `2>&1`, `<<`).
+    /// The first word of a part that reads what a pipe gives it.
+    static let piped = "\u{1}|"
+
     static func parts(of command: String) -> [[String]] {
         var parts: [[String]] = [], words: [String] = [], word = "", quote: Character?, any = false
         func endWord() {
@@ -176,8 +222,10 @@ public enum ShellTouches {
             case " ", "\t": endWord()
             case "\n", ";": endPart()
             case "|":
-                if chars.first == "|" { chars.removeFirst() }
+                let or = chars.first == "|"
+                if or { chars.removeFirst() }
                 endPart()
+                if !or { words = [Self.piped] }   // what follows reads the output before it
             case "&":
                 if chars.first == ">" {
                     endWord()
@@ -223,7 +271,9 @@ public enum ShellTouches {
                 continue
             }
             kept.append(line)
-            if let match = line.firstMatch(of: /<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/) { until = String(match.1) }
+            // A here-string (`<<< word`) is no heredoc: nothing after it is its body.
+            let heads = line.replacing("<<<", with: " ")
+            if let match = heads.firstMatch(of: /<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/) { until = String(match.1) }
         }
         return kept.joined(separator: "\n")
     }
@@ -244,7 +294,9 @@ public enum ShellTouches {
                 continue
             }
             let target = index + 1 < words.count ? words[index + 1] : ""
-            if bare.hasPrefix(">") || bare.hasPrefix("&>"), looksLikePath(target), !target.hasPrefix("/dev/") {
+            if bare.hasPrefix(">") || bare.hasPrefix("&>"), looksLikePath(target) || isPlainPath(target),
+                !target.hasPrefix("/dev/")
+            {
                 writes.append(target)
             }
             index += 2
