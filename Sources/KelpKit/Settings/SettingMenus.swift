@@ -20,10 +20,14 @@ extension NSMenu {
         add(title, submenu: list)
     }
 
-    /// Adds a switch, shown as a check mark that a click changes.
+    /// Adds a switch, shown as a check mark that a click changes. The mark is read each time the menu opens, so it
+    /// stays right in the menu bar, which is built once.
     package func addToggle(_ setting: Setting<Bool>, _ app: AppModel, title: String) {
-        let on = app.settings[setting]
-        add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
+        let target = ToggleTarget(setting, app.settings)
+        let item = addItem(withTitle: title, action: #selector(ToggleTarget.flip), keyEquivalent: "")
+        item.target = target
+        item.representedObject = target
+        item.state = app.settings[setting] ? .on : .off
     }
 
     /// Adds the last item, which opens the section of Settings this part's settings are in, at their group.
@@ -49,6 +53,21 @@ extension NSMenu {
             item.state = option == now ? .on : .off
             addItem(item)
         }
+    }
+}
+
+/// A switch's menu item: a click flips the setting, and the item's mark follows it.
+@MainActor
+private final class ToggleTarget: NSObject, NSMenuItemValidation {
+    let setting: Setting<Bool>, store: SettingsStore
+    init(_ setting: Setting<Bool>, _ store: SettingsStore) {
+        self.setting = setting
+        self.store = store
+    }
+    @objc func flip() { store.set(setting, !store[setting]) }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        item.state = store[setting] ? .on : .off
+        return true
     }
 }
 

@@ -61,7 +61,7 @@ import Testing
     #expect(texts(area.start ?? NSView()).contains { $0.hasPrefix("No agent found on box.") })   // not "on this Mac"
     app.availability.heard("box", ["codex"])
     await mainActorTurns()
-    // codex alone (with the line under its name), the default here, and the catalog
+    // codex alone, where it starts, the default here, and the catalog
     #expect(tiles() == ["Codex", "In this folder", "⌥⌘T", "Agent Catalog…"])
     #expect(app.catalog.defaultAgent(in: app.worktree("w")) == "codex")
 }

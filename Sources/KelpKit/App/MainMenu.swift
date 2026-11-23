@@ -226,6 +226,17 @@ extension AppDelegate {
             menuItem.keyEquivalentModifierMask = [.command, .option]
         }
         menuBuilder.placed.insert("workbench.showPanel")
+        // The sidebar's blocks that can be hidden (Machines, Plan Limits), in the sidebar's order.
+        let all = app.extensions.all.sidebarSections
+        let blocks: [(String, Setting<Bool>)] = (all.filter { !$0.foot } + all.filter(\.foot)).compactMap {
+            guard let title = $0.title, let shown = $0.shown else { return nil }
+            return (title, shown)
+        }
+        if !blocks.isEmpty {
+            view.addItem(.separator())
+            view.addItem(.sectionHeader(title: "Sidebar Blocks"))
+            for (title, shown) in blocks { view.addToggle(shown, app, title: title) }
+        }
         menuBuilder.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
         // ⌘= enlarges the text too, as in Ghostty, VS Code and Safari (+ is the shifted =).
         menuBuilder.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
