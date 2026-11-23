@@ -18,6 +18,14 @@ extension MarkdownTab {
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
+        made.onCut = { [weak self] kind, id in
+            switch kind {
+            case "split": self?.splitClip(id)
+            case "trimStart", "trimEnd": self?.trimClip(id, end: kind == "trimEnd")
+            case "copy", "cut": self?.copyClip(id, cut: kind == "cut")
+            default: self?.pasteClip()
+            }
+        }
         made.onDropFiles = { [weak self] files, at in
             Task { for file in files where Self.isMedia(file) { await self?.addMedia(file, at: nil, time: at) } }
         }
@@ -121,7 +129,7 @@ extension MarkdownTab {
     static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
 
     /// The page's file name, as hand edits name it.
-    private var pageFile: String { url.lastPathComponent }
+    var pageFile: String { url.lastPathComponent }
 
     /// Changes the page's own text with `change` and saves it, keeping `edit` for the agent and for ⌘Z. It goes
     /// through the editor, so the source shown stays in step; the page is drawn again at the time it showed. When the

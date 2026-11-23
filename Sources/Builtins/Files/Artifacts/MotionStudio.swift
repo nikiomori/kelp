@@ -11,6 +11,7 @@ final class MotionStudio {
         timeline.onSeek = { [weak self] at in self?.act("window.kelpMotion?.seek(\(at))") }
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
+        timeline.onCut = { [weak self] kind, id in self?.onCut?(kind, id) }
         timeline.onDropFiles = { [weak self] files, at in self?.onDropFiles?(files, at) }
         timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
         timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
@@ -30,7 +31,16 @@ final class MotionStudio {
                 IconButton(.symbol("forward.frame"), tip: String(localized: "A Frame Forward (→)")) { [weak self] in
                     self?.act("window.kelpMotion?.step(1)")
                 },
-                loop, speed, time, frame, rangeChip
+                loop, speed, time, frame, rangeChip,
+                IconButton(.symbol("scissors"), tip: String(localized: "Split at the Time (S)")) { [weak self] in
+                    self?.cut("split")
+                },
+                IconButton(.symbol("arrow.left.to.line"), tip: String(localized: "Trim the Start to the Time")) {
+                    [weak self] in self?.cut("trimStart")
+                },
+                IconButton(.symbol("arrow.right.to.line"), tip: String(localized: "Trim the End to the Time")) {
+                    [weak self] in self?.cut("trimEnd")
+                }
             ],
             [
                 zoomSlider, TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size,
@@ -98,6 +108,11 @@ final class MotionStudio {
     var onChoose: ((String) -> Void)?
     /// Files dropped on the timeline, and the second they were dropped at.
     var onDropFiles: (([URL], Double) -> Void)?
+    /// A clip cut, trimmed, copied or pasted: the kind, and the clip clicked last on the timeline.
+    var onCut: ((String, String?) -> Void)?
+
+    private func cut(_ kind: String) { onCut?(kind, timeline.picked) }
+
     /// A shape chosen for the stage: its width and height in pixels.
     var onFormat: ((Int, Int) -> Void)?
     /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.

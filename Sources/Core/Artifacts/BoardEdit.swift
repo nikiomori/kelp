@@ -160,16 +160,22 @@ public enum BoardEdit {
     /// id.
     public static func duplicate(_ source: String, id: String) -> (text: String, id: String)? {
         guard let range = elementRange(source, id: id) else { return nil }
-        let copy = String(source[range])
-        let ids = copy.matches(of: /data-id="([^"]*)"/).map { String($0.output.1) }
-        guard let n = (2...999).first(where: { n in ids.allSatisfy { !source.contains("data-id=\"\($0)-\(n)\"") } })
-        else { return nil }
-        let renamed = copy.replacing(/data-id="([^"]*)"/) { "data-id=\"\($0.output.1)-\(n)\"" }
+        guard let (renamed, newID) = renamed(String(source[range]), in: source) else { return nil }
         let indent = source[..<range.lowerBound].reversed().prefix(while: { $0 == " " || $0 == "\t" })
         let alone = source[..<range.lowerBound].dropLast(indent.count).last.map { $0 == "\n" } ?? true
         var out = source
         out.insert(contentsOf: (alone ? "\n" + String(indent.reversed()) : "") + renamed, at: range.upperBound)
-        return (out, "\(id)-\(n)")
+        return (out, newID)
+    }
+
+    /// `html` (an element copied) with its data-ids, its own and those inside it, numbered (`title-2`) so none is one
+    /// `source` has yet. Returns it and its own new id.
+    public static func renamed(_ html: String, in source: String) -> (html: String, id: String)? {
+        let ids = html.matches(of: /data-id="([^"]*)"/).map { String($0.output.1) }
+        guard let first = ids.first,
+            let n = (2...999).first(where: { n in ids.allSatisfy { !source.contains("data-id=\"\($0)-\(n)\"") } })
+        else { return nil }
+        return (html.replacing(/data-id="([^"]*)"/) { "data-id=\"\($0.output.1)-\(n)\"" }, "\(first)-\(n)")
     }
 
     /// The range of the whole element with `data-id="id"`, from its opening tag to its closing one, counting the same

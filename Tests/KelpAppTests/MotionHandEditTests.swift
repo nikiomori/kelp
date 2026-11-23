@@ -227,3 +227,35 @@ extension OneAtATime {
         #expect(editor.text.contains("animation-delay: 0.2s; animation-duration: 0.6s"))
     }
 }
+
+extension OneAtATime {
+    /// S splits a scene at the time shown into two that meet there; ⇥ trims a scene's end to the time; a clip copied
+    /// pastes at the time shown with new ids.
+    @Test func aSceneSplitsTrimsAndPastesAtTheTime() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <body data-width="1920" data-height="1080">
+            <section data-id="a" data-start="0" data-duration="2"><h1 data-id="t">Hi</h1></section>
+            </body>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        tab.motionMessage(["t": 0.5, "duration": 2, "scenes": [["id": "a", "title": "A", "start": 0, "duration": 2]]])
+        tab.splitClip(nil)
+        #expect(editor.text.contains(#"data-id="a" data-start="0" data-duration="0.5""#))
+        #expect(editor.text.contains(#"data-id="a-2" data-start="0.5" data-duration="1.5""#))
+        tab.motionMessage([
+            "t": 1.5, "duration": 2,
+            "scenes": [
+                ["id": "a", "title": "A", "start": 0, "duration": 0.5],
+                ["id": "a-2", "title": "A", "start": 0.5, "duration": 1.5]
+            ]
+        ])
+        tab.trimClip("a-2", end: true)
+        #expect(editor.text.contains(#"data-id="a-2" data-start="0.5" data-duration="1""#))
+        tab.copyClip("a", cut: false)
+        tab.pasteClip()
+        #expect(editor.text.contains(#"data-id="a-3" data-start="1.5" data-duration="0.5""#))
+    }
+}

@@ -31449,6 +31449,36 @@
           }
         }
       }
+    },
+    "Split at the Time (S)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать на линии (S)"
+          }
+        }
+      }
+    },
+    "Trim the Start to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать начало до линии"
+          }
+        }
+      }
+    },
+    "Trim the End to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать конец до линии"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

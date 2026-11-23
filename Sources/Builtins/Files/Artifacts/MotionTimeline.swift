@@ -68,6 +68,9 @@ final class MotionTimeline: NSView {
     /// A clip moved or trimmed: as it was, and as it is now. A scene is on lane 0.
     var onClip: ((Clip, Clip, Int) -> Void)?
     var onChoose: ((String) -> Void)?
+    /// A clip cut, trimmed, copied or pasted (`split`, `trimStart`, `trimEnd`, `copy`, `cut`, `paste`): the kind, and
+    /// the clip clicked last.
+    var onCut: ((String, String?) -> Void)?
     /// A mark's diamond clicked: its number.
     var onMark: ((Int) -> Void)?
     /// A clip taken out (⌫) or copied (⌘D, or from its menu): its `data-id`, and whether to copy it.

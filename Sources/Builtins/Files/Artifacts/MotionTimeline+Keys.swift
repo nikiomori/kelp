@@ -21,15 +21,26 @@ extension MotionTimeline {
     }
 
     override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers == "s",
+            event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask)
+        {
+            return onCut?("split", picked) ?? ()
+        }
         guard let picked, [51, 117].contains(event.keyCode) else { return super.keyDown(with: event) }   // ⌫, ⌦
         onRemove?(picked)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard window?.firstResponder === self, let picked, event.modifierFlags.contains(.command),
-            event.charactersIgnoringModifiers == "d"
-        else { return super.performKeyEquivalent(with: event) }
-        onDuplicate?(picked)
+        guard window?.firstResponder === self, event.modifierFlags.contains(.command) else {
+            return super.performKeyEquivalent(with: event)
+        }
+        switch event.charactersIgnoringModifiers {
+        case "d": if let picked { onDuplicate?(picked) } else { return false }
+        case "c": onCut?("copy", picked)
+        case "x": onCut?("cut", picked)
+        case "v": onCut?("paste", picked)
+        default: return super.performKeyEquivalent(with: event)
+        }
         return true
     }
 
