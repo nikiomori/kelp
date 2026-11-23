@@ -124,7 +124,7 @@ final class PanelIcon: NSButton {
 
     convenience init(_ symbol: String, _ label: String) {
         self.init(frame: .zero)
-        image = .symbol(symbol, label)
+        image = .symbol(symbol, label, size: Metrics.segmentPoint)
         imagePosition = .imageOnly
         title = ""
         toolTip = label

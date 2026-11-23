@@ -68,7 +68,7 @@ public struct SectionList: NSViewRepresentable {
     /// A row's mark from a symbol, in the grey of a row's quiet marks.
     public static func symbol(_ name: String) -> @MainActor () -> NSView {
         {
-            let view = NSImageView(image: .symbol(name))
+            let view = NSImageView(image: .symbol(name, size: Metrics.iconSmall))
             view.symbolConfiguration = .chrome(Metrics.iconSmall)
             view.contentTintColor = .secondaryLabelColor
             return view

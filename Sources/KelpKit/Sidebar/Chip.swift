@@ -25,7 +25,7 @@ final class Chip: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func show(_ symbol: String, count number: Int = 1) {
-        icon.image = .symbol(symbol)
+        icon.image = .symbol(symbol, size: Metrics.iconSmall)
         if !count.isHidden, let old = Int(count.stringValue), number >= 2, old != number {
             count.roll(up: number > old)
         }

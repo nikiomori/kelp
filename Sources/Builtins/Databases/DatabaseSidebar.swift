@@ -268,7 +268,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         return stack
     }
     private func symbol(_ name: String) -> NSImageView {
-        let icon = NSImageView(image: .symbol(name))
+        let icon = NSImageView(image: .symbol(name, size: Metrics.iconSmall))
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
         return icon

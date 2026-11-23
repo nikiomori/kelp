@@ -215,7 +215,7 @@ extension NSButton {
     static func titlebar(_ symbol: String, _ label: String, tip: String) -> PointerButton {
         // greys in under the pointer, springs when clicked, as every Kelp control
         let button = PointerButton(frame: .zero)
-        button.image = .symbol(symbol, label)
+        button.image = .symbol(symbol, label, size: Metrics.segmentPoint)
         button.imagePosition = .imageOnly
         button.toolTip = tip
         button.symbolConfiguration = .chrome(Metrics.segmentPoint)
