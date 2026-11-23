@@ -5,11 +5,10 @@ import KelpKit
 import SwiftUI
 
 /// The sidebar's Machines block, above the plan limits. Its heading has a + (for a new machine: Linux, macOS, Android,
-/// iOS, or from a file), and is there while the Machines extension is on and the block isn't hidden (Settings ›
-/// Machines), with no machine too, so the + makes the first. Under it is each machine with its state in a word and a
-/// colour, its memory and what runs in it, and the agents with a command there. A click opens its tab; a right-click
-/// starts, sleeps or stops it. The chevron folds the block to its heading, where each machine stays as its mark, in
-/// colour while it runs.
+/// iOS, or from a file), and is there while the Machines extension is on, the block isn't hidden (Settings › Machines)
+/// and there is a machine. Under it is each machine with its state in a word and a colour, its memory and what runs in
+/// it, and the agents with a command there. A click opens its tab; a right-click starts, sleeps or stops it. The
+/// chevron folds the block to its heading, where each machine stays as its mark, in colour while it runs.
 struct MachinesView: View {
     let app: AppModel
     /// The list, watched while it's shown. The daemon reads the machines every 5 s, and every second while one starts.
@@ -25,11 +24,12 @@ struct MachinesView: View {
 
     private var block: some View {
         // The loader hangs off a container that always exists while the block is on, because on an EmptyView `.task`
-        // never runs.
+        // never runs. With no machine the block draws nothing (File › New Machine… makes the first), because the
+        // block is for those who have one.
         let machines = Machines.machineList(app)
         return VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: 0)
-            if app.settings[SettingKeys.machinesInSidebar] {
+            if !machines.isEmpty, app.settings[SettingKeys.machinesInSidebar] {
                 Divider()
                 VStack(alignment: .leading, spacing: 0) {
                     heading(machines)
@@ -48,24 +48,18 @@ struct MachinesView: View {
         .onDisappear { watched = nil }
     }
 
-    /// The chevron and title, which fold the block; folded, each machine's mark after them; the + at the end. With no
-    /// machine there is nothing to fold: the title stands alone.
+    /// The chevron and title, which fold the block; folded, each machine's mark after them; the + at the end.
     private func heading(_ machines: [VMInfo]) -> some View {
         HStack(spacing: Metrics.gap) {
-            if machines.isEmpty {
-                Text("Machines").sectionTitle()
-            } else {
-                Button(action: fold) {
-                    HStack(spacing: Metrics.gapTight) {
-                        Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(folded ? 0 : 90))
-                        Text("Machines").sectionTitle()
-                    }
+            Button(action: fold) {
+                HStack(spacing: Metrics.gapTight) {
+                    Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(folded ? 0 : 90))
+                    Text("Machines").sectionTitle()
                 }
-                .buttonStyle(PointerButtonStyle(flush: true))
-                .accessibilityLabel(
-                    folded ? String(localized: "Expand Machines") : String(localized: "Collapse Machines"))
             }
+            .buttonStyle(PointerButtonStyle(flush: true))
+            .accessibilityLabel(folded ? String(localized: "Expand Machines") : String(localized: "Collapse Machines"))
             if folded {
                 HStack(spacing: Metrics.gapTight) { ForEach(machines) { chip($0) } }.transition(.opacity)
             }
@@ -75,15 +69,13 @@ struct MachinesView: View {
         // As `SectionHeading` stands it: the line 4 pt over the row's bottom, the + centred on the title.
         .padding(.bottom, 4)
         .frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom).padding(.leading, Metrics.gap)
-        .contextMenu { headingMenu(folds: !machines.isEmpty) }
+        .contextMenu { headingMenu }
     }
 
     /// The heading's right-click: fold, hide the block (Settings › Machines brings it back) or open its settings.
-    @ViewBuilder private func headingMenu(folds: Bool) -> some View {
-        if folds {
-            Button(folded ? String(localized: "Expand") : String(localized: "Collapse"), action: fold)
-            Divider()
-        }
+    @ViewBuilder private var headingMenu: some View {
+        Button(folded ? String(localized: "Expand") : String(localized: "Collapse"), action: fold)
+        Divider()
         Button(String(localized: "Hide Machines")) {
             app.settings.set(SettingKeys.machinesInSidebar, false)
             Banner.show(String(localized: "Machines are hidden. Settings › Machines brings them back."))

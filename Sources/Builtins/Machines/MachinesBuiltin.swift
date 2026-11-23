@@ -7,7 +7,8 @@ import WorkbenchKit
 extension Builtins {
 
     /// A virtual machine as a tab ("vm:<name>"): its state, what runs in it and for which agent, its ports and
-    /// folders. It opens from the sidebar's Machines block, whose + (or File › New Machine…) makes the first one.
+    /// folders. It opens from the sidebar's Machines block, which is there once a machine exists. File › New Machine…
+    /// makes the first one.
     package static let machines = Builtin(
         "kelp.machines", "Machines", "Kelp’s virtual machines: what runs in each, its ports and folders.",
         icon: "shippingbox"
@@ -52,7 +53,7 @@ extension Builtins {
             ],
             sidebarSections: [
                 SidebarSection(id: "machines", title: "Machines", shown: SettingKeys.machinesInSidebar) {
-                    // Kelp's virtual machines, and the + that makes one.
+                    // Kelp's virtual machines, once there's one.
                     let view = NSHostingView(rootView: MachinesView(app: app))
                     view.sizingOptions = [.intrinsicContentSize]
                     return view
