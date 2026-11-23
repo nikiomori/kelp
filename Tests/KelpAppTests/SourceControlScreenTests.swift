@@ -241,6 +241,31 @@ extension AppOfItsOwn {
         #expect(r.committed && !r.pushed)
     }
 
+    /// Less room for the lists (a shorter window, or a CI strip coming in above them) never grows the window: the
+    /// graph's dragged height gives way first. It was held over the window's own size, so a panel in its floater set
+    /// the window's content past the window's top, and the bar and the panels' tops went with it.
+    @Test func lessRoomShrinksTheGraphNotTheWindow() async throws {
+        let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }
+        for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
+        UserDefaults.standard.set(400, forKey: "scm.graphHeight")
+        let names = (0..<12).map { "f\($0).txt" }
+        let rig = try await AppRig(files: Dictionary(uniqueKeysWithValues: names.map { ($0, "a\n") }))
+        defer { rig.done() }
+        for name in names { try rig.write(name, "b\n") }
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 800)
+        vc.followWatches()
+        let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
+        #expect(try await waitFor(5) { !(outline.numberOfRows < 13 || graph.numberOfRows < 1) })
+        let window = try #require(vc.view.window)
+        window.setContentSize(NSSize(width: 320, height: 800))
+        vc.view.layoutSubtreeIfNeeded()
+        window.setContentSize(NSSize(width: 320, height: 600))
+        vc.view.layoutSubtreeIfNeeded()
+        #expect(vc.view.bounds.height == 600, "the window stayed \(vc.view.bounds.height) tall")
+    }
+
     /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
     /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
     @Test func sourceControlFitsANarrowInspector() async throws {

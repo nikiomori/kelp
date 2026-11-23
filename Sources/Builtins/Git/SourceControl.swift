@@ -192,10 +192,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             root.addSubview(part)
         }
         // When open, the graph is at least the height it was dragged to, and takes what the changes leave: a short list
-        // of changes is followed by the graph, not by empty room. It gives way to the 80 pt the changes keep, and under
-        // windowSizeStayPut it never stretches the window.
+        // of changes is followed by the graph, not by empty room. It gives way to the changes and, under
+        // windowSizeStayPut, to the window's size: held above it, less room for the lists (a CI strip coming in) grew a
+        // floating inspector past the window's top, and the window bar and the panels' tops went with it.
         let gh = graphScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 260)
-        gh.priority = .init(740)
+        gh.priority = .init(490)
         graphHeight = gh
         // Set in numbers (`fitChanges`), above windowSizeStayPut: a wish weaker than the window's keeping its parts'
         // sizes lost to it, and the list kept an old, tall height over two changes.
