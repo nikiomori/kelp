@@ -109,6 +109,7 @@ enum MotionPage {
               .map(({ e, ...track }) => track);
           }
           let t = 0, playing = false, last = 0, told = 0, moving = null, rate = 1, loop = false;
+          let range = null;   // the work area, [in, out] in seconds: play and loop keep to it
           function seek(at) {
             t = Math.max(0, Math.min(at, duration()));
             for (const a of animations()) { a.pause(); a.currentTime = t * 1000; }
@@ -129,13 +130,14 @@ enum MotionPage {
             moving = moving || tracks();
             const marks = (window.kelpMarks?.list?.() || []).filter(m => m.time != null && m.state !== 'done')
               .map(m => ({ id: m.id, time: m.time, state: m.state }));
-            post({ kind: 'motion', t, duration: duration(), playing, scenes: scenes(), tracks: moving, marks,
+            post({ kind: 'motion', t, duration: duration(), playing, scenes: scenes(), tracks: moving, marks, range,
               width: +frame.dataset.w, height: +frame.dataset.h });
           }
           function tick(at) {
             if (!playing) return;
             t += (at - last) / 1000 * rate; last = at;
-            if (t >= duration()) { t = loop ? 0 : duration(); playing = loop; }
+            const start = range ? range[0] : 0, end = range ? range[1] : duration();
+            if (t >= end) { t = loop ? start : end; playing = loop; }
             seek(t); tell(!playing);
             if (playing) requestAnimationFrame(tick);
           }
@@ -158,7 +160,11 @@ enum MotionPage {
             pause() { if (playing) { playing = false; tell(true); } },
             toggle() {
               playing = !playing;
-              if (playing) { if (t >= duration()) t = 0; last = performance.now(); requestAnimationFrame(tick); }
+              if (playing) {
+                const start = range ? range[0] : 0, end = range ? range[1] : duration();
+                if (t >= end || t < start) t = start;
+                last = performance.now(); requestAnimationFrame(tick);
+              }
               tell(true);
             },
             step(frames) { playing = false; seek(t + frames / FPS); tell(true); },
@@ -176,6 +182,8 @@ enum MotionPage {
             setRate(r) { rate = r; },
             setFPS(f) { FPS = f; },
             setLoop(on) { loop = on; },
+            // The work area: I and O set its in and out at the time shown, ⇧I and ⇧O take it away.
+            setRange(r) { range = r && r[1] > r[0] ? r : null; tell(true); },
             // The stage on screen, and its own size, for the export's pictures.
             stage() {
               const r = frame.getBoundingClientRect();
@@ -195,6 +203,11 @@ enum MotionPage {
             const typing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
             if (typing || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
             if (e.key === ' ') window.kelpMotion.toggle();
+            else if (e.key.toLowerCase() === 'i' || e.key.toLowerCase() === 'o') {
+              const isIn = e.key.toLowerCase() === 'i', r = range || [0, duration()];
+              const next = isIn ? [t, Math.max(r[1], t + 0.1)] : [Math.min(r[0], t - 0.1), t];
+              window.kelpMotion.setRange(e.shiftKey ? null : next);
+            }
             else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
               window.kelpMotion.step((e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1));
             } else return;

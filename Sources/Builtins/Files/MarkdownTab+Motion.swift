@@ -69,6 +69,9 @@ extension MarkdownTab {
                     else { return nil }
                     return MotionTimeline.Mark(
                         id: id, time: time, yours: ["draft", "check"].contains(m["state"] as? String ?? ""))
+                },
+                range: (body["range"] as? [NSNumber]).flatMap { r in
+                    r.count == 2 && r[1].doubleValue > r[0].doubleValue ? r[0].doubleValue...r[1].doubleValue : nil
                 }))
     }
 
@@ -158,7 +161,9 @@ extension MarkdownTab {
                 let stage = try await web.evaluateJavaScript("window.kelpMotion?.stage()", contentWorld: Self.world)
                     as? [Double], stage.count == 6
             else { throw RPCError.internalError("The page isn't a motion page.") }
-            let fps = options.rate, frames = Int((length * fps).rounded(.up))
+            // The whole page, or only its work area.
+            let span = options.onlyRange ? options.range ?? 0...length : 0...length
+            let fps = options.rate, frames = Int(((span.upperBound - span.lowerBound) * fps).rounded(.up))
             let (w, h) = (Int(stage[4] * options.scale), Int(stage[5] * options.scale))
             let movie = options.format == .mp4 ? try MotionMovie(to, width: w, height: h) : nil
             let gif = options.format == .gif ? try MotionGIF(to, frames: frames + 1, fps: fps) : nil
@@ -170,7 +175,8 @@ extension MarkdownTab {
                 motionStudio.exporting(frame, of: frames)
                 let at = Double(frame) / fps
                 _ = try await web.callAsyncJavaScript(
-                    "return await window.kelpMotion.frameAt(at)", arguments: ["at": at], contentWorld: Self.world)
+                    "return await window.kelpMotion.frameAt(at)", arguments: ["at": span.lowerBound + at],
+                    contentWorld: Self.world)
                 let image = try await web.takeSnapshot(configuration: config)
                 guard let picture = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
                 try await movie?.add(picture, at: at)

@@ -91,6 +91,9 @@ final class MotionTimeline: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Self.ruler + Self.lane * CGFloat(2 + Self.shown) + Metrics.gap)
     }
 
+    /// The work area, in and out in seconds: a band on the ruler, and what's outside it dimmed.
+    var range: ClosedRange<Double>? { didSet { if range != oldValue { needsDisplay = true } } }
+
     func set(at: Double, length: Double, scenes: [Clip], tracks: [Clip], marks: [Mark] = []) {
         let length = max(length, 0.1)
         guard (at, length, scenes, tracks, marks) != (self.at, self.length, self.scenes, self.tracks, self.marks)
@@ -191,6 +194,21 @@ final class MotionTimeline: NSView {
         NSBezierPath(rect: NSRect(x: track.minX - 6, y: 0, width: bounds.width, height: bounds.height)).addClip()
         drawRuler()
         drawClips(font)
+        if let range {
+            NSColor.systemYellow.setFill()
+            NSRect(
+                x: x(range.lowerBound), y: Self.ruler - 4, width: x(range.upperBound) - x(range.lowerBound), height: 3
+            )
+            .fill()
+            NSColor.outside.setFill()
+            let lanesTop = Self.ruler, lanesBottom = Self.ruler + marksLane + Self.lane * CGFloat(lanes)
+            NSRect(x: track.minX, y: lanesTop, width: x(range.lowerBound) - track.minX, height: lanesBottom - lanesTop)
+                .fill()
+            NSRect(
+                x: x(range.upperBound), y: lanesTop, width: track.maxX - x(range.upperBound),
+                height: lanesBottom - lanesTop
+            ).fill()
+        }
         let head = x(at)
         NSColor.controlAccentColor.setFill()
         NSRect(x: head - 1, y: 0, width: 2, height: Self.ruler + marksLane + Self.lane * CGFloat(lanes)).fill()

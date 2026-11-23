@@ -8,6 +8,8 @@ import UniformTypeIdentifiers
 struct MotionExport: Equatable {
     enum Format: String, CaseIterable { case mp4, gif }
     var format = Format.mp4, fps = 30.0, scale = 1.0
+    /// The work area, when one is set, and whether the video is only that.
+    var range: ClosedRange<Double>?, onlyRange = false
 
     var type: UTType { format == .gif ? .gif : .mpeg4Movie }
     /// The frames a second the file is made at.
@@ -24,6 +26,7 @@ final class MotionExportPopover: NSObject {
     private let format = CapsuleSegments(labels: ["MP4", "GIF"])
     private let rate = CapsuleSegments(labels: MotionExport.rates.map { "\(Int($0))" })
     private let size: CapsuleSegments
+    private let onlyRange = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let go: (MotionExport) -> Void
 
     init(_ options: MotionExport, stage: (width: Int, height: Int), go: @escaping (MotionExport) -> Void) {
@@ -61,12 +64,22 @@ final class MotionExportPopover: NSObject {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let foot = NSStackView(views: [spacer, export])   // the main button at the trailing edge
+        if let range = options.range {
+            onlyRange.title = String(
+                format: String(localized: "Only the Work Area (%.1f–%.1f s)"), range.lowerBound, range.upperBound)
+            onlyRange.state = options.onlyRange ? .on : .off
+            onlyRange.target = self
+            onlyRange.action = #selector(changed)
+            parts += [onlyRange]
+        }
         let stack = NSStackView(views: parts + [foot])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gapWide
-        for (i, view) in parts.enumerated() where i % 2 == 0 { stack.setCustomSpacing(Metrics.gapTight, after: view) }
-        stack.setCustomSpacing(Metrics.inset, after: size)
+        for (i, view) in parts.enumerated() where i % 2 == 0 && i < 6 {
+            stack.setCustomSpacing(Metrics.gapTight, after: view)
+        }
+        stack.setCustomSpacing(Metrics.inset, after: parts.last ?? size)
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
         foot.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.inset).isActive = true
@@ -90,6 +103,7 @@ final class MotionExportPopover: NSObject {
         options.format = MotionExport.Format.allCases[max(format.selectedSegment, 0)]
         options.fps = MotionExport.rates[max(rate.selectedSegment, 0)]
         options.scale = size.selectedSegment == 1 ? 2 : 1
+        options.onlyRange = onlyRange.state == .on
     }
 }
 

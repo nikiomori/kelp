@@ -31429,6 +31429,26 @@
           }
         }
       }
+    },
+    "The work area: I and O set it, a click here takes it away": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочий отрезок: его ставят I и O, клик здесь убирает"
+          }
+        }
+      }
+    },
+    "Only the Work Area (%.1f–%.1f s)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только рабочий отрезок (%.1f–%.1f с)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

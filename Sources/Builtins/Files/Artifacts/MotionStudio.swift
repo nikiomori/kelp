@@ -30,7 +30,7 @@ final class MotionStudio {
                 IconButton(.symbol("forward.frame"), tip: String(localized: "A Frame Forward (→)")) { [weak self] in
                     self?.act("window.kelpMotion?.step(1)")
                 },
-                loop, speed, time, frame
+                loop, speed, time, frame, rangeChip
             ],
             [
                 zoomSlider, TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size,
@@ -62,6 +62,13 @@ final class MotionStudio {
     private lazy var loop = IconButton(.symbol("repeat"), tip: String(localized: "Play Again at the End")) {
         [weak self] in self?.toggleLoop()
     }
+    /// The work area set with I and O; a click takes it away.
+    private lazy var rangeChip: TextButton = {
+        let chip = TextButton("") { [weak self] in self?.act("window.kelpMotion?.setRange(null)") }
+        chip.toolTip = String(localized: "The work area: I and O set it, a click here takes it away")
+        chip.isHidden = true
+        return chip
+    }()
     private let speed = PointerPopUpButton()
     /// The zoom as a power of two: 0 shows the whole length, 5 a thirty-second of it.
     private let zoomSlider = NSSlider(value: 0, minValue: 0, maxValue: log2(40), target: nil, action: nil)
@@ -106,6 +113,7 @@ final class MotionStudio {
         var at = 0.0, length = 0.0, playing = false, width = 1920, height = 1080
         var scenes: [MotionTimeline.Clip] = [], tracks: [MotionTimeline.Clip] = []
         var marks: [MotionTimeline.Mark] = []
+        var range: ClosedRange<Double>?
     }
 
     func show(_ state: State) {
@@ -119,6 +127,10 @@ final class MotionStudio {
             stage = (state.width, state.height)
             fillFormats()
         }
+        timeline.range = state.range
+        rangeChip.isHidden = state.range == nil
+        if let r = state.range { rangeChip.title = String(format: "⟲ %.1f–%.1f s  ×", r.lowerBound, r.upperBound) }
+        exportOptions.range = state.range
         timeline.set(
             at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes
