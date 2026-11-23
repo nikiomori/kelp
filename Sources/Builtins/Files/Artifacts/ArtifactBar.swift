@@ -131,8 +131,8 @@ final class ArtifactBar: NSObject {
         return Bar.content(
             [kind, ring, status],
             [
-                spent, latest, restore, fresh, refresh, changes, modes, present, check, back, count, forward, author,
-                more
+                spent, latest, restore, fresh, refresh, changes, devices(), modes, present, check, back, count, forward,
+                author, more
             ],
             stretching: status
         )

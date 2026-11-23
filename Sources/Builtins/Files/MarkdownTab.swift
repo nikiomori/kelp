@@ -208,7 +208,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         setUpPointer()
         web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view)
-        split.addArrangedSubview(web)
+        split.addArrangedSubview(DeviceStage(web))   // the page, or a device's screen (`DeviceControls`)
         editor.view.clipsToBounds = true
         // An agent's page has its own bar, whose ⋯ menu holds the modes (⇧⌘V cycles them), so the page gets one bar,
         // not two. Any other file gets the formatting bar on top, which hides in Preview because there is nothing to

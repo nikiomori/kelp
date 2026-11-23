@@ -31849,6 +31849,96 @@
           }
         }
       }
+    },
+    "As Designed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как задумано"
+          }
+        }
+      }
+    },
+    "Computer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компьютер"
+          }
+        }
+      }
+    },
+    "Tablet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Планшет"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой"
+          }
+        }
+      }
+    },
+    "Custom Size…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой размер…"
+          }
+        }
+      }
+    },
+    "Custom Size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой размер"
+          }
+        }
+      }
+    },
+    "Width × height, in pixels.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина × высота, в пикселях."
+          }
+        }
+      }
+    },
+    "Turn the Device": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повернуть"
+          }
+        }
+      }
+    },
+    "The screen it is seen on": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран, на котором её смотрят"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
