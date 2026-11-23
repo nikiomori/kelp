@@ -290,6 +290,9 @@ extension SettingKeys {
     static let commandsBar = Setting("agents.commandsBar", false)
     static let usageResets = Setting("usage.resets", true)
     static let usagePace = Setting("usage.pace", true)
+    /// The plan limits whose bar the person showed or hid in the sidebar's foot, as "agent/kind" (`LimitBars`).
+    static let usageBarsShown = Setting<[String]>("usage.bars.shown", [])
+    static let usageBarsHidden = Setting<[String]>("usage.bars.hidden", [])
     static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
 }
 
