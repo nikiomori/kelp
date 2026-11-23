@@ -429,4 +429,8 @@ private func tempRoot() throws -> URL {
     #expect(try !ArtifactKeepVersion(path: path, label: "title").handle(NoService()), "nothing new since")
     let last = try #require(Artifacts.record(in: folder)?.versions?.last)
     #expect((last.n, last.label, last.byUser) == (4, "title", true))
+    // Version 3 brought back is kept as a new version that says so, even when the page reads as the last one.
+    #expect(try ArtifactKeepRestored(path: path, from: 3).handle(NoService()))
+    let restored = try #require(Artifacts.record(in: folder)?.versions?.last)
+    #expect((restored.n, restored.restored, restored.byUser) == (5, 3, true))
 }

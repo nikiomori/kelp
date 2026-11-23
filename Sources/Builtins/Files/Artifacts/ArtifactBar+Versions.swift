@@ -45,47 +45,34 @@ extension ArtifactBar {
 
     func restoreShown() {
         guard let text = markdown.shownVersion else { return }
-        markdown.restore(text)
+        Task { await markdown.restore(text) }
         show(nil)
     }
 
-    func showVersions() {
-        let menu = NSMenu()
-        for (index, entry) in entries.enumerated().reversed() {
-            let when = [
-                Self.time(entry.at),
-                entry.version == nil && index == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
-                    ? String(localized: "now writing") : nil
-            ].compactMap { $0 }.joined(separator: " · ")
-            let item = menu.add("\(index + 1)  \(entry.label)") { [weak self] in
-                self?.show(index == (self?.entries.count ?? 0) - 1 ? nil : index)
-            }
-            item.state = index == (shown ?? entries.count - 1) ? .on : .off
-            item.toolTip = when
-            item.attributedTitle = Self.menuTitle("\(index + 1)  \(entry.label)", when)
-        }
-        menu.addItem(.separator())
-        menu.addItem(
-            withTitle: String(localized: "Kelp keeps the last \(Artifacts.keptVersions) turns"), action: nil,
-            keyEquivalent: ""
-        ).isEnabled = false
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
+    /// Brings version `version` back as the page, then keeps it as a new version that says so.
+    func restore(_ version: ArtifactVersion) async {
+        guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else { return }
+        show(nil)
+        guard await markdown.restore(file.text) else { return }
+        await app.call(ArtifactKeepRestored(path: path, from: version.n))
     }
+
+    /// The page's agent, by name, and its chat while it hasn't ended.
+    var agentName: String? { item?.session.flatMap(app.session).flatMap { app.catalog.name($0.agent) } }
+    var chat: String? { item?.session.flatMap { app.session($0)?.status == .exited ? nil : $0 } }
+
+    /// The column of versions beside the page (its "N of M"), opened or closed.
+    func showVersions() {
+        if let open = versionsPanel { return open.removeFromSuperview() }
+        markdown.split.addArrangedSubview(VersionsPanel(bar: self))
+    }
+
+    var versionsPanel: VersionsPanel? { markdown.split.arrangedSubviews.last as? VersionsPanel }
 
     static func time(_ seconds: Double?) -> String {
         guard let seconds else { return "" }
         let date = Date(timeIntervalSince1970: seconds)
         return Calendar.current.isDateInToday(date)
             ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
-    }
-
-    static func menuTitle(_ title: String, _ detail: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
-        guard !detail.isEmpty else { return text }
-        text.append(
-            NSAttributedString(
-                string: "\n" + detail,
-                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
-        return text
     }
 }

@@ -268,18 +268,16 @@ extension MarkdownTab {
     }
 
     /// Restores an older version of the canvas by writing its files again: each of its boards, then the canvas.
-    func restoreCanvas(_ snapshot: CanvasSnapshot) {
+    func restoreCanvas(_ snapshot: CanvasSnapshot) async -> Bool {
         let folder = url.deletingLastPathComponent()
-        Task {
-            for (board, text) in snapshot.boards.sorted(by: { $0.key < $1.key }) {
-                guard
-                    await app.call(FilesWrite(path: folder.appendingPathComponent(board).path, text: text, base: nil))
-                        != nil
-                else { return }
-            }
-            editor.apply(text: snapshot.canvas, selection: NSRange(location: 0, length: 0))
-            _ = await saveFile?()
+        for (board, text) in snapshot.boards.sorted(by: { $0.key < $1.key }) {
+            guard
+                await app.call(FilesWrite(path: folder.appendingPathComponent(board).path, text: text, base: nil))
+                    != nil
+            else { return false }
         }
+        editor.apply(text: snapshot.canvas, selection: NSRange(location: 0, length: 0))
+        return await saveFile?() ?? false
     }
 
     /// Sends the check's findings to the chat that made the canvas (or else to the agent on screen), to fix.

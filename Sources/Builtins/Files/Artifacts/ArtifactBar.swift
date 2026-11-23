@@ -63,7 +63,7 @@ final class ArtifactBar: NSObject {
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
         self?.showMore()
     }
-    private var item: ArtifactItem?
+    var item: ArtifactItem?
     /// The page's own record, read from artifact.json when the artifacts list doesn't have the page. `pageKind` comes
     /// from the list's item or from this record.
     private var recorded: ArtifactRecord?
@@ -253,6 +253,7 @@ final class ArtifactBar: NSObject {
                     version: nil, label: live ? String(localized: "As it is now") : versions.last?.label ?? "",
                     at: item?.modified)
             ]
+        versionsPanel?.reload()
         if shownN != nil, shown.map({ $0 >= entries.count - 1 }) ?? true {
             shownN = nil
             markdown.showVersion(nil)

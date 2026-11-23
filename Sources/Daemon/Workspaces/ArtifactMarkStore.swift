@@ -117,6 +117,16 @@ extension ArtifactKeepVersion: Handled {
     }
 }
 
+extension ArtifactKeepRestored: Handled {
+    var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
+
+    func handle(_: NoService) throws -> Bool {
+        guard let (slug, record, root) = Artifacts.page(at: path) else { return false }
+        return try Artifacts.keepVersion(
+            slug, record, root: root, label: "Restored version \(from)", byUser: true, restored: from, now: Date())
+    }
+}
+
 extension ArtifactReply: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }

@@ -636,6 +636,10 @@
           },
           "n" : {
             "type" : "integer"
+          },
+          "restored" : {
+            "description" : "The version the user brought back to make it (Restore), when it is one.",
+            "type" : "integer"
           }
         },
         "required" : [
@@ -6834,6 +6838,34 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases nothing. Returns whether a version was kept.",
+      "name" : "artifact.keepRestored",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
         }
       },
       "x-internal" : true

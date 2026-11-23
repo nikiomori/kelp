@@ -31939,6 +31939,106 @@
           }
         }
       }
+    },
+    "Versions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версии"
+          }
+        }
+      }
+    },
+    "Search Prompts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по промптам"
+          }
+        }
+      }
+    },
+    "Restore v%lld…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть v%lld…"
+          }
+        }
+      }
+    },
+    "Restore…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть…"
+          }
+        }
+      }
+    },
+    "Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас"
+          }
+        }
+      }
+    },
+    "Restored": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Возврат"
+          }
+        }
+      }
+    },
+    "The page as it is now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница, как она сейчас"
+          }
+        }
+      }
+    },
+    "%lld versions · Kelp keeps the last %lld turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версий: %lld · Kelp хранит последние %lld ходов"
+          }
+        }
+      }
+    },
+    "Restore version %lld?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть версию %lld?"
+          }
+        }
+      }
+    },
+    "The page becomes version %lld again, kept as a new version: nothing is erased.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница снова станет версией %lld и сохранится новой версией: ничего не сотрётся."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

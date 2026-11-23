@@ -105,6 +105,18 @@ public struct ArtifactKeepVersion: InternalMethod {
     }
 }
 
+/// Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases
+/// nothing. Returns whether a version was kept.
+public struct ArtifactKeepRestored: InternalMethod {
+    public static let name = "artifact.keepRestored"
+    public typealias Result = Bool
+    public var path: String, from: Int
+    public init(path: String, from: Int) {
+        self.path = path
+        self.from = from
+    }
+}
+
 /// `kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark
 /// must be with the agent or waiting for the user's check; closing it is the user's.
 public struct ArtifactReply: RPCMethod {

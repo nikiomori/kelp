@@ -22,7 +22,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private let mode = CapsuleSegments(
         labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")], target: nil,
         action: nil)
-    private let split = NSSplitView()
+    let split = NSSplitView()
     var renderTask: Task<Void, Never>?
     /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).
     var swappable: Swap?
@@ -117,10 +117,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     /// Restores an older version: the file's text becomes `text`, and the file is saved.
-    func restore(_ text: String) {
-        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return restoreCanvas(snapshot) }
+    @discardableResult func restore(_ text: String) async -> Bool {
+        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return await restoreCanvas(snapshot) }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
-        Task { _ = await saveFile?() }
+        return await saveFile?() ?? false
     }
 
     /// Prints the page as the preview shows it, through the system's print panel (which can also save a PDF).

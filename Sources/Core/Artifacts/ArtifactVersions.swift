@@ -9,11 +9,14 @@ public struct ArtifactVersion: Codable, Equatable, Sendable {
     public var label: String
     /// Whether the user's hand edits made it: its label then names what they changed, not a prompt.
     public var byUser: Bool?
-    public init(n: Int, at: Double, label: String, byUser: Bool? = nil) {
+    /// The version the user brought back to make it (Restore), when it is one.
+    public var restored: Int?
+    public init(n: Int, at: Double, label: String, byUser: Bool? = nil, restored: Int? = nil) {
         self.n = n
         self.at = at
         self.label = label
         self.byUser = byUser
+        self.restored = restored
     }
 }
 

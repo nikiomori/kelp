@@ -195,7 +195,8 @@ extension Artifacts {
     }
 
     static func keepVersion(
-        _ slug: String, _ record: ArtifactRecord, root: String, label: String, byUser: Bool = false, now: Date
+        _ slug: String, _ record: ArtifactRecord, root: String, label: String, byUser: Bool = false,
+        restored: Int? = nil, now: Date
     ) throws -> Bool {
         let target = target(slug, record, root: root)
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
@@ -208,7 +209,9 @@ extension Artifacts {
             } : small(target)
         guard let live = page else { return false }
         var versions = record.versions ?? []
-        if let last = versions.last, versionText(target: target, last.n).map({ Data($0.utf8) }) == live { return false }
+        // A restore is kept even when the page reads as its last version, so the list says what happened.
+        let same = versions.last.flatMap { versionText(target: target, $0.n) }.map { Data($0.utf8) } == live
+        if restored == nil, same { return false }
         let number = (versions.last?.n ?? 0) + 1
         let dir = folder.appendingPathComponent("versions")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -216,7 +219,7 @@ extension Artifacts {
         versions.append(
             ArtifactVersion(
                 n: number, at: now.timeIntervalSince1970, label: byUser ? label : oneLine(label, number: number),
-                byUser: byUser ? true : nil))
+                byUser: byUser ? true : nil, restored: restored))
         for old in versions.dropLast(keptVersions) {   // a file deleted by hand is skipped, not an error
             let path = versionPath(target: target, old.n)
             if FileManager.default.fileExists(atPath: path) { try FileManager.default.removeItem(atPath: path) }
