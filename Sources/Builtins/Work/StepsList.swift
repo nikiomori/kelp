@@ -26,8 +26,9 @@ struct StepRow: Equatable {
     static func make(_ steps: [AgentWork.Step], filter: Set<Int>?, folded: Set<Int> = []) -> [StepRow] {
         var rows: [StepRow] = [], spawnRow: [Int: Int] = [:]
         for step in steps where filter.map({ $0.contains(step.agent) || step.other.map($0.contains) == true }) ?? true {
-            if folded.contains(step.agent) {
-                if step.kind != .report, let at = spawnRow[step.agent] { rows[at].inside += 1 }
+            // Folded onto the row that started it; one started before what is shown has no such row and is listed.
+            if folded.contains(step.agent), let at = spawnRow[step.agent] {
+                if step.kind != .report { rows[at].inside += 1 }
                 // A subagent it started is folded onto the same row: its steps count there too.
                 if step.kind == .spawn, let other = step.other, let at = spawnRow[step.agent] { spawnRow[other] = at }
                 continue
@@ -248,7 +249,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         }
 
         private func stroke(_ path: NSBezierPath, _ lane: Int) {
-            path.lineWidth = Metrics.lineGap
+            path.lineWidth = Metrics.strokeBold
             Self.color(lane).setStroke()
             path.stroke()
         }
@@ -259,7 +260,7 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             switch row.step.kind {
             case .edit:
                 NSColor.agentEditMark.setFill()
-                NSBezierPath(roundedRect: box, xRadius: Metrics.lineGap, yRadius: Metrics.lineGap).fill()
+                NSBezierPath(roundedRect: box, xRadius: Metrics.markRadius, yRadius: Metrics.markRadius).fill()
             case .failed:
                 NSColor.systemRed.setFill()
                 NSBezierPath(ovalIn: box).fill()

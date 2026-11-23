@@ -129,7 +129,7 @@ final class WorkMapView: NSView {
                 to: NSPoint(x: to.x - Metrics.gap, y: to.y), controlPoint1: NSPoint(x: midX, y: from.y),
                 controlPoint2: NSPoint(x: midX, y: to.y))
             let blue = node.edited, on = lit.isEmpty || lit.contains(node.id)
-            path.lineWidth = blue || lit.contains(node.id) ? Metrics.lineGap : Metrics.stroke
+            path.lineWidth = blue || lit.contains(node.id) ? Metrics.strokeBold : Metrics.stroke
             (lit.contains(node.id) ? NSColor.themeAccent : blue ? NSColor.agentEdited : NSColor.tertiaryLabelColor)
                 .withAlphaComponent(on ? 1 : Metrics.unlit).setStroke()
             path.stroke()
@@ -177,7 +177,7 @@ final class WorkMapView: NSView {
                 NSColor.agentEditMark.setFill()
                 NSBezierPath(
                     roundedRect: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s),
-                    xRadius: Metrics.lineGap, yRadius: Metrics.lineGap
+                    xRadius: Metrics.markRadius, yRadius: Metrics.markRadius
                 ).fill()
             } else {
                 _ = ring(r)
@@ -204,7 +204,7 @@ final class WorkMapView: NSView {
             let radius = Metrics.iconSmall - Metrics.lineGap / 2
             let ring = NSBezierPath(
                 ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
-            ring.lineWidth = Metrics.lineGap
+            ring.lineWidth = Metrics.strokeBold
             NSColor.keyboardFocusIndicatorColor.setStroke()
             ring.stroke()
         }

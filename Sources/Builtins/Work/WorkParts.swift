@@ -23,7 +23,9 @@ enum WorkSummary {
     static func now(_ work: AgentWork, working: Bool, names: [String]) -> String? {
         guard working, let last = work.steps.last else { return nil }
         let title = StepsList.title(StepRow(step: last), names: names)
-        return String(localized: "Now: \(title) \((last.detail as NSString).lastPathComponent)")
+        // A file by its name; a command or a task as it reads (`swift build`, not its last path's "am").
+        let what = [.read, .edit].contains(last.kind) ? (last.detail as NSString).lastPathComponent : last.detail
+        return String(localized: "Now: \(title) \(what)")
     }
 
     /// The symbol that stands for a kind of place outside the project.
@@ -54,7 +56,7 @@ final class PlaceMark: NSView {
         switch kind {
         case .edit:
             NSColor.agentEditMark.setFill()
-            NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS / 2, yRadius: Metrics.radiusXS / 2).fill()
+            NSBezierPath(roundedRect: box, xRadius: Metrics.markRadius, yRadius: Metrics.markRadius).fill()
         case .read:
             let ring = NSBezierPath(ovalIn: box.insetBy(dx: Metrics.lineGap / 2, dy: Metrics.lineGap / 2))
             ring.lineWidth = Metrics.stroke

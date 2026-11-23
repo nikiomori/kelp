@@ -196,6 +196,7 @@ final class WorkPanel: NSViewController {
         guard isViewLoaded else { return }
         let work = model.work
         fillTurns(work)
+        if model.session == nil || model.error != nil && work == nil { loading.show(nil) }
         if model.session == nil {
             return showEmpty(
                 String(localized: "No Agent"), text: String(localized: "Open an agent's chat to see where it worked."))
@@ -221,9 +222,9 @@ final class WorkPanel: NSViewController {
         empty.show(nil)
         controlRows.forEach { $0.isHidden = false }
         agents.show(AgentPicker.entries(work, names: model.agentNames), picked: model.picked)
-        let working = model.session.flatMap(app.session)?.status == .working
         summary.stringValue =
-            WorkSummary.now(work, working: working, names: model.agentNames) ?? WorkSummary.line(work, turn: work.turn)
+            WorkSummary.now(work, working: work.now != nil, names: model.agentNames)
+            ?? WorkSummary.line(work, turn: work.turn)
         let tree = WorkTree.project(work, rootName: model.projectName, agents: model.agents)
         // A folder alone under the root ("Kelp" over "Sources") says nothing as a row of its own: start below it.
         var shownRoot = tree.node(at: zoom) ?? tree

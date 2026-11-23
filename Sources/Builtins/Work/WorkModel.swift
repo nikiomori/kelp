@@ -245,6 +245,8 @@ final class WorkChoices {
             return answer
         }
         reads[ask.id] = (key, task)
+        // Only the sessions on screen need theirs: past a few, the others go.
+        if reads.count > 8 { reads = reads.filter { $0.key == ask.id } }
         return task
     }
 }

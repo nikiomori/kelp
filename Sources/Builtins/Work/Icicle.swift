@@ -132,7 +132,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             if block.path == selected, block.path != nil { ring(rect, .keyboardFocusIndicatorColor) }
             // Where the agent is now: a dot at the end of the deepest block it is in, not a second ring.
             if block == nowBlock {
-                let r = Metrics.lineGap * 1.5
+                let r = Metrics.dotRadius
                 NSColor.labelColor.setFill()
                 NSBezierPath(
                     ovalIn: NSRect(
@@ -177,7 +177,7 @@ final class IcicleView: NSView, NSViewToolTipOwner {
         let path = NSBezierPath(
             roundedRect: rect.insetBy(dx: Metrics.lineGap / 2, dy: Metrics.lineGap / 2),
             xRadius: Metrics.radiusXS - Metrics.lineGap / 2, yRadius: Metrics.radiusXS - Metrics.lineGap / 2)
-        path.lineWidth = Metrics.lineGap
+        path.lineWidth = Metrics.strokeBold
         color.setStroke()
         path.stroke()
     }
@@ -194,7 +194,8 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             let parent = blocks.first {
                 $0.depth == hit.depth - 1 && $0.rect.minX <= hit.rect.minX && $0.rect.maxX >= hit.rect.maxX
             }
-            return parent?.path.map { onZoom($0) } ?? ()
+            // In the top row their parent is the root shown: picking it lists them all below.
+            return parent?.path.map { onZoom($0) } ?? onSelect(root.path)
         }
         if event.clickCount == 2 {
             if root.node(at: path)?.isFile == true { onOpen(path) } else { onZoom(path) }
@@ -220,8 +221,12 @@ final class IcicleView: NSView, NSViewToolTipOwner {
                 $0.depth == current.depth - 1 && $0.rect.minX <= current.rect.midX && $0.rect.maxX >= current.rect.midX
             }?.path.map(onSelect)
         case .downArrow?:
-            blocks.first { $0.depth == current.depth + 1 && $0.rect.minX >= current.rect.minX - 0.5 && $0.path != nil }?
-                .path.map(onSelect)
+            // Its first child: under it, not the next block's.
+            blocks.first {
+                $0.depth == current.depth + 1 && $0.path != nil
+                    && $0.rect.minX >= current.rect.minX - Metrics.lineGap / 4
+                    && $0.rect.minX < current.rect.maxX
+            }?.path.map(onSelect)
         case .carriageReturn?, .enter?:
             guard let path = current.path else { return }
             if root.node(at: path)?.isFile == true { onOpen(path) } else { onZoom(path) }

@@ -1,4 +1,5 @@
 import Core
+import DesignKit
 import Foundation
 import Testing
 
@@ -165,7 +166,7 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     card.loadView()
     let width = card.view.fittingSize.width
     #expect(width > 150)
-    #expect(width <= 300)
+    #expect(width <= Metrics.cardWidth)
 }
 
 /// The picker lists a kind of subagent once, and names a pick by who it is, so a subagent that appears later (its file

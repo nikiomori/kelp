@@ -95,7 +95,7 @@ final class WorkCard: NSViewController {
         // As wide as its longest line, up to the card's width; a longer line is cut inside the margins, never past
         // them.
         let natural = lines.map(\.fittingSize.width).max() ?? 0
-        let width = min(natural + 2 * Metrics.inset, Metrics.sheetWidth * 5 / 8)
+        let width = min(natural + 2 * Metrics.inset, Metrics.cardWidth)
         column.widthAnchor.constraint(equalToConstant: width).isActive = true
         for case let field as NSTextField in lines + lines.flatMap(\.subviews) {
             field.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)

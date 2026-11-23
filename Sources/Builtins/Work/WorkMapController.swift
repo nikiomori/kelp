@@ -113,6 +113,7 @@ final class WorkMapController: NSViewController {
         let work = model.work
         fillTurns(work)
         if let error = model.error, work == nil {
+            loading.show(nil)
             empty.showError(String(localized: "Couldn’t read where the agent worked"), text: error)
             scroll.isHidden = true
             return
@@ -142,8 +143,8 @@ final class WorkMapController: NSViewController {
         tree.agents = work.agents
         tree.icons = model.icons(size: Metrics.iconSmall)
         tree.agentIcon = app.session(session).flatMap { app.catalog.icon($0.agent, size: Metrics.iconMenu) }
-        let working = app.session(session)?.status == .working
-        now.stringValue = WorkSummary.now(work, working: working, names: names) ?? ""
+        // Where it is now, as the answer says: none for an earlier turn while it works on.
+        now.stringValue = WorkSummary.now(work, working: work.now != nil, names: names) ?? ""
         let nodes = NodeTree.nodes(project: project, outside: outside, opened: opened)
         tree.nodes = nodes
         tree.now = work.now.flatMap { work.places.indices.contains($0) ? work.places[$0] : nil }.flatMap { place in
