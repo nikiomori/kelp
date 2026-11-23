@@ -1,4 +1,4 @@
-// The start view's parts: its boxes, cards, rows and the Run group.
+// The start view's parts: its boxes, cards, rows, the Run group, and what to install when no agent is found.
 import Agents
 import AppKit
 import Core
@@ -258,5 +258,39 @@ extension NSMenu {
         menu.addItem(.separator())
         menu.add(String(localized: "Agent Catalog…"), catalog).show(.symbol("square.grid.2x2"))
         return menu
+    }
+}
+
+extension StartView {
+    /// The rows the start view shows when no agent is on this Mac, or on the remote project's host: what to install,
+    /// then the catalog.
+    static func installRows(_ app: AppModel, host: String?, onInstall: @escaping (AgentManifest) -> Void) -> [NSView] {
+        let none = NSTextField(
+            wrappingLabelWithString: host.map {
+                String(
+                    localized:
+                        "No agent found on \($0). Install one: its installer runs in a terminal there, and the agent is offered when it’s done."
+                )
+            }
+                ?? String(
+                    localized:
+                        "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."
+                ))
+        none.textColor = .secondaryLabelColor
+        var rows: [NSView] = [StartView.padded(none)]
+        rows += app.catalog.suggested.map { agent in
+            StartRow(
+                image: app.catalog.icon(agent.id, size: 20), title: agent.name, detail: app.catalog.about(agent.id),
+                shortcut: nil
+            ) {
+                onInstall(agent)
+            }
+        }
+        // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
+        rows.append(
+            StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
+                SettingsWindow.show(app, section: "catalog")
+            })
+        return rows
     }
 }

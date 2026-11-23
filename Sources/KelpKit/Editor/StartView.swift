@@ -278,36 +278,8 @@ final class StartView: NSView {
     }
     private static let perRow = 4
 
-    /// The rows shown when no agent is on this Mac, or on the remote project's host: what to install, then the catalog.
     private func installRows() -> [NSView] {
-        let app = self.app
-        let none = NSTextField(
-            wrappingLabelWithString: host.map {
-                String(
-                    localized:
-                        "No agent found on \($0). Install one: its installer runs in a terminal there, and the agent is offered when it’s done."
-                )
-            }
-                ?? String(
-                    localized:
-                        "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."
-                ))
-        none.textColor = .secondaryLabelColor
-        var rows: [NSView] = [StartView.padded(none)]
-        rows += app.catalog.suggested.map { agent in
-            StartRow(
-                image: app.catalog.icon(agent.id, size: 20), title: agent.name, detail: app.catalog.about(agent.id),
-                shortcut: nil
-            ) { [weak self] in
-                self?.onInstall?(agent)
-            }
-        }
-        // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
-        rows.append(
-            StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
-                SettingsWindow.show(app, section: "catalog")
-            })
-        return rows
+        Self.installRows(app, host: host) { [weak self] in self?.onInstall?($0) }
     }
 
     /// Sets up the plan warning and keeps the plans current as the limits change. `under` is the view the warning sits
