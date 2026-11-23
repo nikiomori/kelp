@@ -31,6 +31,11 @@ extension Builtins {
             CommandSpec(
                 id: "artifacts.exportVideo", title: "Export Video…", menu: "File", enabled: { motion() != nil }
             ) { _ in motion()?.motionStudio.openExport() },
+            CommandSpec(
+                id: "artifacts.export", title: "Export Page…", menu: "File", enabled: { artifactPage(app) != nil }
+            ) {
+                args in exportPage(app, args)
+            },
             element("artifacts.duplicateElement", "Duplicate Element", "Edit") { tab, board, id in
                 tab.duplicateElement(board, id)
             },

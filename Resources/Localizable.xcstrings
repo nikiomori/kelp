@@ -32119,6 +32119,96 @@
           }
         }
       }
+    },
+    "Boards as PNG…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доски как PNG…"
+          }
+        }
+      }
+    },
+    "Slides as PDF…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды как PDF…"
+          }
+        }
+      }
+    },
+    "Slides as PowerPoint…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды как PowerPoint…"
+          }
+        }
+      }
+    },
+    "Page as One HTML…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница одним HTML…"
+          }
+        }
+      }
+    },
+    "Folder as ZIP…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка ZIP…"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить"
+          }
+        }
+      }
+    },
+    "Export Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выгрузить сюда"
+          }
+        }
+      }
+    },
+    "Couldn’t export: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выгрузить: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t open the page to export it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть страницу для выгрузки."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

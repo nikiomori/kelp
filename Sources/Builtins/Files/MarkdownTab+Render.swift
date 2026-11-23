@@ -157,7 +157,8 @@ extension MarkdownTab {
                 : kind == .slides ? "kelpGo(\(slide))" : "window.scrollTo(0, \(scrollY))"
             // A canvas is Kelp's own page, so its scripts run; its boards sit in frames sandboxed without scripts
             // (`CanvasPage`).
-            if kind == .slides { Presenter.pages.setObject(.init((html, base, scripts + [place])), forKey: self) }
+            Self.loaded.setObject(.init((html, base, scripts + [place])), forKey: self)
+            Builtins.pageDrawn(self)
             links.load(
                 html, baseURL: base, scripts: scripts + [place], world: Self.world,
                 pageScripts: kind == .canvas || kind == .motion,

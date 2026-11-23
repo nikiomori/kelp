@@ -382,13 +382,12 @@ final class ArtifactBar: NSObject {
             menu.addItem(.separator())
         }
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
+        exportItems(menu)
         menu.addItem(.separator())
         menu.add(String(localized: "Show in Finder")) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
-        menu.add(String(localized: "Copy Path")) {
-            copyText(Artifacts.projectPath(path))
-        }
+        menu.add(String(localized: "Copy Path")) { copyText(Artifacts.projectPath(path)) }
         if let id = item?.session, app.session(id)?.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
         }

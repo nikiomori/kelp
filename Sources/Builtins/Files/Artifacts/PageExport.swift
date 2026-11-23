@@ -1,0 +1,304 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+import PDFKit
+import UniformTypeIdentifiers
+import WebKit
+import WorkbenchKit
+
+/// What an agent's page is exported as (⋯ in its bar, the Export command, and `kelp artifact export`): a design's
+/// boards as PNG files, slides as a PDF or as a PowerPoint of one picture a slide, the page as one HTML file that
+/// holds its pictures, or its folder as a ZIP.
+enum PageExport: String, CaseIterable {
+    case png, pdf, pptx, html, zip
+
+    var title: String {
+        switch self {
+        case .png: String(localized: "Boards as PNG…")
+        case .pdf: String(localized: "Slides as PDF…")
+        case .pptx: String(localized: "Slides as PowerPoint…")
+        case .html: String(localized: "Page as One HTML…")
+        case .zip: String(localized: "Folder as ZIP…")
+        }
+    }
+
+    /// The exports a page of kind `page` has.
+    static func formats(for page: MarkdownTab.Page) -> [PageExport] {
+        switch page {
+        case .canvas: [.png, .html, .zip]
+        case .slides: [.pdf, .pptx, .html, .zip]
+        default: [.html, .zip]
+        }
+    }
+
+    /// The file it is saved as; boards go into a folder.
+    var type: UTType? {
+        switch self {
+        case .png: nil
+        case .pdf: .pdf
+        case .pptx: UTType(filenameExtension: "pptx")
+        case .html: .html
+        case .zip: .zip
+        }
+    }
+}
+
+extension ArtifactBar {
+    /// ⋯'s Export section, for this page's kind.
+    func exportItems(_ menu: NSMenu) {
+        menu.addItem(.sectionHeader(title: String(localized: "Export")))
+        for format in PageExport.formats(for: markdown.page) {
+            menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
+        }
+    }
+}
+
+extension MarkdownTab {
+    /// The page each tab loaded last and its scripts: for the slides' presenter windows and the one-file export.
+    final class LoadedPage {
+        let page: (html: String, baseURL: URL?, scripts: [String])
+        init(_ page: (html: String, baseURL: URL?, scripts: [String])) { self.page = page }
+    }
+    static let loaded = NSMapTable<MarkdownTab, LoadedPage>.weakToStrongObjects()
+
+    /// Asks where, then exports the page as `format`.
+    func chooseExport(_ format: PageExport) {
+        let name = url.deletingLastPathComponent().lastPathComponent
+        Task {
+            let to: URL
+            if let type = format.type {
+                let panel = NSSavePanel()
+                panel.allowedContentTypes = [type]
+                panel.nameFieldStringValue = name + "." + (type.preferredFilenameExtension ?? format.rawValue)
+                guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
+                to = chosen
+            } else {
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = false
+                panel.canCreateDirectories = true
+                panel.prompt = String(localized: "Export Here")
+                guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
+                to = chosen
+            }
+            await export(format, to: to)
+        }
+    }
+
+    /// Exports the page as `format` into `to`, and shows it in Finder; a failure is a banner.
+    func export(_ format: PageExport, to: URL) async {
+        do {
+            switch format {
+            case .png: try await exportBoards(into: to)
+            case .pdf: try await exportSlidesPDF(to)
+            case .pptx: try await exportSlidesPowerPoint(to)
+            case .html: try await exportHTML(to)
+            case .zip: try await zip(url.deletingLastPathComponent(), to: to, keepFolder: true)
+            }
+            NSWorkspace.shared.activateFileViewerSelecting([to])
+        } catch {
+            Banner.show(String(localized: "Couldn’t export: \(error.localizedDescription)"), style: .error)
+        }
+    }
+
+    /// Each board of the canvas, at its own size, as `<board>.png` in `folder`.
+    private func exportBoards(into folder: URL) async throws {
+        struct Canvas: Decodable {
+            struct Board: Decodable { var file: String, w: Double, h: Double }
+            var boards: [Board]
+        }
+        let canvas = try JSONDecoder().decode(Canvas.self, from: Data(editor.text.utf8))
+        for board in canvas.boards {
+            let file = url.deletingLastPathComponent().appendingPathComponent(board.file)
+            let png = try await Self.picture(of: file, size: NSSize(width: board.w, height: board.h))
+            let name = (board.file as NSString).lastPathComponent
+            try png.write(to: folder.appendingPathComponent((name as NSString).deletingPathExtension + ".png"))
+        }
+    }
+
+    /// A page file drawn at `size` without its scripts (as the canvas shows a board), as PNG at twice the size.
+    static func picture(of file: URL, size: NSSize) async throws -> Data {
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
+        let web = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: config)
+        let loaded = PageLoaded()
+        web.navigationDelegate = loaded
+        web.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent().deletingLastPathComponent())
+        await loaded.wait()
+        let shot = WKSnapshotConfiguration()
+        shot.snapshotWidth = NSNumber(value: size.width)
+        let image = try await web.takeSnapshot(configuration: shot)
+        guard let png = Self.png(image, width: Int(size.width) * 2, height: Int(size.height) * 2) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return png
+    }
+
+    static func png(_ image: NSImage, width: Int, height: Int) -> Data? {
+        guard
+            let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+        else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(in: NSRect(x: 0, y: 0, width: width, height: height))
+        NSGraphicsContext.restoreGraphicsState()
+        return rep.representation(using: .png, properties: [:])
+    }
+
+    /// Where each slide is in the page, shown in turn: `run` gets its number and its box, and the page goes back to
+    /// the slide it was on.
+    private func eachSlide(_ run: (Int, CGRect) async throws -> Void) async throws {
+        // A page just opened lays its slides out once it has loaded: wait for that, five seconds at most.
+        let count = try await web.callAsyncJavaScript(
+            "for (let i = 0; i < 100 && !window.kelpSlides; i++) await new Promise(r => setTimeout(r, 50));"
+                + "return window.kelpSlides?.length ?? 0", contentWorld: Self.world)
+        let was = try await web.evaluateJavaScript("window.kelpAt ?? 0", contentWorld: Self.world) as? Int ?? 0
+        defer { runJS("kelpGo(\(was))") }
+        for i in 0..<((count as? Int) ?? 0) {
+            let box = try await web.callAsyncJavaScript(
+                """
+                kelpGo(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                const b = kelpSlides[i].getBoundingClientRect(); return [b.x, b.y, b.width, b.height]
+                """, arguments: ["i": i], contentWorld: Self.world)
+            guard let b = box as? [Double], b.count == 4 else { continue }
+            try await run(i, CGRect(x: b[0], y: b[1], width: b[2], height: b[3]))
+        }
+    }
+
+    /// The slides as a PDF, a page a slide, their words still words.
+    private func exportSlidesPDF(_ to: URL) async throws {
+        let document = PDFDocument()
+        try await eachSlide { _, box in
+            let config = WKPDFConfiguration()
+            config.rect = box
+            let data = try await web.pdf(configuration: config)
+            if let page = PDFDocument(data: data)?.page(at: 0) { document.insert(page, at: document.pageCount) }
+        }
+        guard document.write(to: to) else { throw CocoaError(.fileWriteUnknown) }
+    }
+
+    /// The slides as a PowerPoint of one picture a slide, 1920 wide.
+    private func exportSlidesPowerPoint(_ to: URL) async throws {
+        var slides: [Data] = []
+        try await eachSlide { _, box in
+            let shot = WKSnapshotConfiguration()
+            shot.rect = box
+            shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
+            let image = try await web.takeSnapshot(configuration: shot)
+            if let png = Self.png(image, width: 1920, height: 1080) { slides.append(png) }
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try PowerPoint.write(slides, into: folder)
+        try await zip(folder, to: to, keepFolder: false)
+        do { try FileManager.default.removeItem(at: folder) } catch { return }   // temporary: the system clears it
+    }
+
+    /// The page as one file: its pictures and styles from its folder put inside it; slides keep their own script.
+    private func exportHTML(_ to: URL) async throws {
+        guard let page = Self.loaded.object(forKey: self)?.page else { throw CocoaError(.fileReadUnknown) }
+        var html = PageInline.inline(page.html, folder: url.deletingLastPathComponent())
+        if self.page == .slides {
+            let shim = "window.webkit = window.webkit || { messageHandlers: {} };"
+            html += "<script>\(shim)\(SlidesPage.script(labels: slidesLabels))</script>"
+        }
+        try html.write(to: to, atomically: true, encoding: .utf8)
+    }
+
+    /// `folder` as a ZIP at `to`: with the folder itself in it, or (a PowerPoint) only what it holds.
+    private func zip(_ folder: URL, to: URL, keepFolder: Bool) async throws {
+        do { try FileManager.default.removeItem(at: to) } catch CocoaError.fileNoSuchFile {}   // ditto won't replace
+        let argv =
+            ["/usr/bin/ditto", "-c", "-k", "--norsrc"] + (keepFolder ? ["--keepParent"] : []) + [folder.path, to.path]
+        let done = await Shell.exec(app, argv)
+        guard done.code == 0 else { throw RPCError.internalError(done.stderr) }
+    }
+}
+
+/// Waits for a web view's page to finish loading (or fail).
+@MainActor
+final class PageLoaded: NSObject, WKNavigationDelegate {
+    private var waiting: CheckedContinuation<Void, Never>?
+    private var done = false
+    func wait() async {
+        if done { return }
+        await withCheckedContinuation { waiting = $0 }
+    }
+    private func finish() {
+        done = true
+        waiting?.resume()
+        waiting = nil
+    }
+    nonisolated func webView(_: WKWebView, didFinish _: WKNavigation!) {
+        MainActor.assumeIsolated { finish() }   // WebKit calls its delegate on the main thread
+    }
+    nonisolated func webView(_: WKWebView, didFail _: WKNavigation!, withError _: any Error) {
+        MainActor.assumeIsolated { finish() }   // WebKit calls its delegate on the main thread
+    }
+}
+
+extension Builtins {
+    /// The agent's page in the focused tab, else nil.
+    static func artifactPage(_ app: AppModel) -> MarkdownTab? {
+        (app.workbench.focusedContent as? FileTab)?.markdown.flatMap { $0.artifactBar == nil ? nil : $0 }
+    }
+
+    /// Export Page…: with `path`, `format` and `to` (`kelp artifact export`), that page is opened beside if it isn't,
+    /// and written there; with none, the focused page's exports are offered.
+    static func exportPage(_ app: AppModel, _ args: [String: JSONValue]) {
+        guard let path = args["path"]?.string, let format = args["format"]?.string.flatMap(PageExport.init(rawValue:)),
+            let to = args["to"]?.string
+        else {
+            guard let tab = artifactPage(app) else { return NSSound.beep() }
+            let menu = NSMenu()
+            for format in PageExport.formats(for: tab.page) { menu.add(format.title) { tab.chooseExport(format) } }
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+            return
+        }
+        Task {
+            if loadedTab(path) == nil { app.workbench.open(TabURI.file(path)) }
+            let found: MarkdownTab?
+            if let open = loadedTab(path) {
+                found = open
+            } else {
+                found = await withCheckedContinuation { go in
+                    waiting.append((path, go))
+                    // A page that never draws (no window to open it in) gives up once, after 15 seconds.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 15) { pageDrawn(nil, path: path) }
+                }
+            }
+            guard let tab = found else {
+                return Banner.show(String(localized: "Couldn’t open the page to export it."), style: .error)
+            }
+            if format == .png {
+                do { try FileManager.default.createDirectory(atPath: to, withIntermediateDirectories: true) } catch {
+                    return Banner.show(error.localizedDescription, style: .error)
+                }
+            }
+            await tab.export(format, to: URL(fileURLWithPath: to))
+        }
+    }
+
+    /// Exports waiting for their page's tab to draw it (`pageDrawn`).
+    private static var waiting: [(path: String, go: CheckedContinuation<MarkdownTab?, Never>)] = []
+
+    /// `tab` drew the page at `path` (its own when nil), or gave up on it (nil): an export waiting for it goes on.
+    static func pageDrawn(_ tab: MarkdownTab?, path: String? = nil) {
+        let real = { (p: String) in URL(fileURLWithPath: p).resolvingSymlinksInPath().path }
+        guard let page = path ?? tab?.url.path else { return }
+        for (i, wait) in waiting.enumerated().reversed() where real(wait.path) == real(page) {
+            waiting.remove(at: i)
+            wait.go.resume(returning: tab)
+        }
+    }
+
+    /// The open tab showing the page at `path`, once it has drawn it.
+    private static func loadedTab(_ path: String) -> MarkdownTab? {
+        let real = { (p: String) in URL(fileURLWithPath: p).resolvingSymlinksInPath().path }   // /tmp is /private/tmp
+        return MarkdownTab.loaded.keyEnumerator().allObjects.compactMap { $0 as? MarkdownTab }.first {
+            real($0.url.path) == real(path)
+        }
+    }
+}

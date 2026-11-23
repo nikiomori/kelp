@@ -2,8 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add|marks|reply` handles pages agents make for the user, kept in the project's
-    /// `.kelp/artifacts`.
+    /// `artifact guide|new|list|open|add|marks|reply|export` handles pages agents make for the user, kept in the
+    /// project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -101,6 +101,7 @@ extension Main {
                 fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]")
             }
             _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
+        case "export": try await exportPage(cwd, c)
         default: print(usage)
         }
     }
@@ -118,6 +119,24 @@ extension Main {
     }
 
     /// Returns the file of the page named `name` in the project at `root`, or ends with `usage`.
+    /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
+    /// `kelp shot` does.
+    static func exportPage(_ cwd: String, _ c: RPCClient) async throws {
+        let formats = ["png", "pdf", "pptx", "html", "zip"]
+        let usage = "artifact export <name> <\(formats.joined(separator: "|"))> [to]"
+        guard args.count >= 2, formats.contains(args[1]) else { fail(usage) }
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let to = URL(
+            fileURLWithPath: args.count > 2 ? args[2] : args[0] + (args[1] == "png" ? "-boards" : "." + args[1]),
+            relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)
+        ).standardizedFileURL.path
+        _ = try await c.call(
+            UICommand(
+                id: "artifacts.export",
+                args: .object(["path": .string(target), "format": .string(args[1]), "to": .string(to)])))
+        print("Exporting to \(to): the app writes it (a folder of boards for png).")
+    }
+
     static func page(_ name: String?, root: String, usage: String) async throws -> (String, ArtifactRecord) {
         guard let name, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
             artifact.record.file != nil

@@ -124,7 +124,7 @@ public struct UICommand: InternalMethod {
     /// `scripts.openPage` of ⇧⌘O isn't listed), because that tab is logged in as the user and `kelp shot` can see it.
     /// An agent's page comes from `kelp browser open`, with cookies of its own.
     public static let forAgents: Set<String> = [
-        "agents.history", "agents.nextNeedingYou", "agents.sideBySide", "agents.usage",
+        "agents.history", "agents.nextNeedingYou", "artifacts.export", "agents.sideBySide", "agents.usage",
         "editor.findReferences", "editor.fold", "editor.foldAll", "editor.goToLine", "editor.jumpToDefinition",
         "editor.nextProblem", "editor.nextTab", "editor.previousProblem", "editor.previousTab", "editor.showHover",
         "editor.unfold", "editor.unfoldAll",

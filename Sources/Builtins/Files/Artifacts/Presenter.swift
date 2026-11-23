@@ -10,20 +10,16 @@ import WebKit
 @MainActor
 final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     private static var open: [ObjectIdentifier: Presenter] = [:]
-    /// The page each slides tab loaded last and its scripts, for these windows to load again.
     typealias Page = (html: String, baseURL: URL?, scripts: [String])
-    final class Loaded {
-        let page: Page
-        init(_ page: Page) { self.page = page }
-    }
-    static let pages = NSMapTable<MarkdownTab, Loaded>.weakToStrongObjects()
     private weak var tab: MarkdownTab?
     private var windows: [NSWindow] = []
     private var views: [WKWebView] = []
 
     /// Starts presenting the slides in `tab` with the speaker's window.
     static func start(for tab: MarkdownTab) {
-        guard let last = pages.object(forKey: tab)?.page, open[ObjectIdentifier(tab)] == nil else { return }
+        guard let last = MarkdownTab.loaded.object(forKey: tab)?.page, open[ObjectIdentifier(tab)] == nil else {
+            return
+        }
         let presenter = Presenter()
         presenter.tab = tab
         open[ObjectIdentifier(tab)] = presenter
