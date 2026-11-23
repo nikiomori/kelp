@@ -270,7 +270,7 @@ enum CanvasEditMode {
               r.append(give);
               return [...out, K.el('p', 'kelp-note', L.noID), r];
             }
-            const text = !e.children.length && e.textContent.trim();
+            const text = window.kelpProps.isText?.(e);
             if (text) out.push(section(L.text, ['size', 'weight', 'colour'].map(popup)));
             const layout = ['padding', 'gap'].filter(key => (T[P[key].group] || []).length);
             if (layout.length) out.push(section(L.layout, layout.map(popup)));
@@ -283,40 +283,8 @@ enum CanvasEditMode {
           });
           K.sheet.addEventListener('dblclick', ev => {
             const hit = K.mode() === 'edit' && K.under(ev, true);
-            if (hit && !hit.e.children.length && hit.e.textContent.trim()) typeOver(hit);
+            if (hit && window.kelpProps.isText?.(hit.e)) window.kelpTypeOver?.(hit);
           });
-          // A field of the page's own over the element: the board's frame runs no script, so typing in it is unheard.
-          function typeOver(hit) {
-            const e = hit.e, look = css(e), b = K.box(hit.f, e);
-            const k = b.w / (e.getBoundingClientRect().width || 1), old = e.textContent.trim();
-            const input = K.el('textarea', 'kelp-type');
-            input.value = old;
-            Object.assign(input.style, {
-              left: b.x + 'px', top: b.y + 'px', width: Math.max(b.w, 60) + 'px', height: Math.max(b.h, 20) + 'px',
-              fontFamily: look.fontFamily, fontWeight: look.fontWeight, fontSize: parseFloat(look.fontSize) * k + 'px',
-              lineHeight: (parseFloat(look.lineHeight) || parseFloat(look.fontSize) * 1.3) * k + 'px',
-              color: look.color, textAlign: look.textAlign, letterSpacing: look.letterSpacing
-            });
-            document.body.append(input);
-            e.style.visibility = 'hidden';
-            input.focus();
-            input.select();
-            const done = keep => {
-              if (!input.isConnected) return;
-              input.remove();
-              e.style.visibility = '';
-              if (keep && input.value.trim() && input.value !== old) {
-                e.textContent = input.value;
-                K.post({ kind: 'text', board: hit.f.dataset.board, id: idOf(e), old, text: input.value });
-              }
-              outline();
-            };
-            input.addEventListener('keydown', ev => {
-              if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); done(true); }
-              if (ev.key === 'Escape') { ev.preventDefault(); done(false); }
-            });
-            input.addEventListener('blur', () => done(true));
-          }
         """
 
     /// The CSS for the chosen element's outline and name tag, the inspector's rows, and the field the user types over
@@ -370,6 +338,7 @@ enum CanvasEditMode {
           margin-top: -5px;
           border-radius: 50%; background: #e5e5e7; box-shadow: 0 1px 2px rgba(0,0,0,.45); }
         .kelp-type { position: absolute; z-index: 26; margin: 0; padding: 0; border: 0; resize: none;
+          white-space: pre-wrap;
           overflow: hidden; background: rgba(0,122,255,.08); outline: 2px solid var(--k-accent); border-radius: 2px; }
         """
 }

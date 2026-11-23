@@ -66,6 +66,14 @@ extension MarkdownTab {
             {
                 BoardEdit.setText($0, id: id, old: old, new: text)
             }
+        case "html":
+            guard let board = body["board"] as? String, let id = body["id"] as? String,
+                let html = body["html"] as? String, let text = body["text"] as? String
+            else { return true }
+            let old = body["old"] as? String
+            rewrite(board, edit: { _ in HandEdit(board: board, id: id, what: "text", from: old, to: text) }) {
+                BoardEdit.setInner($0, id: id, html: html)
+            }
         case "style":
             guard let board = body["board"] as? String, let id = body["id"] as? String,
                 let property = body["property"] as? String

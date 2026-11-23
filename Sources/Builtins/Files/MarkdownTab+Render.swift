@@ -96,7 +96,7 @@ extension MarkdownTab {
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                     let handles =
                         CanvasHandles.source(animated: animatedNote) + CanvasEditBar.source
-                        + CanvasCrop.source(labels: cropLabels)
+                        + CanvasCrop.source(labels: cropLabels) + CanvasTypeOver.source
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,

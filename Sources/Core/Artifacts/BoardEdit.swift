@@ -141,6 +141,23 @@ public enum BoardEdit {
         elementRange(source, id: id).map { String(source[$0]) }
     }
 
+    /// Puts `html` inside element `id`, in place of what it holds: words styled by hand. Only spans, b, i, u, strong,
+    /// em and br are taken, with a style at most; anything else (a script, a handler) and nil.
+    public static func setInner(_ source: String, id: String, html: String) -> String? {
+        let tags = html.matches(of: /<\/?([a-zA-Z]+)([^>]*)>/)
+        let fine = tags.allSatisfy { tag in
+            ["span", "b", "i", "u", "strong", "em", "br"].contains(tag.output.1.lowercased())
+                && (tag.output.2.trimmingCharacters(in: .whitespaces).isEmpty
+                    || tag.output.2.wholeMatch(of: /\s+style="[^"<>]*"\s*/) != nil)
+        }
+        guard fine, let whole = elementRange(source, id: id), let open = openingTag(source, id: id),
+            let close = source[whole].lastIndex(of: "<"), close >= open.upperBound
+        else { return nil }
+        var out = source
+        out.replaceSubrange(open.upperBound..<close, with: html)
+        return out
+    }
+
     /// Takes element `id` out, with the line it stood on when it stood alone there.
     public static func remove(_ source: String, id: String) -> String? {
         guard var range = elementRange(source, id: id) else { return nil }

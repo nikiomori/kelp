@@ -81,3 +81,13 @@ private let board = """
     #expect(BoardEdit.appendToBody("<body><p>a</p></body>", "<img>") == "<body><p>a</p><img>\n</body>")
     #expect(BoardEdit.appendToBody("<p>a</p>", "<img>") == "<p>a</p><img>\n")
 }
+
+/// Words styled by hand go inside their element; only spans, b, i, u, strong, em and br with a style are taken.
+@Test func styledWordsGoInsideTheirElement() {
+    let page = #"<h1 data-id="t" class="big">Каждый день</h1>"#
+    let html = #"<span style="color: var(--accent)">Каждый</span> <b>день</b>"#
+    #expect(BoardEdit.setInner(page, id: "t", html: html) == #"<h1 data-id="t" class="big">"# + html + "</h1>")
+    #expect(BoardEdit.setInner(page, id: "t", html: "<script>x()</script>") == nil)
+    #expect(BoardEdit.setInner(page, id: "t", html: #"<span onclick="x()">a</span>"#) == nil)
+    #expect(BoardEdit.setInner(page, id: "none", html: "a") == nil)
+}
