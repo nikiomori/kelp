@@ -16,7 +16,7 @@ final class AgentPicker: NSView {
     /// At the room's trailing edge (the panel's row) or its leading one (the Map tab's bar).
     var trailing = true
     private var entries: [Entry] = []
-    private var segments = CapsuleSegments(labels: [])
+    private var segments = CapsuleSegments(labels: [], name: String(localized: "Agents"))
     private let popup = NSPopUpButton()
 
     override init(frame: NSRect) {
@@ -63,7 +63,8 @@ final class AgentPicker: NSView {
         if entries.map(\.label) != self.entries.map(\.label) || entries.map(\.key) != self.entries.map(\.key) {
             let labels = [String(localized: "All")] + entries.map(\.label)
             segments.removeFromSuperview()
-            segments = CapsuleSegments(labels: labels, target: self, action: #selector(picked(_:)))
+            segments = CapsuleSegments(
+                labels: labels, name: String(localized: "Agents"), target: self, action: #selector(picked(_:)))
             segments.controlSize = .small
             addSubview(segments)
             popup.removeAllItems()

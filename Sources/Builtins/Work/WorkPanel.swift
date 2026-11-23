@@ -20,7 +20,9 @@ final class WorkPanel: NSViewController {
         action: #selector(openAsTab))
     private let summary = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private lazy var views = CapsuleSegments(
-        labels: [String(localized: "Steps"), String(localized: "Places")], target: self, action: #selector(switchView))
+        labels: [String(localized: "Steps"), String(localized: "Places")], name: String(localized: "View"),
+        target: self,
+        action: #selector(switchView))
     private let agents = AgentPicker()
     let icicle = IcicleView()
     let chips = OutsideChips()
