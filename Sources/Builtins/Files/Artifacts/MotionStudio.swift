@@ -110,6 +110,8 @@ final class MotionStudio {
     /// How the last video was made, offered again.
     private var exportOptions = MotionExport()
     private var exportPopover: MotionExportPopover?
+    /// The videos made from this page, newest first (`MotionExports`).
+    var exports: [MotionExports.Item] = []
     private let act: (String) -> Void
     var onExport: ((MotionExport) -> Void)?
     /// A clip moved or trimmed on the timeline: as it was, as it is now, and its lane (0 for the scenes).
@@ -225,7 +227,7 @@ final class MotionStudio {
     func openExport() { chooseExport() }
 
     private func chooseExport() {
-        let popover = MotionExportPopover(exportOptions, stage: stage) { [weak self] options in
+        let popover = MotionExportPopover(exportOptions, stage: stage, recent: exports) { [weak self] options in
             guard let self else { return }
             exportOptions = options
             fps = options.rate

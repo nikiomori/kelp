@@ -217,7 +217,15 @@ enum MotionPage {
               await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
               return t;
             },
-            done() { document.body.classList.remove('kelp-rec'); }
+            done() { document.body.classList.remove('kelp-rec'); this.matte(null); },
+            // The page's background as `colour` for a transparent video's two pictures of a frame (null: its own).
+            matte(colour) {
+              const id = 'kelp-matte', old = doc?.getElementById(id); old?.remove();
+              if (!colour || !doc) return;
+              const s = doc.createElement('style'); s.id = id;
+              s.textContent = 'html, body { background: ' + colour + ' !important; }';
+              doc.head.append(s);
+            }
           };
           addEventListener('keydown', e => {
             const typing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);

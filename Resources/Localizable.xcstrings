@@ -32209,6 +32209,76 @@
           }
         }
       }
+    },
+    "Best": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лучшее"
+          }
+        }
+      }
+    },
+    "Good": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хорошее"
+          }
+        }
+      }
+    },
+    "Small": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленький файл"
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Качество"
+          }
+        }
+      }
+    },
+    "ProRes 4444 · transparent background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ProRes 4444 · прозрачный фон"
+          }
+        }
+      }
+    },
+    "Failed · Details": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вышло · Подробнее"
+          }
+        }
+      }
+    },
+    "Couldn’t make %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сделать %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -215,14 +215,16 @@ extension MarkdownTab {
         panel.nameFieldStringValue =
             url.deletingLastPathComponent().lastPathComponent + "." + (options.type.preferredFilenameExtension ?? "mp4")
         panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let to = panel.url else { return }
-            Task { @MainActor in await self?.record(to: to, options) }
+            guard answer == .OK, let to = panel.url, let self else { return }
+            let item = MotionExports.Item(to)
+            motionStudio.exports.insert(item, at: 0)
+            item.task = Task { @MainActor in await self.record(to: to, options, item) }
         }
     }
 
     /// Records the page from its first frame to its last into `to`, showing how far it got in the bar. The video
     /// opens in a tab when it's done.
-    private func record(to: URL, _ options: MotionExport) async {
+    private func record(to: URL, _ options: MotionExport, _ item: MotionExports.Item) async {
         do {
             guard
                 let length = try await web.evaluateJavaScript("window.kelpMotion?.duration()", contentWorld: Self.world)
@@ -234,20 +236,22 @@ extension MarkdownTab {
             let span = options.onlyRange ? options.range ?? 0...length : 0...length
             let fps = options.rate, frames = Int(((span.upperBound - span.lowerBound) * fps).rounded(.up))
             let (w, h) = (Int(stage[4] * options.scale), Int(stage[5] * options.scale))
-            let movie = options.format == .mp4 ? try MotionMovie(to, width: w, height: h) : nil
+            let movie = options.format == .gif ? nil : try MotionMovie(to, width: w, height: h, options: options)
             let gif = options.format == .gif ? try MotionGIF(to, frames: frames + 1, fps: fps) : nil
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(x: stage[0], y: stage[1], width: stage[2], height: stage[3])
             // The picture is the size asked for in pixels, however small the pane shows the stage.
             config.snapshotWidth = NSNumber(value: Double(w) / Double(view.window?.backingScaleFactor ?? 2))
             for frame in 0...frames {
+                try Task.checkCancellation()
                 motionStudio.exporting(frame, of: frames)
+                item.progress = Double(frame) / Double(max(frames, 1))
                 let at = Double(frame) / fps
                 _ = try await web.callAsyncJavaScript(
                     "return await window.kelpMotion.frameAt(at)", arguments: ["at": span.lowerBound + at],
                     contentWorld: Self.world)
-                let image = try await web.takeSnapshot(configuration: config)
-                guard let picture = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
+                guard let picture = try await framePicture(config, transparent: options.format == .mov, w, h)
+                else { continue }
                 try await movie?.add(picture, at: at)
                 gif?.add(picture)
             }
@@ -255,35 +259,75 @@ extension MarkdownTab {
             try gif?.finish()
             runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: frames)
+            item.progress = nil
             app.workbench.open(TabURI.file(to.path))
         } catch {
             runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: 0)
+            item.progress = nil
+            if error is CancellationError {   // Cancel: the half-made file goes, and so does its row
+                motionStudio.exports.removeAll { $0 === item }
+                do { try FileManager.default.removeItem(at: to) } catch { return }   // none was written yet
+                return
+            }
+            item.failure = error.localizedDescription
             Banner.show(
                 String(localized: "Couldn’t make the video: \(error.localizedDescription)"), style: .error)
         }
     }
+
+    /// The frame shown, as a picture; a transparent video's from two, on black and on white (`MotionExports.matte`).
+    private func framePicture(_ config: WKSnapshotConfiguration, transparent: Bool, _ w: Int, _ h: Int) async throws
+        -> CGImage?
+    {
+        guard transparent else {
+            return try await web.takeSnapshot(configuration: config).cgImage(
+                forProposedRect: nil, context: nil, hints: nil)
+        }
+        var shots: [CGImage] = []
+        for colour in ["#000", "#fff"] {
+            _ = try await web.callAsyncJavaScript(
+                "window.kelpMotion.matte(c);"
+                    + "await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))",
+                arguments: ["c": colour], contentWorld: Self.world)
+            if let shot = try await web.takeSnapshot(configuration: config).cgImage(
+                forProposedRect: nil, context: nil, hints: nil)
+            {
+                shots.append(shot)
+            }
+        }
+        guard shots.count == 2 else { return nil }
+        return MotionExports.matte(black: shots[0], white: shots[1], width: w, height: h)
+    }
 }
 
-/// Writes frames given one at a time, each at its own time, as an H.264 MP4. Unlike a recording, it waits for the
-/// encoder rather than drop a frame.
+/// Writes frames given one at a time, each at its own time, as an H.264 MP4 (at a quality), or as a ProRes 4444 MOV
+/// that keeps their transparency. Unlike a recording, it waits for the encoder rather than drop a frame.
 private actor MotionMovie {
     private let writer: AVAssetWriter
     private let input: AVAssetWriterInput
     private let adaptor: AVAssetWriterInputPixelBufferAdaptor
     private let width: Int, height: Int
 
-    init(_ url: URL, width: Int, height: Int) throws {
+    init(_ url: URL, width: Int, height: Int, options: MotionExport) throws {
         do { try FileManager.default.removeItem(at: url) } catch CocoaError.fileNoSuchFile {}   // it writes only new
         // H.264 takes even sizes.
         self.width = max(2, width / 2 * 2)
         self.height = max(2, height / 2 * 2)
-        writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
-        input = AVAssetWriterInput(
-            mediaType: .video,
-            outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: self.width, AVVideoHeightKey: self.height
-            ])
+        let mov = options.format == .mov
+        writer = try AVAssetWriter(outputURL: url, fileType: mov ? .mov : .mp4)
+        var settings: [String: Any] = [
+            AVVideoCodecKey: mov ? AVVideoCodecType.proRes4444 : AVVideoCodecType.h264,
+            AVVideoWidthKey: self.width, AVVideoHeightKey: self.height
+        ]
+        // Bits a pixel a frame: Good and Small make a smaller file than the encoder's own choice.
+        let bits = ["good": 0.1, "small": 0.04][options.quality.rawValue]
+        if !mov, let bits {
+            settings[AVVideoCompressionPropertiesKey] = [
+                AVVideoAverageBitRateKey: Int(Double(self.width * self.height) * options.rate * bits)
+            ]
+        }
+        input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
             sourcePixelBufferAttributes: [
@@ -313,6 +357,8 @@ private actor MotionMovie {
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         {
             context.interpolationQuality = .high
+            // The pool hands buffers back with the frame before in them: a clear frame would show through to it.
+            context.clear(CGRect(x: 0, y: 0, width: width, height: height))
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
         CVPixelBufferUnlockBaseAddress(buffer, [])

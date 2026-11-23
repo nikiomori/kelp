@@ -198,10 +198,10 @@ extension OneAtATime {
         ])
 }
 
-/// A page's commands (play, export, an element's) can't be chosen while no canvas or motion page is in front.
+/// A page's commands (play, export, an element's) can't be chosen while no agent's page is in front.
 @MainActor @Test func aPagesCommandsWaitForThePage() {
     let commands = Builtins.artifactPageCommands(AppModel())
-    #expect(commands.count == 7)
+    #expect(commands.count == 8)
     #expect(commands.allSatisfy { $0.enabled?() == false })
 }
 

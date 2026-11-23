@@ -44,3 +44,22 @@ import Testing
             == #"<style>h1{color:red}</style><img src="data:image/png;base64,AQID"><img src="../x.png"><img src="https://e.com/b.png">"#
     )
 }
+
+/// A frame on black and on white gives its transparency: a half-clear red reads as red at half, the background as
+/// nothing, and a solid pixel as itself.
+@Test func aTransparentFrameComesFromBlackAndWhite() throws {
+    func image(_ pixels: [UInt8]) throws -> CGImage {
+        let provider = try #require(CGDataProvider(data: Data(pixels) as CFData))
+        return try #require(
+            CGImage(
+                width: 3, height: 1, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 12,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+    }
+    let black = try image([128, 0, 0, 255, 0, 0, 0, 255, 10, 200, 30, 255])
+    let white = try image([255, 127, 127, 255, 255, 255, 255, 255, 10, 200, 30, 255])
+    let out = try #require(MotionExports.matte(black: black, white: white, width: 3, height: 1))
+    let bytes = try #require(out.dataProvider?.data as Data?)
+    #expect(Array(bytes.prefix(12)) == [128, 0, 0, 128, 0, 0, 0, 0, 10, 200, 30, 255])
+}

@@ -761,7 +761,9 @@ func codeOnly(_ s: String) -> String {
         ),
         "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
         "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel"),
-        "Builtins/Files/MarkdownTab+Motion.swift": (1, "a video written over the file the user picked in a save panel"),
+        "Builtins/Files/MarkdownTab+Motion.swift": (
+            2, "a video written over the file the user picked in a save panel, or its half taken away on Cancel"
+        ),
         "Builtins/Files/Artifacts/PageExport.swift": (
             6, "a page exported where the user picked (a save panel, or kelp artifact export's path)"
         ),
