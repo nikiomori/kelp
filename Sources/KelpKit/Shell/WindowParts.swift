@@ -126,8 +126,9 @@ final class Floater: NSView {
 
     /// Slides the floater in or out. The view stands where it shows and only its layer travels, from past the window's
     /// edge and back, because when its constraint moved it, the window was laid out again for every frame of the way.
-    /// It goes out in two thirds of the time it took to come in.
-    func slide(in on: Bool, animated: Bool = true) {
+    /// It comes in on a spring (`Motion.slideIn`) and goes out in `Motion.fast`. `carrying` travel on it the same way
+    /// (the traffic lights on the sidebar, as Arc's do), and are hidden with it.
+    func slide(in on: Bool, animated: Bool = true, carrying: [NSView] = []) {
         guard let layer, widthC != nil, on != shown else { return }
         shown = on
         slides += 1
@@ -135,18 +136,19 @@ final class Floater: NSView {
         let away = (leading ? -1 : 1) * (width + 2 * inset + 20)   // far enough that the shadow is out of sight too
         let key = "transform.translation.x"
         let now = isHidden ? away : layer.presentation()?.value(forKeyPath: key) as? CGFloat ?? (on ? away : 0)
-        layer.removeAnimation(forKey: "slide")
+        let views = [self] + carrying
+        views.forEach { $0.layer?.removeAnimation(forKey: "slide") }
         guard animated, !Motion.reduced else {
-            isHidden = !on
+            views.forEach { $0.isHidden = !on }
             return
         }
-        isHidden = false
-        let move = CABasicAnimation(keyPath: key)
+        // It comes in on a spring, a little past its place and back; it leaves speeding up.
+        let move: CABasicAnimation = on ? Motion.slideIn(key) : CABasicAnimation(keyPath: key)
         move.fromValue = now
         move.toValue = on ? 0 : away
-        move.duration = on ? Motion.base : Motion.fast
-        move.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
         if !on {   // the floater stays out of sight until it's hidden
+            move.duration = Motion.fast
+            move.timingFunction = CAMediaTimingFunction(name: .easeIn)
             move.fillMode = .forwards
             move.isRemovedOnCompletion = false
         }
@@ -154,13 +156,22 @@ final class Floater: NSView {
         CATransaction.setCompletionBlock { [weak self] in
             MainActor.assumeIsolated {   // Core Animation runs the completion block on the main thread
                 guard let self, !self.shown, turn == self.slides else { return }
-                self.isHidden = true
-                self.layer?.removeAnimation(forKey: "slide")
+                for view in views {
+                    view.isHidden = true
+                    view.layer?.removeAnimation(forKey: "slide")
+                }
             }
         }
-        layer.add(move, forKey: "slide")
+        for view in views {
+            view.wantsLayer = true
+            view.isHidden = false
+            view.alphaValue = 1
+            view.layer?.add(move, forKey: "slide")
+        }
         CATransaction.commit()
     }
+    /// Whether `view` is travelling with a floater now, so nothing else moves or fades it meanwhile.
+    static func carries(_ view: NSView) -> Bool { view.layer?.animation(forKey: "slide") != nil }
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
@@ -212,17 +223,20 @@ extension NSButton {
     }
 }
 
-/// A strip at the window's edge that reports the pointer arriving (focus mode's way back to the panels).
+/// A strip at the window's edge that reports the pointer resting there (focus mode's way back to the panels). The
+/// pointer stays `Motion.edgeRest` before it counts, so passing over the edge on the way elsewhere brings nothing.
 @MainActor
 final class EdgeTrigger: NSView {
     var onEnter: (() -> Void)?
+    private let rest = Debounce()
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(
             NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self))
     }
-    override func mouseEntered(with event: NSEvent) { onEnter?() }
+    override func mouseEntered(with event: NSEvent) { rest.after(Motion.edgeRest) { [weak self] in self?.onEnter?() } }
+    override func mouseExited(with event: NSEvent) { rest.cancel() }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }   // clicks go to whatever is under it
 }
 

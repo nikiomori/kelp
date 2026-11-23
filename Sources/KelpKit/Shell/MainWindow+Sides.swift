@@ -121,10 +121,13 @@ extension MainWindowController {
             }
         }
         let shown = !away || peeking === left
-        let lights: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        for view in lights.compactMap({ window?.standardWindowButton($0) }) where view.isHidden == shown {
+        for view in lights where view.isHidden == shown && !Floater.carries(view) {
             fade(view, hidden: !shown)
         }
+    }
+    /// The traffic lights. A peeking sidebar carries them in and out at its top, as Arc's does.
+    var lights: [NSView] {
+        [.closeButton, .miniaturizeButton, .zoomButton].compactMap { window?.standardWindowButton($0) }
     }
 
     func peek(_ side: Side) {
@@ -133,7 +136,7 @@ extension MainWindowController {
         peeking = side
         peekedAt = Date()
         peekReached = false
-        side.floater.slide(in: true)
+        side.floater.slide(in: true, carrying: side === left ? lights : [])
         followLights()
         window?.acceptsMouseMovedEvents = true
         peekMoves = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
@@ -171,7 +174,7 @@ extension MainWindowController {
         }
         guard let side = peeking else { return }
         peeking = nil
-        side.floater.slide(in: false, animated: animated)
+        side.floater.slide(in: false, animated: animated, carrying: side === left && hides(left) ? lights : [])
         followLights()
     }
     /// Called when the panels change for good (focus mode, auto-hide switched, pinned), so the peeking panel goes at

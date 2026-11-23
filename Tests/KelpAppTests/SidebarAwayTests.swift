@@ -34,13 +34,20 @@ extension StripPlaceTests {
                 return main.sidebarToggle.frame.minX < close.frame.maxX   // at the edge, once its move is over
             })
         let name = main.bar.context.convert(main.bar.context.bounds, to: nil).minX
-        // Sliding in at the edge brings the lights on it, and moves nothing in the bar.
+        // Sliding in at the edge brings the lights on it, travelling with it from past the edge as Arc's do (not
+        // fading in where they stand), and moves nothing in the bar. They go with it the same way.
+        Motion.pinned = false
+        defer { Motion.pinned = nil }
         main.peek(main.left)
-        #expect(try await waitFor(5) { !close.isHidden && close.alphaValue == 1 })
+        #expect(Floater.carries(close) && !close.isHidden && close.alphaValue == 1)
         main.window?.contentView?.layoutSubtreeIfNeeded()
         #expect(main.bar.context.convert(main.bar.context.bounds, to: nil).minX == name)
-        main.stopPeek()
+        main.endPeek()
+        #expect(Floater.carries(close) && close.alphaValue == 1)
         #expect(try await waitFor(5) { close.isHidden })
+        main.peek(main.left)
+        main.stopPeek()
+        #expect(close.isHidden && !Floater.carries(close))
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
         #expect(!app.settings[SettingKeys.sidebarAutoHide])
