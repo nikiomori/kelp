@@ -56,10 +56,15 @@ final class WorkModel {
         reading?.cancel()
         guard let session else { return }
         let ask = SessionWork(id: session, turn: turn, whole: whole ? true : nil)
-        reading = Task { [weak self, app] in
+        // The panel and the Map tab showing one session ask once for each change of its files.
+        let read = choices.read(ask, stamp: app.latest(WorkEvent.self, session)?.stamp) { [app] in
             let (value, error) = await app.tryCall(ask)
+            return (value ?? nil, error)
+        }
+        reading = Task { [weak self] in
+            let (value, error) = await read.value
             guard !Task.isCancelled, let self, self.session == session else { return }
-            received(value ?? nil, error: error)
+            received(value, error: error)
         }
     }
 
@@ -219,10 +224,28 @@ final class WorkChoices {
         var agents: String?
     }
     private var bySession: [String: Choice] = [:]
+    /// Each session's last read, with what it asked and the stamp of the files it was asked at.
+    @ObservationIgnored private var reads: [String: (key: String, task: Task<(AgentWork?, String?), Never>)] = [:]
 
     subscript(session: String?) -> Choice {
         get { session.flatMap { bySession[$0] } ?? Choice() }
         set { if let session { bySession[session] = newValue } }
+    }
+
+    /// The read of `ask` at `stamp`: the one already made (or under way) when nothing changed since, else a new one.
+    /// A failed read isn't kept, so the next ask tries again.
+    func read(
+        _ ask: SessionWork, stamp: String?, _ make: @escaping @MainActor () async -> (AgentWork?, String?)
+    ) -> Task<(AgentWork?, String?), Never> {
+        let key = "\(ask.turn ?? -1) \(ask.whole ?? false) \(stamp ?? "")"
+        if let kept = reads[ask.id], kept.key == key { return kept.task }
+        let task = Task { @MainActor [weak self] in
+            let answer = await make()
+            if answer.1 != nil, self?.reads[ask.id]?.key == key { self?.reads[ask.id] = nil }
+            return answer
+        }
+        reads[ask.id] = (key, task)
+        return task
     }
 }
 

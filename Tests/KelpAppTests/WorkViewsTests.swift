@@ -199,3 +199,23 @@ private func work(_ places: [AgentWork.Place]) -> AgentWork {
     turn.turns = [.init(prompt: "fix it", at: Date())]
     #expect(WorkSummary.line(turn, turn: 0) == "2 files · 1 edited · «fix it»")
 }
+
+/// The panel and the Map tab showing one session share a read until its files change; a failed read isn't kept.
+@MainActor @Test func oneReadServesThePanelAndTheTab() async {
+    let choices = WorkChoices()
+    var made = 0
+    func ask(_ stamp: String, fails: Bool = false) async -> AgentWork? {
+        await choices.read(SessionWork(id: "s1"), stamp: stamp) {
+            made += 1
+            return fails ? (nil, "no host") : (AgentWork(), nil)
+        }.value.0
+    }
+    _ = await ask("a")
+    _ = await ask("a")
+    #expect(made == 1)
+    _ = await ask("b")
+    #expect(made == 2)
+    _ = await ask("c", fails: true)
+    _ = await ask("c")
+    #expect(made == 4)
+}
