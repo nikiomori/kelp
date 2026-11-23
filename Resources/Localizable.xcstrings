@@ -31489,6 +31489,26 @@
           }
         }
       }
+    },
+    "Add Font…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить шрифт…"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the font.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать шрифт."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

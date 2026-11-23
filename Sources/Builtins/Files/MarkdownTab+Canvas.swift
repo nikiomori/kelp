@@ -248,7 +248,8 @@ extension MarkdownTab {
             "none": String(localized: "None"), "auto": String(localized: "auto"),
             "regular": String(localized: "Regular"), "medium": String(localized: "Medium"),
             "semibold": String(localized: "Semibold"), "bold": String(localized: "Bold"),
-            "reset": String(localized: "Back to the Page’s Own"), "seconds": String(localized: "s")
+            "reset": String(localized: "Back to the Page’s Own"), "seconds": String(localized: "s"),
+            "font": String(localized: "Font"), "align": String(localized: "Alignment")
         ]
     }
 

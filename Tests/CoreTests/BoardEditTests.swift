@@ -91,3 +91,17 @@ private let board = """
     #expect(BoardEdit.setInner(page, id: "t", html: #"<span onclick="x()">a</span>"#) == nil)
     #expect(BoardEdit.setInner(page, id: "none", html: "a") == nil)
 }
+
+/// A font brought into a page is an @font-face in its first style, a new style before </head>, or one at a board's
+/// start; a name that could end the rule is refused.
+@Test func aFontIsBroughtIntoThePage() {
+    let face = "@font-face { font-family: 'Grotesk'; src: url('G.woff2'); font-display: swap; }"
+    #expect(
+        BoardEdit.addFontFace("<style>h1{}</style><p>", family: "Grotesk", file: "G.woff2") == "<style>h1{}" + face
+            + "\n</style><p>")
+    #expect(
+        BoardEdit.addFontFace("<head></head>", family: "Grotesk", file: "G.woff2")
+            == "<head><style>\(face)</style>\n</head>")
+    #expect(BoardEdit.addFontFace("<p>a</p>", family: "Grotesk", file: "G.woff2") == "<style>\(face)</style>\n<p>a</p>")
+    #expect(BoardEdit.addFontFace("<p>", family: "x'); }", file: "G.woff2") == nil)
+}

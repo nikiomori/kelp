@@ -40,7 +40,8 @@ enum CanvasEditMode {
             size: { prop: 'font-size', group: 'size' }, weight: { prop: 'font-weight' },
             colour: { prop: 'color', group: 'color' }, padding: { prop: 'padding', group: 'space' },
             gap: { prop: 'gap', group: 'space' }, background: { prop: 'background', group: 'color', none: true },
-            radius: { prop: 'border-radius', group: 'radius' }, opacity: { prop: 'opacity' }
+            radius: { prop: 'border-radius', group: 'radius' }, opacity: { prop: 'opacity' },
+            font: { prop: 'font-family' }, align: { prop: 'text-align' }
           };
           const weights = [['400', L.regular], ['500', L.medium], ['600', L.semibold], ['700', L.bold]];
           const tokenName = (group, n) => '--' + (group === 'color' ? n : group + '-' + n);
@@ -77,6 +78,7 @@ enum CanvasEditMode {
               return { title: w ? w[1] : st.fontWeight, detail: st.fontWeight, set: !!set };
             }
             if (key === 'opacity') return { title: Math.round(parseFloat(st.opacity) * 100) + ' %', set: !!set };
+            if (key === 'font') return { title: family(st.fontFamily), set: !!set };
             if (p.group === 'color') {
               const v = hex(key === 'background' ? st.backgroundColor : st.color);
               return { title: name || (v === 'none' ? L.none : v), swatch: v === 'none' ? null : v, set: !!set };
@@ -85,7 +87,22 @@ enum CanvasEditMode {
             return { title: name || v, detail: name ? v : null, set: !!set };
           }
           // The choices for `key` on element `e`: the tokens first, then the page's own values.
+          const family = f => {   // the first family named, the Mac's own by its name
+            const n = f.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+            return /^(-apple-system|system-ui|BlinkMacSystemFont)$/.test(n) ? 'SF Pro' : n;
+          };
+          // The families the page uses and the ones it brings (@font-face), each as a value the style attribute takes.
+          function families(doc) {
+            const seen = new Set();
+            for (const x of doc.body.querySelectorAll('*')) seen.add(family(css(x).fontFamily));
+            for (const sheet of doc.styleSheets) {
+              for (const rule of sheet.cssRules) if (rule.type === 5) seen.add(family(rule.style.fontFamily));
+            }
+            return [...seen].filter(Boolean).map(n => ({ value: "'" + n + "'", title: n, section: 'page' }));
+          }
           function menu(key, e) {
+            if (key === 'font') return families(e.ownerDocument).map(i =>
+              Object.assign(i, { on: family(e.style.fontFamily || '') === i.title }));
             const p = P[key], now = e.style.getPropertyValue(p.prop).trim(), out = [];
             if (key === 'weight') return weights.map(([v, t]) => ({ value: v, title: t, detail: v, on: now === v }));
             if (key === 'opacity')
@@ -107,7 +124,8 @@ enum CanvasEditMode {
             // Asks the Mac for the menu of `key`'s choices, at the pointer; the choice comes back to `set`.
             open(key) {
               const at = window.kelpProps.at(); if (!at) return;
-              K.post({ kind: 'propMenu', key, items: menu(key, at.e), reset: shown(key, at.e).set });
+              K.post({ kind: 'propMenu', key, items: menu(key, at.e), reset: shown(key, at.e).set,
+                board: at.f.dataset.board, id: idOf(at.e) });
             }
           };
         """
@@ -191,6 +209,16 @@ enum CanvasEditMode {
             b.onclick = () => window.kelpProps.open(key);
             return row(L[key], b, s.set, () => set(key, null));
           }
+          // Left, centre, right: three buttons, the one set on.
+          function align(e) {
+            const now = css(e).textAlign, seg = K.el('span', 'kelp-iseg');
+            for (const [value, glyph] of [['left', '⟸'], ['center', '≡'], ['right', '⟹']]) {
+              const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '', glyph);
+              b.onclick = () => set('align', value);
+              seg.append(b);
+            }
+            return row(L.align, seg, !!e.style.textAlign, () => set('align', null));
+          }
           function field(prefix, value, done) {
             const box = K.el('label', 'kelp-ifld'), input = K.el('input');
             input.value = value;
@@ -271,7 +299,7 @@ enum CanvasEditMode {
               return [...out, K.el('p', 'kelp-note', L.noID), r];
             }
             const text = window.kelpProps.isText?.(e);
-            if (text) out.push(section(L.text, ['size', 'weight', 'colour'].map(popup)));
+            if (text) out.push(section(L.text, ['font', 'size', 'weight', 'colour'].map(popup).concat([align(e)])));
             const layout = ['padding', 'gap'].filter(key => (T[P[key].group] || []).length);
             if (layout.length) out.push(section(L.layout, layout.map(popup)));
             out.push(position(e), fill(e));
@@ -322,6 +350,11 @@ enum CanvasEditMode {
         .kelp-ival { color: var(--k-sec); margin-left: auto; padding-left: 6px; font-variant-numeric: tabular-nums; }
         .kelp-iswatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px;
           vertical-align: -2px; box-shadow: inset 0 0 0 1px var(--k-sep); }
+        .kelp-iseg { display: flex; gap: 2px; height: 20px; padding: 1px; border-radius: 5px;
+          background: var(--k-hover); }
+        .kelp-iseg button { flex: 1; border: 0; border-radius: 4px; background: none; color: var(--k-sec);
+          font-size: 12px; }
+        .kelp-iseg button.on { background: var(--k-sel); color: var(--k-label); }
         .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px;
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); }

@@ -158,6 +158,22 @@ public enum BoardEdit {
         return out
     }
 
+    /// Brings font file `file` (beside the page) into the page as family `family`: an @font-face in its first
+    /// `<style>`, or in a new one. A name or a path with a quote or an angle bracket is refused.
+    public static func addFontFace(_ source: String, family: String, file: String) -> String? {
+        guard !(family + file).contains(where: { "'\"<>".contains($0) }) else { return nil }
+        let face = "@font-face { font-family: '\(family)'; src: url('\(file)'); font-display: swap; }"
+        var out = source
+        if let end = source.range(of: "</style>", options: .caseInsensitive) {
+            out.insert(contentsOf: face + "\n", at: end.lowerBound)
+        } else if let head = source.range(of: "</head>", options: .caseInsensitive) {
+            out.insert(contentsOf: "<style>\(face)</style>\n", at: head.lowerBound)
+        } else {
+            out = "<style>\(face)</style>\n" + source
+        }
+        return out
+    }
+
     /// Takes element `id` out, with the line it stood on when it stood alone there.
     public static func remove(_ source: String, id: String) -> String? {
         guard var range = elementRange(source, id: id) else { return nil }
