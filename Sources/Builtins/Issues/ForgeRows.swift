@@ -153,7 +153,7 @@ final class ForgeRowCell: NSView {
         sub.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var line: [NSView] = [sub]
         if branch {
-            let mark = NSImageView(image: .symbol("arrow.triangle.branch"))
+            let mark = NSImageView(image: .symbol("arrow.triangle.branch", size: Metrics.iconSmall))
             mark.symbolConfiguration = .chrome(Metrics.iconSmall)
             mark.contentTintColor = .secondaryLabelColor
             mark.toolTip = String(localized: "Has a folder in Kelp")

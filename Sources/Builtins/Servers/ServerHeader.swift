@@ -186,7 +186,7 @@ private final class Meter: NSStackView {
     private let value = NSTextField(labelWithString: "")
     init(_ symbol: String, _ name: String) {
         super.init(frame: .zero)
-        let icon = NSImageView(image: .symbol(symbol, name))
+        let icon = NSImageView(image: .symbol(symbol, name, size: Metrics.iconTiny))
         icon.symbolConfiguration = .chrome(Metrics.iconTiny)
         icon.contentTintColor = .secondaryLabelColor
         value.font = .uiDigits(TextSize.caption)

@@ -27,7 +27,7 @@ extension SidebarCell {
         buttonMark = mark
         markButton.isHidden = mark == nil
         guard let mark else { return }
-        if let symbol = mark.symbol, symbol != shown { markButton.image = .symbol(symbol) }
+        if let symbol = mark.symbol, symbol != shown { markButton.image = .symbol(symbol, size: Metrics.iconSmall) }
         markButton.contentTintColor = mark.tint ?? .secondaryLabelColor
         markButton.layer?.shadowColor = mark.glow?.cgColor
         markButton.layer?.animate(

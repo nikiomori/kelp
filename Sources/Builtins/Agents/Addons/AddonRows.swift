@@ -143,7 +143,7 @@ struct AddonRows {
 
     /// Shows where an item comes from as a quiet symbol, with the words in the tooltip.
     private func scope(_ source: Addon.Source) -> NSView {
-        let mark = NSImageView(image: .symbol(source.symbol, source.words))
+        let mark = NSImageView(image: .symbol(source.symbol, source.words, size: Metrics.iconSmall))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
         mark.contentTintColor = .secondaryLabelColor   // the only place the row says where the item is from
         mark.toolTip = source.words
@@ -275,7 +275,7 @@ struct AddonRows {
             case .instructions: "text.alignleft"
             case .plugin: "puzzlepiece.extension"
             }
-        let image = NSImageView(image: .symbol(symbol))
+        let image = NSImageView(image: .symbol(symbol, size: Metrics.iconSmall))
         image.symbolConfiguration = .chrome(Metrics.iconSmall)
         image.contentTintColor = .secondaryLabelColor
         return image

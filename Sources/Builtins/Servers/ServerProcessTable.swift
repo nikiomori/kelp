@@ -338,7 +338,7 @@ final class PartCell: NSTableCellView {
         } else if process.session != nil {
             label.stringValue = String(localized: "Kelp")
         } else if let place = ServerReading.place(process) {
-            symbol.image = .symbol(place.symbol)
+            symbol.image = .symbol(place.symbol, size: Metrics.iconSmall)
             label.stringValue = place.name
             label.lineBreakMode = .byTruncatingMiddle
             toolTip = process.container.map { String(localized: "Container \($0)") } ?? process.unit
