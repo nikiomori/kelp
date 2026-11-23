@@ -1,4 +1,5 @@
 import Agents
+import AgentData
 import Core
 import Foundation
 import GRDB
@@ -366,6 +367,9 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(work.places.contains { $0.kind == .web && $0.name == "example.com" })
     #expect(work.steps.first { $0.kind == .spawn }?.other == 1)
     #expect(try await c.call(SessionWork(id: id, whole: true))?.steps.isEmpty == true)
+    // Where it is now is the last turn's, while it works: the whole session has none.
+    let whole = try await c.call(SessionWork(id: id, whole: true))
+    #expect(work.now != nil && whole != nil && whole?.now == nil)
     // A transcript in a format it can't read is no transcript, not a turn that touched nothing.
     let other = dir.appendingPathComponent("pi.jsonl")
     try Data(#"{"role":"user","parts":[{"text":"hi"}]}"#.utf8 + Data("\n".utf8)).write(to: other)
@@ -489,4 +493,66 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(ask(60) == 1 && ask(60) == 1)
     #expect(ask(0) == 2)
     #expect(index.recent("none", fresh: 60) { Int?.none } == nil && index.recent("none", fresh: 60) { 7 } == 7)
+}
+
+/// A transcript cut or replaced by a shorter one is read again from its start, not from where the old one ended.
+@Test func aCutTranscriptIsReadAgain() throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jsonl")
+    defer { try? FileManager.default.removeItem(at: file) }
+    func use(_ id: String, _ command: String) -> String {
+        #"{"type":"assistant","timestamp":"2026-11-21T12:00:01Z","message":{"content":[{"type":"tool_use","id":"\#(id)","name":"Bash","input":{"command":"\#(command)"}}]}}"#
+    }
+    let index = WorkIndex()
+    try (use("a", "cat one.swift") + "\n" + use("b", "cat two.swift") + "\n").write(
+        to: file, atomically: true, encoding: .utf8)
+    #expect(index.log(file)?.calls.map(\.id) == ["a", "b"])
+    try (use("c", "ls") + "\n").write(to: file, atomically: true, encoding: .utf8)
+    #expect(index.log(file)?.calls.map(\.id) == ["c"])
+}
+
+/// A host's file goes on from where it was read to; sent from elsewhere, or shorter than that, it starts again there.
+@Test func aHostsFileContinuesOrStartsAgain() {
+    func line(_ id: String) -> Data {
+        Data(
+            (#"{"type":"assistant","timestamp":"2026-11-21T12:00:01Z","message":{"content":[{"type":"tool_use","id":"\#(id)","name":"Read","input":{}}]}}"#
+                + "\n").utf8)
+    }
+    let first = WorkIndex.continued(WorkIndex.Entry(), start: 0, size: 300, data: line("a"))
+    let read = first.read
+    let next = WorkIndex.continued(first, start: read, size: read + 300, data: line("b"))
+    #expect(next.log.calls.map(\.id) == ["a", "b"])
+    let elsewhere = WorkIndex.continued(next, start: 5000, size: 9000, data: line("c"))
+    #expect(elsewhere.log.calls.map(\.id) == ["c"] && elsewhere.base == 5000)
+    let shorter = WorkIndex.continued(next, start: next.read, size: 10, data: line("d"))
+    #expect(shorter.log.calls.map(\.id) == ["d"])
+}
+
+/// A turn's command changes come from the snapshot taken as it began and the next, only if that one was taken as it
+/// ended: one taken later holds a later turn's changes too.
+@Test func aTurnsSnapshotsAreItsOwn() {
+    let t = Date(timeIntervalSince1970: 1000)
+    func mark(_ id: String, _ seconds: TimeInterval) -> SessionTurns.Mark {
+        .init(id: id, session: "s", tree: id, head: nil, folder: "/p", prompt: "", at: t.addingTimeInterval(seconds))
+    }
+    let marks = [mark("c", 200), mark("b", 100), mark("a", 0)]
+    #expect(
+        WorkReader.snapshots(marks, start: t, end: t.addingTimeInterval(100)).map { [$0.0.id, $0.1.id] } == ["a", "b"])
+    #expect(WorkReader.snapshots([mark("c", 200), mark("a", 0)], start: t, end: t.addingTimeInterval(100)) == nil)
+    #expect(WorkReader.snapshots(marks, start: t.addingTimeInterval(300), end: .distantFuture) == nil)
+}
+
+/// The watch's stamp changes with a call or its result, the status and a turn's end, and not otherwise.
+@Test func theWatchStampSaysWhatChanged() {
+    var log = WorkLog()
+    log.read(
+        Data(#"{"type":"user","timestamp":"2026-11-21T12:00:00Z","message":{"content":"go"}}"#.utf8 + Data("\n".utf8)))
+    let base = WorkReader.stamp([log], status: .working, ended: nil)
+    #expect(base == WorkReader.stamp([log], status: .working, ended: nil))
+    #expect(base != WorkReader.stamp([log], status: .idle, ended: nil))
+    #expect(base != WorkReader.stamp([log], status: .working, ended: 2))
+    log.read(
+        Data(
+            #"{"type":"assistant","timestamp":"2026-11-21T12:00:01Z","message":{"content":[{"type":"tool_use","id":"r","name":"Read","input":{}}]}}"#
+                .utf8 + Data("\n".utf8)))
+    #expect(base != WorkReader.stamp([log], status: .working, ended: nil))
 }

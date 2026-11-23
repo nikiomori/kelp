@@ -136,6 +136,8 @@ public enum WorkMap {
         let layout: Places
         var placesByKey: [String: Int] = [:]
         var list: [AgentWork.Place] = []
+        /// The worktrees each project place was edited and read in, by its index ("" for the project's own folder).
+        var trees: [Int: (edits: Set<String>, reads: Set<String>)] = [:]
         var verbs: [Int: [String: Int]] = [:]
         var steps: [AgentWork.Step] = []
         /// The call id behind each spawn step, by the step's index.
@@ -158,6 +160,14 @@ public enum WorkMap {
                 {
                     place.detail = top.value > 1 ? "\(top.key) ×\(top.value)" : top.key
                 }
+                // Where the file is: the worktree it was edited in, else the one it was read in, when that is one
+                // worktree and not the project itself ("" stands for the project's own folder).
+                if let seen = trees[index] {
+                    func one(_ trees: Set<String>) -> String? {
+                        trees.count == 1 ? trees.first.flatMap { $0.isEmpty ? nil : $0 } : nil
+                    }
+                    place.worktree = seen.edits.isEmpty ? one(seen.reads) : one(seen.edits)
+                }
                 return place
             }
         }
@@ -177,7 +187,10 @@ public enum WorkMap {
                     list[index].added += added
                     list[index].removed += removed
                 }
-                if let worktree { list[index].worktree = worktree }
+                if kind == .file || kind == .folder {
+                    if edit { trees[index, default: ([], [])].edits.insert(worktree ?? "") }
+                    if read { trees[index, default: ([], [])].reads.insert(worktree ?? "") }
+                }
                 if let verb { verbs[index, default: [:]][verb, default: 0] += 1 }
                 first = first ?? index
             }

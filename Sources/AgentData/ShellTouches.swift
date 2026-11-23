@@ -30,7 +30,8 @@ public enum ShellTouches {
             // A subshell's `cd` ends with it: `(cd Vendor && make) && cat README.md` reads ./README.md.
             if part.first?.hasPrefix("(") == true, outer == nil { outer = (dir, lost) }
             defer {
-                if part.last?.hasSuffix(")") == true, let back = outer {
+                // Its last word closes it, not a `$(…)` inside it.
+                if let last = part.last, last.hasSuffix(")"), !last.contains("$("), let back = outer {
                     (dir, lost) = back
                     outer = nil
                 }
@@ -78,7 +79,8 @@ public enum ShellTouches {
             return args.filter { !$0.hasPrefix("-") && isPlainPath($0) }.map { .read($0, search: false) } + globs(args)
         case "ls":
             // A folder listed was looked through, not read as a file.
-            return paths.map { .read($0, search: !isFile($0)) } + globs(args)
+            return args.filter { !$0.hasPrefix("-") && isPlainPath($0) }.map { .read($0, search: !isFile($0)) }
+                + globs(args)
         case "sed":
             // The first word that isn't a flag is the script, unless -e (or -f) gave it: then the word after each is.
             var words: [String] = [], skip = false
@@ -95,7 +97,7 @@ public enum ShellTouches {
             let files = (given ? words[...] : words.dropFirst()).filter {
                 looksLikePath($0) && isPlainPath($0)
             }
-            if args.contains(where: { $0 == "-i" || $0.hasPrefix("-i") && $0.count <= 3 }) {
+            if args.contains(where: { $0.hasPrefix("-i") || $0.hasPrefix("--in-place") }) {
                 return files.map { .wrote($0) }
             }
             return args.contains("-n") ? files.map { .read($0, search: false) } : []
@@ -219,6 +221,9 @@ public enum ShellTouches {
                     word.append(next)
                     any = true
                 }
+            case "#" where !any:
+                // A comment, to the line's end: its words are no command.
+                while let next = chars.first, next != "\n" { chars.removeFirst() }
             case " ", "\t": endWord()
             case "\n", ";": endPart()
             case "|":
@@ -272,7 +277,18 @@ public enum ShellTouches {
             }
             kept.append(line)
             // A here-string (`<<< word`) is no heredoc: nothing after it is its body.
-            let heads = line.replacing("<<<", with: " ")
+            // A `<<` inside quotes is text, not a heredoc: a quoted `<` is blanked (the quotes stay: `<<'EOF'`).
+            var outside = "", quote: Character?
+            for c in line {
+                if let open = quote {
+                    if c == open { quote = nil }
+                    outside.append(c == "<" ? " " : c)
+                } else {
+                    if c == "'" || c == "\"" { quote = c }
+                    outside.append(c)
+                }
+            }
+            let heads = outside.replacing("<<<", with: " ")
             if let match = heads.firstMatch(of: /<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/) { until = String(match.1) }
         }
         return kept.joined(separator: "\n")

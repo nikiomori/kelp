@@ -28,7 +28,7 @@ final class WorkIndex: Sendable {
     /// The most of a host's file read the first time, from its end.
     static let hostFirstRead: UInt64 = 16 << 20
 
-    /// How long a file nobody reads stays kept: the panel closed, it goes.
+    /// How long a file nobody reads stays kept: what the closed panel read goes at the next read of anyone's work.
     static let idle: TimeInterval = 600
     /// Answers kept a moment, so the panel, the Map tab and the watch's pass asking at once read once (an ssh read, a
     /// git diff), by key.
@@ -46,6 +46,35 @@ final class WorkIndex: Sendable {
         lock.lock()
         defer { lock.unlock() }
         return try body()
+    }
+
+    /// Runs `body` if nobody holds `key`'s lock, else returns nil at once: a reader that would wait on another's ssh
+    /// run takes the answer kept instead (`kept`).
+    func ifFree<T>(_ key: String, _ body: () throws -> T?) rethrows -> T? {
+        let lock = reading.withLock { locks in
+            if let lock = locks[key] { return lock }
+            let lock = NSLock()
+            locks[key] = lock
+            return lock
+        }
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        return try body()
+    }
+
+    /// The answer kept for `key`, however old.
+    func kept<T: Sendable>(_ key: String) -> T? { answers.withLock { $0[key]?.value as? T } }
+
+    /// A host file's entry continued by what the host sent from `start` (its size there `size`): the bytes go on from
+    /// where it was read to, else it was rewritten or is another file, and it starts again from `start`.
+    static func continued(_ entry: Entry, start: UInt64, size: UInt64, data: Data) -> Entry {
+        var entry = entry
+        if start != entry.read || size < entry.read {
+            entry = Entry()
+            entry.base = start
+        }
+        entry.log.read(data)
+        return entry
     }
 
     /// `make`'s answer for `key`, made again only when the one kept is older than `fresh`.
@@ -108,7 +137,7 @@ final class WorkIndex: Sendable {
         var used = entry
         used.used = Date()
         let kept = used
-        let gone = entries.withLock { all -> [String] in
+        let (gone, left) = entries.withLock { all -> ([String], Set<String>) in
             all[key] = kept
             // What nobody read for a while goes, and past the limit the one read longest ago.
             var gone = all.filter { kept.used.timeIntervalSince($0.value.used) > Self.idle }.map(\.key)
@@ -117,9 +146,16 @@ final class WorkIndex: Sendable {
                 all[oldest] = nil
                 gone.append(oldest)
             }
-            return gone
+            return (gone, Set(all.keys))
         }
-        if !gone.isEmpty { reading.withLock { locks in gone.forEach { locks[$0] = nil } } }
+        guard !gone.isEmpty else { return }
+        reading.withLock { locks in
+            gone.forEach { locks[$0] = nil }
+            // A host session's lock goes with the last of its files (`host:<id>`, its files `host:<id>:<name>`).
+            for lock in locks.keys where lock.hasPrefix("host:") && !lock.dropFirst(5).contains(":") {
+                if !left.contains(where: { $0.hasPrefix(lock + ":") }) { locks[lock] = nil }
+            }
+        }
     }
 }
 

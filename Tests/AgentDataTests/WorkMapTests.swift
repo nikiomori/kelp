@@ -59,7 +59,12 @@ import Testing
         ("ssh -p 2222 box uptime", [.host("box", verb: "ssh")]),
         ("(cd Vendor && make) && cat README.md", [.read("README.md", search: false)]),
         ("echo 1.2.3 > VERSION && cat Makefile", [.wrote("VERSION"), .read("Makefile", search: false)]),
-        ("cat <<< hello\ncat a.txt", [.read("a.txt", search: false)])
+        ("cat <<< hello\ncat a.txt", [.read("a.txt", search: false)]),
+        ("cat a.txt # see notes.md", [.read("a.txt", search: false)]),
+        ("sed -i.bak 's/a/b/' f.txt", [.wrote("f.txt")]),
+        ("ls -la Sources", [.read("Sources", search: true)]),
+        ("(cd sub && echo $(pwd) && cat x) && cat y", [.read("sub/x", search: false), .read("y", search: false)]),
+        ("echo \"<<EOF\" && cat z.txt", [.read("z.txt", search: false)])
     ] as [(String, [ShellTouches.Touch])])
 func aShellCommandSaysWhatItTouched(command: String, touches: [ShellTouches.Touch]) {
     #expect(ShellTouches.parse(command) == touches)
@@ -152,7 +157,7 @@ private func sources() -> [WorkMap.Source] {
     let models = place(.file, "Sources/Models.swift")
     #expect(models?.reads == 4)
     #expect(models?.agents == [0, 1])
-    #expect(models?.worktree == "fix")
+    #expect(models?.worktree == nil)   // read in the project and in the worktree "fix": the project's copy
     #expect(place(.file, "Sources/Hooks.swift")?.reads == 1)
     let child = place(.file, "Sources/Child.swift")
     #expect(child?.edits == 1 && child?.added == 2 && child?.removed == 1 && child?.byCommand == false)
@@ -340,4 +345,28 @@ private func sources() -> [WorkMap.Source] {
         [WorkMap.Source(agent: .init(role: .main, agent: "claude", name: "claude"), log: read)],
         places: WorkMap.Places(root: link.path, home: "/Users/me"), turn: nil, whole: false, working: false)
     #expect(work.places.map(\.name) == ["a.swift"] && work.places.first?.kind == .file)
+}
+
+/// A file's worktree is where it was edited, else where it was read, when that is one worktree: a file edited in the
+/// project and read in a subagent's worktree opens the project's copy.
+@Test func aFilesWorktreeIsWhereItWasEdited() {
+    func work(_ entries: [[String: Any]]) -> AgentWork {
+        WorkMap.build(
+            [WorkMap.Source(agent: .init(role: .main, agent: "claude", name: "claude"), log: log(entries))],
+            places: layout, turn: nil, whole: false, working: false)
+    }
+    let edit = use("e1", "Edit", ["file_path": "/p/Sources/a.swift"], at(1, 1))
+    let readThere = use("r1", "Read", ["file_path": "/p/.claude/worktrees/agent-x/Sources/a.swift"], at(1, 2))
+    let editThere = use("e2", "Edit", ["file_path": "/p/.claude/worktrees/agent-x/Sources/a.swift"], at(1, 1))
+    let read = use("r2", "Read", ["file_path": "/p/Sources/a.swift"], at(1, 2))
+    #expect(work([prompt("go", at(1)), edit, result("e1", at(1, 1)), readThere]).places.first?.worktree == nil)
+    #expect(work([prompt("go", at(1)), editThere, result("e2", at(1, 1)), read]).places.first?.worktree == "agent-x")
+    #expect(work([prompt("go", at(1)), readThere]).places.first?.worktree == "agent-x")
+}
+
+/// A subagent's own prompt (a sidechain) is no turn of the session's.
+@Test func aSidechainPromptIsNoTurn() {
+    var side = prompt("look around", at(1, 1))
+    side["isSidechain"] = true
+    #expect(log([prompt("go", at(1)), side]).prompts.map(\.text) == ["go"])
 }

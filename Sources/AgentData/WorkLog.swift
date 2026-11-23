@@ -130,7 +130,8 @@ public struct WorkLog: Sendable {
             let name = payload["name"] as? String ?? (type == "local_shell_call" ? "shell" : "tool")
             let raw = payload["arguments"] ?? payload["input"] ?? payload["action"]
             let args = (raw as? String).flatMap { JSONL.object(Data($0.utf8)) } ?? raw as? [String: Any] ?? [:]
-            var call = Call(id: id, tool: name, at: at, cwd: args["workdir"] as? String ?? cwd)
+            let folder = (args["workdir"] ?? args["working_directory"]) as? String
+            var call = Call(id: id, tool: name, at: at, cwd: folder ?? cwd)
             let command = args["command"] ?? args["cmd"]
             call.command = (command as? [String]).map(Self.unwrapShell) ?? command as? String
             if name == "apply_patch" {

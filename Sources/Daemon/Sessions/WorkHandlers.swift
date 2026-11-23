@@ -13,9 +13,11 @@ extension SessionWork: Handled {
             let main = found.sources.first
         else { return nil }
         let changed = whole == true ? [] : reader.turnChanges(session, turn: turn, prompts: main.log.prompts)
+        // "Now" is the last turn's: an earlier turn, or the whole session, has none while the agent works on.
+        let last = turn.map { $0 >= main.log.prompts.count - 1 } ?? true
         return WorkMap.build(
             found.sources, places: found.places, turn: turn, whole: whole == true,
-            working: session.status == .working, changed: changed)
+            working: session.status == .working && whole != true && last, changed: changed)
     }
 }
 
@@ -41,10 +43,11 @@ struct WorkReader {
     /// agent keeps no conversation Kelp reads, or a host's isn't reachable now.
     func sources(_ session: Session) throws -> (sources: [WorkMap.Source], places: WorkMap.Places)? {
         if let remote = usage.conversations.host(of: session) {
-            // One host read at a time per session, its answer kept a moment for the views asking with it.
-            return usage.work.locked("host:\(session.id)") {
-                usage.work.recent("host:\(session.id)", fresh: 1.5) { hostSources(session, path: remote.path) }
-            }
+            // One host read at a time per session, its answer kept a moment for the views asking with it; one asking
+            // while another's ssh runs takes the last answer rather than wait for it.
+            let key = "host:\(session.id)", index = usage.work
+            return index.ifFree(key) { index.recent(key, fresh: 1.5) { hostSources(session, path: remote.path) } }
+                ?? index.kept(key)
         }
         let conversations = usage.conversations, index = usage.work
         let found = live[session.id]
@@ -74,7 +77,9 @@ struct WorkReader {
             guard let childAgent = child.agent,
                 // The live agent's own path first: finding its file otherwise asks pgrep and lsof, on every pass.
                 let childFile = live[child.id]?.transcriptPath.map(URL.init(fileURLWithPath:))
-                    ?? conversations.conversationFile(of: child, live: live[child.id]),
+                    ?? index.recent(
+                        "file:\(child.id)", fresh: WorkIndex.idle,
+                        { conversations.conversationFile(of: child, live: live[child.id]) }),
                 let childLog = index.log(childFile)
             else { continue }
             let role = AgentWork.Agent(
@@ -113,12 +118,8 @@ struct WorkReader {
                 metas[String(file.name.dropFirst("meta:".count))] = file.data
                 continue
             }
-            var entry = index.entry(key + file.name)
-            if file.start != entry.read || file.size < entry.read {
-                entry = WorkIndex.Entry()
-                entry.base = file.start
-            }
-            entry.log.read(file.data)
+            let entry = WorkIndex.continued(
+                index.entry(key + file.name), start: file.start, size: file.size, data: file.data)
             index.keep(key + file.name, entry)
             names.append(file.name)
         }
@@ -145,14 +146,8 @@ struct WorkReader {
         if picked == prompts.count - 1, let last = live[session.id]?.lastTurn {
             return last.files.map { WorkMap.Changed(path: $0.path, added: $0.added, removed: $0.removed) }
         }
-        let marks = (Log.store.attempt("reading \(session.id)'s turns") { try store.turns(session: session.id) } ?? [])
-            .sorted { $0.at < $1.at }
-        guard let from = marks.firstIndex(where: { $0.at >= start.addingTimeInterval(-5) && $0.at < end }),
-            from + 1 < marks.count,
-            // The next snapshot must be this turn's end: one taken later holds a later turn's changes too.
-            marks[from + 1].at <= end.addingTimeInterval(5)
-        else { return [] }
-        let (a, b) = (marks[from], marks[from + 1])
+        let marks = Log.store.attempt("reading \(session.id)'s turns") { try store.turns(session: session.id) } ?? []
+        guard let (a, b) = Self.snapshots(marks, start: start, end: end) else { return [] }
         // Two snapshots' difference never changes: kept, so an earlier turn shown while the agent works isn't diffed
         // again on every pass.
         let out = usage.work.recent("diff:\(a.tree):\(b.tree)", fresh: WorkIndex.idle) {
@@ -168,6 +163,27 @@ struct WorkReader {
         }
     }
 
+    /// The snapshots a turn from `start` to `end` began and ended with: the oldest taken as it began, and the next, if
+    /// that one was taken as it ended (one taken later holds a later turn's changes too).
+    static func snapshots(_ marks: [SessionTurns.Mark], start: Date, end: Date) -> (
+        SessionTurns.Mark, SessionTurns.Mark
+    )? {
+        let marks = marks.sorted { $0.at < $1.at }
+        guard let from = marks.firstIndex(where: { $0.at >= start.addingTimeInterval(-5) && $0.at < end }),
+            from + 1 < marks.count, marks[from + 1].at <= end.addingTimeInterval(5)
+        else { return nil }
+        return (marks[from], marks[from + 1])
+    }
+
+    /// The watch's stamp: it changes when a prompt, a call or a call's result is added to any conversation behind the
+    /// work (not with every line written), when the status changes, and when a turn's end is known.
+    static func stamp(_ logs: [WorkLog], status: AgentStatus, ended: Int?) -> String {
+        let counts = logs.map {
+            "\($0.prompts.count):\($0.calls.count):\($0.calls.lazy.filter { $0.done != nil }.count)"
+        }
+        return counts.joined(separator: ",") + " \(status.rawValue) \(ended.map(String.init) ?? "-")"
+    }
+
     /// The watch's event: its stamp changes whenever any conversation behind the session's work grows.
     func event(_ id: String) throws -> WorkEvent? {
         guard let session = try session(id) else { return nil }
@@ -177,10 +193,9 @@ struct WorkReader {
             return WorkEvent(session: id, stamp: "idle")
         }
         guard let found = try sources(session) else { return nil }
-        // Its files, and its status and the turn's end: a turn that stopped after its last write is read again, for
-        // where it is now and the files its commands changed.
-        let files = found.sources.map { "\($0.log.offset):\($0.log.calls.count)" }.joined(separator: ",")
-        let ended = live[id]?.lastTurn.map { "\($0.files.count)" } ?? "-"
-        return WorkEvent(session: id, stamp: "\(files) \(session.status.rawValue) \(ended)")
+        // With its status and the turn's end: a turn that stopped after its last write is read again, for where it is
+        // now and the files its commands changed.
+        let stamp = Self.stamp(found.sources.map(\.log), status: session.status, ended: live[id]?.lastTurn?.files.count)
+        return WorkEvent(session: id, stamp: stamp)
     }
 }
