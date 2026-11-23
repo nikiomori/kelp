@@ -37,7 +37,7 @@ enum CanvasEditBar {
             bar.replaceChildren(...(text ? ['size', 'weight', 'colour'] : ['background']).map(popup), sep(),
               button([props.shown('opacity', e).title], () => props.open('opacity')), sep(),
               button([K.el('span', 'kelp-sym-ellipsis')], () => K.post({ kind: 'menu', board: at.f.dataset.board,
-                id: e.getAttribute('data-id'), image: e.tagName === 'IMG' })));
+                id: e.getAttribute('data-id'), image: e.tagName === 'IMG', media: /^(IMG|VIDEO)$/.test(e.tagName) })));
             const b = K.box(at.f, e), h = bar.offsetHeight || 28, gap = 8;
             const above = b.y - scrollY - h - gap - 18 > 0;   // the name tag sits right over the element
             Object.assign(bar.style, {

@@ -31479,6 +31479,16 @@
           }
         }
       }
+    },
+    "Crop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадрировать"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
