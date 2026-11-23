@@ -170,14 +170,22 @@ package struct RowMark: Equatable {
 }
 
 /// A block a built-in adds to the sidebar under the projects (Machines). Its view is made when the sidebar is made.
-/// `foot` puts the block at the very bottom, under every other block (the plan limits).
+/// `foot` puts the block at the very bottom, under every other block (the plan limits). A block with a `title` and a
+/// `shown` setting has a check mark under View › Sidebar Blocks that shows or hides it.
 package struct SidebarSection {
     let id: String
     let foot: Bool
+    let title: String?
+    let shown: Setting<Bool>?
     let make: @MainActor () -> NSView
-    package init(id: String, foot: Bool = false, make: @escaping @MainActor () -> NSView) {
+    package init(
+        id: String, foot: Bool = false, title: String? = nil, shown: Setting<Bool>? = nil,
+        make: @escaping @MainActor () -> NSView
+    ) {
         self.id = id
         self.foot = foot
+        self.title = title
+        self.shown = shown
         self.make = make
     }
 }

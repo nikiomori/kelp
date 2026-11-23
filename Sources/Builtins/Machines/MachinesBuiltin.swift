@@ -37,13 +37,22 @@ extension Builtins {
                 },
                 machineCommand(app, "machines.delete", "Delete Machine…") { Machines.deleteMachine(app, $0) }
             ],
+            settings: [
+                SettingsSection(
+                    id: "machines", title: "Machines", icon: "shippingbox",
+                    specs: [
+                        s(
+                            SettingKeys.machinesInSidebar, "Show in sidebar", .boolean,
+                            "The list of machines above the plan limits.")
+                    ], keywords: ["VM", "Virtual Machine", "Linux", "Android", "iOS"], order: 76)
+            ],
             tabs: [
                 TabProvider(
                     schemes: ["vm"], make: { machineTab(uri: $0, app: app) },
                     placeholder: { (TabURI.body($0), .symbol("shippingbox"), nil) })
             ],
             sidebarSections: [
-                SidebarSection(id: "machines") {
+                SidebarSection(id: "machines", title: "Machines", shown: SettingKeys.machinesInSidebar) {
                     // Kelp's virtual machines, once there's one.
                     let view = NSHostingView(rootView: MachinesView(app: app))
                     view.sizingOptions = [.intrinsicContentSize]
@@ -87,6 +96,11 @@ extension Builtins {
             run(info)
         }
     }
+}
+
+/// Whether the sidebar shows the Machines block (Settings › Machines, View › Sidebar Blocks, its heading's menu).
+extension SettingKeys {
+    static let machinesInSidebar = Setting("machines.sidebar", true)
 }
 
 // How the app keeps what the daemon pushes about machines. These event kinds belong to Machines, not to the shell.
