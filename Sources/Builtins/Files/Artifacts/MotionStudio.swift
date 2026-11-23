@@ -33,7 +33,7 @@ final class MotionStudio {
                 IconButton(.symbol("forward.frame"), tip: String(localized: "A Frame Forward (→)")) { [weak self] in
                     self?.act("window.kelpMotion?.step(1)")
                 },
-                loop, speed, time, frame, rangeChip,
+                loop, speed, time, frame, rangeChip, whole,
                 IconButton(.symbol("diamond"), tip: String(localized: "Keyframe at the Time (K)")) { [weak self] in
                     self?.onKeyframe?()
                 },
@@ -84,6 +84,19 @@ final class MotionStudio {
         chip.isHidden = true
         return chip
     }()
+    /// Mark's mark on the whole video, with no second: for its pace, its music, its mood.
+    private lazy var whole: TextButton = {
+        let button = TextButton(String(localized: "+ To the Whole Video")) { [weak self] in
+            self?.act("window.kelpMarks?.add({ kind: 'area', whole: true })")
+        }
+        button.toolTip = String(localized: "A mark about the whole video, not one moment of it")
+        button.isHidden = true
+        return button
+    }()
+    /// Whether Mark is on: its button for the whole video shows.
+    var marking = false {
+        didSet { whole.isHidden = !marking }
+    }
     private let speed = PointerPopUpButton()
     /// The zoom as a power of two: 0 shows the whole length, 5 a thirty-second of it.
     private let zoomSlider = NSSlider(value: 0, minValue: 0, maxValue: log2(40), target: nil, action: nil)

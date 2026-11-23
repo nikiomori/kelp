@@ -15,6 +15,7 @@ enum CanvasEdit {
     struct Labels: Encodable {
         var pick: String, tweaks: String, check: String, askFix: String, noMarks: String, noIssues: String
         var of: String, escEnds: String, element: String, area: String, pen: String
+        var arrow: String, label: String, undo: String, redo: String, whole: String
     }
 
     /// `before` holds each board as a mark to check was sent with, by `board@version@theme`, for Before.
@@ -97,19 +98,25 @@ enum CanvasEdit {
           }
           const hooks = {
             empty: L.noMarks,
-            what: m => m.kind === 'area' ? L.area : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
+            what: m => m.kind === 'area' && !m.area ? L.whole
+              : m.kind === 'area' && m.text ? L.label + ' «' + m.text + '»' : m.kind === 'area' ? L.area
+              : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
               : m.target + (m.text ? ' «' + m.text + '»' : ''),
             where(m) {
               const motion = window.kelpMotion;   // a mark on a motion page shows near its second only
               if (m.time != null && motion && Math.abs(motion.time() - m.time) > 0.5) return null;
               if (m.kind === 'area' || m.kind === 'pen') {
                 const f = light(m.board); if (!f || !m.area) return null;
-                return inPage(f, ...m.area);
+                const [x, y, w, h] = m.area;   // a label: a point, as wide as its words
+                return w || h || !m.text ? inPage(f, ...m.area) : Object.assign(inPage(f, x, y, 0, 0),
+                  { w: m.text.length * 7 + 12, h: 18 });
               }
               const at = find(m); return at ? content(at.f, at.e) : null;
             },
             draw(m, into, r) {
-              if (m.kind === 'area') {
+              if (m.kind === 'area' && m.text) {
+                const t = el('div', 'kelp-label kelp-n-' + m.state, m.text); place(t, r); into.append(t);
+              } else if (m.kind === 'area') {
                 const a = el('div', 'kelp-area kelp-n-' + m.state); place(a, r); into.append(a);
               }
               if (m.kind !== 'pen' || !m.path) return;
@@ -140,11 +147,22 @@ enum CanvasEdit {
             tabRows: () => checkRows(window.kelpIssues || [])
           };
           const draw = () => K?.draw();
-          // Mark's tools: an element (a click), an area (a drag) or a stroke (a drag), each on one board.
-          let tool = 'element', drag = null;
+          // Mark's tools: an element (a click), an area, a stroke or an arrow (a drag), a label (a click, then its
+          // words; a double click changes them), each on one board. ↶ ↷ take the last drawn away and put it back.
+          let tool = 'element', drag = null, undone = [];
           const tools = el('div', 'kelp-float kelp-tools');
-          const drawTools = () => tools.replaceChildren(C.tabs(
-            [['element', L.element], ['area', L.area], ['pen', L.pen]], tool, k => { tool = k; drawTools(); }));
+          const step = (back) => {
+            const m = back ? K.drop() : undone.pop(); if (!m) return;
+            if (back) undone.push(m); else K.put(m);
+          };
+          const drawTools = () => {
+            const kinds = [['element', L.element], ['area', L.area], ['pen', L.pen], ['arrow', L.arrow],
+              ['label', L.label]];
+            const back = el('button', 'kelp-ib', '↶'), again = el('button', 'kelp-ib', '↷');
+            back.title = L.undo; again.title = L.redo;
+            back.onclick = () => step(true); again.onclick = () => step(false);
+            tools.replaceChildren(C.tabs(kinds, tool, k => { tool = k; drawTools(); }), back, again);
+          };
           drawTools();
           document.body.append(tools);
           window.kelpMark = on => {
@@ -184,10 +202,10 @@ enum CanvasEdit {
             if (at) place(outline, box(at.f, at.e));
           });
           sheet.addEventListener('mousedown', e => {
-            if (mode !== 'mark' || tool === 'element') return;
+            if (mode !== 'mark' || tool === 'element' || tool === 'label') return;
             const at = frameAt(e); if (!at) return;
             const shape = tool === 'area' ? el('div', 'kelp-area') : document.createElementNS(NS, 'svg');
-            if (tool === 'pen') {
+            if (tool === 'pen' || tool === 'arrow') {
               shape.setAttribute('class', 'kelp-stroke'); shape.append(document.createElementNS(NS, 'path'));
               shape.setAttribute('viewBox', '0 0 ' + at.f.offsetWidth + ' ' + at.f.offsetHeight);
               place(shape, inPage(at.f, 0, 0, at.f.offsetWidth, at.f.offsetHeight));
@@ -201,16 +219,23 @@ enum CanvasEdit {
             const x = Math.min(Math.max((e.clientX - r.left) / k, 0), drag.f.offsetWidth);
             const y = Math.min(Math.max((e.clientY - r.top) / k, 0), drag.f.offsetHeight);
             drag.points.push([x, y]);
+            if (tool === 'arrow') drag.points = [drag.points[0], [x, y]];
             if (tool === 'area') {
               const [x0, y0] = drag.points[0];
               drag.box = [Math.min(x0, x), Math.min(y0, y), Math.abs(x - x0), Math.abs(y - y0)];
               place(drag.shape, inPage(drag.f, ...drag.box));
             } else {
-              drag.shape.firstChild.setAttribute('d', path(drag.points));
+              drag.shape.firstChild.setAttribute('d', tool === 'arrow' ? arrow(drag.points) : path(drag.points));
               drag.shape.firstChild.setAttribute('vector-effect', 'non-scaling-stroke');
             }
           }
           const path = ps => 'M' + ps.map(([x, y]) => Math.round(x) + ' ' + Math.round(y)).join(' L');
+          // A line from the first point to the last, with a head of two strokes at the last.
+          function arrow([[x0, y0], [x1, y1]]) {
+            const a = Math.atan2(y1 - y0, x1 - x0), n = Math.max(12, Math.hypot(x1 - x0, y1 - y0) / 8);
+            const head = d => [x1 - n * Math.cos(a + d), y1 - n * Math.sin(a + d)];
+            return path([[x0, y0], [x1, y1]]) + ' ' + path([head(0.45), [x1, y1], head(-0.45)]);
+          }
           addEventListener('mouseup', e => {
             if (!drag) return;
             const d = drag; drag = null; d.shape.remove();
@@ -219,17 +244,54 @@ enum CanvasEdit {
               const near = under({ clientX: e.clientX, clientY: e.clientY });
               K.add({ kind: 'area', board, area: d.box.map(Math.round),
                 target: near ? describe(near.e).target : '' });
-            } else if (tool === 'pen' && d.points.length > 2) {
+            } else if ((tool === 'pen' && d.points.length > 2) || (tool === 'arrow' && d.points.length === 2)) {
               const xs = d.points.map(p => p[0]), ys = d.points.map(p => p[1]);
               const x0 = Math.min(...xs), y0 = Math.min(...ys);
-              const near = under(d.start);
-              K.add({ kind: 'pen', board, path: path(d.points), target: near ? describe(near.e).target : '',
+              if (tool === 'arrow' && Math.max(...xs) - x0 + Math.max(...ys) - y0 < 8) return;
+              const near = under(tool === 'arrow' ? e : d.start);
+              K.add({ kind: 'pen', board, path: tool === 'arrow' ? arrow(d.points) : path(d.points),
+                target: near ? describe(near.e).target : '',
                 area: [x0, y0, Math.max(...xs) - x0, Math.max(...ys) - y0].map(Math.round) });
             }
           });
+          // A label's field, at a point of a board: its words become a mark, or mark `m`'s new words.
+          function labelField(at, m) {
+            const field = el('input', 'kelp-label-field'); field.value = m ? m.text : '';
+            const r = inPage(at.f, at.x, at.y, 0, 0);
+            Object.assign(field.style, { left: r.x + 'px', top: (r.y - 10) + 'px' });
+            document.body.append(field); field.focus();
+            let open = true;
+            const end = keepIt => {
+              if (!open) return;
+              open = false; field.remove();
+              const text = field.value.trim();
+              if (!keepIt || !text) return;
+              if (m) { m.text = text; K.changed(); return; }
+              const near = under({ clientX: at.cx, clientY: at.cy });
+              K.add({ kind: 'area', board: at.f.dataset.board, area: [Math.round(at.x), Math.round(at.y), 0, 0], text,
+                target: near ? describe(near.e).target : '' });
+            };
+            field.addEventListener('keydown', ev => {
+              if (ev.key === 'Enter' || ev.key === 'Escape') { ev.preventDefault(); end(ev.key === 'Enter'); }
+              ev.stopPropagation();
+            });
+            field.addEventListener('blur', () => end(true));
+          }
           sheet.addEventListener('click', e => {
+            if (mode === 'mark' && tool === 'label') {
+              const at = frameAt(e); if (!at || e.detail > 1) return;
+              return labelField(Object.assign(at, { cx: e.clientX, cy: e.clientY }));
+            }
             const at = mode === 'mark' && tool === 'element' && under(e); if (!at) return;
             K.add(Object.assign({ kind: 'element', board: at.f.dataset.board }, describe(at.e)));
+          });
+          sheet.addEventListener('dblclick', e => {
+            if (mode !== 'mark') return;
+            const at = frameAt(e); if (!at) return;
+            const m = K.list().find(k => k.state === 'draft' && k.kind === 'area' && k.text
+              && k.board === at.f.dataset.board && Math.abs(k.area[0] - at.x) < k.text.length * 7 + 12
+              && Math.abs(k.area[1] + 9 - at.y) < 14);
+            if (m) labelField(Object.assign(at, { x: m.area[0], y: m.area[1] }), m);
           });
           for (const f of frames) f.addEventListener('load', draw);
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode };
@@ -321,66 +383,5 @@ enum CanvasEdit {
           addEventListener('resize', draw);
           new ResizeObserver(() => requestAnimationFrame(draw)).observe(document.body);
           draw();
-        """
-
-    /// The CSS for what Kelp puts on the canvas: pins, the rows in the column, Pick, tweaks, and the strip shown while
-    /// presenting.
-    static let style = """
-        .kelp-tools { top: 10px; left: 50%; transform: translateX(-50%); }
-        .kelp-layer { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 10; }
-        .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }
-        .kelp-with-col .kelp-sheet { right: 260px; }
-        .kelp-outline { position: absolute; display: none; border: 1.5px solid var(--k-orange); border-radius: 3px; }
-        .kelp-outline.kelp-outline-edit { border: 1px solid var(--k-accent); opacity: .6; }
-        .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
-          color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;
-          box-shadow: 0 0 0 2px var(--k-card); }
-        .kelp-num { width: 16px; height: 16px; border-radius: 50%; background: var(--k-orange); color: #1d1d1f;
-          font: 600 10px/16px -apple-system, sans-serif; text-align: center; }
-        .kelp-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .kelp-indent { padding-left: 36px; padding-top: 0; }
-        .kelp-end { justify-content: flex-end; padding-top: 10px; }
-        .kelp-field { flex: 1; min-width: 0; height: 22px; box-sizing: border-box; padding: 0 7px; border: 0;
-          border-radius: 6px; background: var(--k-card); color: var(--k-label); font: inherit;
-          box-shadow: inset 0 0 0 1px var(--k-sep); }
-        .kelp-issue { align-items: flex-start; }
-        .kelp-mark-warn { width: 14px; height: 14px; border-radius: 4px; color: var(--k-text-orange);
-          font: 700 10px/14px -apple-system, sans-serif; text-align: center;
-          box-shadow: 0 0 0 1px var(--k-orange); margin-top: 1px; }
-        .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 999px; padding: 1px 8px; font: inherit;
-          font-weight: 500; background: var(--k-rest); color: inherit; opacity: 0; }
-        .row h2:hover .kelp-pick, .kelp-tweaks { opacity: 1; }
-        .kelp-panel { display: none; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; font-size: 11px; }
-        .kelp-panel.open { display: flex; }
-        .kelp-panel label { display: flex; gap: 6px; align-items: center; }
-        .kelp-panel input[type=color] { width: 22px; height: 18px; border: 0; padding: 0; background: none; }
-        .kelp-tseg { display: inline-flex; border-radius: 999px; background: var(--k-rest); padding: 1px; }
-        .kelp-tseg button { border: 0; background: none; color: inherit; font: inherit; padding: 1px 7px;
-          border-radius: 999px; }
-        .kelp-tseg button.on { background: var(--k-card); box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
-        .kelp-strip { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: none;
-          align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 999px; opacity: 0;
-          background: rgba(40,40,40,.85); color: rgba(255,255,255,.85); font: 12px -apple-system, sans-serif;
-          transition: opacity .17s ease-in; }
-        .kelp-present .kelp-strip { display: flex; }
-        .kelp-strip.on { opacity: 1; transition: opacity .12s ease-out; }
-        .kelp-strip .kelp-ib { color: inherit; }
-        .kelp-strip .kelp-sep { background: rgba(255,255,255,.2); }
-        .kelp-where { font-variant-numeric: tabular-nums; }
-        .kelp-esc { color: rgba(255,255,255,.6); }
-        .kelp-present { overflow: hidden; }
-        .kelp-present #kelp-canvas { transform: none !important; }
-        .kelp-present .row h2, .kelp-present .name, .kelp-present .kelp-layer,
-          .kelp-present .kelp-panel, .kelp-present .frame { display: none !important; }
-        .kelp-present .frame.kelp-current { display: flex !important; position: fixed; inset: 0; z-index: 30;
-          align-items: center; justify-content: center; background: #000; padding-bottom: 64px;
-          box-sizing: border-box; }
-        .kelp-present .kelp-current iframe { flex: none; box-shadow: none; border-radius: 0; }
-        @media print {
-          #kelp-canvas { transform: none !important; }
-          .name, .kelp-pick, .kelp-tweaks, .kelp-layer, .kelp-panel, .kelp-col, .kelp-float, .kelp-issues,
-            .frame:has(iframe[data-theme="dark"]) { display: none !important; }
-          .frame { break-after: page; }
-        }
         """
 }

@@ -31699,6 +31699,96 @@
           }
         }
       }
+    },
+    "Arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка"
+          }
+        }
+      }
+    },
+    "Label": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подпись"
+          }
+        }
+      }
+    },
+    "Take Back the Last Drawn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить последний рисунок"
+          }
+        }
+      }
+    },
+    "Put It Back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть"
+          }
+        }
+      }
+    },
+    "The Whole Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Весь ролик"
+          }
+        }
+      }
+    },
+    "Waiting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждут"
+          }
+        }
+      }
+    },
+    "No mark is done yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовых пометок пока нет."
+          }
+        }
+      }
+    },
+    "+ To the Whole Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Ко всему ролику"
+          }
+        }
+      }
+    },
+    "A mark about the whole video, not one moment of it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка ко всему ролику, а не к одному моменту"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

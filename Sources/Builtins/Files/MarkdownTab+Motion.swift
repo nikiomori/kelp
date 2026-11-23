@@ -20,6 +20,7 @@ extension MarkdownTab {
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
         made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
         made.onKeyframe = { [weak self] in self?.keyframe() }
+        made.marking = marking
         made.keyframes { k in
             k.onMove = { [weak self] id, from, to in self?.moveKeyframe(id, from: from, to: to) }
             k.menu = { [weak self] id, place in self?.keyframeMenu(id, place) }

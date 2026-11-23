@@ -330,10 +330,12 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             switch m.kind {
             case .element: what += [m.target, m.text.isEmpty ? "" : "«\(m.text)»"]
             case .quote: what += ["«\(m.text)»"]
+            case .area where m.area == nil && m.path == nil: what.append("the whole page")
             case .area, .pen:
                 let near = m.target.isEmpty ? "" : " near \(m.target)"
                 let box = m.area.map { a in " " + a.map { String(Int($0.rounded())) }.joined(separator: ",") } ?? ""
                 what.append((m.kind == .area ? "area" : "pen") + (m.kind == .area ? box : near))
+                if !m.text.isEmpty { what.append("labelled «\(m.text)»") }
             }
             if let time = m.time { what.append(String(format: "at %.2f s", time)) }
             if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }

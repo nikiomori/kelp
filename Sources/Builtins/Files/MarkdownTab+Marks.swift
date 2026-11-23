@@ -147,7 +147,9 @@ extension MarkdownTab {
             "done": String(localized: "Done"), "again": String(localized: "Again"),
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
             "same": String(localized: "Not changed: its chat may say why"),
-            "composeHint": String(localized: "↩ add  ·  ⌘↩ send  ·  ⎋ remove")
+            "composeHint": String(localized: "↩ add  ·  ⌘↩ send  ·  ⎋ remove"),
+            "waiting": String(localized: "Waiting"), "all": String(localized: "All"),
+            "noneDone": String(localized: "No mark is done yet.")
         ]
     }
 }

@@ -147,7 +147,9 @@ extension MarkdownTab {
             noIssues: String(localized: "No issues: nothing cut off, every text readable, every file there."),
             of: String(localized: "of"), escEnds: String(localized: "Esc to end"),
             element: String(localized: "Element"),
-            area: String(localized: "Area"), pen: String(localized: "Pen"))
+            area: String(localized: "Area"), pen: String(localized: "Pen"), arrow: String(localized: "Arrow"),
+            label: String(localized: "Label"), undo: String(localized: "Take Back the Last Drawn"),
+            redo: String(localized: "Put It Back"), whole: String(localized: "The Whole Video"))
     }
 
     var canvasChromeLabels: CanvasChrome.Labels {
@@ -172,6 +174,7 @@ extension MarkdownTab {
         guard page != .canvas && page != .motion else {
             editing = mode == .edit
             if !editing { chosen = nil }
+            if page == .motion { motionStudio.marking = marking }
             return runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
         }
         // On a doc or slides, the source shows beside the page, or alone while the pane is too narrow for both.

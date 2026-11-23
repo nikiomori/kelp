@@ -27,7 +27,7 @@ enum MarkColumn {
           const layer = el('div', 'kelp-marks'), composer = el('div', 'kelp-composer');
           document.body.append(layer, composer);
           composer.style.display = 'none';
-          let page = null, tab = 'marks', at = 0, doneOpen = false, before = false;
+          let page = null, tab = 'marks', at = 0, doneOpen = false, before = false, filter = 'waiting';
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
           const keep = () => post({ kind: 'marksDraft', marks: by('draft') });
@@ -103,6 +103,7 @@ enum MarkColumn {
             }
             box.append(body);
             if (m.state === 'check') box.onclick = () => { at = by('check').indexOf(m); show(); };
+            else box.onclick = e => { if (e.target.tagName !== 'INPUT') page?.focus?.(m); };
             return box;
           }
 
@@ -134,6 +135,7 @@ enum MarkColumn {
           function rows() {
             const d = by('draft'), s = by('sent'), c = by('check'), done = by('done');
             if (!M.marks.length && !M.edits.length) return [el('p', 'kelp-note', page ? page.empty : '')];
+            if (filter === 'done') return done.length ? done.map(m => row(m)) : [el('p', 'kelp-note', L.noneDone)];
             const out = [];
             if (c.length) {
               out.push(sec(L.toCheck + ' · ' + c.length)); c.forEach((m, i) => out.push(row(m, i === at)));
@@ -141,7 +143,10 @@ enum MarkColumn {
             if (d.length) { out.push(sec(L.fresh + ' · ' + d.length)); d.forEach(m => out.push(row(m))); }
             if (M.edits.length) { out.push(sec(L.yourEdits + ' · ' + M.edits.length), ...edits()); }
             if (s.length) { out.push(sec(L.withAgent + ' · ' + s.length)); s.forEach(m => out.push(row(m))); }
-            if (done.length) {
+            if (done.length && filter === 'all') {
+              out.push(sec(L.done + ' · ' + done.length)); done.forEach(m => out.push(row(m)));
+            }
+            else if (done.length) {
               const h = sec(L.done + ' · ' + done.length + (doneOpen ? ' ▾' : ' ▸'));
               h.classList.add('kelp-fold'); h.onclick = () => { doneOpen = !doneOpen; draw(); };
               out.push(h);
@@ -158,9 +163,13 @@ enum MarkColumn {
 
           function column() {
             if (!window.kelpMarks.on) return;
-            const open = M.marks.filter(m => m.state !== 'done').length;
-            const tabs = [['marks', L.marks + ' ' + open]].concat(page?.tabs?.() ?? []);
-            C.open([C.tabs(tabs, tab, key => { tab = key; draw(); })], tab === 'marks' ? rows() : page.tabRows(tab));
+            const open = M.marks.filter(m => m.state !== 'done').length, more = page?.tabs?.() ?? [];
+            // Which marks show: those waiting (to write, with the agent, to check), the done ones, or all.
+            const which = C.tabs([['waiting', L.waiting + (open ? ' ' + open : '')], ['done', L.done], ['all', L.all]],
+              filter, key => { filter = key; draw(); });
+            if (!more.length) return C.open([which], rows());
+            const tabs = C.tabs([['marks', L.marks + ' ' + open]].concat(more), tab, key => { tab = key; draw(); });
+            C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab));
           }
 
           // The tab's bar for the check (`MarkReviewBar`) shows where it is; its buttons call back in here.
@@ -178,6 +187,7 @@ enum MarkColumn {
           // the mark away. The draft is found by its place among the drafts, which the daemon keeps.
           function compose(m) {
             const r = page?.where(m), i = by('draft').indexOf(m);
+            if (i >= 0 && !r) return document.querySelectorAll('.kelp-col .kelp-mark input')[i]?.focus();
             if (!r || i < 0) return;
             const field = el('textarea', 'kelp-compose-field');
             field.placeholder = m.rounds.length ? L.whatsWrong : L.note; field.value = m.note; field.rows = 2;
@@ -251,8 +261,10 @@ enum MarkColumn {
               if (on && by('check').length) show(); else draw();
             },
             add(mark) {
-              // On a motion page, the second it was made at: its pin shows near that second only.
-              if (window.kelpMotion) mark.time = Math.round(window.kelpMotion.time() * 100) / 100;
+              // On a motion page, the second it was made at: its pin shows near that second only. A mark on the
+              // whole video has none.
+              const whole = mark.whole; delete mark.whole;
+              if (window.kelpMotion && !whole) mark.time = Math.round(window.kelpMotion.time() * 100) / 100;
               M.marks.push(Object.assign({ id: 0, kind: 'element', board: '', target: '', text: '', note: '',
                 state: 'draft', rounds: [] }, mark));
               tab = 'marks'; keep(); draw();
@@ -268,6 +280,13 @@ enum MarkColumn {
               if (typing()) { pins(); review(); return; }
               draw();
             },
+            // The newest draft taken away (↶), returned to be put back (`put`, ↷); a draft's words changed.
+            drop() {
+              const m = by('draft').pop(); if (!m) return null;
+              M.marks = M.marks.filter(k => k !== m); keep(); draw(); return m;
+            },
+            put(m) { M.marks.push(m); keep(); draw(); },
+            changed() { keep(); draw(); },
             find: id => M.marks.find(m => m.id === id),
             list: () => M.marks,
             step, showBefore,
