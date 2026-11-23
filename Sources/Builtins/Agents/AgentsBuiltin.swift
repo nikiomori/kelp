@@ -72,7 +72,11 @@ extension Builtins {
             ],
             // The plan limits show in the sidebar's foot, and each new reading is handled as it lands (for its pace and
             // its notifications). A note on the limits sits beside each agent wherever agents are chosen.
-            sidebarSections: [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }],
+            sidebarSections: [
+                SidebarSection(id: "limits", foot: true, title: "Plan Limits", shown: SettingKeys.readPlans) {
+                    UsageFooter.make(app)
+                }
+            ],
             pushed: [{ LimitWatch.of(app).landed($0) }],
             plans: PlanNote.words(app),
             // Starts the strip over the Dock, which shows while Kelp is behind another app, and puts its items in the

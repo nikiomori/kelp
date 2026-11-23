@@ -191,6 +191,86 @@
         }
       }
     },
+    "Collapse Machines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть машины"
+          }
+        }
+      }
+    },
+    "Expand Machines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развернуть машины"
+          }
+        }
+      }
+    },
+    "Hide Machines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть машины"
+          }
+        }
+      }
+    },
+    "Machines Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки машин…"
+          }
+        }
+      }
+    },
+    "Machines are hidden. Settings › Machines brings them back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Машины скрыты. Вернуть можно в Настройки › Машины."
+          }
+        }
+      }
+    },
+    "Show in sidebar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать в боковой панели"
+          }
+        }
+      }
+    },
+    "Sidebar Blocks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блоки боковой панели"
+          }
+        }
+      }
+    },
+    "The list of machines above the plan limits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список машин над лимитами планов."
+          }
+        }
+      }
+    },
     "address, model, key": {
       "localizations": {
         "ru": {
