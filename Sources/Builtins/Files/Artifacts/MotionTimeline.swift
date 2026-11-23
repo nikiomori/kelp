@@ -18,13 +18,11 @@ final class MotionTimeline: NSView {
         var trims: Bool { delays.count <= 1 }
         /// An element hidden by hand (`data-hidden`): not in the page or the video.
         var hidden = false
+        /// Its first animation's keyframes, when it has one.
+        var keys: Keys?
     }
     private enum Drag { case time, move(Clip, Double), start(Clip), end(Clip) }
 
-    /// A mark at a second of the video: its number, its second, and whether it's the user's move (orange).
-    struct Mark: Equatable {
-        var id: Int, time: Double, yours: Bool
-    }
     private(set) var at = 0.0, length = 1.0, scenes: [Clip] = [], marks: [Mark] = []
     /// The elements' lanes, the frontmost first, as layers.
     private(set) var tracks: [Clip] = []
@@ -82,7 +80,7 @@ final class MotionTimeline: NSView {
     /// The clip clicked last, which ⌫ and ⌘D act on.
     var picked: String?
     /// The clips taken together, and the box or the group's drag under way (`MotionTimeline+Select`).
-    var selecting = Selecting()
+    var selecting = Selecting(), keyframing = Keyframing()
     /// Clips moved together (as they were, as they are now), and several acted on at once (`remove`, `copy`, `cut`).
     var onGroup: (([(was: Clip, now: Clip)]) -> Void)?, onMany: ((String, [String]) -> Void)?
 
@@ -123,7 +121,7 @@ final class MotionTimeline: NSView {
     var track: NSRect {
         NSRect(x: names, y: 0, width: max(bounds.width - names - Metrics.inset, 1), height: bounds.height)
     }
-    private func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat((seconds - from) / span) }
+    func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat((seconds - from) / span) }
     func seconds(_ x: CGFloat) -> Double { from + Double((x - track.minX) / track.width) * span }
 
     /// Zooms to `zoom` (1 to 40), keeping second `around` (the time, when nil) where it is.
@@ -202,6 +200,7 @@ final class MotionTimeline: NSView {
         drawRuler()
         drawClips(font)
         drawSelecting()
+        drawKeyframes()
         if let range {
             NSColor.systemYellow.setFill()
             NSRect(
@@ -321,7 +320,9 @@ final class MotionTimeline: NSView {
             onMark?(m.id)
             return
         }
-        if layerDown(at: p) || selectDown(at: p, shift: event.modifierFlags.contains(.shift)) { return }
+        if layerDown(at: p) || keyDown(at: p) || selectDown(at: p, shift: event.modifierFlags.contains(.shift)) {
+            return
+        }
         let lanes = [scenes] + tracks.map { [$0] }
         for (lane, clips) in lanes.enumerated() {
             guard let clip = clips.first(where: { box($0, lane: lane).insetBy(dx: -3, dy: 0).contains(p) }) else {
@@ -346,7 +347,7 @@ final class MotionTimeline: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
-        if layerDragged(to: p) || selectDragged(to: p) { return }
+        if layerDragged(to: p) || keyDragged(to: p) || selectDragged(to: p) { return }
         let now = seconds(convert(event.locationInWindow, from: nil).x)
         switch drag {
         case .time: seek(convert(event.locationInWindow, from: nil).x)
@@ -364,7 +365,7 @@ final class MotionTimeline: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if layerUp() || selectUp() { return }
+        if layerUp() || keyUp() || selectUp() { return }
         if selecting.box == nil, drag == nil, convert(event.locationInWindow, from: nil).x >= track.minX {
             seek(convert(event.locationInWindow, from: nil).x)
         }

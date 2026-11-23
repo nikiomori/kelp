@@ -325,3 +325,49 @@ extension OneAtATime {
                 && editor.text.contains(#"data-id="b-2" data-start="4""#))
     }
 }
+
+extension OneAtATime {
+    /// A keyframe dragged on its lane moves in the page's @keyframes; its menu's easing goes on it; the element dragged
+    /// on the stage at a time between keyframes makes one there with its place.
+    @Test func keyframesChangeThePagesRule() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <html><head><style>h1 { animation: rise 2s 1s both }
+            @keyframes rise { 0% { opacity: 0 } 50% { opacity: 1 } 100% { translate: 0 0 } }
+            </style></head><body data-width="1920" data-height="1080"><h1 data-id="t">Hi</h1></body></html>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        tab.motionMessage([
+            "t": 1.5, "duration": 3,
+            "tracks": [
+                [
+                    "id": "t", "title": "T", "start": 1, "end": 3, "delays": [1], "lengths": [2],
+                    "keys": [
+                        "name": "rise", "delay": 1, "duration": 2, "at": [0, 50, 100],
+                        "easing": ["linear", "linear", "linear"]
+                    ]
+                ]
+            ]
+        ])
+        tab.moveKeyframe("t", from: 50, to: 40)
+        #expect(editor.text.contains("40% { opacity: 1 }"))
+        tab.motionMessage([
+            "t": 1.5, "duration": 3,
+            "tracks": [
+                [
+                    "id": "t", "title": "T", "start": 1, "end": 3, "delays": [1], "lengths": [2],
+                    "keys": [
+                        "name": "rise", "delay": 1, "duration": 2, "at": [0, 40, 100],
+                        "easing": ["linear", "linear", "linear"]
+                    ]
+                ]
+            ]
+        ])
+        tab.easeKeyframe("t", at: 40, "ease-in-out")
+        #expect(editor.text.contains("40% { opacity: 1; animation-timing-function: ease-in-out }"))
+        tab.keyframeTranslate("t", "10px 0px")   // at 1.5 s: 25% of the animation, where there's no keyframe yet
+        #expect(editor.text.contains("25% { translate: 10px 0px }"))
+    }
+}

@@ -135,6 +135,7 @@ enum CanvasEditMode {
           K.layer.append(chosen, tag);
           let at = null;
           window.kelpProps.at = () => at;
+          window.kelpProps.redraw = () => draw();
           const nameOf = e => e.tagName.toLowerCase() + (idOf(e) ? ' · ' + idOf(e) : '');
           const titleOf = e => e.dataset.title || (e.children.length ? '' : (e.textContent || '').trim().slice(0, 32))
             || nameOf(e);
@@ -304,6 +305,7 @@ enum CanvasEditMode {
             if (layout.length) out.push(section(L.layout, layout.map(popup)));
             out.push(position(e), fill(e));
             if (window.kelpMotion && timing(e)) out.push(time(e, id));
+            for (const more of window.kelpProps.more || []) out.push(...more(e, id));
             return out;
           }
           K.sheet.addEventListener('click', ev => {

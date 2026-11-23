@@ -50,6 +50,11 @@ extension MotionTimeline {
     /// A clip's menu: Duplicate and Delete.
     override func menu(for event: NSEvent) -> NSMenu? {
         let p = convert(event.locationInWindow, from: nil)
+        if let key = keyframe(at: p) {
+            keyframing.chosen = key
+            needsDisplay = true
+            return keyframing.menu?(key.id, key.at)
+        }
         let lanes = [scenes] + tracks.map { [$0] }
         for (lane, clips) in lanes.enumerated() {
             guard let clip = clips.first(where: { box($0, lane: lane).contains(p) }), !clip.id.isEmpty else { continue }

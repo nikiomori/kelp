@@ -31509,6 +31509,196 @@
           }
         }
       }
+    },
+    "Keyframe at the Time (K)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевой кадр на линии (K)"
+          }
+        }
+      }
+    },
+    "Choose an element to give it a keyframe.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите элемент, чтобы дать ему ключевой кадр."
+          }
+        }
+      }
+    },
+    "The time is outside the element’s animation.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Линия времени вне анимации элемента."
+          }
+        }
+      }
+    },
+    "Easing After It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавность после него"
+          }
+        }
+      }
+    },
+    "Ease In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разгон"
+          }
+        }
+      }
+    },
+    "Ease Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Торможение"
+          }
+        }
+      }
+    },
+    "Ease In Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разгон и торможение"
+          }
+        }
+      }
+    },
+    "Back Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С отскоком назад"
+          }
+        }
+      }
+    },
+    "Spring": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пружина"
+          }
+        }
+      }
+    },
+    "Edit Curve…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить кривую…"
+          }
+        }
+      }
+    },
+    "Move to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передвинуть на линию"
+          }
+        }
+      }
+    },
+    "Delete Keyframe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить ключевой кадр"
+          }
+        }
+      }
+    },
+    "Keyframes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевые кадры"
+          }
+        }
+      }
+    },
+    "Easing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавность"
+          }
+        }
+      }
+    },
+    "Curve": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кривая"
+          }
+        }
+      }
+    },
+    "Wiggle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дрожь"
+          }
+        }
+      }
+    },
+    "Bounce": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отскок"
+          }
+        }
+      }
+    },
+    "Swings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колебаний"
+          }
+        }
+      }
+    },
+    "Ready Ones": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заготовки"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

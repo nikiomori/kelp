@@ -34,6 +34,9 @@ final class MotionStudio {
                     self?.act("window.kelpMotion?.step(1)")
                 },
                 loop, speed, time, frame, rangeChip,
+                IconButton(.symbol("diamond"), tip: String(localized: "Keyframe at the Time (K)")) { [weak self] in
+                    self?.onKeyframe?()
+                },
                 IconButton(.symbol("scissors"), tip: String(localized: "Split at the Time (S)")) { [weak self] in
                     self?.cut("split")
                 },
@@ -112,6 +115,12 @@ final class MotionStudio {
     var onDropFiles: (([URL], Double) -> Void)?
     /// A clip cut, trimmed, copied or pasted: the kind, and the clip clicked last on the timeline.
     var onCut: ((String, String?) -> Void)?
+    /// K, or ◆: a keyframe at the time.
+    var onKeyframe: (() -> Void)?
+    /// The lane clicked last on the timeline.
+    var picked: String? { timeline.picked }
+    /// What the timeline's keyframes do (moved, chosen, their menu).
+    func keyframes(_ set: (inout MotionTimeline.Keyframing) -> Void) { set(&timeline.keyframing) }
     /// Clips moved together on the timeline, and several acted on at once (`remove`, `copy`, `cut`).
     var onGroup: (([(was: MotionTimeline.Clip, now: MotionTimeline.Clip)]) -> Void)?
     var onMany: ((String, [String]) -> Void)?

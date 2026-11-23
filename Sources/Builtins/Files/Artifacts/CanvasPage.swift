@@ -193,6 +193,7 @@ enum CanvasPage {
         \(CanvasEditBar.style)
         \(CanvasCrop.style)
         \(CanvasTypeOver.style)
+        \(CanvasMotionKeys.style)
         \(dashboard ? DashboardPage.style : "")
         \(motion ? MotionPage.style : "")
         </style></head><body\(dashboard ? " class=\"kelp-dash\"" : motion ? " class=\"kelp-motion-page\"" : "")>\(body)\

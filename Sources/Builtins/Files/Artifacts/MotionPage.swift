@@ -96,6 +96,12 @@ enum MotionPage {
                 lengths: [], hidden: e.dataset.hidden === 'true', e };
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
               track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
+              // Its first animation's keyframes, where they are and how the stretch after each eases.
+              if (!track.keys && a.animationName) {
+                const frames = a.effect.getKeyframes();
+                track.keys = { name: a.animationName, delay: start, duration: (timing.duration || 0) / 1000,
+                  at: frames.map(k => Math.round(k.computedOffset * 1000) / 10), easing: frames.map(k => k.easing) };
+              }
               by.set(e, track);
             }
             for (const e of parts().filter(media)) {
@@ -184,6 +190,20 @@ enum MotionPage {
             setLoop(on) { loop = on; },
             // The work area: I and O set its in and out at the time shown, ⇧I and ⇧O take it away.
             setRange(r) { range = r && r[1] > r[0] ? r : null; tell(true); },
+            // What element `id`'s animated properties are now, for a keyframe made at the time shown.
+            values(id) {
+              const e = doc?.querySelector('[data-id="' + CSS.escape(id) + '"]'); if (!e) return null;
+              const st = css(e), out = {}, names = new Set(['translate', 'opacity']);
+              for (const a of e.getAnimations()) for (const k of a.effect.getKeyframes())
+                for (const p of Object.keys(k))
+                  if (!['offset', 'computedOffset', 'easing', 'composite'].includes(p)) names.add(p);
+              for (const p of names) {
+                const name = p.replace(/[A-Z]/g, c => '-' + c.toLowerCase()), v = st.getPropertyValue(name);
+                if (v && v !== 'none') out[name] = v;
+              }
+              if (!out.translate) out.translate = '0px 0px';
+              return out;
+            },
             // The stage on screen, and its own size, for the export's pictures.
             stage() {
               const r = frame.getBoundingClientRect();
@@ -203,6 +223,7 @@ enum MotionPage {
             const typing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
             if (typing || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
             if (e.key === ' ') window.kelpMotion.toggle();
+            else if (e.key.toLowerCase() === 'k' && !e.shiftKey) post({ kind: 'keyframe' });
             else if (e.key.toLowerCase() === 'i' || e.key.toLowerCase() === 'o') {
               const isIn = e.key.toLowerCase() === 'i', r = range || [0, duration()];
               const next = isIn ? [t, Math.max(r[1], t + 0.1)] : [Math.min(r[0], t - 0.1), t];

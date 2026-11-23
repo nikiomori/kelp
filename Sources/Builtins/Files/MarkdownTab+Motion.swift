@@ -19,6 +19,11 @@ extension MarkdownTab {
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
         made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
+        made.onKeyframe = { [weak self] in self?.keyframe() }
+        made.keyframes { k in
+            k.onMove = { [weak self] id, from, to in self?.moveKeyframe(id, from: from, to: to) }
+            k.menu = { [weak self] id, place in self?.keyframeMenu(id, place) }
+        }
         made.onMany = { [weak self] kind, ids in
             kind == "remove" ? self?.removeElements(ids) : self?.copyClips(ids, cut: kind == "cut")
         }
@@ -44,7 +49,10 @@ extension MarkdownTab {
 
     /// The scripts a motion page is drawn with: Kelp's player at the frame rate chosen, back at the time it showed.
     func motionScripts(at: Double) -> [String] {
-        [MotionPage.source(fps: motionStudio.fps), "window.kelpMotion?.seek(\(at))"]
+        [
+            MotionPage.source(fps: motionStudio.fps), CanvasMotionKeys.source(labels: motionKeyLabels),
+            "window.kelpMotion?.seek(\(at))"
+        ]
     }
 
     /// Chooses element `id` on the stage, as a click in Edit does, turning Edit on.
@@ -55,6 +63,17 @@ extension MarkdownTab {
         }
         chosen = (MotionPage.board, id)
         runJS("window.kelpSelect?.(\(Self.js(MotionPage.board)), \(Self.js(id)))")
+    }
+
+    /// The words of the column's Motion section and its curve.
+    var motionKeyLabels: [String: String] {
+        [
+            "motion": String(localized: "Motion"), "keyframes": String(localized: "Keyframes"),
+            "easing": String(localized: "Easing"), "curve": String(localized: "Curve"),
+            "spring": String(localized: "Spring"), "wiggle": String(localized: "Wiggle"),
+            "bounce": String(localized: "Bounce"), "count": String(localized: "Swings"),
+            "presets": String(localized: "Ready Ones")
+        ]
     }
 
     func motionMessage(_ body: [String: Any]) {
@@ -68,7 +87,15 @@ extension MarkdownTab {
                     length: length == "end" ? takes - begins : takes,
                     delays: (c["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
                     lengths: (c["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [],
-                    hidden: c["hidden"] as? Bool ?? false)
+                    hidden: c["hidden"] as? Bool ?? false,
+                    keys: (c["keys"] as? [String: Any]).flatMap { k in
+                        guard let name = k["name"] as? String else { return nil }
+                        return MotionTimeline.Keys(
+                            name: name, delay: (k["delay"] as? NSNumber)?.doubleValue ?? 0,
+                            duration: (k["duration"] as? NSNumber)?.doubleValue ?? 0,
+                            at: (k["at"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                            easing: k["easing"] as? [String] ?? [])
+                    })
             }
         }
         motionStudio.show(

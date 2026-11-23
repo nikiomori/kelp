@@ -56,11 +56,14 @@ enum CanvasHandles {
           function start(ev, corner) {
             if (!at || !idOf(at.e)) return false;
             const e = at.e;
-            if (movesItself(e)) { refuse(); return false; }
+            // On a motion page an animated element moves at its keyframe for the time shown; elsewhere it can't.
+            const keyed = movesItself(e) && !!window.kelpMotion;
+            if (movesItself(e) && !keyed) { refuse(); return false; }
+            if (keyed && corner) return false;
             const st = css(e), r = e.getBoundingClientRect(), was = {};
             for (const p of ['translate', 'width', 'height', 'scale', 'transform-origin'])
               was[p] = e.style.getPropertyValue(p);
-            drag = { e, f: at.f, corner, x: ev.clientX, y: ev.clientY, k: scaleOf(at.f), t: moved(e), r, was,
+            drag = { e, f: at.f, corner, keyed, x: ev.clientX, y: ev.clientY, k: scaleOf(at.f), t: moved(e), r, was,
               s: numbers(st.scale)[0] || 1, cw: parseFloat(st.width), ch: parseFloat(st.height), text: isText(e),
               moved: false };
             return true;
@@ -115,7 +118,9 @@ enum CanvasHandles {
             if (!drag.corner) {
               if (ev.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
               if (!ev.altKey) [dx, dy] = snap(dx, dy);
-              e.style.translate = Math.round(drag.t[0] + dx) + 'px ' + Math.round(drag.t[1] + dy) + 'px';
+              const to = Math.round(drag.t[0] + dx) + 'px ' + Math.round(drag.t[1] + dy) + 'px';
+              // Over its animation for now (!important wins over it), until the keyframe is written.
+              if (drag.keyed) e.style.setProperty('translate', to, 'important'); else e.style.translate = to;
             } else {
               const left = drag.corner[1] === 'w', top = drag.corner[0] === 'n', r = drag.r;
               const w = Math.max(8, r.width + (left ? -dx : dx));
@@ -144,7 +149,12 @@ enum CanvasHandles {
             if (!drag) return;
             const d = drag; drag = null; guides.replaceChildren();
             setTimeout(() => { busy = false; });
-            if (d.moved) save(d.e, d.f, d.was);
+            if (d.moved && d.keyed) {
+              const to = d.e.style.getPropertyValue('translate');
+              d.e.style.removeProperty('translate');
+              if (d.was.translate) d.e.style.translate = d.was.translate;
+              K.post({ kind: 'keyTranslate', id: idOf(d.e), translate: to });
+            } else if (d.moved) save(d.e, d.f, d.was);
           });
           // The arrows move the chosen element; it is written once they rest.
           addEventListener('keydown', ev => {

@@ -16,6 +16,13 @@ extension MarkdownTab {
             propMenu(
                 key, items, reset: body["reset"] as? Bool ?? false,
                 element: (body["board"] as? String).flatMap { b in (body["id"] as? String).map { (b, $0) } })
+        case "keyframe": keyframe()
+        case "ease":
+            guard let id = body["id"] as? String, let at = (body["at"] as? NSNumber)?.doubleValue else { return true }
+            easeKeyframe(id, at: (at * 10).rounded() / 10, body["value"] as? String)
+        case "keyTranslate":
+            guard let id = body["id"] as? String, let translate = body["translate"] as? String else { return true }
+            keyframeTranslate(id, translate)
         case "retimeElement":
             guard let id = body["id"] as? String, let start = (body["start"] as? NSNumber)?.doubleValue,
                 let length = (body["length"] as? NSNumber)?.doubleValue
