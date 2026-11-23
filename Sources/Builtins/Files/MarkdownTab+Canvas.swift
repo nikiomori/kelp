@@ -38,7 +38,7 @@ extension MarkdownTab {
 
     /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
-        if arrangeMessage(kind, body) || propsMessage(kind, body) { return true }
+        if arrangeMessage(kind, body) || propsMessage(kind, body) || slidesMessage(kind, body) { return true }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
@@ -104,6 +104,7 @@ extension MarkdownTab {
         case "present":
             presentingBoards = false
             onPresentEnded?()
+            Presenter.close(for: self)
         case "mode":
             setCanvasMode(.mark)
             onPageMode?(.mark)
@@ -200,7 +201,9 @@ extension MarkdownTab {
     /// Starts or stops presenting, for Present in the bar. Presenting shows the boards one at a time, as large as
     /// the pane.
     func togglePresenting() {
+        if page == .slides, !presentingBoards { return presentMenu() }
         presentingBoards.toggle()
+        if !presentingBoards { Presenter.close(for: self) }
         if presentingBoards { focusPreview() }
         runJS("kelpPresent(\(presentingBoards))")
     }

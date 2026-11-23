@@ -75,7 +75,7 @@ extension MarkdownTab {
             // An agent's Markdown page (a doc, slides) takes marks, and a doc shows what the agent's last turn changed.
             let agents = artifactBar != nil && (kind == .markdown || kind == .slides)
             let markLabels = pageMarkLabels,
-                slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
+                slideLabels = slidesLabels
             let turn = shown == nil && kind == .markdown ? baseline : nil
             let noSource = String(localized: "Where it came from isn't said: ask its agent for a data-source.")
             if turn == nil, agents { onChanges?(0) }
@@ -157,6 +157,7 @@ extension MarkdownTab {
                 : kind == .slides ? "kelpGo(\(slide))" : "window.scrollTo(0, \(scrollY))"
             // A canvas is Kelp's own page, so its scripts run; its boards sit in frames sandboxed without scripts
             // (`CanvasPage`).
+            if kind == .slides { Presenter.pages.setObject(.init((html, base, scripts + [place])), forKey: self) }
             links.load(
                 html, baseURL: base, scripts: scripts + [place], world: Self.world,
                 pageScripts: kind == .canvas || kind == .motion,
