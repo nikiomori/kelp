@@ -18,6 +18,10 @@ extension MarkdownTab {
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
+        made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
+        made.onMany = { [weak self] kind, ids in
+            kind == "remove" ? self?.removeElements(ids) : self?.copyClips(ids, cut: kind == "cut")
+        }
         made.onCut = { [weak self] kind, id in
             switch kind {
             case "split": self?.splitClip(id)
@@ -95,23 +99,49 @@ extension MarkdownTab {
         }
     }
 
+    /// A change of a clip's time: the hand edit it is, and how it changes the page's text.
+    typealias Timing = (edit: HandEdit, apply: (String) -> String?)
+
     /// Moves or trims a scene: its `data-start` and `data-duration` become the block's start and length.
     func retime(scene was: MotionTimeline.Clip, as now: MotionTimeline.Clip) {
-        let edit = HandEdit(
-            board: pageFile, id: now.id, what: "data-start/data-duration",
-            from: "\(Self.seconds(was.start))/\(Self.seconds(was.length))",
-            to: "\(Self.seconds(now.start))/\(Self.seconds(now.length))")
-        rewritePage(edit) { text in
-            BoardEdit.setAttribute(text, id: now.id, name: "data-start", value: Self.seconds(now.start)).flatMap {
-                BoardEdit.setAttribute($0, id: now.id, name: "data-duration", value: Self.seconds(now.length))
-            }
-        }
+        let change = sceneTiming(was, now)
+        rewritePage(change.edit, change.apply)
     }
 
     /// Moves an element's animations by as much as its block moved on the timeline, or, for one animation trimmed,
     /// gives it the block's start and length. They are set on the element itself (`animation-delay`,
     /// `animation-duration`), over what its CSS rule says.
     func retime(_ was: MotionTimeline.Clip, as now: MotionTimeline.Clip) {
+        let change = animationTiming(was, now)
+        rewritePage(change.edit, change.apply)
+    }
+
+    /// Moves several clips at once, as one edit: a group dragged on the timeline.
+    func retimeAll(_ moves: [(was: MotionTimeline.Clip, now: MotionTimeline.Clip)]) {
+        let changes = moves.map {
+            $0.was.delays.isEmpty ? sceneTiming($0.was, $0.now) : animationTiming($0.was, $0.now)
+        }
+        guard var edit = changes.first?.edit else { return }
+        if changes.count > 1 { edit.what += " (and \(changes.count - 1) more)" }
+        rewritePage(edit) { text in changes.reduce(Optional(text)) { text, change in text.flatMap(change.apply) } }
+    }
+
+    private func sceneTiming(_ was: MotionTimeline.Clip, _ now: MotionTimeline.Clip) -> Timing {
+        let edit = HandEdit(
+            board: pageFile, id: now.id, what: "data-start/data-duration",
+            from: "\(Self.seconds(was.start))/\(Self.seconds(was.length))",
+            to: "\(Self.seconds(now.start))/\(Self.seconds(now.length))")
+        return (
+            edit,
+            { text in
+                BoardEdit.setAttribute(text, id: now.id, name: "data-start", value: Self.seconds(now.start)).flatMap {
+                    BoardEdit.setAttribute($0, id: now.id, name: "data-duration", value: Self.seconds(now.length))
+                }
+            }
+        )
+    }
+
+    private func animationTiming(_ was: MotionTimeline.Clip, _ now: MotionTimeline.Clip) -> Timing {
         let shift = now.start - was.start
         let delays = was.delays.map { $0 + shift }
         let lengths = was.delays.count == 1 && now.length != was.length ? [now.length] : was.lengths
@@ -119,11 +149,14 @@ extension MarkdownTab {
         let edit = HandEdit(
             board: pageFile, id: now.id, what: "animation-delay/animation-duration",
             from: list(was.delays) + "/" + list(was.lengths), to: list(delays) + "/" + list(lengths))
-        rewritePage(edit) { text in
-            BoardEdit.setStyle(text, id: now.id, property: "animation-delay", value: list(delays)).flatMap {
-                BoardEdit.setStyle($0, id: now.id, property: "animation-duration", value: list(lengths))
+        return (
+            edit,
+            { text in
+                BoardEdit.setStyle(text, id: now.id, property: "animation-delay", value: list(delays)).flatMap {
+                    BoardEdit.setStyle($0, id: now.id, property: "animation-duration", value: list(lengths))
+                }
             }
-        }
+        )
     }
 
     static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }

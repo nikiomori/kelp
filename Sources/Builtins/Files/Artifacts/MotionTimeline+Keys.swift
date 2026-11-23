@@ -21,6 +21,7 @@ extension MotionTimeline {
     }
 
     override func keyDown(with event: NSEvent) {
+        if selectKey(event) { return }
         if event.charactersIgnoringModifiers == "s",
             event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask)
         {
@@ -36,6 +37,8 @@ extension MotionTimeline {
         }
         switch event.charactersIgnoringModifiers {
         case "d": if let picked { onDuplicate?(picked) } else { return false }
+        case "c" where selecting.ids.count > 1: onMany?("copy", Array(selecting.ids))
+        case "x" where selecting.ids.count > 1: onMany?("cut", Array(selecting.ids))
         case "c": onCut?("copy", picked)
         case "x": onCut?("cut", picked)
         case "v": onCut?("paste", picked)
@@ -58,5 +61,17 @@ extension MotionTimeline {
             return menu
         }
         return nil
+    }
+
+    override func resetCursorRects() {
+        let lanes = [scenes] + tracks.map { [$0] }
+        for (lane, clips) in lanes.enumerated() {
+            for clip in clips where !clip.id.isEmpty && clip.trims { edges(box(clip, lane: lane)) }
+        }
+    }
+
+    func edges(_ rect: NSRect) {
+        addCursorRect(NSRect(x: rect.minX - 3, y: rect.minY, width: 6, height: rect.height), cursor: .resizeLeftRight)
+        addCursorRect(NSRect(x: rect.maxX - 3, y: rect.minY, width: 6, height: rect.height), cursor: .resizeLeftRight)
     }
 }

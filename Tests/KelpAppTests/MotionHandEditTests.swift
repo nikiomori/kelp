@@ -259,3 +259,69 @@ extension OneAtATime {
         #expect(editor.text.contains(#"data-id="a-3" data-start="1.5" data-duration="0.5""#))
     }
 }
+
+/// A box dragged over the timeline's empty room takes in the clips it touches; ⇧-click takes one away.
+@MainActor @Test func aBoxOnTheTimelineTakesTheClipsItTouches() throws {
+    _ = NSApplication.shared
+    let timeline = MotionTimeline(frame: NSRect(x: 0, y: 0, width: 600, height: 220))
+    let window = NSWindow(contentRect: timeline.frame, styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = timeline
+    timeline.set(
+        at: 0, length: 6,
+        scenes: [.init(id: "a", title: "A", start: 0, length: 2), .init(id: "b", title: "B", start: 2, length: 4)],
+        tracks: [.init(id: "t", title: "T", start: 4, length: 1, delays: [4], lengths: [1])])
+    func mouse(_ type: NSEvent.EventType, _ x: CGFloat, _ y: CGFloat, shift: Bool = false) throws -> NSEvent {
+        try #require(
+            NSEvent.mouseEvent(
+                with: type, location: timeline.convert(NSPoint(x: x, y: y), to: nil),
+                modifierFlags: shift ? .shift : [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                eventNumber: 0, clickCount: 1, pressure: 1))
+    }
+    // From the empty room of the element lane's start to past both scenes' middle, up through the scenes' lane.
+    timeline.mouseDown(with: try mouse(.leftMouseDown, 200, 60))
+    timeline.mouseDragged(with: try mouse(.leftMouseDragged, 560, 26))
+    timeline.mouseUp(with: try mouse(.leftMouseUp, 560, 26))
+    #expect(timeline.selecting.ids.isSuperset(of: ["b", "t"]))
+    timeline.mouseDown(with: try mouse(.leftMouseDown, 520, 34, shift: true))   // ⇧ on B takes it away
+    #expect(!timeline.selecting.ids.contains("b"))
+}
+
+extension OneAtATime {
+    /// Clips moved together are one edit and one ⌘Z; two clips copied paste at the time keeping their distance.
+    @Test func clipsMovedOrPastedTogetherAreOneEdit() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <body data-width="1920" data-height="1080">
+            <section data-id="a" data-start="0" data-duration="1"></section>
+            <section data-id="b" data-start="1" data-duration="1"></section>
+            </body>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        let a = MotionTimeline.Clip(id: "a", title: "A", start: 0, length: 1)
+        let b = MotionTimeline.Clip(id: "b", title: "B", start: 1, length: 1)
+        var a2 = a, b2 = b
+        a2.start = 0.5
+        b2.start = 1.5
+        tab.retimeAll([(a, a2), (b, b2)])
+        #expect(
+            editor.text.contains(#"data-id="a" data-start="0.5""#)
+                && editor.text.contains(#"data-id="b" data-start="1.5""#))
+        #expect(tab.handSteps.undo.count == 1)
+        tab.undoHandEdit(redo: false)
+        #expect(try await waitFor(5) { editor.text == page })
+        tab.motionMessage([
+            "t": 3, "duration": 5,
+            "scenes": [
+                ["id": "a", "title": "A", "start": 0, "duration": 1],
+                ["id": "b", "title": "B", "start": 1, "duration": 1]
+            ]
+        ])
+        tab.copyClips(["a", "b"], cut: false)
+        tab.pasteClip()
+        #expect(
+            editor.text.contains(#"data-id="a-2" data-start="3""#)
+                && editor.text.contains(#"data-id="b-2" data-start="4""#))
+    }
+}

@@ -44,27 +44,58 @@ extension MarkdownTab {
         retime(scene: clip, as: now)
     }
 
-    /// Copies clip `id` (with `cut`, takes it out too).
-    func copyClip(_ id: String?, cut: Bool) {
-        guard let clip = timed(id), let html = BoardEdit.element(editor.text, id: clip.id) else {
-            return NSSound.beep()
+    /// Copies clips `ids` (or the one under the time), and with `cut` takes them out too. Kept as their HTML and start.
+    func copyClips(_ ids: [String], cut: Bool) {
+        let clips = ids.isEmpty ? timed(nil).map { [$0] } ?? [] : ids.compactMap { timed($0) }
+        let items = clips.compactMap { clip in
+            BoardEdit.element(editor.text, id: clip.id).map { ["html": $0, "start": Self.seconds(clip.start)] }
         }
+        let data: Data
+        do { data = try JSONSerialization.data(withJSONObject: items) } catch { return NSSound.beep() }
+        guard !items.isEmpty else { return NSSound.beep() }
         let board = NSPasteboard.general
         board.clearContents()
-        board.setString(html, forType: Self.clipType)
-        board.setString(html, forType: .string)
-        if cut { removeElement(pageFile, clip.id) }
+        board.setData(data, forType: Self.clipType)
+        board.setString(items.compactMap { $0["html"] }.joined(separator: "\n"), forType: .string)
+        if cut { removeElements(clips.map(\.id)) }
     }
 
-    /// Pastes the clip copied at the time shown, as a new element at the end of the page's body.
+    /// Copies clip `id` (with `cut`, takes it out too).
+    func copyClip(_ id: String?, cut: Bool) { copyClips(id.map { [$0] } ?? [], cut: cut) }
+
+    /// Pastes the clips copied at the time shown, keeping how far apart they were, each a new element at the end of
+    /// the page's body.
     func pasteClip() {
-        guard let html = NSPasteboard.general.string(forType: Self.clipType) else { return NSSound.beep() }
-        let at = Self.seconds(motionStudio.at)
-        let edit = HandEdit(board: pageFile, id: "body", what: "pasted at", from: nil, to: at)
+        let copied = NSPasteboard.general.data(forType: Self.clipType)
+        let items: [[String: String]]
+        do {
+            items = try copied.map { try JSONSerialization.jsonObject(with: $0) } as? [[String: String]] ?? []
+        } catch {
+            items = []   // what isn't Kelp's clips pastes nothing
+        }
+        guard !items.isEmpty else { return NSSound.beep() }
+        let first = items.compactMap { Double($0["start"] ?? "") }.min() ?? 0, at = motionStudio.at
+        let edit = HandEdit(board: pageFile, id: "body", what: "pasted at", from: nil, to: Self.seconds(at))
         rewritePage(edit) { text in
-            guard let copy = BoardEdit.renamed(html, in: text) else { return nil }
-            return BoardEdit.setAttribute(
-                BoardEdit.appendToBody(text, copy.html), id: copy.id, name: "data-start", value: at)
+            items.reduce(Optional(text)) { text, item in
+                guard let text, let html = item["html"], let copy = BoardEdit.renamed(html, in: text) else {
+                    return nil
+                }
+                let start = at + (Double(item["start"] ?? "") ?? first) - first
+                return BoardEdit.setAttribute(
+                    BoardEdit.appendToBody(text, copy.html), id: copy.id, name: "data-start", value: Self.seconds(start)
+                )
+            }
+        }
+    }
+
+    /// Takes elements `ids` out of the page, as one edit.
+    func removeElements(_ ids: [String]) {
+        guard let first = ids.first else { return }
+        let edit = HandEdit(
+            board: pageFile, id: first, what: ids.count > 1 ? "removed \(ids.count)" : "removed", from: nil, to: nil)
+        rewritePage(edit) { text in
+            ids.reduce(Optional(text)) { text, id in text.flatMap { BoardEdit.remove($0, id: id) } }
         }
     }
 }

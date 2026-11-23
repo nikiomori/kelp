@@ -12,6 +12,8 @@ final class MotionStudio {
         timeline.onClip = { [weak self] was, now, lane in self?.onClip?(was, now, lane) }
         timeline.onRemove = { [weak self] id in self?.onRemove?(id) }
         timeline.onCut = { [weak self] kind, id in self?.onCut?(kind, id) }
+        timeline.onGroup = { [weak self] moves in self?.onGroup?(moves) }
+        timeline.onMany = { [weak self] kind, ids in self?.onMany?(kind, ids) }
         timeline.onDropFiles = { [weak self] files, at in self?.onDropFiles?(files, at) }
         timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
         timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
@@ -110,6 +112,9 @@ final class MotionStudio {
     var onDropFiles: (([URL], Double) -> Void)?
     /// A clip cut, trimmed, copied or pasted: the kind, and the clip clicked last on the timeline.
     var onCut: ((String, String?) -> Void)?
+    /// Clips moved together on the timeline, and several acted on at once (`remove`, `copy`, `cut`).
+    var onGroup: (([(was: MotionTimeline.Clip, now: MotionTimeline.Clip)]) -> Void)?
+    var onMany: ((String, [String]) -> Void)?
 
     private func cut(_ kind: String) { onCut?(kind, timeline.picked) }
 
