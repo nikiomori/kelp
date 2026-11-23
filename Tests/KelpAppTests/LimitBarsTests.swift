@@ -1,5 +1,7 @@
 import Core
+import DesignKit
 import Foundation
+import TestSupport
 import Testing
 
 @testable import BuiltinAgents
@@ -56,4 +58,17 @@ private func line(_ kind: String, _ used: Double) -> UsageView.Line {
     #expect(UsageView.visible(rows, hidden: ["grok"]).map(\.id) == ["claude"])
     #expect(UsageView.visible(rows, hidden: []).map(\.id) == ["claude", "grok"])   // 0% says nothing
     #expect(UsageView.visible(rows, hidden: ["claude", "grok"]).map(\.id) == ["claude", "grok"])   // the way back stays
+}
+
+/// The pointer leaves the row for the card to click an eye: the card stays while it is on it, and goes after it leaves.
+@MainActor @Test func theLimitCardStaysWhileThePointerIsOnIt() async throws {
+    let card = LimitCardHover()
+    card.show("claude")
+    card.hover("claude", false)   // off the row…
+    card.card(true)   // …and onto the card, within the close's wait
+    // Time is the subject: the close the row's leaving asked for has had three times its wait.
+    try await Task.sleep(for: .seconds(Motion.hoverClose * 3))
+    #expect(card.shown == "claude")
+    card.card(false)
+    try await waitFor { card.shown == nil }
 }

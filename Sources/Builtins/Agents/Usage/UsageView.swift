@@ -150,6 +150,7 @@ struct UsageView: View {
                                 ) { line in toggle(line, of: card) }
                             }
                         }
+                        .onHover { card.card($0) }   // the card stays while the pointer is on it
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(   // a row per agent reads its own; one row reads them all, as its card shows

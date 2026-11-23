@@ -241,6 +241,7 @@ import Testing
 /// A test waits for what it waits on (`waitFor`), not for a time: a sleep guesses how long something takes, too long on
 /// a quiet machine and too short on a busy one, and a "nothing happened" after one passes whatever happened later. The
 /// count holds both ways: a sleep that goes lowers it. A wait handed to a clock (`asyncAfter`, a timer) is one too.
+/// +1 where the time is the subject: the limits card stays past its close's wait while the pointer is on it.
 @Test func testsSleepOnlyWhereTimeIsTheSubject() throws {
     let sleep = try NSRegularExpression(
         pattern: #"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:|\.asyncAfter\(|\bscheduledTimer\(|\bTimer\("#)
@@ -248,7 +249,7 @@ import Testing
         let code = codeOnly(f.text)
         return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    #expect(count == 23, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+    #expect(count == 24, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
 }
 
 /// A test's limit grows with its waits (`.timeLimit(minutes:)` from TestSupport): a fixed one beside waits stretched by
