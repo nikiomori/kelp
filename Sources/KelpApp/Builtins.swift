@@ -9,12 +9,13 @@ import BuiltinMachines
 import BuiltinRoutines
 import BuiltinRun
 import BuiltinServers
+import BuiltinWork
 import KelpKit
 
 extension Builtins {
     /// Every built-in extension, in the order their contributions are taken.
     static let all: [Builtin] = [
         workbench, agents, appearance, files, run, git, browser, issues, activity, routines, servers, machines,
-        databases
+        databases, work
     ]
 }

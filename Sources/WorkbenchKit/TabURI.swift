@@ -46,12 +46,16 @@ public enum TabURI {
     public static func prompt(_ path: String) -> String { "prompt:" + Core.Prompts.uriBody(path) }
     public static func promptPath(_ uri: String) -> String { body(uri).removingPercentEncoding ?? body(uri) }
     public static let promptDone = Core.Prompts.done
-    /// A workspace's changes: all of them, one file's changes, one source's ("staged", "turn"…), or one commit's.
+    /// A workspace's changes: all of them, one file's changes, one source's ("staged", "turn"…), or one commit's. A
+    /// file's turn diff names the turn with `session` and `turn` (a `SessionTurns.Mark`'s id); else it is the last.
     public static func diff(
-        _ worktree: String, file: String? = nil, source: GitDiff.Source? = nil, commit: String? = nil
+        _ worktree: String, file: String? = nil, source: GitDiff.Source? = nil, commit: String? = nil,
+        session: String? = nil, turn: String? = nil
     ) -> String {
         var components = URLComponents()
-        let items = [("file", file), ("source", source?.rawValue), ("commit", commit)]
+        let items = [
+            ("file", file), ("source", source?.rawValue), ("commit", commit), ("session", session), ("turn", turn)
+        ]
         components.queryItems = items.compactMap { name, value in value.map { URLQueryItem(name: name, value: $0) } }
         return "diff:\(worktree)"
             + (components.queryItems?.isEmpty == false ? "?" + (components.percentEncodedQuery ?? "") : "")

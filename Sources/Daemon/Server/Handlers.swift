@@ -115,9 +115,8 @@ extension Store: DaemonService { static func of(_ daemon: Daemon) -> Store { dae
 extension DiskUsage: DaemonService {
     static func of(_ daemon: Daemon) -> DiskUsage { DiskUsage(workspaces: daemon.workspaces) }
 }
-extension SourceControl: DaemonService {
-    static func of(_ daemon: Daemon) -> SourceControl { daemon.sourceControl }
-}
+extension SourceControl: DaemonService { static func of(_ daemon: Daemon) -> SourceControl { daemon.sourceControl } }
+extension WorkReader: DaemonService { static func of(_ d: Daemon) -> Self { .init(d.sessions.live, d.agentUsage) } }
 extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
 extension Databases: DaemonService { static func of(_ daemon: Daemon) -> Databases { daemon.workspaces.databases } }
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
@@ -294,7 +293,7 @@ extension Daemon {
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
             + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
             + Methods.cloneMethods + Methods.phoneMethods + Methods.portMethods + Methods.processMethods
-            + Methods.recapMethods + Methods.suggestMethods
+            + Methods.recapMethods + Methods.suggestMethods + Methods.workMethods
             + Methods.remoteMethods + Methods.routineMethods + Methods.runMethods + Methods.scriptMethods
             + Methods.artifactMethods + Methods.sessionEditMethods + Methods.sessionMethods + Methods.hookMethods
             + Methods.skillMethods + Methods.settingsMethods + Methods.tmuxMethods + Methods.trackerMethods

@@ -41,8 +41,10 @@ extension DiffViewController {
     private func request() -> GitDiff {
         let id = worktreeId ?? ""
         if let single {
-            return single.commit.map { GitDiff(id: id, source: .commit, file: single.file, commit: $0) }
-                ?? GitDiff(id: id, source: single.source.wire, file: single.file)
+            if let commit = single.commit { return GitDiff(id: id, source: .commit, file: single.file, commit: commit) }
+            var diff = GitDiff(id: id, source: single.source.wire, file: single.file, session: single.turn?.session)
+            diff.turn = single.turn?.id
+            return diff
         }
         switch sourcePicked {
         case .uncommitted, .unstaged, .staged, .branch, .tidy: return GitDiff(id: id, source: sourcePicked.wire)

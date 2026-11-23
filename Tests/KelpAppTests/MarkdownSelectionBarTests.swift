@@ -1,9 +1,9 @@
 import AppKit
-@testable import EditorKit
 import Foundation
 import Testing
 
 @testable import BuiltinFiles
+@testable import EditorKit
 @testable import KelpKit
 
 /// The Markdown editor's formatting: a bar floats over a selection, the strip's buttons hide in the preview.

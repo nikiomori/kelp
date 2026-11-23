@@ -61,6 +61,17 @@ public enum Metrics {
     public static let iconGap: CGFloat = 2   // between two icon buttons side by side
     public static let iconGlow: CGFloat = 7   // the blur of a project's colour around its icon
     public static let paneDim: CGFloat = 0.5   // how far a pane without focus fades toward the background
+    public static let unlit: CGFloat = 0.25   // what is off the pointer's path in a drawn map
+    public static let stroke: CGFloat = 1.4   // a drawn ring or curve: a map's nodes, a list's lanes
+    public static let hairline: CGFloat = 1   // the thinnest drawn line: hatching
+    public static let strokeBold: CGFloat = 2   // a drawn line that stands out: a lit path, a selection ring
+    public static let markRadius: CGFloat = 2   // the corners of a small drawn square: an edited file's mark
+    public static let dotRadius: CGFloat = 3   // a small drawn dot: where the agent is now
+    public static let cardWidth: CGFloat = 300   // the widest a card under the pointer grows
+    public static let zoom: ClosedRange<CGFloat> = 0.3...2   // how far a drawn map zooms out and in
+    public static let zoomReadable: CGFloat = 0.6   // the smallest a fitted map shrinks to, its words still read
+    public static let zoomStep: CGFloat = 1.25   // one press of Zoom In (Zoom Out divides by it)
+    public static let dash: [CGFloat] = [2, 1.5]   // a dashed ring: a place outside, a question
     public static let tabDim: CGFloat = 0.7   // the opacity a dimmed tab strip's tabs keep
 
     // Segments: one icon of a segmented capsule (the inspector's panels), `iconGap` apart from each other and from the

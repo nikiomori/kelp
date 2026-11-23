@@ -28,6 +28,8 @@ final class AgentUsage: Sendable {
     /// Each running subagent's last step (`session.subagentSteps`, asked every 3 s while a card shows it); a subagent's
     /// transcript tail is read again only once the file has grown.
     let subagentTails = StatMemo<SessionSubagentSteps.Last?>()
+    /// The conversations read for agents' work maps (`session.work`), each read only by what it grew.
+    let work = WorkIndex()
     /// The agents used lately, and when that was read (`usedLately`).
     let usedLatelyRead = OSAllocatedUnfairLock<(at: Date, agents: Set<String>)?>(initialState: nil)
     /// The usage probes running now, so they end when the daemon ends.
