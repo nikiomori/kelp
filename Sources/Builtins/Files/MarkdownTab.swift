@@ -58,7 +58,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var editing = false
     var chosen: (board: String, id: String)?
     /// The elements changed by hand since the last pause, and the wait for the next one (`keepHandEdit`).
-    var handEdited: Set<String> = []
+    var handEdited: Set<String> = [], markQueue: [Int] = [], followingAuthor = false   // the queue: `followAuthor`
     var handSteps: (undo: [HandStep], redo: [HandStep]) = ([], [])   // for ⌘Z and ⇧⌘Z (`undoHandEdit`)
     let handEditRest = Debounce()
     /// The bar for checking the marks an agent's turn handed back.

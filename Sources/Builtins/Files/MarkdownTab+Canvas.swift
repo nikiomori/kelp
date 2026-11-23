@@ -171,6 +171,7 @@ extension MarkdownTab {
     /// Sets the mode chosen with View / Mark / Edit in the bar.
     func setCanvasMode(_ mode: CanvasMode) {
         marking = mode == .mark
+        if marking { followAuthor() }
         guard page != .canvas && page != .motion else {
             editing = mode == .edit
             if !editing { chosen = nil }
@@ -260,7 +261,7 @@ extension MarkdownTab {
     /// chosen element.
     var canvasModeScripts: [String] {
         let zoom = canvasZoom.map { ["kelpZoom(\($0))"] } ?? []
-        if marking { return zoom + ["kelpMark(true)"] }
+        if marking { return zoom + ["kelpMark(true)", busyScript] }
         guard editing else { return zoom }
         let select = chosen.map { "kelpSelect(\(Self.js($0.board)), \(Self.js($0.id)))" }
         return zoom + ["kelpEdit(true)"] + (select.map { [$0] } ?? [])

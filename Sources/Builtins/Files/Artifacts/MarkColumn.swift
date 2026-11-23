@@ -28,6 +28,10 @@ enum MarkColumn {
           document.body.append(layer, composer);
           composer.style.display = 'none';
           let page = null, tab = 'marks', at = 0, doneOpen = false, before = false, filter = 'waiting';
+          // The drafts left out of the next send (by number), and the agent at work with how many wait for it.
+          const skip = new Set();
+          let busy = { who: '', queued: 0 };
+          const chosen = () => by('draft').filter(m => !skip.has(m.id));
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
           const keep = () => post({ kind: 'marksDraft', marks: by('draft') });
@@ -59,6 +63,7 @@ enum MarkColumn {
           function row(m, current) {
             const box = el('div', 'kelp-mark' + (current ? ' kelp-on' : ''));
             const head = el('div', 'kelp-row');
+            if (m.state === 'draft') head.append(grip(m, box), check(m));
             head.append(num(m), el('span', 'kelp-grow kelp-what', page ? page.what(m) : ''));
             if (m.state === 'draft') {
               const x = el('button', 'kelp-ib'); x.append(el('span', 'kelp-sym-xmark')); x.title = L.remove;
@@ -132,6 +137,30 @@ enum MarkColumn {
 
           function sec(text) { return el('div', 'kelp-sec', text); }
 
+          // Whether a draft goes with the next send: a circle, filled when it does.
+          function check(m) {
+            const c = el('button', 'kelp-check' + (skip.has(m.id) ? '' : ' on'));
+            c.onclick = e => { e.stopPropagation(); skip.has(m.id) ? skip.delete(m.id) : skip.add(m.id); draw(); };
+            return c;
+          }
+          // ⋮⋮: dragged over another draft, puts this one before it, in the order the agent will do them.
+          function grip(m, box) {
+            const g = el('span', 'kelp-grip', '⋮⋮');
+            g.onmousedown = () => { box.draggable = true; };
+            box.ondragstart = e => { e.dataTransfer.setData('text/kelp-mark', String(by('draft').indexOf(m))); };
+            box.ondragend = () => { box.draggable = false; };
+            box.ondragover = e => { if (e.dataTransfer.types.includes('text/kelp-mark')) e.preventDefault(); };
+            box.ondrop = e => {
+              e.preventDefault();
+              const d = by('draft'), moved = d[+e.dataTransfer.getData('text/kelp-mark')];
+              if (!moved || moved === m) return;
+              M.marks = M.marks.filter(k => k !== moved);
+              M.marks.splice(M.marks.indexOf(m), 0, moved);
+              keep(); draw();
+            };
+            return g;
+          }
+
           function rows() {
             const d = by('draft'), s = by('sent'), c = by('check'), done = by('done');
             if (!M.marks.length && !M.edits.length) return [el('p', 'kelp-note', page ? page.empty : '')];
@@ -153,9 +182,16 @@ enum MarkColumn {
               if (doneOpen) done.forEach(m => out.push(row(m)));
             }
             if (d.length || M.edits.length) {
-              const go = el('button', 'kelp-prominent', L.send), foot = el('div', 'kelp-row kelp-end');
-              go.onclick = send;
-              foot.append(el('span', 'kelp-grow kelp-hint', '⌘↩'), go);
+              const n = chosen().length, foot = el('div', 'kelp-row kelp-end');
+              const button = (text, prominent, run) => {
+                const b = el('button', prominent ? 'kelp-prominent' : 'kelp-pill', text); b.onclick = run; return b;
+              };
+              foot.append(el('span', 'kelp-grow kelp-hint', d.length ? L.chosen.replace('%d', n) : ''));
+              // While the agent works: they wait for its turn to end, or go now as a message typed into it.
+              if (busy.who) {
+                foot.append(button(L.queue, false, () => send(true)), button(L.sendNow, true, () => send()));
+              }
+              else foot.append(button(d.length ? L.sendCount.replace('%d', n) : L.send, true, () => send()));
               out.push(foot);
             }
             return out;
@@ -167,9 +203,12 @@ enum MarkColumn {
             // Which marks show: those waiting (to write, with the agent, to check), the done ones, or all.
             const which = C.tabs([['waiting', L.waiting + (open ? ' ' + open : '')], ['done', L.done], ['all', L.all]],
               filter, key => { filter = key; draw(); });
-            if (!more.length) return C.open([which], rows());
+            const queued = busy.queued ? ' · ' + L.queued.replace('%d', busy.queued) : '';
+            const band = busy.who
+              ? [el('span', 'kelp-busy-dot', '●'), el('span', null, L.working.replace('%@', busy.who) + queued)] : [];
+            if (!more.length) return C.open([which], rows(), band);
             const tabs = C.tabs([['marks', L.marks + ' ' + open]].concat(more), tab, key => { tab = key; draw(); });
-            C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab));
+            C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab), band);
           }
 
           // The tab's bar for the check (`MarkReviewBar`) shows where it is; its buttons call back in here.
@@ -236,10 +275,13 @@ enum MarkColumn {
             showBefore(false); m.state = 'draft'; m.note = ''; post({ kind: 'markAgain', id: m.id }); draw();
             const inputs = document.querySelectorAll('.kelp-col input'); inputs[0]?.focus();
           }
-          function send() {
+          // Sends the drafts chosen, in their order (`only`: their places among the drafts), now or once the agent's
+          // turn ends (`queue`).
+          function send(queue) {
             for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
-            if (!by('draft').length && !M.edits.length) return;
-            post({ kind: 'marks', marks: by('draft') });
+            const d = by('draft'), only = d.map((m, i) => skip.has(m.id) ? -1 : i).filter(i => i >= 0);
+            if (!only.length && !M.edits.length) return;
+            post({ kind: 'marks', marks: d, only, queue: !!queue });
           }
 
           addEventListener('keydown', e => {
@@ -287,6 +329,7 @@ enum MarkColumn {
             },
             put(m) { M.marks.push(m); keep(); draw(); },
             changed() { keep(); draw(); },
+            busy(who, queued) { busy = { who, queued }; draw(); },
             find: id => M.marks.find(m => m.id === id),
             list: () => M.marks,
             step, showBefore,
@@ -309,52 +352,5 @@ enum MarkColumn {
             if (moved) return;
             moved = true; requestAnimationFrame(() => { moved = false; pins(); });
           });
-        """
-
-    static let style = """
-        .kelp-edit-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 3px;
-          vertical-align: -1px; box-shadow: inset 0 0 0 1px var(--k-sep); }
-        .kelp-marks { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 11; }
-        .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
-          color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;
-          box-shadow: 0 0 0 2px var(--k-card); }
-        .kelp-pin.kelp-n-sent { background: var(--k-quiet); color: #fff; }
-        .kelp-num.kelp-n-sent { background: var(--k-quiet); color: #fff; }
-        .kelp-num.kelp-n-done { background: var(--k-rest); color: var(--k-sec); }
-        .kelp-area { position: absolute; border: 1.5px dashed var(--k-orange); border-radius: 4px;
-          box-sizing: border-box; }
-        .kelp-area.kelp-n-sent { border-color: var(--k-quiet); }
-        .kelp-stroke { position: absolute; overflow: visible; }
-        .kelp-stroke path { fill: none; stroke: var(--k-orange); stroke-width: 2.5; stroke-linecap: round;
-          stroke-linejoin: round; }
-        .kelp-stroke.kelp-n-sent path { stroke: var(--k-quiet); }
-        .kelp-composer { position: absolute; z-index: 25; width: 280px; padding: 8px; box-sizing: border-box;
-          border-radius: 10px; background: var(--k-float); color: var(--k-label);
-          box-shadow: 0 0 0 .5px var(--k-sep), 0 6px 20px rgba(0,0,0,.25); font: 12px -apple-system, sans-serif; }
-        .kelp-compose-field { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0;
-          border-radius: 6px; padding: 6px 8px; background: var(--k-card); color: var(--k-label); font: inherit;
-          box-shadow: inset 0 0 0 1px var(--k-sep); outline: none; }
-        .kelp-compose-field:focus { box-shadow: inset 0 0 0 1px var(--k-accent); }
-        .kelp-composer .kelp-hint { margin-top: 6px; }
-        .kelp-current-box { position: absolute; border: 1.5px solid var(--k-orange); border-radius: 4px; }
-        .kelp-mark { margin: 0 8px; padding: 2px 4px 8px; border-radius: 6px; }
-        .kelp-mark .kelp-row { padding: 4px 0; }
-        .kelp-mark.kelp-on { background: var(--k-sel); }
-        .kelp-mark-body { padding-left: 24px; display: flex; flex-direction: column; gap: 5px; }
-        .kelp-past { color: var(--k-sec); font-size: 11px; }
-        .kelp-faded { color: var(--k-sec); }
-        .kelp-reply { border-radius: 6px; background: var(--k-rest); padding: 6px 8px; }
-        .kelp-outcome { color: var(--k-sec); font-size: 11px; }
-        .kelp-outcome.kelp-warn { color: var(--k-text-orange); }
-        .kelp-spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--k-sep);
-          border-top-color: var(--k-sec); animation: kelp-spin 1s linear infinite; flex: none; margin-right: 6px; }
-        @keyframes kelp-spin { to { transform: rotate(360deg); } }
-        .kelp-edit { padding: 3px 12px 3px 16px; }
-        .kelp-pen { width: 16px; text-align: center; color: var(--k-sec); flex: none; }
-        .kelp-what-id { color: var(--k-sec); flex: none; }
-        .kelp-fold { cursor: default; }
-        .kelp-hint { color: var(--k-sec); font-size: 11px; }
-        .kelp-present .kelp-marks { display: none !important; }
-        @media print { .kelp-marks { display: none !important; } }
         """
 }

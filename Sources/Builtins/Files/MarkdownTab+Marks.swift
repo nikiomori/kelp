@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import WebKit
 
@@ -14,7 +15,8 @@ extension MarkdownTab {
     func marksMessage(_ kind: String, _ body: [String: Any]) {
         let id = (body["id"] as? NSNumber)?.intValue
         switch kind {
-        case "marks": sendMarks(drafts(body))
+        case "marks":
+            sendMarks(drafts(body), only: body["only"] as? [Int], queue: body["queue"] as? Bool ?? false)
         case "marksDraft": change(.drafts(drafts(body)))
         case "markDone": if let id { change(.done(id: id)) }
         case "markAgain": if let id { change(.again(id: id)) }
@@ -45,37 +47,83 @@ extension MarkdownTab {
         return marks
     }
 
-    /// Sends the drafts: first as they are (so each has its number), then with a picture of each area and stroke, and
-    /// then the message, to the chat that made the page (or the agent on screen).
-    private func sendMarks(_ drafts: [ArtifactMark]) {
+    /// Sends the drafts chosen (`only`: their places among `drafts`, all when nil), in order: first all drafts as they
+    /// are (so each has its number), then with a picture of each area and stroke, and then the message, to the chat
+    /// that made the page (or the agent on screen). With `queue` while that agent works, they wait for its turn to end.
+    private func sendMarks(_ drafts: [ArtifactMark], only: [Int]?, queue: Bool) {
         Task {
             // Who gets them is settled first: with no agent to take them, they stay drafts.
             guard let agent = await markTaker() else { return }
             guard let numbered = await changed(.drafts(drafts)) else { return }
-            let sending = numbered.marks.filter { $0.state == .draft }
-            var pictures: [String: Data] = [:]
-            for mark in sending where mark.kind == .area || mark.kind == .pen || mark.time != nil {
-                do { pictures[String(mark.id)] = try await picture(of: mark) } catch {
-                    continue   // the mark goes without its picture: the message still says where it is
-                }
+            let all = numbered.marks.filter { $0.state == .draft }
+            let sending = only.map { $0.filter(all.indices.contains).map { all[$0] } } ?? all
+            if queue, agent.status == .working {
+                markQueue += sending.map(\.id).filter { !markQueue.contains($0) }
+                return followAuthor()
             }
-            let to = agent.id
-            guard
-                let sent = await changed(
-                    .send(ids: sending.map(\.id), to: to, before: nil), pictures: pictures.isEmpty ? nil : pictures)
-            else { return }
-            let named = sending.map { m in
-                var m = m
-                m.picture = sent.marks.first { $0.id == m.id }?.picture
-                return m
-            }
-            let version = sent.marks.first { sending.map(\.id).contains($0.id) }?.rounds.last?.before
-            let text = ArtifactMarks.message(
-                named, edits: numbered.edits, page: Artifacts.projectPath(url.path),
-                name: url.deletingLastPathComponent().lastPathComponent, version: version)
-            await app.call(SessionSend(id: agent.id, text: text, enter: true))
-            app.workbench.focus(session: agent.id)
+            await deliver(sending, edits: numbered.edits, to: agent)
         }
+    }
+
+    /// Sends `sending` with `edits` to `agent`: their pictures, their state, then the message.
+    private func deliver(_ sending: [ArtifactMark], edits: [HandEdit], to agent: Session) async {
+        var pictures: [String: Data] = [:]
+        for mark in sending where mark.kind == .area || mark.kind == .pen || mark.time != nil {
+            do { pictures[String(mark.id)] = try await picture(of: mark) } catch {
+                continue   // the mark goes without its picture: the message still says where it is
+            }
+        }
+        let to = agent.id
+        guard
+            let sent = await changed(
+                .send(ids: sending.map(\.id), to: to, before: nil), pictures: pictures.isEmpty ? nil : pictures)
+        else { return }
+        let named = sending.map { m in
+            var m = m
+            m.picture = sent.marks.first { $0.id == m.id }?.picture
+            return m
+        }
+        let version = sent.marks.first { sending.map(\.id).contains($0.id) }?.rounds.last?.before
+        let text = ArtifactMarks.message(
+            named, edits: edits, page: Artifacts.projectPath(url.path),
+            name: url.deletingLastPathComponent().lastPathComponent, version: version)
+        await app.call(SessionSend(id: agent.id, text: text, enter: true))
+        app.workbench.focus(session: agent.id)
+    }
+
+    /// The page's agent at work, for the column's band (`kelpMarks.busy`): its name and how many marks wait for it.
+    var busyScript: String {
+        let who = pageAuthor.flatMap { $0.status == .working ? app.catalog.name($0.agent) : nil } ?? ""
+        return "window.kelpMarks?.busy(\(Self.js(who)), \(markQueue.count))"
+    }
+
+    /// Follows the page's agent once marks are shown: the band says when it works, and the queue (`markQueue`, the
+    /// numbers of the marks waiting for its turn to end) goes when it stops.
+    func followAuthor() {
+        runJS(busyScript)
+        guard !followingAuthor else { return }
+        followingAuthor = true
+        track(owner: self, now: false) { [weak self] in
+            self?.pageAuthor?.status
+        } changed: { [weak self] status in
+            guard let self else { return }
+            runJS(busyScript)
+            guard status != .working, let agent = pageAuthor, !markQueue.isEmpty else { return }
+            let ids = markQueue
+            markQueue = []
+            runJS(busyScript)
+            Task { await self.sendQueued(ids, to: agent) }
+        }
+    }
+
+    /// The queued drafts that are still drafts, in the drafts' order, sent to `agent`.
+    private func sendQueued(_ ids: [Int], to agent: Session) async {
+        let notes = url.deletingLastPathComponent().appendingPathComponent(ArtifactMarks.file).path
+        guard let file = await app.quiet(FilesRead(path: notes)) else { return }
+        let marks = ArtifactMarks.read(Data(file.text.utf8))
+        let sending = marks.marks.filter { $0.state == .draft && ids.contains($0.id) }
+        guard !sending.isEmpty else { return }
+        await deliver(sending, edits: marks.edits, to: agent)
     }
 
     /// The chat the marks go to: the one that made the page while it runs, else the agent on screen (asking which when
@@ -148,6 +196,9 @@ extension MarkdownTab {
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
             "same": String(localized: "Not changed: its chat may say why"),
             "composeHint": String(localized: "↩ add  ·  ⌘↩ send  ·  ⎋ remove"),
+            "chosen": String(localized: "%d chosen"), "sendCount": String(localized: "Send %d"),
+            "queue": String(localized: "Queue"), "sendNow": String(localized: "Send Now"),
+            "working": String(localized: "%@ is working"), "queued": String(localized: "%d queued"),
             "waiting": String(localized: "Waiting"), "all": String(localized: "All"),
             "noneDone": String(localized: "No mark is done yet.")
         ]

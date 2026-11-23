@@ -20,11 +20,13 @@ enum CanvasChrome {
                 if (text != null) e.textContent = text; return e; };
               // The column: a head (a title or a switch, then buttons) and a body; open while Mark or Edit is on.
               const col = el('aside', 'kelp-col'), head = el('div', 'kelp-col-head'), body = el('div', 'kelp-col-body');
-              col.append(head, body);
+              const band = el('div', 'kelp-col-band');   // over the head, when there's something to say
+              col.append(band, head, body);
               document.body.append(col);
               window.kelpColumn = {
-                open(heads, nodes) {
-                  head.replaceChildren(...heads); body.replaceChildren(...nodes);
+                open(heads, nodes, bands = []) {
+                  head.replaceChildren(...heads); body.replaceChildren(...nodes); band.replaceChildren(...bands);
+                  band.style.display = bands.length ? 'flex' : 'none';
                   if (!document.body.classList.contains('kelp-with-col')) {
                     document.body.classList.add('kelp-with-col'); window.kelpFit?.();
                   }
