@@ -9,7 +9,7 @@ import SwiftUI
 /// hours and a week (`LimitBars`; the eye beside a limit in the hover card shows or hides its bar). Each bar's percent
 /// is named beside the name, with the time the first resets if that is within 12 hours, and each bar has a tick where
 /// an even pace would have it by now. On hover it shows that agent's limits, each with its bar and reset. When only one
-/// row is shown, the hover card lists every agent's limits.
+/// row is shown, the hover card lists every agent's limits. The foot's right-click menu hides an agent's row.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor; the
 /// daemon reads them) and from Codex's app server (or its session logs, when they are newer). Agents that don't report
 /// limits aren't listed.
@@ -61,8 +61,8 @@ struct UsageView: View {
     /// The row whose card is up, which opens and goes by the hover card's delays.
     @State private var card = LimitCardHover()
 
-    /// The agents that have used any of their plans, because a row at 0% says nothing.
-    private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
+    /// The agents that have used any of their plans and aren't hidden from the foot (`visible`).
+    private var used: [Row] { Self.visible(rows, hidden: app.settings[SettingKeys.usageHiddenAgents]) }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
     private var all: Bool { app.settings[SettingKeys.usageLimits] != "fullest" }
     /// The rows shown, as chosen in Settings › Agents or the footer's right-click menu. There are none once plan limits
@@ -223,6 +223,14 @@ struct UsageView: View {
         app.settings.set(SettingKeys.usageBarsHidden, next.hidden)
     }
 
+    /// Returns the agents that have used any of their plans, because a row at 0% says nothing, less those hidden from
+    /// the foot's menu. When every one of them is hidden, it returns them all, so the foot (and its menu, the way back)
+    /// doesn't go.
+    nonisolated static func visible(_ rows: [Row], hidden: [String]) -> [Row] {
+        let used = rows.filter { ($0.main?.used ?? 0) > 0 }, kept = used.filter { !hidden.contains($0.id) }
+        return kept.isEmpty ? used : kept
+    }
+
     /// The one spelling of a share as a percent, "42%", for the bars, the cards and the notes (`PlanNote`, which isn't
     /// on the main actor).
     nonisolated static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
@@ -340,44 +348,5 @@ extension View {
     /// Keeps the agents' plan limits coming while this is shown (`UsageView.plans`).
     func watchingPlans(_ app: AppModel) -> some View {
         onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) }
-    }
-}
-
-/// The plan limits at the foot of the sidebar. A right-click on them sets what they show.
-final class UsageFooter: NSHostingView<UsageView> {
-    var app: AppModel?
-    static func make(_ app: AppModel) -> UsageFooter {
-        let footer = UsageFooter(rootView: UsageView(app: app))
-        footer.app = app
-        footer.sizingOptions = [.intrinsicContentSize]
-        return footer
-    }
-    override func menu(for event: NSEvent) -> NSMenu? {
-        guard let app else { return nil }
-        let menu = NSMenu()
-        menu.addChoices(SettingKeys.usageLimits, app, heading: String(localized: "Show"))
-        menu.addToggle(SettingKeys.usageResets, app, title: String(localized: "Reset Time"))
-        menu.addToggle(SettingKeys.usagePace, app, title: String(localized: "Pace Mark"))
-        menu.addItem(.separator())
-        menu.add(String(localized: "Open Usage")) { app.extensions.run("agents.usage") }
-        menu.addChoiceMenu(SettingKeys.alertAt, app, title: String(localized: "Warn At"), tryOn: false)
-        menu.addItem(.separator())
-        menu.add(String(localized: "Hide Plan Limits")) {
-            app.settings.set(SettingKeys.readPlans, false)
-            Banner.show(String(localized: "Plan limits are hidden. Settings › Agents brings them back."))
-        }
-        menu.addSettingsLink(String(localized: "Limits Settings…"), section: "agents", group: "Plan limits", app)
-        return menu
-    }
-}
-
-/// A live sample of the sidebar's foot for Settings, with this Mac's readings. The settings rows below it change it as
-/// they are switched. It leaves out the divider above the foot, which belongs to the sidebar's edge rather than the
-/// foot. It is as wide as the row and sits on the card as the rows do, because a grey plate of its own read as a box
-/// inside the box.
-struct LimitsSample: View {
-    @Environment(AppModel.self) private var app
-    var body: some View {
-        UsageView(app: app, ruled: false).frame(maxWidth: .infinity)
     }
 }

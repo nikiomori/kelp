@@ -47,3 +47,13 @@ private func line(_ kind: String, _ used: Double) -> UsageView.Line {
     #expect(LimitBars.tag("week · Fable") == "Fable" && LimitBars.tag("Gemini week") == "Gemini")
     #expect(LimitBars.tag("plan") == "Plan")
 }
+
+@MainActor @Test func hiddenAgentsLeaveTheFootButNeverAllOfThem() {
+    func row(_ id: String, _ used: Double) -> UsageView.Row {
+        UsageView.Row(id: id, name: id, fullName: id, lines: [line("week", used)])
+    }
+    let rows = [row("claude", 0.84), row("grok", 0.62), row("kimi", 0)]
+    #expect(UsageView.visible(rows, hidden: ["grok"]).map(\.id) == ["claude"])
+    #expect(UsageView.visible(rows, hidden: []).map(\.id) == ["claude", "grok"])   // 0% says nothing
+    #expect(UsageView.visible(rows, hidden: ["claude", "grok"]).map(\.id) == ["claude", "grok"])   // the way back stays
+}

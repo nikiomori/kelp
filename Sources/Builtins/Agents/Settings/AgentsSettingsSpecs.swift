@@ -293,6 +293,8 @@ extension SettingKeys {
     /// The plan limits whose bar the person showed or hid in the sidebar's foot, as "agent/kind" (`LimitBars`).
     static let usageBarsShown = Setting<[String]>("usage.bars.shown", [])
     static let usageBarsHidden = Setting<[String]>("usage.bars.hidden", [])
+    /// The agents whose row the person hid from the sidebar's foot, by id (`UsageView.visible`).
+    static let usageHiddenAgents = Setting<[String]>("usage.hiddenAgents", [])
     static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
 }
 
