@@ -130,6 +130,7 @@ func aCommitsMenuListsItsActionsInOrder(commit: String, items: String) throws {
     vc.showFile("a.swift", source: .turn, commit: nil, turn: (session: "s1", id: "m1"))
     let asked = vc.diffRequest()
     #expect(asked.source == .turn && asked.file == "a.swift" && asked.session == "s1" && asked.turn == "m1")
-    vc.showFile("a.swift", source: .turn, commit: nil)
-    #expect(vc.diffRequest().turn == nil)
+    // The last turn: its agent named, no turn id (git.diff can't tell whose turn otherwise).
+    vc.showFile("a.swift", source: .turn, commit: nil, turn: (session: "s1", id: nil))
+    #expect(vc.diffRequest().session == "s1" && vc.diffRequest().turn == nil)
 }

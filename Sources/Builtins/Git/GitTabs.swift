@@ -43,7 +43,7 @@ final class DiffTab: TabContent {
         file = item("file")
         source = item("source").flatMap(GitDiff.Source.init(rawValue:)).flatMap(DiffSource.init(wire:))
         commit = item("commit")
-        let turn = item("session").flatMap { session in item("turn").map { (session: session, id: $0) } }
+        let turn = item("session").map { (session: $0, id: item("turn")) }
         _ = controller.view
         if let file {
             controller.showFile(file, source: source ?? .unstaged, commit: commit, turn: turn)
