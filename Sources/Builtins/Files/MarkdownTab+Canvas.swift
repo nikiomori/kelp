@@ -247,7 +247,6 @@ extension MarkdownTab {
     /// Starts or stops presenting, for Present in the bar. Presenting shows the boards one at a time, as large as
     /// the pane.
     func togglePresenting() {
-        if page == .slides, !presentingBoards { return presentMenu() }
         presentingBoards.toggle()
         if !presentingBoards { Presenter.close(for: self) }
         if presentingBoards { focusPreview() }

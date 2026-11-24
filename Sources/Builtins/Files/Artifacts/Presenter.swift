@@ -214,21 +214,15 @@ extension MarkdownTab {
         ]
     }
 
-    /// Present on slides: as large as the pane, or with the speaker's window.
-    func presentMenu() {
-        let menu = NSMenu()
-        menu.add(String(localized: "Present")) { [weak self] in
-            guard let self else { return }
-            presentingBoards = true
-            focusPreview()
-            runJS("kelpPresent(true)")
-        }
+    /// ⋯'s ways to present slides beyond the bar's Present (as large as the pane): with the speaker's window, or
+    /// rehearsed against the clock.
+    func presentItems(_ menu: NSMenu) {
         menu.add(String(localized: "Present with Notes")) { [weak self] in
             guard let self else { return }
             Presenter.start(for: self)
         }
         menu.add(String(localized: "Rehearse…")) { [weak self] in self?.rehearse() }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        menu.addItem(.separator())
     }
 
     func slidesMessage(_ kind: String, _ body: [String: Any]) -> Bool {
