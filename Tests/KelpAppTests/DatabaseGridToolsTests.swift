@@ -63,3 +63,24 @@ import Testing
     #expect(grid.edits.value(row: 0, column: 1) == .some("z") && grid.edits.added == [["3", "new"]])
     #expect(grid.edits.count == 2 && grid.count == 3)
 }
+
+/// A table's columns are kept as they were left, per database and table: another tab opening it later reads its rows
+/// in that order, and gives its columns those widths and hides the same ones.
+@MainActor @Test func aTablesColumnsAreKeptForTheNextTab() async throws {
+    let (tab, window) = editableTab([])
+    defer { withExtendedLifetime(window) {} }
+    #expect(try await waitFor { !tab.failureBar.isHidden })   // the tab's own first read is over (no kelpd here)
+    tab.grid.show(columns: ["id", "note"], rows: [["1", "a"]])
+    tab.grid.table.tableColumns[1].width = 211
+    tab.grid.table.tableColumns[2].isHidden = true
+    tab.grid.orders = [("note", false)]
+    #expect(await tab.close())
+    let other = DatabaseTab(uri: "db:w1/shop", app: tab.app)
+    await other.leave(to: .table("orders"))
+    #expect(DatabaseTab.order(other.grid.orders) == ["note DESC"])
+    other.grid.show(columns: ["note", "id", "added"], rows: [])
+    other.grid.apply(try #require(other.keptLook("orders")))
+    #expect(other.grid.table.tableColumns[2].width == 211 && !other.grid.table.tableColumns[2].isHidden)
+    #expect(other.grid.table.tableColumns[1].isHidden && !other.grid.table.tableColumns[3].isHidden)
+    #expect(other.keptLook("customers") == nil)
+}

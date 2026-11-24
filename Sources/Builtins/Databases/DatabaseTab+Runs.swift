@@ -197,11 +197,12 @@ extension DatabaseTab {
     @discardableResult
     func leave(to next: Mode) async -> Bool {
         if isEdited, await !close() { return false }
+        keepLook()
         chosen = true
         mode = next
         readingEnded()   // a read still on its way is for what the tab showed: its wheel stops
         rowCount.stringValue = ""
-        grid.orders = []
+        grid.orders = next.table.map(keptOrder) ?? []   // a table is read in the order it was left in
         page = 0
         part.selectedSegment = 0
         if next.table == nil { filters.clear() }

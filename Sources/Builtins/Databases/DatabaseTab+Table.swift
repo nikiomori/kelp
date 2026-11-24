@@ -46,7 +46,9 @@ extension DatabaseTab {
         grid.source = (name, engine)
         let orders = grid.orders
         grid.show(columns: result.columns, rows: result.rows, info: info, keeping: again)
+        if !again, let look = keptLook(name) { grid.apply(look) }   // as the table was left, in any tab
         grid.orders = orders
+        keepLook()
         grid.indicate()
         empty.show(result.rows.isEmpty ? String(localized: "No Rows") : nil, symbol: "tablecells")
         arrange()

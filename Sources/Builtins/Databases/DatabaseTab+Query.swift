@@ -128,7 +128,7 @@ extension DatabaseTab {
     private var queriesKey: String { key("queries") }
 
     /// The key under which Kelp's state keeps the saved queries and the draft: "db.<what>/<project>/<database>".
-    private func key(_ what: String) -> String {
+    func key(_ what: String) -> String {
         let library = app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == address.name }
         let project = library == true ? "~" : app.worktree(address.worktree)?.repoId ?? address.worktree
         return "db.\(what)/\(project)/\(address.name)"

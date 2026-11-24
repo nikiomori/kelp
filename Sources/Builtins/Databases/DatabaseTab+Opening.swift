@@ -88,6 +88,7 @@ extension DatabaseTab {
             let first = named ?? tables.first(where: { $0.kind != "view" && $0.name != read.migrations?.table })
         {
             mode = .table(first.name)
+            grid.orders = keptOrder(first.name)
             await showTable(first.name)
         }
     }

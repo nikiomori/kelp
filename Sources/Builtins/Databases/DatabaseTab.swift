@@ -180,6 +180,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     func close() async -> Bool {
         keepDraft()
+        keepLook()
         grid.commitTyping()
         return isEdited ? await settleEdits() : true
     }
