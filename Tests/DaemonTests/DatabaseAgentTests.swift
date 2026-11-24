@@ -25,6 +25,28 @@ import Testing
     #expect(w.d.sessions.setup.hasDatabases(worktreeId: branch.id))
 }
 
+/// An agent that sees only a database's structure isn't shown which migrations ran (the migrations table's rows); the
+/// user's own read is.
+@Test func structureOnlyLeavesTheMigrationsOut() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let dir = (wt.path as NSString).appendingPathComponent("db")
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let queue = try DatabaseQueue(path: (dir as NSString).appendingPathComponent("shop.sqlite3"))
+    try await queue.write { db in
+        try db.execute(sql: "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY)")
+        try db.execute(sql: "INSERT INTO schema_migrations VALUES ('20261122')")
+    }
+    try queue.close()
+    var shop = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    shop.access = .structure
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
+    let dbs = w.d.workspaces.databases
+    #expect(try await dbs.schema(wt.id, "shop", table: nil, agent: true).migrations == nil)
+    #expect(try await dbs.schema(wt.id, "shop", table: nil, agent: false).migrations != nil)
+}
+
 /// What Kelp puts after an agent's statement starts a line of its own: a trailing `-- comment` doesn't swallow it.
 @Test func whatKelpAddsToAStatementOutlivesItsLastComment() {
     #expect(SQLText.returning("UPDATE t SET a = 1 -- fix") == "UPDATE t SET a = 1 -- fix\nRETURNING *")

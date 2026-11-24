@@ -325,7 +325,9 @@ extension Databases {
         }
         do {
             let schema = try await DatabaseEngines.schema(target, table: table, off: offloads)
-            return table == nil ? await withMigrations(schema, target, worktreeId) : schema
+            // An agent that sees only the structure isn't shown the migrations table's rows
+            let rows = !agent || target.database.agentAccess != .structure
+            return table == nil && rows ? await withMigrations(schema, target, worktreeId) : schema
         } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
