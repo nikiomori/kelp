@@ -1,0 +1,112 @@
+<!doctype html>
+<!-- Serve the repository root with python3 -m http.server and open /Tests/Phone/conversation.html. -->
+<meta charset="utf-8">
+<title>Phone conversation refresh</title>
+<link rel="stylesheet" href="../../Sources/Daemon/Resources/phone/app.css">
+<script type="text/plain" id="api">
+export const on = {};
+export const agentFrom = agent => agent;
+export const events = () => ({
+  addEventListener(type, listener) { this[type] = listener; },
+  close() {},
+  set onopen(open) { window.stream = this; queueMicrotask(open); },
+});
+export const list = async () => ({ agents: window.rows });
+export const read = id => new Promise(resolve => window.marks.push({ id, resolve }));
+export const get = id => new Promise(resolve => window.reads.push({ id, resolve }));
+export const replyNodes = text => [text || ''];
+</script>
+<script type="module">
+const phone = '../../Sources/Daemon/Resources/phone/';
+const api = new Blob([document.getElementById('api').textContent], { type: 'text/javascript' });
+const imports = document.createElement('script');
+imports.type = 'importmap';
+imports.textContent = JSON.stringify({ imports: { [phone + 'js/api.js']: URL.createObjectURL(api) } });
+document.head.append(imports);
+
+function check(ok, message) { if (!ok) throw Error(message); }
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+async function run() {
+  const html = await fetch(phone + 'index.html').then(r => r.text());
+  document.body.replaceWith(new DOMParser().parseFromString(html, 'text/html').body);
+  const scroller = document.getElementById('a-body'), transcript = document.getElementById('a-reply');
+  const atEnd = () => Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) <= 1;
+  const codex = { id: 'first', agent: 'codex', status: 'working', statusAt: '2026-01-01T00:00:00Z', title: 'First' };
+  const other = { ...codex, id: 'second', agent: 'claude', title: 'Second' };
+  window.rows = [codex, other];
+  window.reads = [];
+  window.marks = [];
+  let now = 0, hidden = false;
+  const intervals = [];
+  window.setInterval = (fn, ms) => intervals.push({ fn, ms });
+  performance.now = () => now;
+  Object.defineProperty(document, 'hidden', { get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', { get: () => hidden ? 'hidden' : 'visible' });
+  function advance(seconds) {
+    for (let i = 0; i < seconds; i++) {
+      now += 1000;
+      for (const { fn, ms } of intervals) if (now % ms === 0) fn();
+    }
+  }
+  function event(agent) { window.stream.agent({ data: JSON.stringify(agent) }); }
+  const turns = Array.from({ length: 80 }, (_, i) => ({ role: 'user', text: 'Turn ' + i }));
+  history.replaceState(null, '', '#first');
+  await import(phone + 'app.js');
+  await settle();
+  check(reads.length === 1 && reads[0].id === 'first', 'Opening a deep link should fetch detail once');
+  reads[0].resolve({ ...codex, turns });
+  await settle();
+  check(scroller.scrollTop > 0 && atEnd(),
+    `A long conversation should open at its end (top ${scroller.scrollTop}, height ${scroller.clientHeight}/${scroller.scrollHeight})`);
+
+  advance(5);
+  check(reads.length === 2, 'A working Codex should refresh without any events');
+  scroller.scrollTop = 120;
+  const readingAt = scroller.scrollTop;
+  const newer = { ...codex, title: 'Updated', unread: true };
+  for (let i = 0; i < 12; i++) event(newer);
+  advance(10);
+  check(reads.length === 2, 'Slow reads should not overlap, even during an event burst');
+  check(marks.length === 1, 'An unread event burst should not send overlapping read receipts');
+  marks[0].resolve();
+  reads[1].resolve({ ...codex, turns: [...turns, { role: 'user', text: 'New turn' }] });
+  await settle();
+  check(transcript.textContent.endsWith('New turn'), 'New turns should render with an unchanged status');
+  check(document.getElementById('a-title').textContent === 'Updated', 'Old detail rolled back a newer summary');
+  check(scroller.scrollTop === readingAt, 'A reader who scrolled up during the read lost their place');
+  advance(1);
+  check(reads.length === 3, 'Coalesced events should get one trailing refresh');
+  scroller.scrollTop = scroller.scrollHeight;
+  reads[2].resolve({ ...newer, turns: [...turns, ...turns.slice(-10)] });
+  await settle();
+  check(atEnd(), 'Following should resume when the reader returns to the bottom');
+
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  event(newer);
+  advance(20);
+  check(reads.length === 3 && marks.length === 1, 'Hidden pages should not fetch or mark a conversation read');
+  hidden = false;
+  rows[0] = newer;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  check(reads.length === 4 && marks.length === 2, 'Returning to an unread conversation should refresh and mark it read once');
+  location.hash = 'second';
+  await settle();
+  reads[3].resolve({ ...codex, lastReply: 'Stale first conversation' });
+  await settle();
+  check(!transcript.textContent.includes('Stale'), 'A previous visit overwrote the current conversation');
+  advance(1);
+  check(reads.length === 5 && reads[4].id === 'second', 'The new conversation should load after the pending read');
+  reads[4].resolve({ ...other, lastReply: 'Second reply' });
+  await settle();
+  advance(20);
+  check(transcript.textContent === 'Second reply' && reads.length === 5, 'Fallback replies should render without polling other agents');
+}
+try {
+  await run();
+  document.body.textContent = 'PASS';
+} catch (error) {
+  document.body.textContent = 'FAIL ' + error.stack;
+}
+</script>

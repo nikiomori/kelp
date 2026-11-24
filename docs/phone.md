@@ -70,6 +70,9 @@ A phone acts as you: what it does goes through the same calls Kelp's window make
 
 ## Check it yourself
 
+- Run `node --test Tests/Phone/markdown.test.mjs` to check how the phone displays an agent's Markdown.
+- From the repository root, run `python3 -m http.server --bind 127.0.0.1` and open
+  `http://127.0.0.1:8000/Tests/Phone/conversation.html` to check live updates and scrolling with a sample chat.
 - `swift test --filter 'PhoneBridgeTests|PhoneServerTests|PhonePushTests'`: boxes sealed by another implementation
   opened here, the replay rules, RFC 8291's Appendix A as the push vector, a phone pairing and allowing end to end.
 - `curl http://127.0.0.1:47611/` with Settings › Phone on: the page, as the phone gets it.
