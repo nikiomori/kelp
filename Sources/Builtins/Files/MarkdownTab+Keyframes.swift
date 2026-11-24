@@ -171,6 +171,8 @@ extension MarkdownTab {
             "rise": String(localized: "Rise"), "pop": String(localized: "Pop"),
             "subtitles": String(localized: "Subtitles"), "look": String(localized: "Look"),
             "sound": String(localized: "Sound"), "volume": String(localized: "Volume"),
+            "video": String(localized: "Video"), "speed": String(localized: "Speed"),
+            "loop": String(localized: "Loop"), "no": String(localized: "No"), "yes": String(localized: "Yes"),
             "from": String(localized: "Starts in the File"), "fades": String(localized: "Fade In · Out"),
             "place": String(localized: "Place"), "size": String(localized: "Size"),
             "box": String(localized: "Box"), "plain": String(localized: "Plain"),

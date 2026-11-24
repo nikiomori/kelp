@@ -56,16 +56,17 @@ extension MarkdownTab {
         return out
     }
 
-    /// A sound's property from Edit's column: volume (0–100), where it starts in its file, its fades (seconds).
+    /// A sound's or a video's property from Edit's column: volume (0–100), where it starts in its file, its fades
+    /// (seconds); a video's speed and whether it loops.
     func soundMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         guard kind == "soundProp", let id = body["id"] as? String, let name = body["name"] as? String,
-            ["volume", "from", "fade-in", "fade-out"].contains(name), let value = body["value"] as? String
+            ["volume", "from", "fade-in", "fade-out", "rate", "loop"].contains(name),
+            let value = body["value"] as? String
         else { return false }
+        // What is as if it weren't set goes: a speed of 1, no loop, no fade, the file from its start.
+        let plain = name == "rate" ? Double(value) == 1 : name != "volume" && Double(value) == 0
         let edit = HandEdit(board: pageFile, id: id, what: name, from: nil, to: value)
-        rewritePage(edit) {
-            BoardEdit.setAttribute(
-                $0, id: id, name: "data-" + name, value: Double(value) == 0 && name != "volume" ? nil : value)
-        }
+        rewritePage(edit) { BoardEdit.setAttribute($0, id: id, name: "data-" + name, value: plain ? nil : value) }
         return true
     }
 

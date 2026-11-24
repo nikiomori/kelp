@@ -112,8 +112,11 @@ enum MotionPage {
               by.set(e, track);
             }
             for (const e of parts().filter(media)) {
-              const start = +e.dataset.start || 0;
-              by.set(e, { id: e.dataset.id || '', title: named(e), start, end: start + (+e.dataset.duration || 0),
+              const start = +e.dataset.start || 0, rate = +e.dataset.rate;
+              // A video's speed and its loop, after its name.
+              const how = (rate > 0 && rate !== 1 ? ' · ' + rate + '×' : '')
+                + (e.dataset.loop === 'true' ? ' · ⟲' : '');
+              by.set(e, { id: e.dataset.id || '', title: named(e) + how, start, end: start + (+e.dataset.duration || 0),
                 delays: [], lengths: [], hidden: e.dataset.hidden === 'true', e,
                 sound: e.tagName === 'AUDIO' ? e.getAttribute('src') || '' : undefined,
                 from: +e.dataset.from || 0 });
@@ -132,9 +135,12 @@ enum MotionPage {
               const s = +e.dataset.start || 0, d = +e.dataset.duration || Infinity;
               e.style.visibility = t >= s && t < s + d ? '' : 'hidden';
             }
+            // A video's own time: from where it starts in its file, at its speed, again from there when it loops.
             for (const v of doc ? doc.querySelectorAll('video') : []) {
               v.pause();
-              v.currentTime = Math.max(0, t - (+(v.closest('[data-start]')?.dataset.start) || 0));
+              const into = Math.max(0, t - (+(v.closest('[data-start]')?.dataset.start) || 0)) * (+v.dataset.rate || 1);
+              const from = +v.dataset.from || 0, loops = v.dataset.loop === 'true' && v.duration > from;
+              v.currentTime = from + (loops ? into % (v.duration - from) : into);
             }
             dispatchEvent(new CustomEvent('kelp-zoom'));   // what Kelp draws over the stage follows it
           }

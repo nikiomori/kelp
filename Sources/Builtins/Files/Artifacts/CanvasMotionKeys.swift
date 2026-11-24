@@ -238,7 +238,31 @@ enum CanvasMotionKeys {
             }
             return [s];
           }
-          props.more = (props.more || []).concat([motionSection, presetSection, captionSection, soundSection]);
+          // A video's speed (0.25–4×, `data-rate`) and whether it starts again when it ends (`data-loop`).
+          function videoSection(e, id) {
+            if (e.tagName !== 'VIDEO' || !id) return [];
+            const speed = K.el('input', 'kelp-cv-num');
+            speed.value = (e.dataset.rate || 1) + '×';
+            speed.onkeydown = ev => ev.stopPropagation();
+            speed.onchange = () => K.post({ kind: 'soundProp', id, name: 'rate',
+              value: String(Math.max(0.25, Math.min(4, parseFloat(speed.value) || 1))) });
+            const loop = K.el('span', 'kelp-iseg');
+            for (const [v, t] of [['', L.no], ['true', L.yes]]) {
+              const b = K.el('button', (e.dataset.loop || '') === v ? 'on' : '', t);
+              b.onclick = () => K.post({ kind: 'soundProp', id, name: 'loop', value: v || '0' });
+              loop.append(b);
+            }
+            const s = K.el('div', 'kelp-isec');
+            s.append(K.el('div', 'kelp-ititle', L.video));
+            for (const [label, control] of [[L.speed, speed], [L.loop, loop]]) {
+              const r = K.el('div', 'kelp-irow');
+              r.append(K.el('span', 'kelp-ilabel', label), control, K.el('span'));
+              s.append(r);
+            }
+            return [s];
+          }
+          props.more = (props.more || []).concat([motionSection, presetSection, captionSection, soundSection,
+            videoSection]);
           window.kelpCurve = (id, at) => { curve = { id, at }; props.redraw?.(); };
           addEventListener('kelp-chosen', ev => {
             if (!ev.detail || (curve && ev.detail.e.getAttribute('data-id') !== curve.id)) curve = null;

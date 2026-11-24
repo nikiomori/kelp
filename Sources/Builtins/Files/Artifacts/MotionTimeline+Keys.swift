@@ -47,7 +47,7 @@ extension MotionTimeline {
         return true
     }
 
-    /// A clip's menu: Duplicate and Delete.
+    /// A clip's menu: Duplicate and Delete; an empty stretch between scenes has Close Gap.
     override func menu(for event: NSEvent) -> NSMenu? {
         let p = convert(event.locationInWindow, from: nil)
         if let seam = seam(at: p) { return keyframing.seamMenu?(seam.out.id, seam.in.id) }
@@ -66,7 +66,7 @@ extension MotionTimeline {
             menu.add(String(localized: "Delete")) { [weak self] in self?.onRemove?(clip.id) }
             return menu
         }
-        return nil
+        return gapMenu(at: p)
     }
 
     override func resetCursorRects() {

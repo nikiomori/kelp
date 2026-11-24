@@ -443,3 +443,20 @@ extension OneAtATime {
                 && !editor.text.contains("kelp-motion"))
     }
 }
+
+/// Closing the empty stretches between scenes moves what starts after each left by the stretches before it; what
+/// starts before stays.
+@MainActor @Test func closingAGapMovesWhatComesAfter() {
+    typealias Clip = MotionTimeline.Clip
+    let scenes = [
+        Clip(id: "a", title: "A", start: 0, length: 2), Clip(id: "b", title: "B", start: 3, length: 1),
+        Clip(id: "c", title: "C", start: 5, length: 1)
+    ]
+    let gaps = MotionTimeline.gaps(in: scenes)
+    #expect(gaps == [2...3, 4...5])
+    let title = Clip(id: "t", title: "Title", start: 1.5, length: 1),
+        logo = Clip(id: "l", title: "Logo", start: 5.2, length: 1)
+    let moved = MotionTimeline.closing(gaps, scenes + [title, logo]).map { "\($0.now.id) \($0.now.start)" }
+    #expect(moved == ["b 2.0", "c 3.0", "l 3.2"])
+    #expect(MotionTimeline.closing([gaps[0]], scenes).map(\.now.start) == [2, 4])
+}
