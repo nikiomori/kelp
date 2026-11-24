@@ -9,6 +9,11 @@ private func parsed(_ text: String) throws -> DatabaseAddress { try DatabaseAddr
     #expect(url.database.engine == .postgres && url.database.host == "db.example.com" && url.database.port == 6543)
     #expect(url.database.database == "app_dev" && url.database.user == "app" && url.database.name == "app_dev")
     #expect(url.password == "s@cret" && url.database.ssl == "require")
+    // Each part is decoded once: "%25" is a "%", and "%2540" the text "%40".
+    let percent = try parsed("postgres://a%2540b:100%25@h/shop%25db")
+    #expect(percent.password == "100%" && percent.database.user == "a%40b" && percent.database.database == "shop%db")
+    #expect(try parsed("postgres://app:p%2540ss@h/db").password == "p%40ss")
+    #expect(try parsed("postgres://h/db?user=a%2540b&password=100%25").password == "100%")
 
     let jdbc = try parsed("jdbc:postgresql://db.example.com/app_dev?user=app&password=pw")
     #expect(jdbc.database.port == 5432 && jdbc.database.user == "app" && jdbc.password == "pw")

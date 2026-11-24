@@ -73,15 +73,17 @@ public struct DatabaseAddress: Equatable, Sendable {
         let host = parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"   // postgres:///app uses libpq's default
         let query = Dictionary(
             (parts.queryItems ?? []).map { ($0.name.lowercased(), $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
-        let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).removingPercentEncoding
-        let user = (parts.user ?? query["user"])?.removingPercentEncoding
+        // URLComponents' user, password, path and query values are decoded already: decoding again would read
+        // "100%25" as "100%" and then fail on it.
+        let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let user = parts.user ?? query["user"]
         var db = DatabaseInfo(
-            name: database.flatMap { $0.isEmpty ? nil : $0 } ?? host, engine: engine, host: host,
+            name: database.isEmpty ? host : database, engine: engine, host: host,
             port: parts.port ?? engine.defaultPort,
-            database: database?.isEmpty == false ? database : nil,
+            database: database.isEmpty ? nil : database,
             user: user)
         db.ssl = ssl(query["sslmode"] ?? query["ssl-mode"] ?? query["ssl"])
-        return DatabaseAddress(database: db, password: (parts.password ?? query["password"])?.removingPercentEncoding)
+        return DatabaseAddress(database: db, password: parts.password ?? query["password"])
     }
 
     /// Reads libpq's key=value form: `host=db port=5432 dbname=app user=app password='it''s'`.
