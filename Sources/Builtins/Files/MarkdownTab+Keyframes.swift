@@ -36,7 +36,7 @@ extension MarkdownTab {
             if let there = keys.at.first(where: { abs($0 - place) < 0.6 }) {
                 return there > 0 && there < 100
                     ? changeFrames(clip.id, keys.name, "keyframe removed") {
-                        $0.filter { abs($0.at - there) > 0.01 }
+                        $0.filter { abs($0.at - there) > 0.06 }
                     } : NSSound.beep()
             }
             Task { await addFrame(clip.id, keys.name, place) }
@@ -92,7 +92,7 @@ extension MarkdownTab {
         changeFrames(id, keys.name, "keyframe moved to \(CSSKeyframes.percent(to))") { frames in
             frames.map { frame in
                 var moved = frame
-                if abs(frame.at - from) < 0.01 { moved.at = to }
+                if abs(frame.at - from) < 0.06 { moved.at = to }
                 return moved
             }
         }
@@ -104,7 +104,7 @@ extension MarkdownTab {
         changeFrames(id, keys.name, "easing at \(CSSKeyframes.percent(place))") { frames in
             frames.map { frame in
                 var eased = frame
-                if abs(frame.at - place) < 0.01 { eased.set("animation-timing-function", easing) }
+                if abs(frame.at - place) < 0.06 { eased.set("animation-timing-function", easing) }
                 return eased
             }
         }
@@ -115,7 +115,7 @@ extension MarkdownTab {
         guard let keys = motionStudio.tracks.first(where: { $0.id == id })?.keys else { return nil }
         let menu = NSMenu()
         menu.addItem(.sectionHeader(title: String(localized: "Easing After It")))
-        let now = keys.at.firstIndex { abs($0 - place) < 0.01 }.flatMap {
+        let now = keys.at.firstIndex { abs($0 - place) < 0.06 }.flatMap {
             keys.easing.indices.contains($0) ? keys.easing[$0] : nil
         }
         for easing in Self.easings {
@@ -135,7 +135,7 @@ extension MarkdownTab {
         }
         if place > 0, place < 100 {
             menu.add(String(localized: "Delete Keyframe")) { [weak self] in
-                self?.changeFrames(id, keys.name, "keyframe removed") { $0.filter { abs($0.at - place) > 0.01 } }
+                self?.changeFrames(id, keys.name, "keyframe removed") { $0.filter { abs($0.at - place) > 0.06 } }
             }
         }
         return menu
