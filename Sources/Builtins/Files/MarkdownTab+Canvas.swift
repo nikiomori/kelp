@@ -231,7 +231,8 @@ extension MarkdownTab {
     /// page was drawn, the edit can't be placed for sure, so nothing is written and the canvas draws again from the
     /// file. A change written is kept for the agent (`edit`, made from the file before the change).
     func rewrite(
-        _ board: String, edit: @escaping (String) -> HandEdit?, _ change: @escaping (String) -> String?
+        _ board: String, by step: UUID? = nil, edit: @escaping (String) -> HandEdit?,
+        _ change: @escaping (String) -> String?
     ) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         if path == url.path {   // a motion page's stage is the tab's own file
@@ -249,7 +250,7 @@ extension MarkdownTab {
             }
             let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp))
             if let written, written.conflict == nil, written.missing != true, let made = edit(file.text) {
-                didHandEdit(made, path: path, before: file.text, after: text)
+                didHandEdit(made, path: path, before: file.text, after: text, by: step)
             }
         }
     }

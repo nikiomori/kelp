@@ -288,6 +288,26 @@ extension OneAtATime {
 }
 
 extension OneAtATime {
+    /// Edits that one change made (All like this, on several boards) are one ⌘Z, taken back last first.
+    @Test func oneChangeOnSeveralFilesIsOneUndo() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/like/motion.html")
+        let editor = CodeEditor(text: "<p>0</p>", url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        let by = UUID()
+        for (was, now) in [("<p>0</p>", "<p>1</p>"), ("<p>1</p>", "<p>2</p>")] {
+            editor.apply(text: now, selection: NSRange(location: 0, length: 0))
+            tab.didHandEdit(
+                HandEdit(board: "motion.html", id: ".p", what: "color", from: nil, to: "red"), path: url.path,
+                before: was, after: now, by: by)
+        }
+        #expect(tab.handSteps.undo.count == 1)
+        tab.undoHandEdit(redo: false)
+        #expect(try await waitFor(5) { editor.text == "<p>0</p>" })
+        tab.undoHandEdit(redo: true)
+        #expect(try await waitFor(5) { editor.text == "<p>2</p>" })
+    }
+
     /// Clips moved together are one edit and one ⌘Z; two clips copied paste at the time keeping their distance.
     @Test func clipsMovedOrPastedTogetherAreOneEdit() async throws {
         _ = NSApplication.shared

@@ -13,9 +13,10 @@ extension MarkdownTab {
             many.map { all in all.keys.sorted().map { ($0, all[$0] as? String) } }
             ?? [(body["property"] as? String ?? "", body["value"] as? String)]
         let what = props.map(\.0).joined(separator: ", "), to = props.map { $0.1 ?? "none" }.joined(separator: ", ")
+        let step = UUID()   // one ⌘Z takes it back on every board
         for board in boards {
             let edit = { (_: String) in HandEdit(board: board, id: "." + cls, what: what, from: nil, to: to) }
-            rewrite(board, edit: edit) { source in
+            rewrite(board, by: step, edit: edit) { source in
                 props.reduce(Optional(source)) { text, p in
                     text.flatMap { BoardEdit.setStyle($0, className: cls, property: p.0, value: p.1)?.0 }
                 }
