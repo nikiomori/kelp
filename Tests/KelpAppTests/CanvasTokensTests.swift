@@ -51,7 +51,8 @@ import Testing
     context.evaluateScript(
         """
         const node = () => ({ style: {}, dataset: {}, classList: { toggle() {} }, children: [], append() {} });
-        var window = { kelpCanvas: { frames: [], el: node, sheet: { addEventListener() {} } }, kelpProps: {} };
+        var window = {
+          kelpCanvas: { frames: [], el: node, sheet: { addEventListener() {} }, claims: [] }, kelpProps: {} };
         var document = { createElement: node, body: { matches: () => false }, querySelector: () => null };
         var setTimeout = () => 0, clearTimeout = () => {};
         """)
