@@ -12,9 +12,11 @@ extension DatabaseInfo.Engine {
     }
 
     /// Quotes a table's name as the schema lists it. Postgres names a table outside public with its schema
-    /// ("audit.orders"), so the name has two parts. In other engines a "." is part of the name itself.
+    /// ("audit.orders"), and DuckDB one outside main, so the name has two parts. In other engines a "." is part of the
+    /// name itself.
     public func table(_ name: String) -> String {
-        let parts = self == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
+        let schemas = self == .postgres || self == .duckdb
+        let parts = schemas ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
         return parts.map(quoted).joined(separator: ".")
     }
 

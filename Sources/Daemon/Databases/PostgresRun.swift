@@ -81,31 +81,44 @@ struct PostgresRun: DatabaseRunner {
     }
 
     private static let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
+    /// The columns of each table, view and materialized view, a partitioned table once rather than each part. Keys and
+    /// foreign keys come from pg_catalog, which every role reads, where information_schema shows a constraint only
+    /// to the table's owner. A foreign key names its target's column for each of its own, and the target's schema
+    /// outside public ("auth.users.id"). A table is listed when the role may use it, as information_schema lists it.
     static let schemaColumns = """
-        SELECT CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
-          c.column_name, c.data_type, c.is_nullable,
-          EXISTS (SELECT 1 FROM information_schema.table_constraints t JOIN information_schema.key_column_usage k
-            ON k.constraint_name = t.constraint_name AND k.table_schema = t.table_schema
-            WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = c.table_schema
-            AND t.table_name = c.table_name AND k.column_name = c.column_name),
-          (SELECT u.table_name || '.' || u.column_name FROM information_schema.table_constraints t
-            JOIN information_schema.key_column_usage k ON k.constraint_name = t.constraint_name
-              AND k.table_schema = t.table_schema
-            JOIN information_schema.constraint_column_usage u ON u.constraint_name = t.constraint_name
-              AND u.constraint_schema = t.table_schema
-            WHERE t.constraint_type = 'FOREIGN KEY' AND t.table_schema = c.table_schema
-            AND t.table_name = c.table_name AND k.column_name = c.column_name LIMIT 1)
-        FROM information_schema.columns c WHERE c.table_schema \(other)
-        ORDER BY c.table_schema, c.table_name, c.ordinal_position
+        SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
+          a.attname, format_type(a.atttypid, NULL), CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END,
+          EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary AND a.attnum = ANY (i.indkey)),
+          (SELECT CASE WHEN tn.nspname = 'public' THEN t.relname ELSE tn.nspname || '.' || t.relname END
+              || '.' || ta.attname
+            FROM pg_constraint k JOIN pg_class t ON t.oid = k.confrelid
+            JOIN pg_namespace tn ON tn.oid = t.relnamespace
+            JOIN pg_attribute ta ON ta.attrelid = k.confrelid
+              AND ta.attnum = k.confkey[array_position(k.conkey, a.attnum)]
+            WHERE k.contype = 'f' AND k.conrelid = c.oid AND a.attnum = ANY (k.conkey)
+            ORDER BY k.conname LIMIT 1)
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND NOT c.relispartition AND n.nspname \(other)
+          AND (pg_has_role(c.relowner, 'USAGE')
+            OR has_any_column_privilege(c.oid, 'SELECT, INSERT, UPDATE, REFERENCES'))
+        ORDER BY n.nspname, c.relname, a.attnum
         """
+    /// A partitioned table's rows and size are its parts'. Limit: one level of parts; a part that is itself
+    /// partitioned counts as empty.
     static let schemaCounts = """
         SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
-          CASE WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END,   -- -1: never analyzed
-          CASE WHEN c.relkind IN ('v', 'm') THEN 'view' END, pg_total_relation_size(c.oid),
+          CASE WHEN c.relkind = 'p' THEN (SELECT sum(greatest(p.reltuples, 0))::bigint FROM pg_inherits i
+              JOIN pg_class p ON p.oid = i.inhrelid WHERE i.inhparent = c.oid)
+            WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END,   -- -1: never analyzed
+          CASE WHEN c.relkind IN ('v', 'm') THEN 'view' END,
+          CASE WHEN c.relkind = 'p' THEN (SELECT sum(pg_total_relation_size(i.inhrelid)) FROM pg_inherits i
+              WHERE i.inhparent = c.oid)
+            ELSE pg_total_relation_size(c.oid) END,
           obj_description(c.oid, 'pg_class')
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
-        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND NOT c.relispartition AND n.nspname \(other)
         """
     /// Lists the database's own functions and leaves out those of extensions (PostGIS alone puts hundreds in public).
     static let schemaFunctions = """

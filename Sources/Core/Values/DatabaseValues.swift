@@ -369,7 +369,7 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
     public struct Column: Codable, Sendable, Equatable {
         public var name: String, type: String
         public var nullable: Bool, primary: Bool
-        /// "users.id" for a foreign key.
+        /// "users.id" for a foreign key, with the table's schema where it has one ("auth.users.id").
         public var references: String?
         public init(name: String, type: String, nullable: Bool, primary: Bool, references: String? = nil) {
             self.name = name
@@ -377,6 +377,14 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
             self.nullable = nullable
             self.primary = primary
             self.references = references
+        }
+
+        /// The table and column `references` names: the column is what follows its last ".".
+        public var target: (table: String, column: String)? {
+            guard let references, let dot = references.lastIndex(of: "."), dot != references.startIndex else {
+                return nil
+            }
+            return (String(references[..<dot]), String(references[references.index(after: dot)...]))
         }
     }
 }

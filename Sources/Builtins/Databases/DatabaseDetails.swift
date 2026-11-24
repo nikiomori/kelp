@@ -141,10 +141,10 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         head.spacing = Metrics.gap
         head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
-        if let ref = column?.references, let value, case let target = ref.split(separator: "."), target.count == 2 {
-            let words = "\(value) → \(target[0])"
+        if let target = column?.target, let value {
+            let words = "\(value) → \(target.table)"
             let link = PointerButton.link(words, font: .uiMono(TextSize.caption)) { [weak self] in
-                self?.onFollow(String(target[0]), String(target[1]), value)
+                self?.onFollow(target.table, target.column, value)
             }
             link.lineBreakMode = .byTruncatingMiddle
             parts.append(link)

@@ -322,6 +322,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Whether a type is a number type, by its first word: "integer", "double precision", "numeric(10,2)", "int
     /// unsigned", "REAL". "interval" and "point" are not.
     nonisolated static func isNumber(_ type: String) -> Bool {
+        guard !type.hasSuffix("]") else { return false }   // an array of numbers ("integer[]")
         let word = type.lowercased().prefix { $0.isLetter || $0.isNumber }
         return [
             "int", "integer", "int2", "int4", "int8", "smallint", "bigint", "tinyint", "mediumint", "float", "float4",

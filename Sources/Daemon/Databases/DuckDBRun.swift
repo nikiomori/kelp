@@ -80,21 +80,32 @@ struct DuckDBRun: DatabaseRunner {
         }
     }
 
+    /// The tables of every schema of the file, those outside main named with their schema ("sales.orders"), as
+    /// Postgres names those outside public.
+    private static func named(_ schema: String, _ table: String) -> String {
+        "CASE WHEN \(schema) = 'main' THEN \(table) ELSE \(schema) || '.' || \(table) END"
+    }
     static let schemaColumns = """
-        SELECT c.table_name, c.column_name, c.data_type, c.is_nullable,
-          EXISTS (SELECT 1 FROM duckdb_constraints() k WHERE k.table_name = c.table_name
+        SELECT \(named("c.table_schema", "c.table_name")), c.column_name, c.data_type, c.is_nullable,
+          EXISTS (SELECT 1 FROM duckdb_constraints() k WHERE k.database_name = c.table_catalog
+            AND k.schema_name = c.table_schema AND k.table_name = c.table_name
             AND k.constraint_type = 'PRIMARY KEY' AND list_contains(k.constraint_column_names, c.column_name)),
-          (SELECT k.referenced_table || '.'
+          (SELECT \(named("c.table_schema", "k.referenced_table")) || '.'
               || k.referenced_column_names[list_position(k.constraint_column_names, c.column_name)]
-            FROM duckdb_constraints() k WHERE k.table_name = c.table_name AND k.constraint_type = 'FOREIGN KEY'
+            FROM duckdb_constraints() k WHERE k.database_name = c.table_catalog AND k.schema_name = c.table_schema
+            AND k.table_name = c.table_name AND k.constraint_type = 'FOREIGN KEY'
             AND list_contains(k.constraint_column_names, c.column_name) LIMIT 1)
-        FROM information_schema.columns c WHERE c.table_schema = 'main'
-        ORDER BY c.table_name, c.ordinal_position
+        FROM information_schema.columns c WHERE c.table_catalog = current_database()
+        ORDER BY c.table_schema, c.table_name, c.ordinal_position
         """
-    static let schemaCounts = "SELECT table_name, estimated_size FROM duckdb_tables() WHERE schema_name = 'main'"
+    static let schemaCounts = """
+        SELECT \(named("schema_name", "table_name")), estimated_size FROM duckdb_tables()
+        WHERE database_name = current_database()
+        """
     static let schemaIndexes = """
-        SELECT table_name, index_name || ' ' || replace(replace(CAST(expressions AS VARCHAR), '[', '('), ']', ')')
-        FROM duckdb_indexes() WHERE schema_name = 'main'
+        SELECT \(named("schema_name", "table_name")),
+          index_name || ' ' || replace(replace(CAST(expressions AS VARCHAR), '[', '('), ']', ')')
+        FROM duckdb_indexes() WHERE database_name = current_database()
         """
 
     func schema() async throws -> DatabaseSchema {

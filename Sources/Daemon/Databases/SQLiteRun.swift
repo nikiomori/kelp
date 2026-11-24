@@ -192,9 +192,7 @@ struct SQLiteRun: DatabaseRunner {
                                         && !(rowid && column.primaryKeyIndex > 0
                                             && column.type.uppercased() == "INTEGER"),
                                     primary: column.primaryKeyIndex > 0,
-                                    references: keys.first { $0.originColumns.contains(column.name) }.map {
-                                        $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
-                                    })
+                                    references: Self.reference(keys, column.name))
                             }
                             let count = try Self.counted(queue, db, name, until: until)
                             return DatabaseSchema.Table(
@@ -208,6 +206,16 @@ struct SQLiteRun: DatabaseRunner {
                 }
             }
         }
+    }
+
+    /// The table and column a column refers to, "users.id": a key of several columns maps each to its own.
+    static func reference(_ keys: [ForeignKeyInfo], _ column: String) -> String? {
+        for key in keys {
+            guard let at = key.originColumns.firstIndex(of: column), key.destinationColumns.indices.contains(at)
+            else { continue }
+            return key.destinationTable + "." + key.destinationColumns[at]
+        }
+        return nil
     }
 
     /// Counts a table's rows, or returns nil once `until` has passed (before counting starts, or while it counts).

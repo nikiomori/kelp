@@ -250,11 +250,8 @@ extension DatabaseTab {
             table.columns.map { column in
                 "  " + DatabaseEdits.name(column.name, engine) + " " + column.type
                     + (column.nullable ? "" : " NOT NULL")
-                    + (column.references.map { reference in
-                        let parts = reference.split(separator: ".")
-                        return parts.count == 2
-                            ? " REFERENCES " + DatabaseEdits.name(String(parts[0]), engine) + "(\(parts[1]))" : ""
-                    } ?? "")
+                    + (column.target.map { " REFERENCES " + DatabaseEdits.name($0.table, engine) + "(\($0.column))" }
+                        ?? "")
             }
             + [table.columns.filter(\.primary).map { DatabaseEdits.name($0.name, engine) }].filter { !$0.isEmpty }
             .map { "  PRIMARY KEY (" + $0.joined(separator: ", ") + ")" }
@@ -293,10 +290,8 @@ extension DatabaseTab {
 
     /// Follows a foreign key's arrow in a cell to the table it names, at that row.
     func followKey(_ column: String, _ value: String) {
-        guard let ref = current?.columns.first(where: { $0.name == column })?.references else { return }
-        let parts = ref.split(separator: ".")
-        guard parts.count == 2 else { return }
-        follow(String(parts[0]), String(parts[1]), value)
+        guard let target = current?.columns.first(where: { $0.name == column })?.target else { return }
+        follow(target.table, target.column, value)
     }
 
     /// Shows `table` filtered to the row where `column` holds `value`.

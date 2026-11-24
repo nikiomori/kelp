@@ -130,7 +130,8 @@ import Testing
     for type in ["integer", "double precision", "numeric(10,2)", "int unsigned", "REAL", "bigserial", "float8"] {
         #expect(ResultGrid.isNumber(type), "\(type)")
     }
-    for type in ["interval", "point", "text", "character varying(20)", "timestamp with time zone", "json"] {
+    let others = ["interval", "point", "text", "character varying(20)", "timestamp with time zone", "json", "integer[]"]
+    for type in others {
         #expect(!ResultGrid.isNumber(type), "\(type)")
     }
     #expect(DatabaseTab.took(84) == "84 ms")
@@ -242,3 +243,12 @@ import Testing
     #expect(said.contains("Can’t Read shop") && !said.contains("Not Kept"), "\(said)")
 }
 
+/// A foreign key's target keeps its schema: the column is what follows the last ".".
+@Test func aForeignKeyNamesItsTargetsSchema() {
+    let column = {
+        DatabaseSchema.Column(name: "user_id", type: "uuid", nullable: false, primary: false, references: $0)
+    }
+    #expect(column("auth.users.id").target.map { [$0.table, $0.column] } == ["auth.users", "id"])
+    #expect(column("users.id").target.map { [$0.table, $0.column] } == ["users", "id"])
+    #expect(column(nil).target == nil && column("id").target == nil)
+}
