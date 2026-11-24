@@ -41,6 +41,8 @@ extension SidebarController {
     /// folds in the tree instead (`foldProject`).
     func toggle(_ node: Node) {
         if Self.isHeader(node) { return foldProject(node.key) }
+        // A screen's row in a folded project holds its chats as logos: the project's fold hides them, so it opens.
+        if !node.hidden.isEmpty, let project = outline.parent(forItem: node) as? Node { return unfold(project) }
         if outline.isItemExpanded(node), folding[node.key] == nil { close(node) } else { open(node) }
     }
 
