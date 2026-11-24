@@ -117,7 +117,12 @@ private let page = ".kelp/artifacts/home/canvas.json"
             id: 8, kind: .element, board: "boards/A.html", target: "[data-id=hero]", note: "like this",
             asked: "Screenshot or drawing?", reference: "marks/8-ref.png"),
         ArtifactMark(
-            id: 9, kind: .element, board: "boards/A.html", target: "[data-id=c1]", note: "softer", like: ".card")
+            id: 9, kind: .element, board: "boards/A.html", target: "[data-id=c1]", note: "softer", like: ".card"),
+        {
+            var m = ArtifactMark(id: 10, kind: .element, board: "boards/A.html", target: "[data-id=t]", note: "cut off")
+            m.inState = "error"
+            return m
+        }()
     ]
     let edits = [
         HandEdit(board: "boards/A.html", id: "cta", what: "text", from: "Start", to: "Go"),
@@ -137,6 +142,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
             #7 motion.html area 250,168,0,0 labelled «closer» at 1.20 s: look at this
             #8 boards/A.html [data-id=hero] (you asked: «Screenshot or drawing?») (example: .kelp/artifacts/home/marks/8-ref.png): like this
             #9 boards/A.html .card (every element like it, on every board): softer
+            #10 boards/A.html [data-id=t] in state «error»: cut off
             Edited by the user since version 5, keep these:
               boards/A.html [data-id=cta] text «Start» → «Go»
               boards/A.html [data-id=sub] font-size none → small

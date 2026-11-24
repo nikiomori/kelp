@@ -71,6 +71,8 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     /// A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder
     /// (`marks/3-ref.png`).
     public var reference: String?
+    /// The board's state it was made in (`data-states`), when not the board's first.
+    public var inState: String?
     /// The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.
     public var like: String?
     /// The note the user is writing now: a draft's note, empty once sent.

@@ -31,6 +31,8 @@ extension Artifacts {
               too.
             - `data-id="title"` on every element worth pointing at (headings, buttons, fields, cards): the user's marks
               come back to you by it.
+            - A screen with states (hover, empty, error, loading): `data-states="default,empty,error"` on the board's
+              root, styled with `[data-state=error] …`; the user switches between them and marks each.
             - Levers the user moves without you: up to 4 lines at the top of a board,
               `<!-- tweak --highlight: #1f7a5a -->` (a colour) or `<!-- tweak --gap: 12px (8px, 12px, 16px) -->`
               (choices), used as `var(--highlight)`. A tweak is one value for light and dark: name it for what it

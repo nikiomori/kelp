@@ -419,6 +419,10 @@
           "id" : {
             "type" : "integer"
           },
+          "inState" : {
+            "description" : "The board's state it was made in (`data-states`), when not the board's first.",
+            "type" : "string"
+          },
           "kind" : {
             "$ref" : "#/components/schemas/ArtifactMark.Kind"
           },

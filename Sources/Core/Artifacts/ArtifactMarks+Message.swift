@@ -26,6 +26,7 @@ extension ArtifactMarks {
                 if !m.text.isEmpty { what.append("labelled «\(m.text)»") }
             }
             if let time = m.time { what.append(String(format: "at %.2f s", time)) }
+            if let state = m.inState { what.append("in state «\(state)»") }
             if let asked = m.asked { what.append("(you asked: «\(asked)»)") }
             if let reference = m.reference { what.append("(example: \(folder)/\(reference))") }
             if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
