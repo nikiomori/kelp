@@ -32,7 +32,12 @@ final class MarkReviewBar {
         made.isHidden = true
         return made
     }()
-    private let label = NSTextField.label("", font: .ui(TextSize.row))
+    let label: NSTextField = {
+        let made = NSTextField.label("", font: .ui(TextSize.row))
+        made.lineBreakMode = .byTruncatingTail
+        made.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return made
+    }()
     private let position = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let before = CapsuleSegments(
         labels: [String(localized: "Before"), String(localized: "After")], name: String(localized: "Version"))
@@ -41,15 +46,20 @@ final class MarkReviewBar {
     /// `act` runs a call on the page's marks (`window.kelpMarks`).
     init(act: @escaping (String) -> Void) { self.act = act }
 
-    /// Shows where the check is: `count` marks wait, `at` is shown, and whether Before shows (and can, on a canvas).
-    func show(count: Int, at: Int, before shown: Bool, canBefore: Bool, who: String?) {
+    /// Shows where the check is: `count` marks wait, `at` is shown with what was asked of it and the agent's answer
+    /// (`said`), and whether Before shows (and can, on a canvas).
+    func show(
+        count: Int, at: Int, before shown: Bool, canBefore: Bool, who: String?, said: (note: String, reply: String)
+    ) {
         _ = bar
         bar.isHidden = count == 0
         guard count > 0 else { return }
-        let finished =
-            who.map { String(localized: "\($0) finished its turn") }
-            ?? String(localized: "The agent finished its turn")
-        label.stringValue = finished + " · " + String(localized: "To check: \(count)")
+        let agent = who ?? String(localized: "The agent")
+        let answer = said.reply.isEmpty ? String(localized: "\(agent) didn’t answer it") : said.reply
+        label.stringValue =
+            said.note.isEmpty
+            ? String(localized: "\(agent) finished its turn") : "“\(said.note)” → " + answer
+        label.toolTip = said.note.isEmpty ? nil : said.note + "\n\n" + answer
         position.stringValue = String(localized: "\(at + 1) of \(count)")
         before.isHidden = !canBefore
         before.selectedSegment = shown ? 0 : 1

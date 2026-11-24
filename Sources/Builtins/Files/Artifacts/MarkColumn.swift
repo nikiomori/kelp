@@ -251,7 +251,9 @@ enum MarkColumn {
           function review() {
             const c = by('check');
             at = Math.max(0, Math.min(at, c.length - 1));
-            const now = JSON.stringify({ kind: 'review', count: c.length, at, before, canBefore: !!page?.before });
+            const r = c[at] && last(c[at]);   // what was asked of the mark shown, and the agent's answer
+            const now = JSON.stringify({ kind: 'review', count: c.length, at, before, canBefore: !!page?.before,
+              note: r?.note || '', reply: r?.reply || '' });
             if (now !== told) { told = now; post(JSON.parse(now)); }
           }
 
@@ -274,7 +276,8 @@ enum MarkColumn {
               if (!open) return;
               open = false; composer.style.display = 'none';
               const d = by('draft')[i] || m;
-              if (keepIt) d.note = field.value.trim(); else M.marks = M.marks.filter(k => k !== d);
+              // Esc takes a new mark away; one with rounds stays, a draft again.
+              if (keepIt || d.rounds.length) d.note = field.value.trim(); else M.marks = M.marks.filter(k => k !== d);
               keep(); draw();
               if (andSend) send();
             };
@@ -309,7 +312,7 @@ enum MarkColumn {
           function sendAgain(m) {
             if (!m) return;
             showBefore(false); m.state = 'draft'; m.note = ''; post({ kind: 'markAgain', id: m.id }); draw();
-            const inputs = document.querySelectorAll('.kelp-col input'); inputs[0]?.focus();
+            compose(m);   // what's still wrong, written beside this mark
           }
           // Sends the drafts chosen, in their order (`only`: their places among the drafts), now or once the agent's
           // turn ends (`queue`).
