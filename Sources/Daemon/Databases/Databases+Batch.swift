@@ -48,6 +48,12 @@ extension Databases {
             case .free: break
             }
             let started = Date(), allowed = asked
+            // A branch's Postgres copy is kept for Undo Turn before the turn's first change, and the change is kept
+            // with the turn (a batch of reads changes nothing)
+            let changes = statements.contains {
+                !["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb($0))
+            }
+            if changes { await turnChanging(session, databaseConnection, databaseQuery.worktreeId) }
             // The batch may change only the counts the user allowed, because the tables can change while asking
             let changed = try await DatabaseEngines.batch(
                 databaseConnection, statements, keep: { allowed == nil || $0 == allowed }, off: offloads)
@@ -60,6 +66,7 @@ extension Databases {
             run.ms = ms
             let result = Self.result(run.id, statements, changed, ms: ms)
             note(databaseQuery.worktreeId, run, result: result)
+            if changes { turnChanged(run) }
             return result
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
     }

@@ -4,16 +4,51 @@ import GitKit
 
 // An agent's turns: their snapshots kept under refs/kelp/turns/, listed, undone and redone.
 
-extension SessionTurnUndo: Handled {
+extension SessionTurnUndo: AsyncHandled {
     var fence: Fence { Fence(actsOn: id) }   // an agent undoes only its own turns and its children's
-    func handle(_ turns: Turns) throws -> Result {
-        let (mark, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes
-        let plan = try Git.changed(since: mark.tree, cwd: dir, remotes: remotes)
-        guard apply == true else { return Plan(files: plan.files, state: plan.now) }
+    /// The databases the turn changed go back first, so a failure there leaves everything as it was, and they are put
+    /// back as the undo found them when the files can't go.
+    func handle(_ turns: Turns) async throws -> Result {
+        let databases = turns.databases.databases
+        let (mark, dir, plan, later, agent) = try await turns.offloads.run { [self] in
+            let (mark, dir) = try turns.place(session: id, turn: turn)
+            let session = try turns.store.session(id)
+            let agent = session.flatMap { session in
+                Log.session.attempt("reading an agent's name") {
+                    try turns.setup.manifest(session.agent, command: nil, fallbackArgv: session.argv).name
+                }
+            }
+            let later = try turns.store.turns(session: id).prefix { $0.id != turn }.map(\.id)
+            return (mark, dir, try Git.changed(since: mark.tree, cwd: dir, remotes: turns.remotes), later, agent)
+        }
+        let dbs = databases?.turnDatabases(turn, later: later, files: plan.files, top: dir) ?? []
+        guard apply == true else {
+            return Plan(
+                files: plan.files, state: plan.now, databases: dbs.isEmpty ? nil : Turns.sheet(dbs, agent: agent))
+        }
         let before = state ?? ""
         guard plan.now == before else {
             throw RPCError.invalidParams("The files changed since you looked; nothing was put back.")
         }
+        try await databases?.undoTurn(dbs, undone: Turns.undoneKey(id))
+        do {
+            return Plan(
+                files: plan.files,
+                state: try await turns.offloads.run { [self] in try undoFiles(turns, mark, dir, plan.files, before) }
+            )
+        } catch {
+            await databases?.redoTurn(Turns.undoneKey(id))
+            throw error
+        }
+    }
+
+    /// Puts the files back as `mark` found them, while the folder is still at `before`. Returns its state after.
+    private func undoFiles(
+        _ turns: Turns, _ mark: SessionTurns.Mark, _ dir: String, _ files: [String], _ before: String
+    )
+        throws -> String
+    {
+        let remotes = turns.remotes
         // The state before the undo stays reachable for Redo (git gc keeps it), since each undo is in the ref's log.
         try Git.setRef(Turns.undoneRef(id), to: before, reflog: "undo turn " + turn, cwd: dir, remotes: remotes)
         // Also keep what was staged before the undo, so Redo takes the undo back whole. When nothing could be kept
@@ -22,36 +57,44 @@ extension SessionTurnUndo: Handled {
         try Git.setRef(Turns.undoneStagedRef(id), to: staged, cwd: dir, remotes: remotes)
         let index = try turns.kept(Turns.stagedRef(mark.id), in: dir)
         do {
-            try Git.restore(plan.files, from: mark.tree, now: before, index: index, cwd: dir, remotes: remotes)
+            try Git.restore(files, from: mark.tree, now: before, index: index, cwd: dir, remotes: remotes)
         } catch {
             // If it stopped part way (a file the Trash refused), the files it touched go back as they were, not half
             // undone.
             let back: Void? = Log.session.attempt("putting a stopped undo back") {
                 let changed = try Git.changed(since: before, cwd: dir, remotes: remotes)
                 try Git.restore(
-                    changed.files.filter(plan.files.contains), from: before, now: changed.now, index: staged,
+                    changed.files.filter(files.contains), from: before, now: changed.now, index: staged,
                     cwd: dir, remotes: remotes)
             }
             let why = (error as? GitError)?.message ?? "\(error)"
             let now = back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."
             throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + now)
         }
-        return Plan(files: plan.files, state: try Git.snapshotTree(dir, remotes: remotes))
+        return try Git.snapshotTree(dir, remotes: remotes)
     }
 }
 
-extension SessionTurnRedo: Handled {
+extension SessionTurnRedo: AsyncHandled {
     var fence: Fence { Fence(actsOn: id) }
-    func handle(_ turns: Turns) throws -> Done {
-        let (_, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes, ref = Turns.undoneRef(id)
-        guard let before = try turns.kept(ref, in: dir) else {
-            throw RPCError.invalidParams("There's no undo to take back here.")
+    func handle(_ turns: Turns) async throws -> Done {
+        try await turns.offloads.run { [self] in
+            let (_, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes, ref = Turns.undoneRef(id)
+            guard let before = try turns.kept(ref, in: dir) else {
+                throw RPCError.invalidParams("There's no undo to take back here.")
+            }
+            let plan = try Git.changed(since: before, cwd: dir, remotes: remotes), staged = Turns.undoneStagedRef(id)
+            try Git.restore(
+                plan.files, from: before, now: state, index: try turns.kept(staged, in: dir), cwd: dir,
+                remotes: remotes)
+            try Git.setRef(ref, to: nil, cwd: dir, remotes: remotes)
+            try Git.setRef(staged, to: nil, cwd: dir, remotes: remotes)
         }
-        let plan = try Git.changed(since: before, cwd: dir, remotes: remotes), staged = Turns.undoneStagedRef(id)
-        try Git.restore(
-            plan.files, from: before, now: state, index: try turns.kept(staged, in: dir), cwd: dir, remotes: remotes)
-        try Git.setRef(ref, to: nil, cwd: dir, remotes: remotes)
-        try Git.setRef(staged, to: nil, cwd: dir, remotes: remotes)
+        let failed = await turns.databases.databases?.redoTurn(Turns.undoneKey(id)) ?? []
+        guard failed.isEmpty else {
+            throw RPCError.invalidParams(
+                "The files came back; \(failed.joined(separator: ", ")) didn't, and stays as the undo left it.")
+        }
         return Done()
     }
 }
@@ -60,6 +103,26 @@ extension SessionTurnRedo: Handled {
 /// one (`session.turnUndo`).
 struct Turns: Sendable {
     let live: SessionTable, store: Store, remotes: Remotes
+    let databases: TurnDatabases   // the databases as each turn found them, which its undo puts back too
+    let offloads: Slots, setup: SessionSetup   // the undo's git runs off the pool; the sheet names the agent
+
+    init(live: SessionTable, store: Store, remotes: Remotes, root: URL, offloads: Slots, setup: SessionSetup) {
+        (self.live, self.store, self.remotes, self.offloads, self.setup) = (live, store, remotes, offloads, setup)
+        databases = TurnDatabases(root: root)
+    }
+
+    /// Where the databases are kept as the session's last undo found them, for Redo.
+    static func undoneKey(_ session: String) -> String { "undone-" + session }
+
+    /// The databases as the undo's sheet lists them: by file name ("shop.sqlite") or name, with what `agent` did.
+    static func sheet(_ dbs: [TurnDatabase], agent: String?) -> [SessionTurnUndo.Database] {
+        dbs.map { one in
+            SessionTurnUndo.Database(
+                name: one.kept.path.map { ($0 as NSString).lastPathComponent } ?? one.kept.name,
+                detail: Databases.said(agent: agent ?? "The agent", one.kept.runs, one.kept.engine),
+                cannot: one.kept.cannot)
+        }
+    }
 
     /// The ref that keeps the folder as it was before the session's last undone turn.
     static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
@@ -115,7 +178,11 @@ struct Turns: Sendable {
     /// and those of the dropped turns in its repository are written in one git run.
     func keep(_ mark: SessionTurns.Mark, staged: String?) {
         Log.store.attempt("keeping a turn") {
-            guard let dropped = try store.addTurn(mark) else { return }
+            if let worktreeId = try store.session(mark.session)?.worktreeId {
+                databases.databases?.keepFiles(mark.id, worktreeId: worktreeId)
+            }
+            guard let dropped = try store.addTurn(mark) else { return databases.drop([mark.id]) }
+            databases.drop(dropped.map(\.id))
             let here = dropped.filter { $0.folder == mark.folder },
                 elsewhere = dropped.filter { $0.folder != mark.folder }
             try Git.deleteRefs(
@@ -139,6 +206,7 @@ struct Turns: Sendable {
         }
     }
     func dropRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
+        databases.drop(marks.map(\.id) + [Self.undoneKey(session)])
         delete(
             marks.flatMap { mark in Self.refs(mark).map { ($0, repo ?? mark.folder) } }
                 + marks.prefix(1).flatMap { mark in

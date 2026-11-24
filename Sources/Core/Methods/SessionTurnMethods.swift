@@ -63,7 +63,8 @@ public struct SessionTurns: RPCMethod {
 /// Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns
 /// what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that
 /// `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there
-/// are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are.
+/// are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The
+/// databases the turn changed (`Plan.databases`) go back with the files.
 public struct SessionTurnUndo: RPCMethod {
     public static let name = "session.turnUndo"
     public typealias Result = Plan
@@ -76,9 +77,24 @@ public struct SessionTurnUndo: RPCMethod {
     }
     public struct Plan: Codable, Sendable, Equatable {
         public var files: [String], state: String
-        public init(files: [String], state: String) {
+        /// The databases the turn changed that go back with the files: a SQLite or DuckDB file, or a branch's own
+        /// Postgres copy, as Kelp kept them when the turn began (or before its first change). nil when there are none.
+        public var databases: [Database]?
+        public init(files: [String], state: String, databases: [Database]? = nil) {
             self.files = files
             self.state = state
+            self.databases = databases
+        }
+    }
+    /// One database the undo puts back: its file's name or its own ("shop.sqlite"), what the turn did to it, as in
+    /// "Claude Code changed it 3 times in this turn: 214 rows of orders." (nil when only the project's code changed
+    /// it), and why it can't go back, when it can't (someone was connected to the Postgres copy). The files still go.
+    public struct Database: Codable, Sendable, Equatable {
+        public var name: String, detail: String?, cannot: String?
+        public init(name: String, detail: String? = nil, cannot: String? = nil) {
+            self.name = name
+            self.detail = detail
+            self.cannot = cannot
         }
     }
 }

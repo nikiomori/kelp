@@ -36,6 +36,7 @@ final class Databases: Sendable {
     /// row), and the port forward for a remote database.
     let settings: SettingsStore, live: SessionTable, permissions: PermissionWaits, processes: SessionProcesses
     let clients: Clients
+    let turnKeeps: TurnDatabases   // the databases as agents' turns found them, for Undo Turn (Databases+Turns.swift)
     /// How many runs are kept per workspace (newest first), and how many of the latest runs keep their rows.
     static let keptRuns = 100, keptResults = 30
     /// How much of a result is kept and sent to an agent: a cell up to 16 KB, and the rows up to 1 MB in all.
@@ -66,6 +67,8 @@ final class Databases: Sendable {
         self.watches = watches
         self.remotes = remotes
         self.offloads = offloads
+        turnKeeps = sessions.turns.databases
+        turnKeeps.databases = self
     }
 
     // MARK: Which

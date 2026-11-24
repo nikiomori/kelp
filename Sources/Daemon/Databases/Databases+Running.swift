@@ -78,11 +78,14 @@ extension Databases {
                 // The change may touch only the number of rows the user allowed, because the table can change while
                 // the user is asked
                 let asked = access == .ask ? run.changed : nil
+                await turnChanging(session, target, wid)   // a branch's Postgres copy is kept for Undo Turn
                 do {
                     let saying = Self.saying(sql, target.database.engine, tried: tried)
                     let rows = try await DatabaseEngines.write(target, saying, allowed: asked, off: offloads)
                     run.state = .done
-                    return finish(databaseQuery, &run, rows, started: started, agent: forAgent, tried: tried)
+                    let sent = finish(databaseQuery, &run, rows, started: started, agent: forAgent, tried: tried)
+                    turnChanged(run)
+                    return sent
                 } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
             }
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }

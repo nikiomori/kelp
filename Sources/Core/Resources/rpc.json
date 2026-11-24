@@ -5191,8 +5191,33 @@
         ],
         "type" : "object"
       },
+      "SessionTurnUndo.Database" : {
+        "description" : "One database the undo puts back: its file's name or its own (\"shop.sqlite\"), what the turn did to it, as in \"Claude Code changed it 3 times in this turn: 214 rows of orders.\" (nil when only the project's code changed it), and why it can't go back, when it can't (someone was connected to the Postgres copy). The files still go.",
+        "properties" : {
+          "cannot" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name"
+        ],
+        "type" : "object"
+      },
       "SessionTurnUndo.Plan" : {
         "properties" : {
+          "databases" : {
+            "description" : "The databases the turn changed that go back with the files: a SQLite or DuckDB file, or a branch's own Postgres copy, as Kelp kept them when the turn began (or before its first change). nil when there are none.",
+            "items" : {
+              "$ref" : "#/components/schemas/SessionTurnUndo.Database"
+            },
+            "type" : "array"
+          },
           "files" : {
             "items" : {
               "type" : "string"
@@ -13898,7 +13923,7 @@
       }
     },
     {
-      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are.",
+      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The databases the turn changed (`Plan.databases`) go back with the files.",
       "name" : "session.turnUndo",
       "paramStructure" : "by-name",
       "params" : [
