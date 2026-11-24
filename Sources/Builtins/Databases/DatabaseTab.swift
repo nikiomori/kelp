@@ -40,7 +40,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             ?? address.name
     }
     var icon: NSImage? { .symbol(DatabaseLook.symbol) }
-    var isEdited: Bool { !grid.edits.isEmpty }
+    /// Edits made, or a cell being typed in that would change.
+    var isEdited: Bool { !grid.edits.isEmpty || grid.typing }
 
     let app: AppModel
     let address: DatabaseURI
@@ -97,7 +98,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     lazy var saveQuery = NSButton(title: String(localized: "Save Query…"), target: self, action: #selector(keepQuery))
     lazy var save = NSButton(title: String(localized: "Save"), target: self, action: #selector(saveEdits))
     lazy var showSQL = NSButton(title: String(localized: "Show SQL"), target: self, action: #selector(showEdits))
-    lazy var discard = NSButton(
+    lazy var discardButton = NSButton(
         title: String(localized: "Discard…"), target: self, action: #selector(discardEdits))
     lazy var ask = NSButton(title: "", target: self, action: #selector(askAgent))
     lazy var previous = IconButton(.symbol("chevron.left"), tip: String(localized: "Previous Rows")) { [weak self] in
@@ -167,6 +168,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     func close() async -> Bool {
         keepDraft()
+        grid.commitTyping()
         return isEdited ? await settleEdits() : true
     }
 
@@ -257,7 +259,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         part.action = #selector(partChanged)
         part.setContentHuggingPriority(.required, for: .horizontal)
         // Inside a page a worded button is the system's small bordered one, so it reads as a button before a hover.
-        for button in [addRow, columnsButton, discard, showSQL, ask, saveQuery, save] {
+        for button in [addRow, columnsButton, discardButton, showSQL, ask, saveQuery, save] {
             button.bezelStyle = .push
             button.controlSize = .small
         }
@@ -275,7 +277,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         busy.isDisplayedWhenStopped = false
         return Bar.foot(
             [part, addRow, busy, status],
-            [changes, showSQL, discard, save, ask, saveQuery, columnsButton, previous, next])
+            [changes, showSQL, discardButton, save, ask, saveQuery, columnsButton, previous, next])
     }
 
     private func buildAskBar() {
@@ -305,7 +307,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     private func wire() {
         grid.density = app.settings[SettingKeys.databaseDensity]
         grid.onChange = { [weak self] in self?.footChanged() }
-        grid.onSort = { [weak self] in self?.sorted() }
+        grid.onSort = { [weak self] was in self?.sorted(was: was) }
         grid.onFilter = { [weak self] column, op, value in self?.filters.add(column: column, op: op, value: value) }
         grid.onFollow = { [weak self] column, value in self?.followKey(column, value) }
         grid.table.onSpace = { [weak self] in

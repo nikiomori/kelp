@@ -201,18 +201,10 @@ extension ResultGrid {
         let column = table.tableColumns[index], name = columns[columnIndex]
         for (title, up) in [(String(localized: "Sort Ascending"), true), (String(localized: "Sort Descending"), false)]
         {
-            menu.add(title) { [weak self] in
-                self?.orders = [(name, up)]
-                self?.indicate()
-                self?.onSort()
-            }
+            menu.add(title) { [weak self] in self?.sort([(name, up)]) }
         }
         if !orders.isEmpty {
-            menu.add(String(localized: "Don’t Sort")) { [weak self] in
-                self?.orders = []
-                self?.indicate()
-                self?.onSort()
-            }
+            menu.add(String(localized: "Don’t Sort")) { [weak self] in self?.sort([]) }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Hide \(name)")) { column.isHidden = true }
@@ -227,5 +219,12 @@ extension ResultGrid {
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Name")) { copyText(name) }
+    }
+
+    private func sort(_ order: [(column: String, ascending: Bool)]) {
+        let was = orders
+        orders = order
+        indicate()
+        onSort(was)
     }
 }

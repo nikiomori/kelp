@@ -120,24 +120,39 @@ extension DatabaseTab {
         Task { await showTable(name) }
     }
 
+    /// Reads what the tab shows again. A table's unsaved edits are asked about first (`settleEdits`), as before each
+    /// read in place that would drop them: a new order, filter or part.
     func refresh() {
         switch mode {
-        case .table(let name): Task { await showTable(name) }
+        case .table(let name):
+            Task {
+                guard await settleEdits() else { return }
+                await showTable(name)
+            }
         case .run(let id): Task { await showRun(id) }
         case .query: Task { await loadTables() }
         }
     }
 
-    func sorted() {
+    func sorted(was: [(column: String, ascending: Bool)]) {
         guard let name = mode.table else { return }
-        page = 0
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else {   // the edits stay, and so does the order they were made in
+                grid.orders = was
+                return grid.indicate()
+            }
+            page = 0
+            await showTable(name)
+        }
     }
 
     func filtered() {
         guard let name = mode.table else { return }
-        page = 0
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else { return }
+            page = 0
+            await showTable(name)
+        }
     }
 
     func toggleFilters() {
@@ -160,7 +175,10 @@ extension DatabaseTab {
 
     @objc func partChanged() {
         guard let name = mode.table else { return }
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else { return part.selectedSegment = 0 }   // Structure shows no edits
+            await showTable(name)
+        }
     }
 
     /// The Columns menu: show or hide each column, or show all of them again.

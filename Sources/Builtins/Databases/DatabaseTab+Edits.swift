@@ -8,6 +8,8 @@ import KelpKit
 extension DatabaseTab {
     /// Asks what to do with the edits before they'd go; returns true to go on (saved, or the user dropped them).
     func settleEdits() async -> Bool {
+        grid.commitTyping()
+        guard isEdited else { return true }
         let alert = NSAlert()
         alert.messageText = String(localized: "Do you want to save the changes you made to “\(address.name)”?")
         alert.informativeText = String(localized: "\(grid.edits.count) changes you made aren’t saved.")
@@ -64,6 +66,7 @@ extension DatabaseTab {
     /// once they're saved.
     @discardableResult
     func saveChanges() async -> Bool {
+        grid.commitTyping()   // a cell still being typed in is saved with the rest
         guard let name = mode.table, let statements = pending(), !statements.isEmpty else { return !isEdited }
         if database?.production == true {
             let alert = NSAlert()
@@ -97,4 +100,11 @@ extension DatabaseTab {
         }
         return true
     }
+}
+
+/// The tab's edits are unsaved work, as a file's are: quitting, and closing or archiving its workspace, ask about them.
+extension DatabaseTab: SavableTab {
+    @discardableResult func save() async -> Bool { await saveChanges() }
+    func discard() { grid.discard() }
+    var reopenURI: String? { uri }
 }

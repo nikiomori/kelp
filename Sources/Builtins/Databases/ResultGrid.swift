@@ -44,8 +44,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var orders: [(column: String, ascending: Bool)] = []
     /// Called when an edit was made or undone, or the selection changed.
     var onChange: () -> Void = {}
-    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they come).
-    var onSort: () -> Void = {}
+    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they come)
+    /// and the order they were in.
+    var onSort: (_ was: [(column: String, ascending: Bool)]) -> Void = { _ in }
     /// Called when a foreign key's arrow is clicked, with the column and its value to follow.
     var onFollow: (_ column: String, _ value: String) -> Void = { _, _ in }
     /// The rows' height and the cells' font, as Settings › Databases sets them.
@@ -164,7 +165,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             return
         }
         let name = columns[columnIndex], adding = NSEvent.modifierFlags.contains(.option)
-        let was = orders.first { $0.column == name }
+        let before = orders, was = orders.first { $0.column == name }
         if !adding { orders.removeAll { $0.column != name } }
         switch was {
         case let order? where order.ascending: orders = orders.map { $0.column == name ? (name, false) : $0 }
@@ -172,7 +173,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         case nil: orders.append((name, true))
         }
         indicate()
-        onSort()
+        onSort(before)
     }
 
     /// Makes the column as wide as its widest value on screen, within reason.
@@ -273,13 +274,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and orange if edited.
     private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
         let new = row >= rows.count
+        field.stringValue = Self.text(value, new: new)
         if let value {
-            field.stringValue = value.replacingOccurrences(of: "\n", with: "⏎")
             field.font = font
             field.alignment = numeric.contains(column) ? .right : .left
             field.toolTip = value.count > 40 ? value : nil
         } else {
-            field.stringValue = new ? String(localized: "DEFAULT") : "NULL"
             field.font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
             field.textColor = .tertiaryLabelColor
         }
@@ -332,22 +332,6 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     func tableViewSelectionDidChange(_ notification: Notification) { onChange() }
 
-    /// When an edit ends, it is kept unless it is the value that was read (an empty field over NULL is no change).
-    func controlTextDidEndEditing(_ notification: Notification) {
-        guard let field = notification.object as? NSTextField else { return }
-        let row = table.row(for: field), column = field.tag
-        let typed = field.stringValue
-        if row >= rows.count {
-            edits.setAdded(row - rows.count, column: column, to: typed.isEmpty || typed == "default" ? nil : typed)
-        } else {
-            guard rows.indices.contains(row), rows[row].indices.contains(column) else { return }
-            let old = rows[row][column]
-            let value: String? = old == nil && typed.isEmpty || typed == "NULL" && old == nil ? nil : typed
-            edits.set(row: row, column: column, to: value, was: old)
-        }
-        changed(rows: [row])
-    }
-
     func changed(rows: IndexSet? = nil) {
         if let rows {
             table.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
@@ -358,6 +342,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     func discard() {
+        discardTyping()
         edits.clear()
         changed()
     }
