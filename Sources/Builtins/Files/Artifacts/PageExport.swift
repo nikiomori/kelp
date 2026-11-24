@@ -248,8 +248,9 @@ extension Builtins {
     /// Export Page…: with `path`, `format` and `to` (`kelp artifact export`), that page is opened beside if it isn't,
     /// and written there; with none, the focused page's exports are offered.
     static func exportPage(_ app: AppModel, _ args: [String: JSONValue]) {
-        guard let path = args["path"]?.string, let format = args["format"]?.string.flatMap(PageExport.init(rawValue:)),
-            let to = args["to"]?.string
+        let video = args["format"]?.string.flatMap(MotionExport.Format.init(rawValue:))
+        guard let path = args["path"]?.string, let to = args["to"]?.string,
+            let format = video == nil ? args["format"]?.string.flatMap(PageExport.init(rawValue:)) : .zip
         else {
             guard let tab = artifactPage(app) else { return NSSound.beep() }
             let menu = NSMenu()
@@ -272,6 +273,7 @@ extension Builtins {
             guard let tab = found else {
                 return Banner.show(String(localized: "Couldn’t open the page to export it."), style: .error)
             }
+            if let video { return tab.exportVideo(to: URL(fileURLWithPath: to), format: video) }
             if format == .png {
                 do { try FileManager.default.createDirectory(atPath: to, withIntermediateDirectories: true) } catch {
                     return Banner.show(error.localizedDescription, style: .error)
@@ -300,5 +302,17 @@ extension Builtins {
         return MarkdownTab.loaded.keyEnumerator().allObjects.compactMap { $0 as? MarkdownTab }.first {
             real($0.url.path) == real(path)
         }
+    }
+}
+
+extension MarkdownTab {
+    /// Leaves a video's check where `kelp artifact export` waits for it.
+    func leaveCheck(_ verdict: MotionVerify, for video: URL) {
+        let file = Artifacts.exportCheck(for: video.path)
+        do {
+            let folder = file.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try JSONEncoder().encode(verdict).write(to: file)
+        } catch { return }   // no one waits for it but an agent's export, which says so when time runs out
     }
 }

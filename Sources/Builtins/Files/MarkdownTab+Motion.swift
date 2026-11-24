@@ -207,6 +207,16 @@ extension MarkdownTab {
         didHandEdit(edit, path: url.path, before: before, after: text)
     }
 
+    /// Records the page into `to` as `format` with the options last used (`kelp artifact export`), listed under
+    /// Export like one the user made.
+    func exportVideo(to: URL, format: MotionExport.Format) {
+        var options = motionStudio.exportOptions
+        options.format = format
+        let item = MotionExports.Item(to)
+        motionStudio.exports.insert(item, at: 0)
+        item.task = Task { await record(to: to, options, item) }
+    }
+
     /// Asks where to save the video, then records it as `options` say.
     func exportVideo(_ options: MotionExport) {
         guard let window = view.window else { return }
@@ -234,6 +244,9 @@ extension MarkdownTab {
             else { throw RPCError.internalError("The page isn't a motion page.") }
             // The whole page, or only its work area.
             let span = options.onlyRange ? options.range ?? 0...length : 0...length
+            let warnings =
+                try await web.evaluateJavaScript("window.kelpMotion.preflight()", contentWorld: Self.world)
+                as? [String] ?? []
             let fps = options.rate, frames = Int(((span.upperBound - span.lowerBound) * fps).rounded(.up))
             let (w, h) = (Int(stage[4] * options.scale), Int(stage[5] * options.scale))
             let movie = options.format == .gif ? nil : try MotionMovie(to, width: w, height: h, options: options)
@@ -259,7 +272,11 @@ extension MarkdownTab {
             try gif?.finish()
             runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: frames)
+            let verdict = await MotionVerify.check(
+                to, .init(width: w, height: h, fps: fps, duration: Double(frames + 1) / fps), warnings: warnings)
+            item.verdict = verdict
             item.progress = nil
+            leaveCheck(verdict, for: to)
             app.workbench.open(TabURI.file(to.path))
         } catch {
             runJS("window.kelpMotion?.done()")
@@ -271,6 +288,10 @@ extension MarkdownTab {
                 return
             }
             item.failure = error.localizedDescription
+            leaveCheck(
+                MotionVerify(
+                    file: to.lastPathComponent, ok: false, width: 0, height: 0, fps: 0, duration: 0, audio: false,
+                    problems: [error.localizedDescription], warnings: []), for: to)
             Banner.show(
                 String(localized: "Couldn’t make the video: \(error.localizedDescription)"), style: .error)
         }

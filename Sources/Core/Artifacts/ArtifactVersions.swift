@@ -21,6 +21,12 @@ public struct ArtifactVersion: Codable, Equatable, Sendable {
 }
 
 extension Artifacts {
+    /// Where the app leaves its check of a video it exported for `kelp artifact export`, which waits for it.
+    public static func exportCheck(for video: String) -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kelp-export-checks")
+            .appendingPathComponent(video.replacingOccurrences(of: "/", with: "_") + ".json")
+    }
+
     /// How many versions Kelp keeps. Older ones are removed.
     public static let keptVersions = 20
 

@@ -61,7 +61,7 @@ let usage = """
       artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
-      artifact export <name> <png|pdf|pptx|html|zip> [to]   boards as PNG, slides as PDF or PowerPoint, HTML, ZIP
+      artifact export <name> <png|pdf|pptx|html|zip|mp4|gif|mov> [to]   pictures, PDF, PowerPoint, HTML, ZIP, video
                                            browser, where they're signed in); list one an agent published elsewhere
       \(Main.dbUsage)
                                            the project's databases (compose, .env, database.yml, SQLite files) through

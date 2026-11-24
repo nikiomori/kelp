@@ -63,3 +63,25 @@ import Testing
     let bytes = try #require(out.dataProvider?.data as Data?)
     #expect(Array(bytes.prefix(12)) == [128, 0, 0, 128, 0, 0, 0, 0, 10, 200, 30, 255])
 }
+
+/// A video made is opened again and held to what was asked: a GIF of 3 frames at 10 a second, 4×2, passes; asked
+/// as 8×2 and half a second long, it says both.
+@Test func aMadeVideoIsCheckedAgainstWhatWasAsked() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-verify-\(UUID().uuidString).gif")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let gif = try MotionGIF(url, frames: 3, fps: 10)
+    let context = try #require(
+        CGContext(
+            data: nil, width: 4, height: 2, bitsPerComponent: 8, bytesPerRow: 16, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    for i in 0..<3 {   // each its own colour, or ImageIO makes one long frame of them
+        context.setFillColor(CGColor(red: CGFloat(i) / 2, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 4, height: 2))
+        gif.add(try #require(context.makeImage()))
+    }
+    try gif.finish()
+    let good = await MotionVerify.check(url, .init(width: 4, height: 2, fps: 10, duration: 0.3), warnings: [])
+    #expect(good.ok && good.summary.hasPrefix("✓ 4×2 · 10 fps · 0.3 s"))
+    let off = await MotionVerify.check(url, .init(width: 8, height: 2, fps: 10, duration: 0.5), warnings: [])
+    #expect(!off.ok && off.problems.count == 2)
+}

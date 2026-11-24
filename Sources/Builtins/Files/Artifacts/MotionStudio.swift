@@ -108,7 +108,7 @@ final class MotionStudio {
     private let timeline = MotionTimeline()
     private lazy var export = TextButton(String(localized: "Export Video…")) { [weak self] in self?.chooseExport() }
     /// How the last video was made, offered again.
-    private var exportOptions = MotionExport()
+    private(set) var exportOptions = MotionExport()
     private var exportPopover: MotionExportPopover?
     /// The videos made from this page, newest first (`MotionExports`).
     var exports: [MotionExports.Item] = []

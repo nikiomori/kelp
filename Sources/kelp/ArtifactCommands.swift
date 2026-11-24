@@ -122,7 +122,7 @@ extension Main {
     /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
     /// `kelp shot` does.
     static func exportPage(_ cwd: String, _ c: RPCClient) async throws {
-        let formats = ["png", "pdf", "pptx", "html", "zip"]
+        let formats = ["png", "pdf", "pptx", "html", "zip", "mp4", "gif", "mov"]
         let usage = "artifact export <name> <\(formats.joined(separator: "|"))> [to]"
         guard args.count >= 2, formats.contains(args[1]) else { fail(usage) }
         let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
@@ -134,7 +134,20 @@ extension Main {
             UICommand(
                 id: "artifacts.export",
                 args: .object(["path": .string(target), "format": .string(args[1]), "to": .string(to)])))
-        print("Exporting to \(to): the app writes it (a folder of boards for png).")
+        guard ["mp4", "gif", "mov"].contains(args[1]) else {
+            return print("Exporting to \(to): the app writes it (a folder of boards for png).")
+        }
+        // A video takes a while: wait for the app's check of the file it made, and print it.
+        let check = Artifacts.exportCheck(for: to)
+        // An old check of the same file says nothing about this one.
+        do { try FileManager.default.removeItem(at: check) } catch CocoaError.fileNoSuchFile {}
+        for _ in 0..<1200 {
+            if let data = FileManager.default.contents(atPath: check.path) {
+                return print(String(decoding: data, as: UTF8.self))
+            }
+            try await Task.sleep(for: .milliseconds(500))
+        }
+        fail("Still making \(to) after 10 minutes: see Export Video's list in the page.")
     }
 
     static func page(_ name: String?, root: String, usage: String) async throws -> (String, ArtifactRecord) {

@@ -13,6 +13,8 @@ enum MotionExports {
         /// 0–1 while it's made; nil once it's done.
         var progress: Double? = 0
         var failure: String?
+        /// Its check once made (`MotionVerify`).
+        var verdict: MotionVerify?
         @ObservationIgnored var task: Task<Void, Never>?
         init(_ url: URL) { self.url = url }
     }
@@ -40,14 +42,15 @@ enum MotionExports {
             dot.widthAnchor.constraint(equalToConstant: 8), dot.heightAnchor.constraint(equalToConstant: 8)
         ])
         track(owner: row) {
-            Values(item.progress, item.failure)
+            Values(item.progress, item.failure, item.verdict)
         } changed: { _ in
-            let progress = item.progress, failure = item.failure
+            let progress = item.progress, failure = item.failure, verdict = item.verdict
+            let made: NSColor = verdict.map { $0.ok ? .systemGreen : .systemOrange } ?? .tertiaryLabelColor
             dot.layer?.backgroundColor =
-                (failure != nil ? NSColor.systemRed : progress != nil ? .controlAccentColor : .tertiaryLabelColor)
-                .cgColor
-            how.stringValue = progress.map { "\(Int($0 * 100)) %" } ?? ""
-            how.isHidden = progress == nil
+                (failure != nil ? NSColor.systemRed : progress != nil ? .controlAccentColor : made).cgColor
+            how.stringValue = progress.map { "\(Int($0 * 100)) %" } ?? verdict?.summary ?? ""
+            how.toolTip = verdict.map { ($0.problems + $0.warnings).joined(separator: "\n") }
+            how.isHidden = how.stringValue.isEmpty
             if failure != nil {
                 act.title = String(localized: "Failed · Details")
                 act.onClick = { Task { await details(item) } }

@@ -204,6 +204,20 @@ enum MotionPage {
               if (!out.translate) out.translate = '0px 0px';
               return out;
             },
+            // What the page gets wrong before a video is made of it: media that didn't load, and clips past the end
+            // the page says it has.
+            preflight() {
+              const out = [], end = duration(), said = doc && parseFloat(doc.body?.dataset.duration) > 0;
+              for (const e of doc ? doc.querySelectorAll('img, video, audio') : []) {
+                const bad = e.tagName === 'IMG' ? e.complete && !e.naturalWidth : e.error || e.networkState === 3;
+                if (bad) out.push('missing ' + (e.getAttribute('src') || e.tagName.toLowerCase()));
+              }
+              if (said) for (const e of parts()) {
+                const stop = (+e.dataset.start || 0) + (+e.dataset.duration || 0);
+                if (stop > end + 0.01) out.push(named(e) + ' runs past the end (' + stop + ' s of ' + end + ')');
+              }
+              return out;
+            },
             // The stage on screen, and its own size, for the export's pictures.
             stage() {
               const r = frame.getBoundingClientRect();

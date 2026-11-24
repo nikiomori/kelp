@@ -32279,6 +32279,96 @@
           }
         }
       }
+    },
+    "sound": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звук"
+          }
+        }
+      }
+    },
+    "%lld warnings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "предупреждений: %lld"
+          }
+        }
+      }
+    },
+    "The file doesn't open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается"
+          }
+        }
+      }
+    },
+    "No picture in the file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В файле нет картинки"
+          }
+        }
+      }
+    },
+    "The file doesn't open: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается: %@"
+          }
+        }
+      }
+    },
+    "%lld×%lld instead of %lld×%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld×%lld вместо %lld×%lld"
+          }
+        }
+      }
+    },
+    "%@ fps instead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fps вместо %@"
+          }
+        }
+      }
+    },
+    "%@ s instead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ с вместо %@"
+          }
+        }
+      }
+    },
+    "No sound, though the page has some": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет звука, хотя на странице он есть"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

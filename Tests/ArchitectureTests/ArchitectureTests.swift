@@ -765,7 +765,9 @@ func codeOnly(_ s: String) -> String {
             2, "a video written over the file the user picked in a save panel, or its half taken away on Cancel"
         ),
         "Builtins/Files/Artifacts/PageExport.swift": (
-            6, "a page exported where the user picked (a save panel, or kelp artifact export's path)"
+            8,
+            "a page exported where the user picked (a save panel, or kelp artifact export's path), and a video's check "
+                + "left in the temporary folder for kelp artifact export"
         ),
         "Builtins/Files/Artifacts/PowerPoint.swift": (
             3, "a PowerPoint's parts in a temporary folder, and a page's pictures put inside its one-file export"
