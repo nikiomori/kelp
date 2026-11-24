@@ -232,7 +232,7 @@ extension MarkdownTab {
                 break
             }
             let menu = NSMenu(), page = Artifacts.projectPath(url.path)
-            menu.add(String(localized: "Other Layouts ×3…")) { [weak self] in
+            menu.add(String(localized: "Variations of This Slide")) { [weak self] in
                 self?.send(
                     "Other layouts on \(page): write three other layouts of slide \(n) (line \(line)) as slides right "
                         + "after it, each starting with a `<!-- variant -->` line. Same words; "

@@ -22,7 +22,10 @@ extension MarkdownTab {
         switch kind {
         case "remove": removeElement(board, id)
         case "duplicate": duplicateElement(board, id)
-        default: elementMenu(board, id, image: body["image"] as? Bool ?? false, media: body["media"] as? Bool ?? false)
+        default:
+            elementMenu(
+                board, id, image: body["image"] as? Bool ?? false, media: body["media"] as? Bool ?? false,
+                chart: body["chart"] as? String ?? "")
         }
         return true
     }
@@ -111,7 +114,7 @@ extension MarkdownTab {
     }
 
     /// The menu of element `id`, at the pointer.
-    private func elementMenu(_ board: String, _ id: String, image: Bool, media: Bool) {
+    private func elementMenu(_ board: String, _ id: String, image: Bool, media: Bool, chart: String) {
         let menu = NSMenu()
         menu.add(String(localized: "Duplicate"), key: "d") { [weak self] in self?.duplicateElement(board, id) }
         menu.add(String(localized: "Bring to Front")) { [weak self] in self?.runJS("window.kelpArrange?.(true)") }
@@ -120,8 +123,17 @@ extension MarkdownTab {
             menu.add(String(localized: "Replace Image…")) { [weak self] in self?.replaceImage(board, id) }
         }
         if media { menu.add(String(localized: "Crop")) { [weak self] in self?.runJS("window.kelpCrop?.()") } }
+        if !chart.isEmpty {
+            menu.add(String(localized: "Numbers…")) { [weak self] in
+                self?.runJS("window.kelpChartNumbers?.(\(Self.js(board)), \(Self.js(chart)))")
+            }
+        }
         if page == .canvas {
             menu.add(String(localized: "Take from a Table…")) { [weak self] in self?.chooseTable(board, id) }
+            menu.add(String(localized: "Variations of This Board")) { [weak self] in
+                guard let self else { return }
+                send(Self.variations(of: board, page: Artifacts.projectPath(url.path), like: nil))
+            }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Delete")) { [weak self] in self?.removeElement(board, id) }

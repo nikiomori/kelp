@@ -73,7 +73,10 @@ extension MarkdownTab {
             guard now != rows else { return }
             let edit = HandEdit(board: board, id: id, what: "chart data", from: nil, to: "\(now.count - 1) rows")
             rewrite(board, edit: { _ in edit }) { ChartData.write($0, id: id, rows: now) }
-            runJS("window.kelpChartChanged?.(\(Self.js(board)), \(Self.js(id)))")
+            // Asked at once: the numbers are the request.
+            send(
+                "Chart [data-id=\(id)] on \(board) of \(Artifacts.projectPath(url.path)): its numbers were changed by "
+                    + "hand in its table. Draw it again from them.")
         }
     }
 }

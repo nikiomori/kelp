@@ -227,7 +227,8 @@ enum CanvasHandles {
             window.kelpSelect?.(hit.f.dataset.board, id);
             K.post({ kind: 'selected', board: hit.f.dataset.board, id });
             K.post({ kind: 'menu', board: hit.f.dataset.board, id, image: hit.e.tagName === 'IMG',
-              media: /^(IMG|VIDEO)$/.test(hit.e.tagName) });
+              media: /^(IMG|VIDEO)$/.test(hit.e.tagName),
+              chart: hit.e.closest('[data-chart][data-id]')?.getAttribute('data-id') || '' });
           });
           // Brings the chosen element in front of the others beside it, or sends it behind them.
           window.kelpArrange = front => {

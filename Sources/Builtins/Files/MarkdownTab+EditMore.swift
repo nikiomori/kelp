@@ -27,7 +27,6 @@ extension MarkdownTab {
             "toAgent": String(localized: "To the Agent"), "fromData": String(localized: "From Data"),
             "table": String(localized: "Table"), "chooseTable": String(localized: "Choose…"),
             "field": String(localized: "Column"), "row": String(localized: "Row"),
-            "redraw": String(localized: "Its numbers were changed by hand in its table: draw it again from them."),
 
             "longer": String(localized: "+40%"), "rtl": String(localized: "RTL"),
 

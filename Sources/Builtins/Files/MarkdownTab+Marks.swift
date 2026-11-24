@@ -200,7 +200,7 @@ extension MarkdownTab {
         let who = pageAuthor.map { app.catalog.name($0.agent) } ?? String(localized: "the Agent")
         return [
             "send": String(localized: "Send to \(who)"), "remove": String(localized: "Remove"),
-            "note": String(localized: "What should change?"),
+            "note": String(localized: "What should change? A picture dropped here is an example."),
             "whatsWrong": String(localized: "What isn’t right yet?"), "look": String(localized: "Look at this"),
             "you": String(localized: "You"), "agent": who, "marks": String(localized: "Marks"),
             "toCheck": String(localized: "To Check"), "fresh": String(localized: "New"),

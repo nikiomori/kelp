@@ -13,7 +13,7 @@ extension MarkdownTab {
         switch kind {
         case "boardMenu":
             let menu = NSMenu()
-            menu.add(String(localized: "Variations ×3…")) { [weak self] in
+            menu.add(String(localized: "Variations of This Board")) { [weak self] in
                 self?.send(Self.variations(of: board, page: page, like: nil))
             }
             menu.addItem(.separator())
