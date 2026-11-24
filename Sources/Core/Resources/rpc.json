@@ -4662,6 +4662,11 @@
           "id" : {
             "type" : "string"
           },
+          "interruptedAt" : {
+            "description" : "When Kelp went down (a crash, the Mac shutting down) while the agent was mid-turn, so Kelp offers to go on with it. nil for an agent paused any other way, and once it wakes.",
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
           "limitHit" : {
             "$ref" : "#/components/schemas/LimitHit",
             "description" : "The plan limit that stopped the agent. It goes back to nil once the agent does anything else."

@@ -305,6 +305,9 @@ extension Store {
         migrator.registerMigration("session.branchFolder") { db in   // the agent's worktree (`Session.branchFolder`)
             try db.alter(table: "session") { t in t.add(column: "branchFolder", .text) }
         }
+        migrator.registerMigration("session.interruptedAt") { db in   // a turn Kelp's going down cut short
+            try db.alter(table: "session") { t in t.add(column: "interruptedAt", .datetime) }
+        }
         return migrator
     }
 }

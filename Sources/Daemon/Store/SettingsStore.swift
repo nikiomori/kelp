@@ -212,6 +212,7 @@ extension SettingsSet: Handled {
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
+        SettingKeys.resumeAfterCrash.key,   // agents going on by themselves after a crash spend the user's plans
         SettingKeys.databaseAccess.key,   // what agents may do to found databases; changing it lifts the Allow
         SettingKeys.databaseTimeout.key,   // how long an agent's read may hold a database
         // how an agent calls the user (waiting, done, failed) and whether the banner stays: not the agent's to quiet
