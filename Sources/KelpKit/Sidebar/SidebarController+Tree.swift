@@ -28,11 +28,14 @@ extension SidebarController {
         projectHosts = tree.hosts
         leavePage(unless: Set(tree.hosts.values))
         tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
+        tree.foldedProjects = Set(collapsed.filter { $0.hasPrefix("p:") }.map { String($0.dropFirst(2)) })
         func node(_ item: SidebarItem) -> Node {
             let built = Node(item.kind)
             built.children = item.children.map(node)
             built.workspace = item.workspace
             built.under = item.under
+            built.branch = item.branch
+            built.hidden = item.hidden
             return built
         }
         return tree.build().map(node)
@@ -59,8 +62,12 @@ extension SidebarController {
         // changes), the nodes must be new. Otherwise `workspaceNode` doesn't find the row for the workspace on screen,
         // and nothing is selected.
         func flat(_ ns: [Node]) -> [String] {
-            ns.flatMap {
-                [$0.key + ($0.workspace.map { "=" + $0 } ?? "") + ($0.under.map { "<" + $0 } ?? "")] + flat($0.children)
+            ns.flatMap { node -> [String] in
+                let marks = [
+                    node.workspace.map { "=" + $0 }, node.under.map { "<" + $0 }, node.branch.map { "^" + $0 }
+                ]
+                let shape = node.key + marks.compactMap { $0 }.joined() + node.hidden.map { "~" + $0 }.joined()
+                return [shape] + flat(node.children)
             }
         }
         let nextShape = flat(next)
@@ -74,7 +81,8 @@ extension SidebarController {
         shape = nextShape
         syncing = true
         outline.reloadData()
-        for root in roots where !collapsed.contains(root.key) { expand(root) }
+        // A project is never folded in the outline: its fold is in the tree, which then lists only its screens.
+        for root in roots where Self.isHeader(root) || !collapsed.contains(root.key) { expand(root) }
         syncing = false
         // As with the cells, a row's height was taken before the rows under it opened, as the end of its card.
         rowHeights = []
@@ -98,13 +106,20 @@ extension SidebarController {
         guard let id = app.workbench.workspaceId, let workspace = workspaceNode(id),
             outline.selectedRowIndexes.count <= 1
         else { return }
-        // When you reach a workspace from elsewhere (⌃1, the line above the list) while its project is folded, the
-        // project opens. This happens only on the way in, so a project you fold while you're in it stays folded.
-        if id != revealed, let project = outline.parent(forItem: workspace) as? Node, isCollapsed(project) {
-            open(project)
+        // When you reach a chat from elsewhere (⌃1, the line above the list) while its project folds it away, the
+        // project opens. A folded project's screens keep their rows, so reaching a screen leaves it folded. This
+        // happens only on the way in, so a project you fold while you're in it stays folded.
+        let tab = app.workbench.focusedTab ?? ""
+        let chat = TabURI.scheme(tab) == "session" ? TabURI.body(tab) : nil
+        if id != revealed, let chat,
+            let project = Self.isHeader(workspace) ? workspace : outline.parent(forItem: workspace) as? Node,
+            isCollapsed(project), find({ $0.hidden.contains(chat) }) != nil
+        {
+            revealed = id
+            unfold(project)
+            return syncSelection()   // the rows were made again
         }
         revealed = id
-        let tab = app.workbench.focusedTab ?? ""
         // A child agent has no row, so its parent's row stands for it.
         let on = TabURI.body(tab), parent = app.session(on)?.parent ?? ""
         let agent =
@@ -162,8 +177,13 @@ extension SidebarController {
         outline.enumerateAvailableRowViews { view, row in (view as? SidebarRowView)?.lit = rows.contains(row) }
     }
 
-    /// The row a node shows in: its own row, or the nearest folded row above it.
+    /// The row a node shows in: its own row, the nearest folded row above it, or the row of a folded project that
+    /// holds it as a logo.
     private func shownRow(_ key: String) -> Int? {
+        if key.hasPrefix("a:"), case let id = String(key.dropFirst(2)), let holder = find({ $0.hidden.contains(id) }) {
+            let row = outline.row(forItem: holder)
+            if row >= 0 { return row }
+        }
         func path(_ nodes: [Node]) -> [Node]? {
             for node in nodes {
                 if node.key == key { return [node] }
@@ -198,6 +218,7 @@ extension SidebarController {
         outline.scrollRowToVisible(row)
     }
     func isCollapsed(_ node: Node) -> Bool {
-        !node.children.isEmpty && (!outline.isItemExpanded(node) || folding[node.key] != nil)
+        if Self.isHeader(node) { return collapsed.contains(node.key) }
+        return !node.children.isEmpty && (!outline.isItemExpanded(node) || folding[node.key] != nil)
     }
 }

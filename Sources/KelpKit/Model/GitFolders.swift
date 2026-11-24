@@ -40,6 +40,10 @@ package final class GitFolders {
         following = now
     }
 
+    /// The branch folder `id` has out, as its last git status said. It is nil while HEAD is detached or before the
+    /// status comes.
+    func branch(_ id: String) -> String? { app.latest(GitEvent.self).byKey[id]?.branches?.current }
+
     /// Returns the work that only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`):
     /// commits that no other branch or remote has, and files not committed. It is nil when the folder isn't a branch's
     /// folder or hasn't been read yet.

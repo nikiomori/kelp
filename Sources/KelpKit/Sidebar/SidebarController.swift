@@ -24,6 +24,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         /// The chat that made this group, when the group sits under it (SidebarItem.under). The group's row and the
         /// rows of its chats then stand a step further in.
         var under: String?
+        /// On a chat, its own branch's workspace, whose marks its row shows (SidebarItem.branch).
+        var branch: String?
+        /// On a row of a folded project, the chats the fold hides, shown as logos (SidebarItem.hidden).
+        var hidden: [String] = []
+        /// Whether anything is under the row: rows, or chats a fold holds as logos. A project that holds something is
+        /// drawn on its card, folded or not.
+        var holds: Bool { !children.isEmpty || !hidden.isEmpty }
         init(_ kind: SidebarItem.Kind) { self.kind = kind }
         var key: String {
             switch kind {

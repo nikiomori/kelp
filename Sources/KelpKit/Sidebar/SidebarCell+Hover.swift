@@ -85,7 +85,9 @@ extension SidebarCell {
         var on = hovering && owner?.renaming == nil
         if case .agent = node.kind {
         } else {
-            on = on && !node.children.isEmpty
+            // A folded project has no rows under it when its chats are all on one screen, and still opens.
+            let folded: Bool = if case .project = node.kind { owner?.isCollapsed(node) == true } else { false }
+            on = on && (!node.children.isEmpty || folded)
             showFold()
         }
         guard action.isHidden == on else { return }

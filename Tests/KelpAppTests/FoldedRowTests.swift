@@ -32,7 +32,40 @@ private func chats(_ statuses: [AgentStatus]) -> [Session] {
     return (buttons.filter(\.title.isEmpty).count, buttons.first { !$0.title.isEmpty }?.title ?? "")
 }
 
+/// The words of each row, top to bottom.
+@MainActor private func names(_ o: NSOutlineView) -> [[String]] {
+    @MainActor func words(_ v: NSView) -> [String] {
+        let own = (v as? NSTextField).flatMap { $0.isHidden || $0.stringValue.isEmpty ? nil : [$0.stringValue] } ?? []
+        return own + v.subviews.filter { !$0.isHidden }.flatMap(words)
+    }
+    return (0..<o.numberOfRows).map { r in o.view(atColumn: 0, row: r, makeIfNecessary: true).map(words) ?? [] }
+}
+
 extension OneAtATime {
+    /// A project with a second screen gives its own screen a row, named by its branch. Folded, it keeps both screens'
+    /// rows, each with its chats' logos, and picking one of them leaves the project folded.
+    @Test func aFoldedProjectKeepsItsScreensRows() throws {
+        let group = Worktree(
+            id: "g", repoId: "r1", branch: "main", path: atlas.path, note: "Release",
+            createdAt: Date(timeIntervalSinceNow: 60))
+        let here = Session(
+            worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Here")
+        let there = Session(
+            worktreeId: "g", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "There")
+        try withSidebar(repos: [atlas], worktrees: [home, group], sessions: [here, there]) { vc, o in
+            let open = names(o)
+            #expect(open.count == 5)   // the project, its own screen, Here, Release, There
+            #expect(open[1].contains("main") && open[2].contains("Here") && open[3].contains("Release"))
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            let folded = names(o)
+            #expect(folded.count == 3 && folded[1].contains("main") && folded[2].contains("Release"))
+            let screen = try #require(o.view(atColumn: 0, row: 2, makeIfNecessary: true) as? SidebarCell)
+            #expect(screen.stack.total == 1)   // There, as a logo
+            o.selectRowIndexes([2], byExtendingSelection: false)
+            #expect(names(o).count == 3)
+        }
+    }
+
     /// Only chats at work or waiting for you show their logo, two at most; the rest are one number.
     @Test func aFoldedProjectShowsALogoOnlyForChatsAtWork() throws {
         try withSidebar(repos: [atlas], worktrees: [home], sessions: chats([.idle, .working, .idle, .idle, .idle])) {

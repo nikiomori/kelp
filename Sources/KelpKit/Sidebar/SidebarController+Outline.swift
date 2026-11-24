@@ -84,7 +84,7 @@ extension SidebarController {
     func group(_ node: Node) -> (first: Bool, last: Bool)? {
         var top = node
         while let up = outline.parent(forItem: top) as? Node { top = up }
-        guard case .project = top.kind, !top.children.isEmpty else { return nil }
+        guard case .project = top.kind, top.holds else { return nil }
         return (node === top, node === lastRow(top))
     }
     /// The last row under `node`, or `node` itself when it is folded or folding.
@@ -134,8 +134,15 @@ extension SidebarController {
 
     func outlineViewItemDidCollapse(_ notification: Notification) { remember(notification, collapsed: true) }
     func outlineViewItemDidExpand(_ notification: Notification) { remember(notification, collapsed: false) }
+    /// A project folds in the tree, not in the outline (`foldProject`), so ← on its row folds it that way.
+    func outlineView(_ outlineView: NSOutlineView, shouldCollapseItem item: Any) -> Bool {
+        guard !syncing, Self.isHeader(item), let node = item as? Node else { return true }
+        if !collapsed.contains(node.key) { foldProject(node.key) }
+        return false
+    }
     private func remember(_ notification: Notification, collapsed didCollapse: Bool) {
-        guard !syncing, let node = notification.userInfo?["NSObject"] as? Node, node.id != nil else { return }
+        guard !syncing, let node = notification.userInfo?["NSObject"] as? Node, node.id != nil, !Self.isHeader(node)
+        else { return }
         // When a project folds, its workspaces fold with it. That isn't the user folding them, so it isn't saved.
         if let parent = outline.parent(forItem: node) as? Node, !outline.isItemExpanded(parent) { return }
         if didCollapse { collapsed.insert(node.key) } else { collapsed.remove(node.key) }
@@ -151,12 +158,13 @@ extension SidebarController {
 
 /// Finding rows.
 extension SidebarController {
-    /// Returns the row for a workspace: its own row, or the project's row when the project stands for it.
-    func workspaceNode(_ id: String) -> Node? { find { $0.kind == .workspace(id) || $0.workspace == id } }
+    /// Returns the row for a workspace: its own row, or the project's row when the project stands for it (a project
+    /// with one screen, or a folded one).
+    func workspaceNode(_ id: String) -> Node? { find { $0.kind == .workspace(id) } ?? find { $0.workspace == id } }
 
     func node(_ key: String) -> Node? { find { $0.key == key } }
 
-    private func find(_ test: (Node) -> Bool) -> Node? {
+    func find(_ test: (Node) -> Bool) -> Node? {
         func look(_ ns: [Node]) -> Node? {
             for node in ns {
                 if test(node) { return node }
@@ -177,7 +185,9 @@ extension SidebarController {
             let node = outline.item(atRow: outline.selectedRow) as? Node
         else { return }
         switch node.kind {
-        case .workspace(let id): app.workbench.show(workspace: id)
+        case .workspace(let id):
+            revealed = id   // a screen picked from a folded project leaves the project folded
+            app.workbench.show(workspace: id)
         case .agent(let id):
             // ⌥-click: another action of the same row, so the chat's group goes into a window of its own (as its row's
             // Open in Own Window). ⌘ and ⇧ stay for picking several rows.
@@ -191,6 +201,7 @@ extension SidebarController {
         case .project:
             guard let id = node.workspace else { break }
             // When the project's screen is already showing, the pill stays with the tab.
+            revealed = id
             if id == app.workbench.workspaceId, app.workbench.page == nil {
                 syncSelection()
             } else {
