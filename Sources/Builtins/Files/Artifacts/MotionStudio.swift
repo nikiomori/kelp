@@ -111,6 +111,8 @@ final class MotionStudio {
     /// How the last video was made, offered again.
     private(set) var exportOptions = MotionExport()
     private var exportPopover: MotionExportPopover?
+    /// How fast it plays (1 is as it is), for the sounds Kelp plays beside it.
+    private(set) var playbackRate = 1.0
     /// The videos made from this page, newest first (`MotionExports`).
     var exports: [MotionExports.Item] = []
     private let act: (String) -> Void
@@ -201,6 +203,7 @@ final class MotionStudio {
 
     @objc private func speedChosen() {
         let rate = Self.rates[max(speed.indexOfSelectedItem, 0)]
+        playbackRate = rate
         act("window.kelpMotion?.setRate(\(rate))")
     }
 

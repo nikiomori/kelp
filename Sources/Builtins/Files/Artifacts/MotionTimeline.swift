@@ -20,6 +20,8 @@ final class MotionTimeline: NSView {
         var hidden = false
         /// Its first animation's keyframes, when it has one; a scene's way in from the one before.
         var keys: Keys?, transition: String?
+        /// A sound's loudness, 0–1, a bar for each part of the clip's length; nil for anything else.
+        var wave: [Float]?
     }
     private enum Drag { case time, move(Clip, Double), start(Clip), end(Clip) }
 

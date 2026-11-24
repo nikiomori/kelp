@@ -27,6 +27,14 @@ extension MotionTimeline {
             shape.lineWidth = chosen ? 2 : 1
             shape.stroke()
         }
+        if let wave = clip.wave, !wave.isEmpty {
+            NSColor.systemGreen.setFill()   // a sound’s bars, under its name
+            let bar = rect.width / CGFloat(wave.count)
+            for (i, level) in wave.enumerated() {
+                let h = max(1, CGFloat(level) * (rect.height - 4))
+                NSRect(x: rect.minX + CGFloat(i) * bar, y: rect.midY - h / 2, width: max(1, bar - 1), height: h).fill()
+            }
+        }
         if rect.width > 30 {
             text(
                 clip.title, at: NSPoint(x: rect.minX + Metrics.gapTight + 2, y: rect.midY), font: font,

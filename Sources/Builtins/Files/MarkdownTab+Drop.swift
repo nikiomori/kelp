@@ -32,6 +32,7 @@ extension MarkdownTab {
     static func isMedia(_ file: URL) -> Bool {
         let type = UTType(filenameExtension: file.pathExtension)
         return type?.conforms(to: .image) == true || type?.conforms(to: .movie) == true
+            || type?.conforms(to: .audio) == true
     }
 
     private func drop(_ files: [URL], at point: NSPoint) async {
@@ -66,10 +67,11 @@ extension MarkdownTab {
             return Banner.show(String(localized: "Rename “\(name)” without quotes or < > &, then drop it again."))
         }
         let video = UTType(filenameExtension: file.pathExtension)?.conforms(to: .movie) == true
+        let sound = UTType(filenameExtension: file.pathExtension)?.conforms(to: .audio) == true
         let (stageW, stageH) = MotionPage.size(editor.text)
         var size = NSSize(width: Double(stageW) / 2, height: Double(stageW) / 2 * 9 / 16)
         var length = 3.0
-        if video {
+        if video || sound {
             do { length = max(try await AVURLAsset(url: file).load(.duration).seconds, 0.1) } catch {
                 length = 5   // a video AVFoundation can't read stays five seconds; its clip can be trimmed
             }
@@ -78,13 +80,17 @@ extension MarkdownTab {
             size = NSSize(width: w, height: w * Double(rep.pixelsHigh) / Double(rep.pixelsWide))
         }
         let (x, y) = at ?? (Double(stageW) / 2, Double(stageH) / 2)
-        let id = BoardEdit.freeID(editor.text, video ? "video" : "img")
+        let id = BoardEdit.freeID(editor.text, sound ? "audio" : video ? "video" : "img")
         let place =
             "position: absolute; left: \(Int(x - size.width / 2))px; top: \(Int(y - size.height / 2))px; "
             + "width: \(Int(size.width))px"
         let times = "data-start=\"\(Self.seconds(time))\" data-duration=\"\(Self.seconds(length))\""
         let attributes = "data-id=\"\(id)\" data-title=\"\(name)\" \(times) src=\"\(name)\" style=\"\(place)\""
-        let html = video ? "<video \(attributes) muted playsinline></video>" : "<img \(attributes)>"
+        let heard = "data-id=\"\(id)\" data-title=\"\(name)\" \(times) src=\"\(name)\""
+        let html =
+            sound
+            ? "<audio \(heard) preload=\"auto\"></audio>"
+            : video ? "<video \(attributes) muted playsinline></video>" : "<img \(attributes)>"
         rewritePage(HandEdit(board: url.lastPathComponent, id: id, what: "added", from: nil, to: name)) {
             BoardEdit.appendToBody($0, html)
         }

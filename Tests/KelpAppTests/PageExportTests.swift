@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import Foundation
 import Testing
@@ -103,4 +104,30 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
         page: ".kelp/artifacts/launch/motion.html", formats: [("9:16", 1080, 1920), ("1:1", 1080, 1080)], length: "6 s")
     #expect(line.contains("for 9:16 (1080 × 1920), 1:1 (1080 × 1080)") && line.contains("6 s long"))
     #expect(line.contains("not cropped") && line.hasSuffix("kelp artifact export <name> mp4."))
+}
+
+/// A motion page's sounds come with their times, volume and fades; a work area cuts off what comes before it. Their
+/// loudness is read 20 bars a second.
+@MainActor @Test func aPagesSoundsAndTheirLoudness() throws {
+    let page =
+        #"<audio data-id="a" data-start="1" data-duration="4" data-volume="80" data-fade-in="0.5" src="v.m4a"></audio>"#
+    let folder = URL(fileURLWithPath: "/tmp/p")
+    #expect(
+        MotionSound.sounds(in: page, folder: folder)
+            == [
+                .init(
+                    file: folder.appendingPathComponent("v.m4a"), start: 1, from: 0, length: 4, volume: 0.8,
+                    fadeIn: 0.5, fadeOut: 0)
+            ])
+    let late = try #require(MotionSound.sounds(in: page, folder: folder, from: 2).first)
+    #expect((late.start, late.from, late.length) == (0, 1, 3))
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-tone-\(UUID().uuidString).caf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1))
+    let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 8000))
+    buffer.frameLength = 8000
+    for i in 0..<8000 { buffer.floatChannelData?[0][i] = i < 4000 ? 0.5 * sin(Float(i) / 3) : 0 }
+    try AVAudioFile(forWriting: url, settings: format.settings).write(from: buffer)
+    let bars = MarkdownTab.loudness(of: url)
+    #expect(bars.count == 20 && bars[0] > 0.45 && bars[19] == 0)
 }

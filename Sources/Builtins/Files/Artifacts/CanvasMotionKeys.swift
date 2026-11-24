@@ -206,7 +206,39 @@ enum CanvasMotionKeys {
             }
             return [s];
           }
-          props.more = (props.more || []).concat([motionSection, presetSection, captionSection]);
+          // A sound's volume, where in its file it starts, and how it fades in and out (`data-volume`, `data-from`,
+          // `data-fade-in`, `data-fade-out`).
+          function soundSection(e, id) {
+            if (e.tagName !== 'AUDIO' || !id) return [];
+            const field = (name, value, unit) => {
+              const f = K.el('input', 'kelp-cv-num'); f.value = value + (unit ? ' ' + unit : '');
+              f.onchange = () => K.post({ kind: 'soundProp', id, name, value: String(parseFloat(f.value) || 0) });
+              f.onkeydown = ev => ev.stopPropagation();
+              return f;
+            };
+            // The column's slider, as Opacity's: the bar filled to the value, the value beside it.
+            const volume = K.el('span', 'kelp-islide'), range = K.el('input'), pct = K.el('span', 'kelp-ival');
+            range.type = 'range'; range.min = 0; range.max = 100; range.value = e.dataset.volume || 100;
+            const show = () => {
+              pct.textContent = range.value + ' %'; range.style.setProperty('--v', range.value + '%');
+            };
+            show();
+            range.oninput = show;
+            range.onchange = () => K.post({ kind: 'soundProp', id, name: 'volume', value: range.value });
+            volume.append(range, pct);
+            const pair = K.el('span', 'kelp-ipair');
+            pair.append(field('fade-in', e.dataset.fadeIn || 0, 's'), field('fade-out', e.dataset.fadeOut || 0, 's'));
+            const s = K.el('div', 'kelp-isec');
+            s.append(K.el('div', 'kelp-ititle', L.sound));
+            const rows = [[L.volume, volume], [L.from, field('from', e.dataset.from || 0, 's')], [L.fades, pair]];
+            for (const [label, control] of rows) {
+              const r = K.el('div', 'kelp-irow');
+              r.append(K.el('span', 'kelp-ilabel', label), control, K.el('span'));
+              s.append(r);
+            }
+            return [s];
+          }
+          props.more = (props.more || []).concat([motionSection, presetSection, captionSection, soundSection]);
           window.kelpCurve = (id, at) => { curve = { id, at }; props.redraw?.(); };
           addEventListener('kelp-chosen', ev => {
             if (!ev.detail || (curve && ev.detail.e.getAttribute('data-id') !== curve.id)) curve = null;

@@ -69,6 +69,7 @@ extension MarkdownTab {
     }
 
     func motionMessage(_ body: [String: Any]) {
+        followSound(playing: body["playing"] as? Bool ?? false, at: (body["t"] as? NSNumber)?.doubleValue ?? 0)
         let number = { (key: String) in (body[key] as? NSNumber)?.doubleValue ?? 0 }
         let clips = { (key: String, start: String, length: String) in
             (body[key] as? [[String: Any]] ?? []).map { c in
@@ -89,6 +90,10 @@ extension MarkdownTab {
                             easing: k["easing"] as? [String] ?? [])
                     })
                 clip.transition = (c["trans"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                if let sound = c["sound"] as? String {
+                    clip.wave = self.wave(
+                        of: sound, from: (c["from"] as? NSNumber)?.doubleValue ?? 0, length: clip.length)
+                }
                 return clip
             }
         }
@@ -264,10 +269,23 @@ extension MarkdownTab {
             }
             try await movie?.finish(at: Double(frames + 1) / fps)
             try gif?.finish()
+            // The page's sounds, mixed in after the frames (a GIF has none).
+            let sounds =
+                options.format == .gif
+                ? []
+                : MotionSound.sounds(in: editor.text, folder: url.deletingLastPathComponent(), from: span.lowerBound)
+            if !sounds.isEmpty {
+                let mixed = to.deletingLastPathComponent().appendingPathComponent(
+                    ".kelp-mixing-" + to.lastPathComponent)
+                if try await MotionSound.mix(to, sounds: sounds, into: mixed) {
+                    _ = try FileManager.default.replaceItemAt(to, withItemAt: mixed)
+                }
+            }
             runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: frames)
             let verdict = await MotionVerify.check(
-                to, .init(width: w, height: h, fps: fps, duration: Double(frames + 1) / fps), warnings: warnings)
+                to, .init(width: w, height: h, fps: fps, duration: Double(frames + 1) / fps, sound: !sounds.isEmpty),
+                warnings: warnings)
             item.verdict = verdict
             item.progress = nil
             leaveCheck(verdict, for: to)
@@ -290,30 +308,6 @@ extension MarkdownTab {
             Banner.show(
                 String(localized: "Couldn’t make the video: \(error.localizedDescription)"), style: .error)
         }
-    }
-
-    /// The frame shown, as a picture; a transparent video's from two, on black and on white (`MotionExports.matte`).
-    private func framePicture(_ config: WKSnapshotConfiguration, transparent: Bool, _ w: Int, _ h: Int) async throws
-        -> CGImage?
-    {
-        guard transparent else {
-            return try await web.takeSnapshot(configuration: config).cgImage(
-                forProposedRect: nil, context: nil, hints: nil)
-        }
-        var shots: [CGImage] = []
-        for colour in ["#000", "#fff"] {
-            _ = try await web.callAsyncJavaScript(
-                "window.kelpMotion.matte(c);"
-                    + "await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))",
-                arguments: ["c": colour], contentWorld: Self.world)
-            if let shot = try await web.takeSnapshot(configuration: config).cgImage(
-                forProposedRect: nil, context: nil, hints: nil)
-            {
-                shots.append(shot)
-            }
-        }
-        guard shots.count == 2 else { return nil }
-        return MotionExports.matte(black: shots[0], white: shots[1], width: w, height: h)
     }
 }
 

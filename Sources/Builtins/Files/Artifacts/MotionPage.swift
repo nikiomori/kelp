@@ -78,7 +78,7 @@ enum MotionPage {
             return end || 5;
           }
           // A picture or a video with its own time is a layer of its own, not a scene.
-          const media = e => /^(IMG|VIDEO)$/.test(e.tagName);
+          const media = e => /^(IMG|VIDEO|AUDIO)$/.test(e.tagName);
           const caption = e => !!e.closest('[data-kelp-captions]');
           const captions = () => parts().filter(caption).map(e => ({ id: e.dataset.id || '',
             title: e.textContent.trim(),
@@ -114,7 +114,9 @@ enum MotionPage {
             for (const e of parts().filter(media)) {
               const start = +e.dataset.start || 0;
               by.set(e, { id: e.dataset.id || '', title: named(e), start, end: start + (+e.dataset.duration || 0),
-                delays: [], lengths: [], hidden: e.dataset.hidden === 'true', e });
+                delays: [], lengths: [], hidden: e.dataset.hidden === 'true', e,
+                sound: e.tagName === 'AUDIO' ? e.getAttribute('src') || '' : undefined,
+                from: +e.dataset.from || 0 });
             }
             // As layers: the frontmost first (a higher z-index, then later in the page).
             const all = [...doc.body.querySelectorAll('*')], z = e => parseInt(css(e).zIndex) || 0;
@@ -172,6 +174,7 @@ enum MotionPage {
             time: () => t,
             seek(at) { playing = false; seek(at); tell(true); },
             pause() { if (playing) { playing = false; tell(true); } },
+            retell() { moving = null; tell(true); },
             toggle() {
               playing = !playing;
               if (playing) {
@@ -217,6 +220,7 @@ enum MotionPage {
             preflight() {
               const out = [], end = duration(), said = doc && parseFloat(doc.body?.dataset.duration) > 0;
               for (const e of doc ? doc.querySelectorAll('img, video, audio') : []) {
+                if (e.tagName === 'AUDIO') continue;   // Kelp plays the sounds itself, beside the page
                 const bad = e.tagName === 'IMG' ? e.complete && !e.naturalWidth : e.error || e.networkState === 3;
                 if (bad) out.push('missing ' + (e.getAttribute('src') || e.tagName.toLowerCase()));
               }
