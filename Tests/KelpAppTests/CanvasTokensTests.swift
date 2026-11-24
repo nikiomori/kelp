@@ -41,17 +41,18 @@ import Testing
     }
 }
 
-/// Edit's Link, Picture and Arrange and the token fixes are scripts the page runs whole: a mistake in one (a pattern
-/// escaped once too few) stops all of it. They run here against a bare stand-in for the page.
+/// Edit's Link, Picture and Arrange, the fixes under Check's findings and the boards' widths are scripts the page runs
+/// whole: a mistake in one (a pattern escaped once too few) stops all of it. They run here against a bare stand-in.
 @MainActor @Test func editsExtraScriptsRun() throws {
     let context = try #require(JSContext())
     context.evaluateScript(
         """
         var window = { kelpCanvas: { frames: [] }, kelpProps: {} };
-        var document = { createElement: () => ({ style: {} }) };
+        var document = { createElement: () => ({ style: {} }), body: { matches: () => false } };
         """)
     context.evaluateScript(CanvasEditMore.source(labels: [:]))
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
     #expect(context.evaluateScript("typeof window.kelpIssueFix")?.toString() == "function")
     #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 3)
+    #expect(context.evaluateScript("typeof window.kelpCheckWidths")?.toString() == "function")
 }

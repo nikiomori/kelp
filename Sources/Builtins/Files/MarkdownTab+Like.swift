@@ -42,7 +42,8 @@ extension MarkdownTab {
             "end": String(localized: "End"), "between": String(localized: "Space Between"),
             "stretch": String(localized: "Stretch"), "use": String(localized: "Use %@"),
             "allOf": String(localized: "All %d"), "describe": String(localized: "Describe"),
-            "mark": String(localized: "Mark It")
+            "mark": String(localized: "Mark It"), "asDrawn": String(localized: "As Drawn"),
+            "drag": String(localized: "Drag to see it at any width")
         ]
     }
 

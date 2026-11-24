@@ -466,6 +466,10 @@
           "time" : {
             "description" : "On a motion page, the second of the video it was made at.",
             "type" : "number"
+          },
+          "width" : {
+            "description" : "The width the board was seen at, in points, when not its own (390 for a phone's).",
+            "type" : "integer"
           }
         },
         "required" : [

@@ -33249,6 +33249,26 @@
           }
         }
       }
+    },
+    "As Drawn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как нарисовано"
+          }
+        }
+      }
+    },
+    "Drag to see it at any width": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потяните, чтобы увидеть на любой ширине"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

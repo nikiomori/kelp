@@ -76,6 +76,9 @@ extension Main {
                     Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
             }
         case "check":
+            // A board is also checked at the phone's and the tablet's widths under its own: `--width` keeps those.
+            let width = flag("--width")
+            if let width, !["390", "768", "1280"].contains(width) { fail("--width takes 390, 768 or 1280") }
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
                 artifact.record.file == Artifacts.Kind.design.file
@@ -84,7 +87,8 @@ extension Main {
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
             _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
-            let issues = try await c.call(ArtifactCheck(path: target))
+            let all = try await c.call(ArtifactCheck(path: target))
+            let issues = width.map { w in all.filter { $0.contains(" @\(w): ") } } ?? all
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
         case "marks": try await listMarks(root: try await projectRoot(cwd, c))
         case "reply":

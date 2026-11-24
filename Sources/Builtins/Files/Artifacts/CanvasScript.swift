@@ -71,6 +71,7 @@ enum CanvasScript {
           function done() {
             const out = known.slice();
             for (const f of frames) check(f, out);
+            window.kelpCheckWidths?.(out);
             fit();
             const issues = [...new Set(out)].slice(0, 40);
             window.kelpIssues = issues;

@@ -73,6 +73,8 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public var reference: String?
     /// The board's state it was made in (`data-states`), when not the board's first.
     public var inState: String?
+    /// The width the board was seen at, in points, when not its own (390 for a phone's).
+    public var width: Int?
     /// The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.
     public var like: String?
     /// The note the user is writing now: a draft's note, empty once sent.
