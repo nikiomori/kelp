@@ -14,6 +14,8 @@ struct DatabasePanelList {
     var only: String?
     var folded: Set<String> = []
     var health: [String: DatabaseHealth] = [:], libraryHealth: [String: DatabaseHealth] = [:]
+    /// How many migrations each of the project's databases hasn't applied (`DatabasesEvent.migrations`).
+    var migrations: [String: Int] = [:]
 
     var rows: [DatabasesPanel.Row] {
         var list: [DatabasesPanel.Row] = []
@@ -58,7 +60,8 @@ struct DatabasePanelList {
         return out + loose.flatMap { rows(of: $0, library: true) }
     }
 
-    /// A database's row, with a row under it for what is wrong with the database.
+    /// A database's row, with a row under it for what is wrong with the database, and one for the migrations it
+    /// hasn't applied.
     private func rows(of db: DatabaseInfo, library: Bool) -> [DatabasesPanel.Row] {
         let words = [db.name, db.address, DatabaseLook.title(db.stage), db.group ?? ""].joined(separator: " ")
         if !find.isEmpty, !words.lowercased().contains(find) { return [] }
@@ -68,6 +71,7 @@ struct DatabasePanelList {
         {
             out.append(.problem(db, checked))
         }
+        if !library, let left = migrations[db.name], left > 0 { out.append(.migrations(db, notApplied: left)) }
         return out
     }
 }
@@ -83,6 +87,7 @@ extension DatabasesPanel.Row {
         case .database(let db, let library): "database \(library) \(db.name)"
         case .group(let name, _): "group \(name)"
         case .problem(let db, _): "problem \(db.name)"
+        case .migrations(let db, _): "migrations \(db.name)"
         case .project: "project"
         case .use: "use"
         case .run(let run): "run \(run.id)"

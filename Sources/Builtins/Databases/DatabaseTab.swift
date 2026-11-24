@@ -376,7 +376,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         sidebar.schema = read
         let named = address.table.flatMap { name in tables.first { $0.name == name } }
         if mode == .query, address.run == nil, !chosen,
-            let first = named ?? tables.first(where: { $0.kind != "view" })
+            let first = named ?? tables.first(where: { $0.kind != "view" && $0.name != read.migrations?.table })
         {
             mode = .table(first.name)
             await showTable(first.name)

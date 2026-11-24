@@ -183,14 +183,18 @@ public struct DatabasesEvent: RPCEvent, Equatable {
     public var library: [DatabaseInfo]?
     /// Why the databases couldn't be read, when they couldn't: there are none in the event then.
     public var error: String?
+    /// How many migrations each database hasn't applied, by name, for those whose schema was read since kelpd started
+    /// (`DatabaseSchema.migrations`).
+    public var migrations: [String: Int]?
     public init(
         worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun], library: [DatabaseInfo]? = nil,
-        error: String? = nil
+        error: String? = nil, migrations: [String: Int]? = nil
     ) {
         self.worktree = worktree
         self.databases = databases
         self.runs = runs
         self.library = library
         self.error = error
+        self.migrations = migrations
     }
 }

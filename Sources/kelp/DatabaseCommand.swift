@@ -186,9 +186,10 @@ extension Main {
         return "\(counted), the first \(queryResult.rows.count) shown (\(more)) · \(queryResult.ms) ms"
     }
 
-    /// Formats the tables, one per line with their rows, and with `columns`, each column under its table.
+    /// Formats the tables, one per line with their rows, and with `columns`, each column under its table. The
+    /// migrations not applied, when Kelp knows the database's migration tool, end it.
     static func text(_ schema: DatabaseSchema, columns: Bool) -> String {
-        schema.tables.map { table in
+        let tables = schema.tables.map { table in
             let head = table.name + (table.rows.map { "  \($0) rows" } ?? "")
             guard columns else { return head }
             let cols = table.columns.map { column in
@@ -201,5 +202,6 @@ extension Main {
             let indexes = table.indexes.isEmpty ? [] : ["  indexes: " + table.indexes.joined(separator: ", ")]
             return ([head] + cols + indexes).joined(separator: "\n")
         }.joined(separator: columns ? "\n\n" : "\n")
+        return [tables, schema.migrations?.line].compactMap { $0 }.joined(separator: "\n\n")
     }
 }

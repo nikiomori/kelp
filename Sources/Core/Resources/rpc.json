@@ -1568,6 +1568,47 @@
         ],
         "type" : "string"
       },
+      "DatabaseMigrations" : {
+        "description" : "A database's migrations, read from the table its migration tool keeps (Rails' schema_migrations, Prisma's _prisma_migrations…) and the tool's folder in the project, so the ones not applied yet show. Kelp only reads them.",
+        "properties" : {
+          "all" : {
+            "description" : "Every migration either side knows of, oldest first.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseMigrations.Migration"
+            },
+            "type" : "array"
+          },
+          "table" : {
+            "description" : "The tool's table, as the schema names it. The tab lists it under Migrations instead of among the tables.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "all",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "DatabaseMigrations.Migration" : {
+        "properties" : {
+          "applied" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "description" : "The migration's version or number (\"20261122\", \"0003\") and the rest of its name (\"add_paid_at\").",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "applied",
+          "id",
+          "name"
+        ],
+        "type" : "object"
+      },
       "DatabaseRun" : {
         "description" : "A statement run on a project's database, either by an agent (`session`) or by the user.",
         "properties" : {
@@ -1633,6 +1674,10 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "migrations" : {
+            "$ref" : "#/components/schemas/DatabaseMigrations",
+            "description" : "The migrations, when the database has a migration tool's table (read with the whole schema only)."
           },
           "tables" : {
             "items" : {
@@ -1732,6 +1777,13 @@
               "$ref" : "#/components/schemas/DatabaseInfo"
             },
             "type" : "array"
+          },
+          "migrations" : {
+            "additionalProperties" : {
+              "type" : "integer"
+            },
+            "description" : "How many migrations each database hasn't applied, by name, for those whose schema was read since kelpd started (`DatabaseSchema.migrations`).",
+            "type" : "object"
           },
           "runs" : {
             "items" : {

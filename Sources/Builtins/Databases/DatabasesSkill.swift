@@ -25,7 +25,9 @@ extension Builtins {
           read, ask to change; read, change freely). One listed as this branch's copy is the branch's own, made for
           trying changes: `--db` left out means it, not the database it's a copy of.
         - `kelp db schema [table] [--db name]` — tables with their row counts; with a table, its columns (type, null,
-          primary key, → what a foreign key points to) and indexes. Read it before you write a query.
+          primary key, → what a foreign key points to) and indexes. Read it before you write a query. Its last line
+          says which migrations aren't applied, when Kelp knows the project's tool (Rails, Prisma, Django, Alembic,
+          Drizzle, Laravel).
         - `kelp db query "SELECT …" [--db name] [--limit 200]` — a statement. Rows come as a table, 200 unless you
           ask, 1000 at most (page with LIMIT and OFFSET past that); cells over 200 characters are cut; a read stops
           after 15 s. `--json` prints one JSON object a line (every value a string, NULL as null), the summary on

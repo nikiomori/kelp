@@ -330,9 +330,12 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
     /// The names of the database's own functions ("schema.name" outside the default schema). nil for engines where Kelp
     /// doesn't read functions.
     public var functions: [String]?
-    public init(tables: [Table], functions: [String]? = nil) {
+    /// The migrations, when the database has a migration tool's table (read with the whole schema only).
+    public var migrations: DatabaseMigrations?
+    public init(tables: [Table], functions: [String]? = nil, migrations: DatabaseMigrations? = nil) {
         self.tables = tables
         self.functions = functions
+        self.migrations = migrations
     }
 
     public struct Table: Codable, Sendable, Equatable {

@@ -305,9 +305,10 @@ extension Databases {
         let target = try await offloads.run { [self] in
             try reach(connection(worktreeId, name, agent: agent), worktreeId)
         }
-        do { return try await DatabaseEngines.schema(target, table: table, off: offloads) } catch let failure
-            as DatabaseFailure
-        {
+        do {
+            let schema = try await DatabaseEngines.schema(target, table: table, off: offloads)
+            return table == nil ? await withMigrations(schema, target, worktreeId) : schema
+        } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
     }

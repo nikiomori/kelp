@@ -26,7 +26,7 @@ extension DatabasesPanel {
             app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
             return
         case .use: return showUseMenu(at: index)
-        case .problem, .project: return
+        case .problem, .migrations, .project: return
         }
         turning = rows[index].key
         table.crossfade(Motion.base)   // a fold's rows fade out or in, because there are too many to move one by one
@@ -101,7 +101,7 @@ extension DatabasesPanel {
             }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
-        case .problem: break
+        case .problem, .migrations: break
         case .project, .use: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         }
     }

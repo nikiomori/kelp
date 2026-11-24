@@ -95,11 +95,6 @@ struct DatabaseEdits: Equatable {
         return deletes + updates + inserts
     }
 
-    /// Quotes a table or column name for the engine: "orders", or `orders` in MySQL. Postgres names a table outside
-    /// public with its schema ("audit.orders", as the schema lists it), so the name has two parts. In other engines a
-    /// "." is part of the name itself.
-    static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String {
-        let parts = engine == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
-        return parts.map(engine.quoted).joined(separator: ".")
-    }
+    /// Quotes a table or column name for the engine (`DatabaseInfo.Engine.table`).
+    static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String { engine.table(name) }
 }

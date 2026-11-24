@@ -91,3 +91,20 @@ import Testing
     #expect(
         Main.place(copy) == "this branch's copy of shop localhost:5432" && Main.words(copy) == "read, change freely")
 }
+
+/// `kelp db schema` ends with the migrations not applied, when Kelp knows the database's migration tool.
+@Test func aSchemasMigrationsEndIt() {
+    let migrations = DatabaseMigrations(
+        table: "schema_migrations",
+        all: [
+            .init(id: "20261118", name: "create_order_items", applied: true),
+            .init(id: "20261122", name: "add_paid_at", applied: false)
+        ])
+    let schema = DatabaseSchema(tables: [.init(name: "orders", rows: 3)], migrations: migrations)
+    #expect(
+        Main.text(schema, columns: false)
+            == "orders  3 rows\n\n1 migration not applied (schema_migrations): 20261122 add_paid_at")
+    var done = migrations
+    done.all[1].applied = true
+    #expect(Main.text(DatabaseSchema(tables: [], migrations: done), columns: false).hasSuffix("all 2 applied"))
+}

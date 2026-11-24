@@ -53,6 +53,8 @@ final class Databases: Sendable {
     /// A remote project's databases as its host's files listed them, and when they were read. They are read again
     /// after a minute.
     private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())
+    /// How many migrations each workspace's databases haven't applied, by name, as their schema read last said.
+    private let migrations = OSAllocatedUnfairLock(initialState: [String: [String: Int]]())
 
     init(store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots) {
         self.store = store
@@ -282,7 +284,17 @@ final class Databases: Sendable {
     func activity(_ worktreeId: String) throws -> DatabasesEvent {
         DatabasesEvent(
             worktree: worktreeId, databases: try connections(worktreeId).map(\.database),
-            runs: kept.withLock { $0[worktreeId]?.runs ?? [] }, library: try library())
+            runs: kept.withLock { $0[worktreeId]?.runs ?? [] }, library: try library(),
+            migrations: migrations.withLock { $0[worktreeId] })
+    }
+
+    /// Keeps the count of a database's migrations not applied, and tells the panel when it changed.
+    func noteMigrations(_ worktreeId: String, _ name: String, _ count: Int) {
+        let changed = migrations.withLock { all in
+            defer { all[worktreeId, default: [:]][name] = count }
+            return all[worktreeId]?[name] != count
+        }
+        if changed { touch(worktreeId) }
     }
 
     func result(_ worktreeId: String, _ id: String) -> QueryResult? {

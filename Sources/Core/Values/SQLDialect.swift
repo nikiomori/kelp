@@ -11,6 +11,13 @@ extension DatabaseInfo.Engine {
         return quote + name.replacingOccurrences(of: quote, with: quote + quote) + quote
     }
 
+    /// Quotes a table's name as the schema lists it. Postgres names a table outside public with its schema
+    /// ("audit.orders"), so the name has two parts. In other engines a "." is part of the name itself.
+    public func table(_ name: String) -> String {
+        let parts = self == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
+        return parts.map(quoted).joined(separator: ".")
+    }
+
     /// Writes a value as SQL text: NULL, or a quoted string ('it''s') that every engine casts to the column's type.
     /// MySQL also reads a backslash in a string as an escape.
     public func literal(_ value: String?) -> String {

@@ -278,6 +278,13 @@ struct DatabasePanelRows {
         return line(views, inset: under, trailing: Metrics.inset)
     }
 
+    /// The row under a database whose migrations aren't all applied: "2 migrations not applied", in grey, because
+    /// Kelp only shows it.
+    func migrations(_ count: Int) -> NSView {
+        let said = small(String(localized: "\(DatabaseMigrations.count(count)) not applied"))
+        return line([said, NSView()], inset: Self.inCard + 19 + Metrics.gap, trailing: Metrics.inset)
+    }
+
     func ran(_ run: DatabaseRun) -> NSView {
         let session = run.session.flatMap(app.session)
         let icon = NSImageView(image: session.flatMap { app.catalog.icon($0.agent, size: 14) } ?? .symbol("person"))
