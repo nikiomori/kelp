@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Testing
 
@@ -263,6 +264,32 @@ private let board = """
     let lufs = try #require(Loudness.integrated(sine, rate: rate))
     #expect(abs(lufs - -23.01) < 0.1, "\(lufs)")
     #expect(Loudness.integrated([Float](repeating: 0, count: 48000), rate: rate) == nil)
+}
+
+/// A stereo file is read whole (a one-channel buffer can't take it): mixed for beats and bars, and its loudness counts
+/// both channels, so the same sine in each is 3 LU louder than in one.
+@Test func aStereoFileIsReadWithBothChannels() throws {
+    let rate = 48000.0
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("stereo-\(UUID().uuidString).caf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let format = try #require(AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2))
+    let count = Int(rate * 3)
+    let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)))
+    buffer.frameLength = AVAudioFrameCount(count)
+    for i in 0..<count {
+        let v = Float(0.1 * sin(2 * Double.pi * 997 * Double(i) / rate))
+        buffer.floatChannelData![0][i] = v
+        buffer.floatChannelData![1][i] = v
+    }
+    do {
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: buffer)
+    }
+    let (mixed, read) = try Beats.samples(of: url)
+    #expect(read == rate && mixed.count == count)
+    let (channels, _) = try Beats.channels(of: url)
+    let lufs = try #require(Loudness.integrated(channels: channels, rate: rate))
+    #expect(abs(lufs - -20.0) < 0.1, "\(lufs)")
 }
 
 /// A chart's table is read as rows of text and written back with the numbers changed, the rest of the chart as it was.

@@ -5,15 +5,23 @@ import Foundation
 public enum Loudness {
     /// The integrated loudness of `samples` (one channel) at `rate`; nil for silence or under 400 ms.
     public static func integrated(_ samples: [Float], rate: Double) -> Double? {
-        let weighted = kWeight(samples, rate: rate)
+        integrated(channels: [samples], rate: rate)
+    }
+
+    /// The integrated loudness of a file's `channels` (left and right weigh the same, their powers summed).
+    public static func integrated(channels: [[Float]], rate: Double) -> Double? {
+        let weighted = channels.map { kWeight($0, rate: rate) }
+        let length = weighted.map(\.count).min() ?? 0
         // Mean squares of 400 ms blocks overlapping by 75%.
         let block = Int(rate * 0.4), step = max(1, block / 4)
-        guard block > 0, weighted.count >= block else { return nil }
+        guard block > 0, length >= block else { return nil }
         var powers: [Double] = []
         var at = 0
-        while at + block <= weighted.count {
+        while at + block <= length {
             var sum = 0.0
-            for i in at..<(at + block) { sum += weighted[i] * weighted[i] }
+            for channel in weighted {
+                for i in at..<(at + block) { sum += channel[i] * channel[i] }
+            }
             powers.append(sum / Double(block))
             at += step
         }

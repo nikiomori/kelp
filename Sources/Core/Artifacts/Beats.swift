@@ -64,14 +64,28 @@ public enum Beats {
         return Found(bpm: (60 / step * 10).rounded() / 10, times: times)
     }
 
-    /// A sound file's first channel and its sample rate.
+    /// A sound file's channels, mixed into one, and its sample rate.
     public static func samples(of file: URL) throws -> (samples: [Float], rate: Double) {
+        let (all, rate) = try channels(of: file)
+        guard all.count > 1 else { return (all.first ?? [], rate) }
+        let scale = 1 / Float(all.count)
+        return (all[0].indices.map { i in all.reduce(0) { $0 + $1[i] } * scale }, rate)
+    }
+
+    /// Each channel of a sound file, read in the file's own layout (a mono buffer can't take a stereo file), and its
+    /// sample rate.
+    public static func channels(of file: URL) throws -> (channels: [[Float]], rate: Double) {
         let audio = try AVAudioFile(forReading: file)
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: audio.fileFormat.sampleRate, channels: 1),
-            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(audio.length))
+        guard
+            let buffer = AVAudioPCMBuffer(
+                pcmFormat: audio.processingFormat, frameCapacity: AVAudioFrameCount(audio.length))
         else { throw CocoaError(.fileReadCorruptFile) }
         try audio.read(into: buffer)
-        guard let first = buffer.floatChannelData?[0] else { throw CocoaError(.fileReadCorruptFile) }
-        return (Array(UnsafeBufferPointer(start: first, count: Int(buffer.frameLength))), audio.fileFormat.sampleRate)
+        guard let data = buffer.floatChannelData else { throw CocoaError(.fileReadCorruptFile) }
+        let count = Int(buffer.frameLength)
+        let all = (0..<Int(buffer.format.channelCount)).map {
+            Array(UnsafeBufferPointer(start: data[$0], count: count))
+        }
+        return (all, audio.processingFormat.sampleRate)
     }
 }

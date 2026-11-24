@@ -104,8 +104,8 @@ enum MotionSound {
     /// What to multiply `file`'s samples by for it to be `target` LUFS: only ever down, since a mix's volume stops
     /// at 1 (music comes mastered louder than the platforms play it). nil when it can't be measured.
     private static func gain(of file: URL, to target: Double) throws -> Double? {
-        let (samples, rate) = try Beats.samples(of: file)
-        return Loudness.integrated(samples, rate: rate).map { min(1, pow(10, (target - $0) / 20)) }
+        let (channels, rate) = try Beats.channels(of: file)
+        return Loudness.integrated(channels: channels, rate: rate).map { min(1, pow(10, (target - $0) / 20)) }
     }
 
     /// Copies the picture as it is and the mixed sound as AAC into `out`, a sample at a time from each, interleaved.
