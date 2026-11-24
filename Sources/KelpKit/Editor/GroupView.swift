@@ -182,8 +182,8 @@ extension NSRect {
 }
 
 /// Where a dropped tab will go (in a pane and at the editor area's outer edges), or a file in an agent's pane: accent
-/// fill, accent border. It fades in
-/// where it's needed, glides from half to whole as the drop's insertion mark does, and fades out in two thirds of that.
+/// fill, accent border. It fades in where it's needed, glides from half to whole as the drop's insertion mark does,
+/// and fades out in two thirds of that.
 @MainActor
 package final class DropHint: NSView {
     private var leaving = false

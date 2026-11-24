@@ -61,6 +61,15 @@ extension AppOfItsOwn {
         }
         #expect(urls.map(\.lastPathComponent).sorted() == ["kept.txt", "staged.txt"], "\(urls)")
         #expect(urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        // A file under a commit in the graph drags out too, unless that commit or a change not committed yet deleted
+        // it (gone.txt is removed and staged).
+        func dragged(_ path: String, _ status: String = "M") -> URL? {
+            let change = FileChange(path: path, index: status, worktree: ".")
+            let node = SourceControlController.Node(.commitFile("c0ffee", change))
+            return vc.outlineView(vc.graphOutline, pasteboardWriterForItem: node) as? URL
+        }
+        #expect(dragged("kept.txt")?.lastPathComponent == "kept.txt")
+        #expect(dragged("kept.txt", "D") == nil && dragged("gone.txt") == nil)
         // Outside Kelp (Finder, another app), both lists offer a copy: Source Control never moves a file.
         let outside = [outline, vc.graphOutline].map {
             $0.draggingSession(NSDraggingSession(), sourceOperationMaskFor: .outsideApplication)
