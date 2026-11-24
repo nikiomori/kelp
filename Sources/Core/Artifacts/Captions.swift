@@ -18,7 +18,7 @@ public enum Captions {
 
     public static let looks = ["box", "plain", "outline", "highlight"], places = ["bottom", "top", "middle"]
 
-    /// The cues of an SRT or a WebVTT file, in order; tags and cue settings left out.
+    /// The cues of an SRT or a WebVTT file, in order; their tags and cue settings left out.
     public static func parse(_ text: String) -> [Cue] {
         var out: [Cue] = []
         let blocks = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n\n")
@@ -29,8 +29,11 @@ public enum Captions {
             guard times.count == 2, let start = seconds(times[0]),
                 let end = seconds(times[1].trimmingCharacters(in: .whitespaces).components(separatedBy: " ")[0])
             else { continue }
-            let words = lines[(at + 1)...].joined(separator: " ").replacing(/<[^>]*>/, with: "")
-                .trimmingCharacters(in: .whitespaces)
+            // The formats' own tags only (WebVTT's c i b u ruby rt v lang and times, SRT's font): a "<" in the words
+            // stays; an entity is read as its character.
+            let tags = /<\/?(?:c|i|b|u|ruby|rt|v|lang|font)(?:[.\s][^<>]*)?>|<(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}>/
+            let words = BoardEdit.unescape(lines[(at + 1)...].joined(separator: " ").replacing(tags, with: ""))
+                .replacing(/\s+/, with: " ").trimmingCharacters(in: .whitespaces)
             if !words.isEmpty, end > start { out.append(Cue(start: start, end: end, text: words)) }
         }
         return out

@@ -199,6 +199,9 @@ private let board = """
     let cues = Captions.parse(srt)
     #expect(cues == [.init(start: 0.2, end: 1.6, text: "Каждый день"), .init(start: 1.7, end: 3.2, text: "понемногу")])
     #expect(Captions.parse(vtt) == [cues[1]])
+    // Only the formats' own tags go: a "<" in the words stays, and an entity is read as its character.
+    let words = "WEBVTT\n\n00:01.000 --> 00:02.000\n<v Аня><c.loud>от < 10 до > 5</c> &amp; <00:01.500>дальше\n"
+    #expect(Captions.parse(words).map(\.text) == ["от < 10 до > 5 & дальше"])
     let page = Captions.write("<html><head></head><body></body></html>", cues: cues)
     #expect(page.contains(#"<p data-id="cap-2" data-start="1.7" data-duration="1.5">понемногу</p>"#))
     #expect(page.contains("bottom: 6%") && page.contains("rgba(0,0,0,.65)"))
