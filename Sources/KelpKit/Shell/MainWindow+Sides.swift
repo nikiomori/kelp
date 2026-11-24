@@ -139,9 +139,35 @@ extension MainWindowController {
                 pillFloor?.animator().constant = floor
             }
         }
+        placeLights()
         let shown = !away || peeking === left
         for view in lights where view.isHidden == shown && !Floater.carries(view) {
             fade(view, hidden: !shown)
+        }
+    }
+    /// While the sidebar is away, its floater stands its inset in from the window's corner, and the traffic lights it
+    /// carries sit as far in, so they sit in its corner as they sit in a window's. AppKit lays the buttons out again
+    /// now and then (a resize, the window becoming key), and each time they move in again (`watchLights`).
+    func placeLights() {
+        let shift = hides(left) ? left.floater.inset : 0
+        for button in lights {
+            let id = ObjectIdentifier(button), now = button.frame.origin
+            let home = lightPlaces[id].flatMap { $0.at == now ? $0.home : nil } ?? now
+            let down = button.superview?.isFlipped == true ? shift : -shift
+            let at = NSPoint(x: home.x + shift, y: home.y + down)
+            lightPlaces[id] = (home, at)
+            if now != at { button.setFrameOrigin(at) }
+        }
+    }
+    func watchLights() {
+        for button in lights {
+            button.postsFrameChangedNotifications = true
+            lightWatches.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSView.frameDidChangeNotification, object: button, queue: .main
+                ) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.placeLights() }   // queue: .main
+                })
         }
     }
     /// The traffic lights. A peeking sidebar carries them in and out at its top, as Arc's does.

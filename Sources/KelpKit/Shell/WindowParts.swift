@@ -32,7 +32,7 @@ final class ShellSplit: NSSplitViewController {
 @MainActor
 final class Floater: NSView {
     private static let radius = Metrics.radiusXL
-    private let inset: CGFloat
+    let inset: CGFloat
     /// What holds the panel, with the theme's colour (`tint`) under it.
     let box = NSView()
     let tint = NSView()

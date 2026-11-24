@@ -41,6 +41,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     var pillFloor: NSLayoutConstraint?
     /// The traffic lights' right end and left start, in the window.
     var lightsEnd: CGFloat = 69, lightsStart: CGFloat = 12
+    /// Where AppKit put each traffic light, and where `placeLights` moved it.
+    var lightPlaces: [ObjectIdentifier: (home: NSPoint, at: NSPoint)] = [:]
+    var lightWatches: [NSObjectProtocol] = []
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
     let sidebarToggle = NSButton.titlebar(
         "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
@@ -56,9 +59,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         editors = EditorHost(app: app)
         sidebar = SidebarController(app: app)
         inspector = InspectorController(app: app)
-        // Both stand as far in from the window's edges, as cards (the sidebar's was flush, under the traffic lights).
-        let leftFloater = Floater(width: 260, inset: Card.gap, autosave: "sidebar.floatWidth")
-        let rightFloater = Floater(width: 300, inset: Card.gap, autosave: "inspector.floatWidth")
+        // Both stand as far in from the window's edges, a little: the traffic lights ride in the sidebar's corner.
+        let leftFloater = Floater(width: 260, inset: Metrics.gapTight, autosave: "sidebar.floatWidth")
+        let rightFloater = Floater(width: 300, inset: Metrics.gapTight, autosave: "inspector.floatWidth")
         left = Side(Self.column(sidebar), sidebar, leftFloater, inner: .trailing)
         right = Side(Self.column(inspector), inspector, rightFloater, inner: .leading)
         surface = DropRoot(app: app)
@@ -96,6 +99,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         right.floater.attach(leading: false)
         for side in sides { side.edge.onEnter = { [weak self, unowned side] in self?.peek(side) } }
         let lights = measureLights(created)
+        watchLights()
         let floor = sidebarToggle.leadingAnchor.constraint(
             greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12)
         toggleFloor = floor

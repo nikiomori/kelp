@@ -22,9 +22,12 @@ extension StripPlaceTests {
         if was { main.toggleSidebarPanel() }
         main.left.item.isCollapsed = false   // open, whatever this Mac's tests left in the split's autosave
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
+        let home = try #require(main.window?.standardWindowButton(.closeButton)).frame.origin.x
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { !main.sidebar.view.isDescendant(of: split) })   // in its floater, at the edge
         #expect(app.settings[SettingKeys.sidebarAutoHide])
+        // The lights sit as far in as the floater stands from the window's corner, in its corner as in a window's.
+        #expect(main.window?.standardWindowButton(.closeButton)?.frame.origin.x == home + main.left.floater.inset)
         // The traffic lights went with it; its toggle stays, at the window's edge where they stood.
         let close = try #require(main.window?.standardWindowButton(.closeButton))
         #expect(try await waitFor(5) { close.isHidden && !main.sidebarToggle.isHidden })
@@ -51,6 +54,7 @@ extension StripPlaceTests {
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
         #expect(!app.settings[SettingKeys.sidebarAutoHide])
+        #expect(main.window?.standardWindowButton(.closeButton)?.frame.origin.x == home)
         #expect(try await waitFor(5) { !close.isHidden && !main.sidebarToggle.isHidden })
         #expect(
             try await waitFor(5) {
