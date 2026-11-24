@@ -112,30 +112,51 @@ extension MarkdownTab {
         }
     }
 
-    /// Each board of the canvas, at its own size, as `<board>.png` in `folder`.
-    func exportBoards(into folder: URL) async throws {
-        struct Canvas: Decodable {
-            struct Board: Decodable { var file: String, w: Double, h: Double }
-            var boards: [Board]
-        }
-        let canvas = try JSONDecoder().decode(Canvas.self, from: Data(editor.text.utf8))
+    /// Each board of the canvas, at its own size (as tall as its content when the board sets no height), as
+    /// `<board>.png` in `folder`; with `row`, that row of the tables its elements take columns of.
+    func exportBoards(into folder: URL, row: Int? = nil) async throws {
+        guard let canvas = ArtifactCanvas.read(editor.text) else { throw CocoaError(.fileReadCorruptFile) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let home = url.deletingLastPathComponent()
         for board in canvas.boards {
-            let file = url.deletingLastPathComponent().appendingPathComponent(board.file)
-            let png = try await Self.picture(of: file, size: NSSize(width: board.w, height: board.h))
+            let file = home.appendingPathComponent(board.file)
+            var html: String?
+            if let row, let read = await app.quiet(FilesRead(path: file.path)) {
+                var tables: [String: [[String]]] = [:]
+                for name in DataRows.files(in: read.text) where !name.contains("/") {
+                    let csv = await app.quiet(FilesRead(path: home.appendingPathComponent(name).path))
+                    tables[name] = csv.map { DataRows.parse($0.text) }
+                }
+                html = DataRows.fill(read.text, row: row, tables: tables)
+            }
+            let w = Double(min(max(board.w ?? 1280, 40), 8000))
+            let png = try await Self.picture(of: file, html: html, width: w, height: board.h.map(Double.init))
             let name = (board.file as NSString).lastPathComponent
             try png.write(to: folder.appendingPathComponent((name as NSString).deletingPathExtension + ".png"))
         }
     }
 
-    /// A page file drawn at `size` without its scripts (as the canvas shows a board), as PNG at twice the size.
-    static func picture(of file: URL, size: NSSize) async throws -> Data {
+    /// A page file (or `html` in its place) drawn `width` wide without its scripts (as the canvas shows a board), as
+    /// tall as `height` or else its content, as PNG at twice the size.
+    static func picture(of file: URL, html: String? = nil, width: Double, height: Double?) async throws -> Data {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = false
-        let web = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: config)
+        // Short at first, so a page shorter than the view measures as itself.
+        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: width, height: height ?? 40), configuration: config)
         let loaded = PageLoaded()
         web.navigationDelegate = loaded
-        web.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent().deletingLastPathComponent())
+        if let html {
+            web.loadHTMLString(html, baseURL: file)
+        } else {
+            web.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent().deletingLastPathComponent())
+        }
         await loaded.wait()
+        // Measured in Kelp's own script world: the page's scripts stay off.
+        let tall =
+            try await web.callAsyncJavaScript(
+                "return document.documentElement.scrollHeight", contentWorld: .defaultClient) as? Double
+        let size = NSSize(width: width, height: min(max(height ?? tall ?? 800, 40), 8000))
+        web.setFrameSize(size)
         let shot = WKSnapshotConfiguration()
         shot.snapshotWidth = NSNumber(value: size.width)
         let image = try await web.takeSnapshot(configuration: shot)

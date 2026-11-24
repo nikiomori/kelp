@@ -96,7 +96,7 @@ extension MarkdownTab {
                     motionStudio.exports.insert(item, at: 0)
                     await record(to: to, MotionExport(), item)
                 } else {
-                    do { try await exportBoards(into: folder.appendingPathComponent(name)) } catch {
+                    do { try await exportBoards(into: folder.appendingPathComponent(name), row: i + 1) } catch {
                         Banner.show(String(localized: "Couldn’t export: \(error.localizedDescription)"), style: .error)
                         break
                     }

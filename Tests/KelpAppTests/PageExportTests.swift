@@ -32,6 +32,23 @@ import Testing
     }
 }
 
+/// A board with no height of its own is drawn as tall as its content (the canvas sets `h` only for fixed frames), and
+/// a board of a row is drawn from the HTML given for it.
+@MainActor @Test func aBoardIsDrawnAsTallAsItsContent() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-board-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let file = folder.appendingPathComponent("a.html")
+    try #"<body style="margin:0"><div style="height:300px">a</div></body>"#.write(
+        to: file, atomically: true, encoding: .utf8)
+    let tall = try #require(NSBitmapImageRep(data: try await MarkdownTab.picture(of: file, width: 200, height: nil)))
+    #expect(tall.pixelsWide == 400 && tall.pixelsHigh == 600)
+    let row = #"<body style="margin:0"><div style="height:150px">b</div></body>"#
+    let drawn = try #require(
+        NSBitmapImageRep(data: try await MarkdownTab.picture(of: file, html: row, width: 200, height: nil)))
+    #expect(drawn.pixelsHigh == 300)
+}
+
 /// A page's own pictures and stylesheets go inside it; a path outside its folder or on the web stays a link.
 @Test func aPageGoesIntoOneFile() throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-inline-\(UUID().uuidString)")

@@ -325,6 +325,14 @@ private let board = """
     #expect(DataRows.parse("\u{FEFF}name;sum\r\nОльга;1,5\r\n") == [["name", "sum"], ["Ольга", "1,5"]])
     let page = #"<h2 data-field="clients.csv:name">Hi</h2><img data-field="clients.csv:photo"><p data-field="b.csv:x">"#
     #expect(DataRows.files(in: page) == ["clients.csv", "b.csv"])
+    // A row put into the page as it is exported: text and a picture's address, the last row past the end.
+    let card = #"<h2 data-field="c.csv:name">Name</h2><img alt="" src="x.png" data-field="c.csv:photo"><p>kept</p>"#
+    let tables = ["c.csv": [["name", "photo"], ["Ольга & Co", "o.jpg"], ["Иван", "i.jpg"]]]
+    #expect(
+        DataRows.fill(card, row: 1, tables: tables)
+            == #"<h2 data-field="c.csv:name">Ольга &amp; Co</h2><img src="o.jpg" alt="" data-field="c.csv:photo"><p>kept</p>"#
+    )
+    #expect(DataRows.fill(card, row: 9, tables: tables).contains(">Иван</h2>"))
     #expect(
         DataRows.name(["Ольга / Иванова"], index: 3) == "Ольга  Иванова" && DataRows.name([""], index: 3) == "row-3")
 }
