@@ -217,7 +217,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
     // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
-    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: an agent's pane shows where a dragged file will land with the editor's own hint (`DropHint`, its
+    // `show(over:)` and `hide`), so a drop looks the same on every pane.
+    #expect(declared == 380, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -312,8 +314,8 @@ func codeOnly(_ s: String) -> String {
             l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 374, "lines over 120: \(over120)")
-    #expect(over120 >= 374, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 373, "lines over 120: \(over120)")
+    #expect(over120 >= 373, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

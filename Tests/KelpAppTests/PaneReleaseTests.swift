@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import BuiltinAgents
@@ -32,4 +33,45 @@ import Testing
     window.contentView?.addSubview(pane)
     #expect(pane.ghostty != nil && !pane.released && pane.offScreen == nil)
     #expect(pane.endedHeight.constant == 0)
+}
+
+/// A file dragged over an agent's pane shows where it will land, as over an editor pane: the drop hint across the pane,
+/// made only once something is dragged there. It goes when the drag leaves.
+@MainActor @Test func aDragOverAnAgentsPaneShowsWhereItLands() async throws {
+    _ = testHome
+    let app = AppModel(builtins: Builtins.all)
+    let s = Session(id: "s2", cwd: "/", command: "claude", agent: "claude", status: .idle)
+    app.upsert(s)
+    let pane = PaneView(session: s, app: app)
+    pane.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
+    #expect(!pane.subviews.contains { $0 is DropHint })
+    let drag = Drag()
+    #expect(pane.draggingEntered(drag) == .copy)
+    let hint = try #require(pane.subviews.last as? DropHint)
+    #expect(!hint.isHidden && hint.frame == DropHint.across(pane.bounds))
+    pane.draggingExited(drag)
+    try await waitFor { hint.isHidden }
+}
+
+/// A drag in progress, as AppKit hands one to a view it is over.
+private final class Drag: NSObject, NSDraggingInfo {
+    let draggingPasteboard = NSPasteboard.withUniqueName()
+    var draggingDestinationWindow: NSWindow? { nil }
+    var draggingSourceOperationMask: NSDragOperation { .copy }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingSource: Any? { nil }
+    var draggingSequenceNumber: Int { 1 }
+    var draggingFormation: NSDraggingFormation = .default
+    var animatesToDestination = false
+    var numberOfValidItemsForDrop = 1
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    func enumerateDraggingItems(
+        options enumOpts: NSDraggingItemEnumerationOptions = [], for view: NSView?, classes classArray: [AnyClass],
+        searchOptions: [NSPasteboard.ReadingOptionKey: Any] = [:],
+        using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+    func resetSpringLoading() {}
 }

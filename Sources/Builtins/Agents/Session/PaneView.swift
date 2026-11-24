@@ -375,8 +375,14 @@ final class PaneView: NSView {
     var findBar: FindCard?
 
     // MARK: drops: files/images/text into the agent's prompt
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+    private lazy var dropHint = DropHint()   // where a drag will land, as on an editor pane; made at the first drag
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        dropHint.show(over: self)
+        return .copy
+    }
+    override func draggingExited(_ sender: NSDraggingInfo?) { dropHint.hide() }
+    override func draggingEnded(_ sender: NSDraggingInfo) { dropHint.hide() }
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
         var paths = (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.map { TerminalPaths.onHost($0.path) } ?? []

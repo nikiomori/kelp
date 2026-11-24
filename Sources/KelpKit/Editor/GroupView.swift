@@ -126,7 +126,7 @@ final class GroupView: NSView {
         return nearest == fy ? .minY : .maxY
     }
     private func showHint(_ edge: NSRectEdge?) {
-        var hintFrame = container.frame.insetBy(dx: 6, dy: 6)
+        var hintFrame = DropHint.across(container.frame)
         if let edge { hintFrame = hintFrame.share(1 / 2, from: edge) }
         hint.show(hintFrame)
     }
@@ -181,11 +181,14 @@ extension NSRect {
     }
 }
 
-/// Where a dropped tab will go (in a pane and at the editor area's outer edges): accent fill, accent border. It fades in
+/// Where a dropped tab will go (in a pane and at the editor area's outer edges), or a file in an agent's pane: accent
+/// fill, accent border. It fades in
 /// where it's needed, glides from half to whole as the drop's insertion mark does, and fades out in two thirds of that.
 @MainActor
-final class DropHint: NSView {
+package final class DropHint: NSView {
     private var leaving = false
+    /// Where a drop on a whole pane shows: the pane, a little in from its edges.
+    static func across(_ pane: NSRect) -> NSRect { pane.insetBy(dx: 6, dy: 6) }
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -194,6 +197,12 @@ final class DropHint: NSView {
         layer?.cornerRadius = Metrics.radiusSM
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Shows across the whole of `pane`, over everything in it: a file dragged over an agent's terminal.
+    package func show(over pane: NSView) {
+        if pane.subviews.last !== self { pane.addSubview(self) }
+        show(Self.across(pane.bounds))
+    }
 
     func show(_ place: NSRect) {
         leaving = false
@@ -214,7 +223,7 @@ final class DropHint: NSView {
         fadeIn()
     }
 
-    func hide() {
+    package func hide() {
         guard !isHidden, !leaving else { return }
         leaving = true
         NSAnimationContext.runAnimationGroup(
