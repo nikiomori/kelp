@@ -266,7 +266,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         track(owner: self) { [app] in
             Values(
-                app.gitState.stats, app.settings[SettingKeys.gitBadges],
+                app.gitState.stats, app.gitFolders.sorted().map { app.gitState.branch($0) },
+                app.settings[SettingKeys.gitBadges],
                 [SettingKeys.rowHeight, SettingKeys.agentDetail, SettingKeys.agentIcons].map { app.settings[$0] })
         } changed: { [weak self] _ in
             self?.updateVisibleCells()

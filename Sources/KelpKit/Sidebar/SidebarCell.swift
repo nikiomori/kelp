@@ -164,7 +164,11 @@ final class SidebarCell: NSTableCellView {
             slot.wantsLayer = true
             glow.frame = CGRect(x: 0, y: 0, width: 16, height: 16)
             slot.layer?.insertSublayer(glow, at: 0)
-            layout(row: [slot, title, muted, stack, changes, pr, ci, locate, button])
+            detail.font = .ui(TextSize.caption)
+            detail.textColor = .secondaryLabelColor
+            detail.lineBreakMode = .byTruncatingMiddle
+            detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate, button])
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
@@ -183,7 +187,8 @@ final class SidebarCell: NSTableCellView {
             fillSlot(lead())
             action.image = .symbol("xmark", String(localized: "Close Chat"))
             action.toolTip = String(localized: "Close Chat")
-            layout(row: [slot, title, muted, glyph, chip, family, markButton, trailing])
+            // A chat on its own branch shows that branch's marks, as a screen on a branch does.
+            layout(row: [slot, title, muted, glyph, chip, family, markButton, stack, changes, pr, ci, trailing])
             addAsk()
         case .host, .parked: break   // these are a server's header (ServerCards) and a ParkedHeader
         }
@@ -291,6 +296,11 @@ final class SidebarCell: NSTableCellView {
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,
             // its row sums them up.
             locate.isHidden = !missing
+            // Its folder's branch, in grey, while that isn't the project's base: an agent may have checked another out
+            // in the project's own folder. With a row for the project's own screen, that row says it.
+            let current = folder.flatMap { app.gitState.branch($0.id) }
+            detail.stringValue = current.flatMap { $0 == repo?.baseBranch ? nil : $0 } ?? ""
+            detail.isHidden = detail.stringValue.isEmpty
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // on a fold, not a status change
             // Folded, a project with one screen holds its chats as logos; one with more leaves them to its screens.
