@@ -19,29 +19,42 @@ enum DatabaseWire {
     }()
 
     /// TLS settings for the database's sslmode, as libpq reads it. verify-ca checks that the server's certificate comes
-    /// from a root the Mac trusts (or ~/.postgresql/root.crt, where psql looks for one), and verify-full checks the
-    /// name in it too, so it needs a name rather than an address. Any other mode takes whatever certificate the server
-    /// shows, as psql's prefer and require do.
-    static func tls(_ db: DatabaseInfo) throws -> TLSConfiguration {
+    /// from the root in `root` (~/.postgresql/root.crt, where psql looks for one) and from no other, as psql does, so
+    /// it fails without that file; MySQL's VERIFY_CA reads the same file. verify-full checks the name in the
+    /// certificate too, so it needs a name rather than an address, and also trusts the roots this Mac trusts. The name
+    /// is `name` when the server is reached through a forwarded port (`DatabaseConnection.serverName`). Any other
+    /// mode takes whatever certificate the server shows, as psql's prefer and require do.
+    static func tls(_ db: DatabaseInfo, name: String? = nil, root: String = rootCertificate) throws
+        -> TLSConfiguration
+    {
         var config = TLSConfiguration.makeClientConfiguration()
         switch db.ssl {
         case "verify-full":
-            guard let host = db.host, !isAddress(host) else {
+            let host = name ?? db.host
+            guard let host, !isAddress(host) else {
                 throw DatabaseFailure.failed(
-                    "sslmode=verify-full checks the server's name in its certificate, and \(db.host ?? db.name) is an "
+                    "sslmode=verify-full checks the server's name in its certificate, and \(host ?? db.name) is an "
                         + "address: use the server's name, or verify-ca.")
             }
             config.certificateVerification = .fullVerification
-        case "verify-ca": config.certificateVerification = .noHostnameVerification
+            if db.engine == .postgres, FileManager.default.fileExists(atPath: root) {
+                config.additionalTrustRoots = [.file(root)]
+            }
+        case "verify-ca":
+            guard FileManager.default.fileExists(atPath: root) else {
+                throw DatabaseFailure.failed(
+                    "sslmode=verify-ca trusts only the root certificate in \(root), and there is none: put the "
+                        + "server's CA certificate there, or use verify-full.")
+            }
+            config.certificateVerification = .noHostnameVerification
+            config.trustRoots = .file(root)
         default: config.certificateVerification = .none
-        }
-        let root = NSHomeDirectory() + "/.postgresql/root.crt"
-        if db.engine == .postgres, config.certificateVerification != .none, FileManager.default.fileExists(atPath: root)
-        {
-            config.additionalTrustRoots = [.file(root)]
         }
         return config
     }
+
+    /// Where psql looks for the root certificate that verify-ca and verify-full trust.
+    static var rootCertificate: String { NSHomeDirectory() + "/.postgresql/root.crt" }
 
     /// Whether the database's sslmode refuses a connection without TLS.
     static func requiresTLS(_ db: DatabaseInfo) -> Bool { ["require", "verify-ca", "verify-full"].contains(db.ssl) }
@@ -58,8 +71,10 @@ enum DatabaseWire {
         let failed = ["CERTIFICATE_VERIFY_FAILED", "failedToValidateHostname", "unableToValidateCertificate"]
         guard failed.contains(where: said.contains) else { return nil }
         return .failed(
-            "\(db.name)'s certificate didn't pass the check sslmode=\(db.ssl ?? "verify-ca") asks for: it isn't from a "
-                + "root this Mac trusts\(db.ssl == "verify-full" ? ", or isn't for \(db.host ?? "this name")" : "").")
+            "\(db.name)'s certificate didn't pass the check sslmode=\(db.ssl ?? "verify-ca") asks for: "
+                + (db.ssl == "verify-full"
+                    ? "it isn't from a root this Mac trusts, or isn't for \(db.host ?? "this name")."
+                    : "it isn't from the root in \(rootCertificate)."))
     }
 
     static var eventLoop: any EventLoop { MultiThreadedEventLoopGroup.singleton.any() }

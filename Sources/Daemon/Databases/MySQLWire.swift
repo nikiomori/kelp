@@ -190,8 +190,10 @@ struct MySQLWire: DatabaseRunner {
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
         let connecting = MySQLConnection.connect(
             to: socket, username: db.user ?? "root", database: db.database ?? "", password: databaseConnection.password,
-            tlsConfiguration: db.ssl == "disable" ? nil : try DatabaseWire.tls(db),
-            serverHostname: db.ssl == "verify-full" ? host : nil, logger: DatabaseWire.logger,
+            tlsConfiguration: db.ssl == "disable"
+                ? nil : try DatabaseWire.tls(db, name: databaseConnection.serverName),
+            serverHostname: db.ssl == "verify-full" ? databaseConnection.serverName ?? host : nil,
+            logger: DatabaseWire.logger,
             on: DatabaseWire.eventLoop
         )
         // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps

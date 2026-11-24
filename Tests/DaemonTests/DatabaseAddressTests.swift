@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GRDB
 import NIOSSL
+import TestSupport
 import Testing
 
 @testable import Daemon
@@ -122,23 +123,52 @@ import Testing
     #expect(found.last?.database.host == "localhost" && found.last?.database.database == "local")
 }
 
-/// An address's sslmode is kept as it asks: verify-ca checks the server's certificate, verify-full its name too, which
-/// an IP address can't be checked against (refused, not checked less); require and prefer take any certificate.
+/// An address's sslmode is kept as it asks: verify-ca checks the server's certificate against root.crt alone (none
+/// there: refused, not checked against the Mac's roots), verify-full its name too, which an IP address can't be
+/// checked against (refused, not checked less); require and prefer take any certificate.
 @Test func verifyModesCheckTheServersCertificate() throws {
     let modes: [(String, String?)] = [
         ("require", "require"), ("verify-ca", "verify-ca"), ("VERIFY_CA", "verify-ca"), ("verify-full", "verify-full"),
         ("VERIFY_IDENTITY", "verify-full"), ("prefer", nil), ("disable", "disable")
     ]
     for (mode, kept) in modes { #expect(DatabaseAddress.ssl(mode) == kept, "\(mode)") }
-    func checks(_ ssl: String?, _ host: String = "db.example.com") throws -> CertificateVerification {
-        var db = DatabaseInfo(name: "app", engine: .postgres, host: host, port: 5432)
+    let root = tmp().appendingPathComponent("root-\(UUID().uuidString).crt").path
+    try "".write(toFile: root, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(atPath: root) }
+    func tls(
+        _ ssl: String?, _ host: String = "db.example.com", _ engine: DatabaseInfo.Engine = .postgres,
+        root: String = root
+    ) throws -> TLSConfiguration {
+        var db = DatabaseInfo(name: "app", engine: engine, host: host, port: 5432)
         db.ssl = ssl
-        return try DatabaseWire.tls(db).certificateVerification
+        return try DatabaseWire.tls(db, root: root)
+    }
+    func checks(_ ssl: String?, _ host: String = "db.example.com") throws -> CertificateVerification {
+        try tls(ssl, host).certificateVerification
     }
     #expect(try checks("verify-full") == .fullVerification)
+    #expect(try tls("verify-full").trustRoots == .default)   // the Mac's roots, root.crt besides
     #expect(try checks("verify-ca", "10.0.0.5") == .noHostnameVerification)
+    for engine in [DatabaseInfo.Engine.postgres, .mysql] {
+        #expect(try tls("verify-ca", "db.example.com", engine).trustRoots == .file(root), "\(engine)")
+        #expect(throws: DatabaseFailure.self) { try tls("verify-ca", "db.example.com", engine, root: root + ".none") }
+    }
     #expect(try checks("require") == .none)
     #expect(try checks(nil) == .none)
     #expect(throws: DatabaseFailure.self) { try checks("verify-full", "10.0.0.5") }
     #expect(DatabaseWire.requiresTLS(DatabaseInfo(name: "a", engine: .mysql, ssl: "verify-ca")))
+}
+
+/// A server reached through a forwarded port (behind an SSH host, a remote project's) is at localhost here, and its
+/// certificate is still checked against its own name.
+@Test func aForwardedServersCertificateIsCheckedAgainstItsOwnName() throws {
+    var db = DatabaseInfo(name: "app", engine: .postgres, host: "db.internal.example", port: 5432)
+    db.ssl = "verify-full"
+    let near = Databases.forwarded(DatabaseConnection(database: db), to: 61_000)
+    #expect(near.database.host == "localhost" && near.database.port == 61_000)
+    #expect(try PostgresWire.configuration(near).options.tlsServerName == "db.internal.example")
+    db.host = "10.0.0.5"   // an address can't be checked by name, forwarded or not
+    #expect(throws: DatabaseFailure.self) {
+        try PostgresWire.configuration(Databases.forwarded(.init(database: db), to: 1))
+    }
 }

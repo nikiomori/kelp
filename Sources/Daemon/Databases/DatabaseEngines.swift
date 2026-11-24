@@ -15,6 +15,8 @@ struct DatabaseConnection: Sendable {
     /// Where Kelp got the database from: a project's files, the project's databases added by hand, or All my projects
     /// (the user's own databases, reached from this Mac whichever project uses them).
     var origin: Origin = .found
+    /// The server's own name when `database.host` is a forwarded port's (`Databases.reach`): TLS checks it.
+    var serverName: String?
 
     enum Origin: Sendable { case found, project, library }
 }

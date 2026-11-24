@@ -131,20 +131,7 @@ struct PostgresWire: DatabaseRunner {
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
     ) async throws -> T {
-        let db = databaseConnection.database
-        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
-        let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
-        let password =
-            databaseConnection.password
-            ?? (PgPass.mayUse(for: db, host: host)
-                ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
-        let context = try NIOSSLContext(configuration: DatabaseWire.tls(db))
-        var config = PostgresConnection.Configuration(
-            host: host, port: port, username: user, password: password, database: db.database,
-            tls: db.ssl == "disable" ? .disable : DatabaseWire.requiresTLS(db) ? .require(context) : .prefer(context))
-        config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
-        // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
-        config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
+        let db = databaseConnection.database, config = try configuration(databaseConnection)
         let conn: PostgresConnection
         do {
             conn = try await PostgresConnection.connect(
@@ -161,6 +148,27 @@ struct PostgresWire: DatabaseRunner {
             await DatabaseWire.close { try await conn.close() }   // a transaction left open ends with the connection
             throw failure(error, db)
         }
+    }
+
+    /// The connection's settings: TLS as the sslmode says, checked against the server's own name when it is reached
+    /// through a forwarded port.
+    static func configuration(_ databaseConnection: DatabaseConnection) throws -> PostgresConnection.Configuration {
+        let db = databaseConnection.database
+        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
+        let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
+        let password =
+            databaseConnection.password
+            ?? (PgPass.mayUse(for: db, host: host)
+                ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
+        let context = try NIOSSLContext(configuration: DatabaseWire.tls(db, name: databaseConnection.serverName))
+        var config = PostgresConnection.Configuration(
+            host: host, port: port, username: user, password: password, database: db.database,
+            tls: db.ssl == "disable" ? .disable : DatabaseWire.requiresTLS(db) ? .require(context) : .prefer(context))
+        config.options.tlsServerName = databaseConnection.serverName
+        config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
+        // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
+        config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
+        return config
     }
 
     private static func run(_ conn: PostgresConnection, _ sql: String) async throws {

@@ -175,9 +175,15 @@ final class Databases: Sendable {
         let project = borrowed.origin == .library ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
         guard let remote = through ?? project else { return borrowed }
         let here = try processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
-        var near = borrowed
+        return Self.forwarded(borrowed, to: here)
+    }
+
+    /// The database as reached at a forwarded port on this Mac, its certificate still checked against its own name.
+    static func forwarded(_ databaseConnection: DatabaseConnection, to port: Int) -> DatabaseConnection {
+        var near = databaseConnection
+        near.serverName = databaseConnection.serverName ?? databaseConnection.database.host
         near.database.host = "localhost"
-        near.database.port = here
+        near.database.port = port
         return near
     }
 
