@@ -160,13 +160,14 @@ final class MotionExportPopover: NSObject {
 /// Writes frames given one at a time as a GIF that loops, each shown for one frame of `fps`.
 final class MotionGIF {
     private let file: CGImageDestination
-    private let delay: Double
+    private let fps: Double
+    private var added = 0
 
     init(_ url: URL, frames: Int, fps: Double, once: Bool = false) throws {
         guard let made = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, frames, nil)
         else { throw CocoaError(.fileWriteUnknown) }
         file = made
-        delay = 1 / fps
+        self.fps = fps
         // Again and again is a loop count of 0; once is no loop count at all.
         if !once {
             let loops = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]]
@@ -175,6 +176,11 @@ final class MotionGIF {
     }
 
     func add(_ image: CGImage) {
+        // A GIF's delays are whole hundredths of a second: each frame ends at its own time rounded, so 30 fps is
+        // 3, 3, 4… and the whole lasts as long as asked.
+        added += 1
+        let end = { (n: Int) in (Double(n) * 100 / self.fps).rounded() }
+        let delay = (end(added) - end(added - 1)) / 100
         let frame = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay]]
         CGImageDestinationAddImage(file, image, frame as CFDictionary)
     }

@@ -88,6 +88,28 @@ import Testing
     #expect(!off.ok && off.problems.count == 2)
 }
 
+/// A video's frames fall before its end (a scene ending there is gone at that second), and a GIF at 30 a second
+/// lasts as long as asked though its delays are whole hundredths.
+@Test func aVideosFramesLastAsLongAsAsked() async throws {
+    #expect(MarkdownTab.frameTimes(5, fps: 30).count == 150 && MarkdownTab.frameTimes(5, fps: 30).last! < 5)
+    #expect(MarkdownTab.frameTimes(0.3, fps: 10).count == 3)
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-gif30-\(UUID().uuidString).gif")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let gif = try MotionGIF(url, frames: 30, fps: 30)
+    let context = try #require(
+        CGContext(
+            data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    for i in 0..<30 {   // each its own colour, or ImageIO makes one long frame of them
+        context.setFillColor(CGColor(red: CGFloat(i % 5) / 4, green: CGFloat(i / 5) / 5, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        gif.add(try #require(context.makeImage()))
+    }
+    try gif.finish()
+    let made = await MotionVerify.check(url, .init(width: 2, height: 2, fps: 30, duration: 1), warnings: [])
+    #expect(made.ok && abs(made.duration - 1) < 0.001, "\(made.duration) \(made.problems)")
+}
+
 /// Build in Code guesses a web project's stack from its package.json, the most particular first.
 @MainActor
 @Test(arguments: [

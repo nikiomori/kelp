@@ -188,6 +188,12 @@ extension MarkdownTab {
         )
     }
 
+    /// Where each frame of a video `length` seconds long falls at `fps`, from 0: the last before the end, since a
+    /// scene ending there is gone at that very second.
+    nonisolated static func frameTimes(_ length: Double, fps: Double) -> [Double] {
+        (0..<Int((length * fps - 1e-9).rounded(.up))).map { Double($0) / fps }
+    }
+
     static func seconds(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
 
     /// The page's file name, as hand edits name it.
@@ -248,19 +254,20 @@ extension MarkdownTab {
             let warnings =
                 try await web.evaluateJavaScript("window.kelpMotion.preflight()", contentWorld: Self.world)
                 as? [String] ?? []
-            let fps = options.rate, frames = Int(((span.upperBound - span.lowerBound) * fps).rounded(.up))
+            // A GIF holds whole hundredths: 60 a second would need 1.67, which players show as a tenth.
+            let fps = options.format == .gif ? min(options.rate, 50) : options.rate
+            let times = Self.frameTimes(span.upperBound - span.lowerBound, fps: fps), frames = times.count
             let (w, h) = (Int(stage[4] * options.scale), Int(stage[5] * options.scale))
             let movie = options.format == .gif ? nil : try MotionMovie(to, width: w, height: h, options: options)
-            let gif = options.format == .gif ? try MotionGIF(to, frames: frames + 1, fps: fps, once: options.once) : nil
+            let gif = options.format == .gif ? try MotionGIF(to, frames: frames, fps: fps, once: options.once) : nil
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(x: stage[0], y: stage[1], width: stage[2], height: stage[3])
             // The picture is the size asked for in pixels, however small the pane shows the stage.
             config.snapshotWidth = NSNumber(value: Double(w) / Double(view.window?.backingScaleFactor ?? 2))
-            for frame in 0...frames {
+            for (frame, at) in times.enumerated() {
                 try Task.checkCancellation()
                 motionStudio.exporting(frame, of: frames)
                 item.progress = Double(frame) / Double(max(frames, 1))
-                let at = Double(frame) / fps
                 // The first frame is the cover's, when one is chosen.
                 let shown = frame == 0 ? options.cover ?? span.lowerBound : span.lowerBound + at
                 _ = try await web.callAsyncJavaScript(
@@ -270,7 +277,7 @@ extension MarkdownTab {
                 try await movie?.add(picture, at: at)
                 gif?.add(picture)
             }
-            try await movie?.finish(at: Double(frames + 1) / fps)
+            try await movie?.finish(at: Double(frames) / fps)
             try gif?.finish()
             // The page's sounds, mixed in after the frames (a GIF has none).
             let sounds =
@@ -287,7 +294,7 @@ extension MarkdownTab {
             runJS("window.kelpMotion?.done()")
             motionStudio.exporting(nil, of: frames)
             let verdict = await MotionVerify.check(
-                to, .init(width: w, height: h, fps: fps, duration: Double(frames + 1) / fps, sound: !sounds.isEmpty),
+                to, .init(width: w, height: h, fps: fps, duration: Double(frames) / fps, sound: !sounds.isEmpty),
                 warnings: warnings)
             item.verdict = verdict
             item.progress = nil
