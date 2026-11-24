@@ -144,9 +144,15 @@ extension MarkdownTab {
     /// The element dragged on the stage while its animation runs: its place at the time shown, in that keyframe
     /// (made if there is none).
     func keyframeTranslate(_ id: String, _ translate: String) {
-        guard let keys = motionStudio.tracks.first(where: { $0.id == id })?.keys else { return }
+        guard let keys = motionStudio.tracks.first(where: { $0.id == id })?.keys else {
+            return Banner.show(
+                String(localized: "“\(id)” moves by an animation that never ends: change it in its code."))
+        }
         let place = (keys.place(motionStudio.at) * 10).rounded() / 10
-        guard (0...100).contains(place) else { return NSSound.beep() }
+        guard (0...100).contains(place) else {
+            return Banner.show(
+                String(localized: "“\(id)” moves only while its animation runs: put the playhead there."))
+        }
         changeFrames(id, keys.name, "moved at \(CSSKeyframes.percent(place))") { frames in
             var out = frames
             if let i = out.firstIndex(where: { abs($0.at - place) < 0.6 }) {

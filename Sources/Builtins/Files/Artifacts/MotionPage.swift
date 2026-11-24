@@ -103,10 +103,12 @@ enum MotionPage {
                 lengths: [], hidden: e.dataset.hidden === 'true', e };
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
               track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
-              // Its first animation's keyframes, where they are and how the stretch after each eases.
-              if (!track.keys && a.animationName) {
-                const frames = a.effect.getKeyframes();
-                track.keys = { name: a.animationName, delay: start, duration: (timing.duration || 0) / 1000,
+              // The keyframes a drag on the stage writes into: its animation that moves it (translate), else its first;
+              // where they are and how the stretch after each eases.
+              const frames = a.animationName ? a.effect.getKeyframes() : [];
+              const moves = frames.some(k => 'translate' in k);
+              if (a.animationName && (!track.keys || (moves && !track.keys.moves))) {
+                track.keys = { name: a.animationName, delay: start, duration: (timing.duration || 0) / 1000, moves,
                   at: frames.map(k => Math.round(k.computedOffset * 1000) / 10), easing: frames.map(k => k.easing) };
               }
               by.set(e, track);
