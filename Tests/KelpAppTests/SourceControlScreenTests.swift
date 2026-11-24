@@ -61,6 +61,11 @@ extension AppOfItsOwn {
         }
         #expect(urls.map(\.lastPathComponent).sorted() == ["kept.txt", "staged.txt"], "\(urls)")
         #expect(urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        // Outside Kelp (Finder, another app), both lists offer a copy: Source Control never moves a file.
+        let outside = [outline, vc.graphOutline].map {
+            $0.draggingSession(NSDraggingSession(), sourceOperationMaskFor: .outsideApplication)
+        }
+        #expect(outside == [.copy, .copy])
     }
 
     /// Each workspace has its own commit message and its own running action: a switch leaves them where they were, and what
