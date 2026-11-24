@@ -27,7 +27,8 @@ enum CanvasAccess {
               const b = K.el('button', 'kelp-pill', title); b.onclick = act; fix.append(b);
             };
             if (kind.startsWith('picture')) {
-              button(L.describe, () => { window.kelpEdit?.(true); window.kelpSelect?.(board, id); });
+              // Edit through the tab, so its bar and the column agree; the picture is chosen for when Edit is on.
+              button(L.describe, () => { K.post({ kind: 'mode', value: 'edit' }); window.kelpSelect?.(board, id); });
               button(L.decoration, () => {
                 e.setAttribute('alt', '');
                 K.post({ kind: 'attribute', board, id, name: 'alt', value: '' });

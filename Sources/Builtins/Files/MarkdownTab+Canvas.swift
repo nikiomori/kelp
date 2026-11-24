@@ -116,8 +116,9 @@ extension MarkdownTab {
             onPresentEnded?()
             Presenter.close(for: self)
         case "mode":
-            setCanvasMode(.mark)
-            onPageMode?(.mark)
+            let mode: CanvasMode = body["value"] as? String == "edit" ? .edit : .mark
+            setCanvasMode(mode)
+            onPageMode?(mode)
         case "changes": onChanges?((body["count"] as? NSNumber)?.intValue ?? 0)
         case "update":
             if refreshSources() { return true }
