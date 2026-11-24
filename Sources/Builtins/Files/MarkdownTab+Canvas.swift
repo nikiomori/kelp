@@ -162,8 +162,7 @@ extension MarkdownTab {
             of: String(localized: "of"), escEnds: String(localized: "esc to end"),
             element: String(localized: "Element"),
             area: String(localized: "Area"), pen: String(localized: "Pen"), arrow: String(localized: "Arrow"),
-            label: String(localized: "Label"), undo: String(localized: "Take Back the Last Drawn"),
-            redo: String(localized: "Put It Back"), whole: String(localized: "The Whole Video"),
+            label: String(localized: "Label"), whole: String(localized: "The Whole Video"),
             wholePage: String(localized: "The Whole Page"))
     }
 

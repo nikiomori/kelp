@@ -13,7 +13,7 @@ enum CanvasEdit {
     struct Labels: Encodable {
         var pick: String, tweaks: String, check: String, askFix: String, noMarks: String, noIssues: String
         var of: String, escEnds: String, element: String, area: String, pen: String
-        var arrow: String, label: String, undo: String, redo: String, whole: String, wholePage: String
+        var arrow: String, label: String, whole: String, wholePage: String
     }
 
     /// `before` holds each board as a mark to check was sent with, by `board@version@theme`, for Before.
@@ -149,7 +149,8 @@ enum CanvasEdit {
           };
           const draw = () => K?.draw();
           // Mark's tools: an element (a click), an area, a stroke or an arrow (a drag), a label (a click, then its
-          // words; a double click changes them), each on one board. ↶ ↷ take the last drawn away and put it back.
+          // words; a double click changes them), each on one board. In Mark, ⌘Z and ⇧⌘Z take the last drawn away and
+          // put it back.
           // They sit at the bottom: the top's right holds the views (languages, themes), and both don't fit across.
           let tool = 'element', drag = null, undone = [];
           const tools = el('div', 'kelp-float kelp-tools');
@@ -160,10 +161,7 @@ enum CanvasEdit {
           const drawTools = () => {
             const kinds = [['element', L.element], ['area', L.area], ['pen', L.pen], ['arrow', L.arrow],
               ['label', L.label]];
-            const back = el('button', 'kelp-ib', '↶'), again = el('button', 'kelp-ib', '↷');
-            back.title = L.undo; again.title = L.redo;
-            back.onclick = () => step(true); again.onclick = () => step(false);
-            tools.replaceChildren(C.tabs(kinds, tool, k => { tool = k; drawTools(); }), back, again);
+            tools.replaceChildren(C.tabs(kinds, tool, k => { tool = k; drawTools(); }));
           };
           drawTools();
           document.body.append(tools);
@@ -355,11 +353,13 @@ enum CanvasEdit {
               panel.append(line);
             }
           }
-          // ⌘Z and ⇧⌘Z take back what was changed by hand on the boards; a field being typed in keeps its own.
+          // ⌘Z and ⇧⌘Z take back what was changed by hand on the boards, or in Mark the marks drawn; a field being
+          // typed in keeps its own.
           addEventListener('keydown', e => {
             const t = e.target, typing = t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName);
             if (!e.metaKey || e.key.toLowerCase() !== 'z' || typing) return;
-            e.preventDefault(); post({ kind: 'undo', redo: e.shiftKey });
+            e.preventDefault();
+            if (mode === 'mark') step(!e.shiftKey); else post({ kind: 'undo', redo: e.shiftKey });
           });
           addEventListener('resize', draw);
           new ResizeObserver(() => requestAnimationFrame(draw)).observe(document.body);
