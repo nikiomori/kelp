@@ -49,7 +49,9 @@ extension Artifacts {
                @media for it, keeping the wide layout.
             4. A flow of screens links them: `<a href="#board:choose">` or `data-link="choose"` on a button (a board's
                name is its file's); Present clicks through, `kelp artifact links <name>` lists the dead ends.
-            5. Answer in two lines: what is on the canvas, what you assumed. `Picked “A. …”` means: build that row
+            5. A chart keeps its numbers in a <table> inside its `data-chart` element (hidden if need be): the user
+               changes them there, and asks you to draw it again.
+            6. Answer in two lines: what is on the canvas, what you assumed. `Picked “A. …”` means: build that row
                out, drop the others from canvas.json.
             \(Artifacts.marksRule)
 

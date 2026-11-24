@@ -33689,6 +33689,36 @@
           }
         }
       }
+    },
+    "The Chart’s Numbers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Числа графика"
+          }
+        }
+      }
+    },
+    "Type over a number or a name. The agent draws the chart again from them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправьте число или название. Агент перерисует график по ним."
+          }
+        }
+      }
+    },
+    "Its numbers were changed by hand in its table: draw it again from them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Числа в его таблице изменены вручную: перерисуй график по ним."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

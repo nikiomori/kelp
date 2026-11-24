@@ -264,3 +264,16 @@ private let board = """
     #expect(abs(lufs - -23.01) < 0.1, "\(lufs)")
     #expect(Loudness.integrated([Float](repeating: 0, count: 48000), rate: rate) == nil)
 }
+
+/// A chart's table is read as rows of text and written back with the numbers changed, the rest of the chart as it was.
+@Test func aChartsNumbersAreReadAndWritten() throws {
+    let page = """
+        <figure data-id="rev" data-chart><svg></svg><table class="sr-only"><tr><th>Month</th><th>Revenue</th></tr>
+        <tr><td>Jan</td><td>80</td></tr><tr><td>Feb</td><td>1 &amp; 2</td></tr></table></figure>
+        """
+    #expect(ChartData.read(page, id: "rev") == [["Month", "Revenue"], ["Jan", "80"], ["Feb", "1 & 2"]])
+    let changed = try #require(ChartData.write(page, id: "rev", rows: [["Month", "Revenue"], ["Jan", "160"]]))
+    #expect(changed.contains(#"<svg></svg><table class="sr-only"><tr><th>Month</th>"#))
+    #expect(ChartData.read(changed, id: "rev") == [["Month", "Revenue"], ["Jan", "160"]])
+    #expect(ChartData.read("<div data-id=\"x\"></div>", id: "x") == nil)
+}

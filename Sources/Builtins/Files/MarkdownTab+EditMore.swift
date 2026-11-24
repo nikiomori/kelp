@@ -24,7 +24,9 @@ extension MarkdownTab {
             "mark": String(localized: "Mark It"), "asDrawn": String(localized: "As Drawn"),
             "drag": String(localized: "Drag to see it at any width"), "flow": String(localized: "Flow"),
             "goesTo": String(localized: "Goes To"), "nowhere": String(localized: "Nowhere"),
-            "toAgent": String(localized: "To the Agent"), "asIs": String(localized: "As Is"),
+            "toAgent": String(localized: "To the Agent"),
+            "redraw": String(localized: "Its numbers were changed by hand in its table: draw it again from them."),
+            "asIs": String(localized: "As Is"),
             "longer": String(localized: "+40%"), "rtl": String(localized: "RTL"),
             "longerTip": String(localized: "Text 40% longer, as in German or Finnish"),
             "rtlTip": String(localized: "Right to left, as in Arabic or Hebrew"),
@@ -40,6 +42,10 @@ extension MarkdownTab {
         }
         if kind == "objectAt" {
             objectMessage(body)
+            return true
+        }
+        if kind == "chartData" {
+            chartMessage(body)
             return true
         }
         guard kind == "attribute" else { return false }

@@ -59,6 +59,7 @@ import Testing
     #expect(context.evaluateScript("typeof window.kelpIssueFix")?.toString() == "function")
     #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 4)
     #expect(context.evaluateScript("window.kelpCheckMore.length")?.toInt32() == 2)
+    #expect(context.evaluateScript("typeof window.kelpChartChanged")?.toString() == "function")
 }
 
 /// A page started from a file, or made from another page, is a fixed request to the agent: what to make, from what,
