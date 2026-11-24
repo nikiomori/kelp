@@ -86,7 +86,10 @@ extension Databases {
             guard ["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb(sql)),
                 SQLText.mayTryAsRead(sql, databaseConnection.database.engine)
             else { return true }
-            do { _ = try await DatabaseEngines.read(databaseConnection, sql, off: offloads) } catch { return true }
+            do { _ = try await DatabaseEngines.read(databaseConnection, sql, off: offloads) } catch {
+                Log.session.info("db batch in \(databaseConnection.database.name) kept with the turn: \(error)")
+                return true
+            }
         }
         return false
     }

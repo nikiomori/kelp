@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Daemon
@@ -100,7 +101,7 @@ import Testing
 
 /// A file whose aliases nest ten to a level ("billion laughs", from a cloned repo) is read as it is, rather than
 /// written out to 10⁸ lines in kelpd's memory; its database is still found.
-@Test(.timeLimit(.minutes(1))) func nestedAliasesArentWrittenOutPastALimit() {
+@Test(.timeLimit(minutes: 1)) func nestedAliasesArentWrittenOutPastALimit() {
     let levels = "abcdefghi".map(String.init)
     var text = "a: &a\n" + (0..<10).map { "  x\($0): lol" }.joined(separator: "\n") + "\n"
     for (inner, outer) in zip(levels, levels.dropFirst()) {

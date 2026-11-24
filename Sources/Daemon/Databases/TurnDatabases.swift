@@ -74,7 +74,11 @@ final class TurnDatabases: Sendable {
     /// dropped as the branch's copy goes: once it is gone, nothing says which server they are on. Undoing such a turn
     /// says why it can't put that database back.
     func takeTemplates(of name: String, in worktreeId: String) -> [String] {
-        let keys = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        guard FileManager.default.fileExists(atPath: dir.path) else { return [] }
+        let keys =
+            Log.store.attempt("listing the turns' databases") {
+                try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            } ?? []
         var taken: [String] = []
         for key in keys where kept(key).contains(where: { $0.name == name && $0.worktreeId == worktreeId }) {
             Log.store.attempt("forgetting \(name)'s copies kept for \(key)") {
