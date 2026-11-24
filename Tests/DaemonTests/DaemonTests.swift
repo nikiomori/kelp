@@ -20,7 +20,20 @@ let localSSH: String = {
     try? """
     #!/bin/sh
     eval "h=\\${$#}"; case "$*" in *"-O check"*) [ -e "$(dirname "$0")/down-$h" ] && exit 255;; esac   # no connection to $h
-    while [ $# -gt 1 ]; do case "$1" in -o) shift 2;; -T|-tt|--) shift;; -O) printf '%s\\n' "$*" >> "$(dirname "$0")/ssh.log"; exit 0;; *) h=$1; shift; break;; esac; done
+    if [ "$1" = -G ]; then   # ssh's expanded socket path; an offline host's socket is missing
+        socket=$0
+        [ ! -e "$(dirname "$0")/down-$h" ] || socket="$0.offline"
+        printf 'controlpath %s\\n' "$socket"
+        exit 0
+    fi
+    while [ $# -gt 1 ]; do
+        case "$1" in
+            -o|-S) shift 2;;
+            -T|-tt|--) shift;;
+            -O) printf '%s\\n' "$*" >> "$(dirname "$0")/ssh.log"; exit 0;;
+            *) h=$1; shift; break;;
+        esac
+    done
     [ -e "$(dirname "$0")/unreachable-$h" ] && { echo "ssh: Could not resolve hostname $h" >&2; exit 255; }
     printf '%s\\n' "$1" >> "$(dirname "$0")/ssh.log"
     case "$1" in *cut-short*) head -c 3 | exec /bin/sh -c "$1";; esac   # a connection dropped part way through

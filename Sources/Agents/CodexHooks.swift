@@ -33,13 +33,13 @@ public enum CodexHooks {
     /// Code's hooks do there (`Hooks.hostReport`), and Kelp reads that as the program's own report. There are fewer of
     /// them, because a state is all that a host's hook can tell.
     public static let hostEvents: [Event] = [
-        ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working"), nil),
+        ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working", conv: true), nil),
         ("PostToolUse", "post_tool_use", Hooks.hostReport("state=working"), nil),
         (
             "PermissionRequest", "permission_request", Hooks.hostReport("state=blocked:kind=permission", payload: true),
             nil
         ),
-        ("Stop", "stop", Hooks.hostReport("state=done"), nil)
+        ("Stop", "stop", Hooks.hostReport("state=done", conv: true), nil)
     ]
 
     /// Codex's name for a hook given on the command line (`<session-flags>`, first group, first handler).

@@ -122,7 +122,15 @@ public enum CodexHistory {
     /// Returns the agent's last message at the end of the latest turn in `rollout`. Returns nil before any turn has
     /// ended, or when the turn ended with nothing to say.
     public static func lastReply(rollout url: URL) -> String? {
-        for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
+        lastReply(lines: JSONL.headAndTail(url)?.lines ?? [])
+    }
+
+    public static func lastReply(tail data: Data) -> String? {
+        lastReply(lines: JSONL.lines(data))
+    }
+
+    private static func lastReply(lines: [Data]) -> String? {
+        for line in lines.reversed() {
             guard let payload = JSONL.object(line)?["payload"] as? [String: Any],
                 payload["type"] as? String == "task_complete"
             else { continue }

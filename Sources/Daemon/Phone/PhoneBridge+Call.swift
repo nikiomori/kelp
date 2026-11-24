@@ -147,11 +147,7 @@ extension PhoneBridge {
                 return Reply(status: 204)
             default:
                 var agent = agent(session)
-                // Limit: only the last 200,000 characters of a longer reply go out, because the relay passes a
-                // megabyte at most.
-                let reply = try await call(SessionLastReply(id: id)).map { String($0.suffix(200_000)) }
-                agent["lastReply"] = reply.map(JSONValue.string) ?? .null
-                if let turns = await turns(of: session) { agent["turns"] = .array(turns) }
+                agent.merge(await conversationFields(of: session)) { _, value in value }
                 return Reply(status: 200, body: .object(agent))
             }
         } catch {

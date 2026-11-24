@@ -130,19 +130,20 @@ extension PhoneBridge {
         }
     }
 
-    /// Returns the last turns of a Claude Code or Codex conversation. It returns nil for other agents, or before there
-    /// is a conversation, and the page then shows only the last reply.
-    func turns(of session: Session) async -> [JSONValue]? {
-        guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return nil }
+    /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte.
+    func conversationFields(of session: Session) async -> [String: JSONValue] {
         let conversations = conversations, running = live[session.id]
-        let turns = await offloaded {
-            conversations.turns(of: session, live: running)
+        guard let detail = await offloaded({ conversations.phoneConversation(of: session, live: running) }) else {
+            return ["lastReply": .null]
         }
-        guard let turns, !turns.isEmpty else { return nil }
-        return turns.map { turn in
+        let reply = detail.reply.map { JSONValue.string(String($0.suffix(200_000))) }
+        var fields: [String: JSONValue] = ["lastReply": reply ?? .null]
+        guard !detail.turns.isEmpty else { return fields }
+        fields["turns"] = .array(detail.turns.map { turn in
             var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
             if let at = turn.at { fields["at"] = .string(at) }
             return .object(fields)
-        }
+        })
+        return fields
     }
 }

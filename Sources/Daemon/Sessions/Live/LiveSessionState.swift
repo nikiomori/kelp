@@ -25,6 +25,7 @@ extension LiveSession {
         var questionOpen = false
         var turnEnd = TurnEnd()
         var transcript: String?
+        var codexThread: UUID?
         /// A line was sent and no key pressed since, so the input box is empty; `typing` alone can't say (↑ brings
         /// back an old prompt).
         var boxEmpty = false
@@ -50,6 +51,7 @@ extension LiveSession {
             questionOpen = try container.decodeIfPresent(Bool.self, forKey: .questionOpen) ?? kept.questionOpen
             turnEnd = try container.decodeIfPresent(TurnEnd.self, forKey: .turnEnd) ?? kept.turnEnd
             transcript = try container.decodeIfPresent(String.self, forKey: .transcript)
+            codexThread = try container.decodeIfPresent(UUID.self, forKey: .codexThread)
             boxEmpty = try container.decodeIfPresent(Bool.self, forKey: .boxEmpty) ?? kept.boxEmpty
             pasteMode = try container.decodeIfPresent(Bool.self, forKey: .pasteMode) ?? kept.pasteMode
             draftWaiting = try container.decodeIfPresent(Bool.self, forKey: .draftWaiting) ?? kept.draftWaiting
