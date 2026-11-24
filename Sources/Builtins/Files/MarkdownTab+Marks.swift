@@ -110,6 +110,7 @@ extension MarkdownTab {
         } changed: { [weak self] status in
             guard let self else { return }
             runJS(busyScript)
+            TurnCheck.of(self).agent(working: status == .working, issues: checkIssues)
             guard status != .working, let agent = pageAuthor, !markQueue.isEmpty else { return }
             let ids = markQueue
             markQueue = []

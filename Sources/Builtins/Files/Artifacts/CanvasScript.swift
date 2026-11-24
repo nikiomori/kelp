@@ -6,12 +6,15 @@ import Foundation
 /// load, and controls without a `data-id`. The findings, after those from the files' own checks (`CanvasPage.lint`),
 /// go three places: to `kelpSync` as `{kind: "check", issues}`, to the Check list in the column (`kelp-check` with
 /// `window.kelpIssues`), and onto the boards as a `!` on each element at fault.
+/// With a design system (`system`: its colour and font token names), it also finds a colour or a font that isn't a
+/// token (naming the nearest colour token) and a picture from the web, which breaks an export and offline viewing.
 /// `kelpZoom(z)` sets the canvas's size by hand (nil fits it to the pane beside the column).
 enum CanvasScript {
-    static func source(issues: [String]) -> String {
+    static func source(issues: [String], system: [String: [String]] = [:]) -> String {
         """
         (function () {
           const known = \(MarkdownTab.js(issues));
+          const SYSTEM = \(MarkdownTab.js(system.filter { ["color", "font"].contains($0.key) }));
           const frames = [...document.querySelectorAll('iframe[data-board]')];
           const canvas = document.getElementById('kelp-canvas');
           // Fits the rows to the pane beside the column (down to a quarter, then it scrolls), or the size set by
@@ -150,6 +153,49 @@ enum CanvasScript {
                 if (ratio < (big ? 3 : 4.5)) say('contrast ' + ratio.toFixed(1) + ':1 in ' + named(el), el);
               }
               if (bare) say(bare + ' buttons, links, fields or headings without a data-id');
+              system(f, doc, win, say);
+            }
+            // The design system's tokens as this board resolves them: colours by name, fonts by first family.
+            const hex = c => '#' + c.slice(0, 3).map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+            function tokens(win, doc) {
+              const st = win.getComputedStyle(doc.documentElement), probe = doc.createElement('i');
+              doc.body.append(probe);
+              const colours = (SYSTEM.color || []).map(name => {
+                probe.style.color = st.getPropertyValue('--' + name).trim();
+                return { name, c: rgb(win.getComputedStyle(probe).color) };
+              }).filter(t => t.c && probe.style.color);
+              probe.remove();
+              const first = v => v.split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+              const fonts = (SYSTEM.font || []).map(n => st.getPropertyValue('--font-' + n).trim()).filter(Boolean)
+                .map(first);
+              return { colours, fonts, first };
+            }
+            function system(f, doc, win, say) {
+              for (const img of doc.body.querySelectorAll('img[src^="http"], video[src^="http"]'))
+                say('picture from the web in ' + named(img) + ': it breaks an export and offline viewing; '
+                  + 'copy it beside the page', img);
+              if (!SYSTEM.color && !SYSTEM.font) return;
+              const t = tokens(win, doc), seen = new Set();
+              const near = c => t.colours.map(k => ({ k, d: Math.hypot(k.c[0] - c[0], k.c[1] - c[1], k.c[2] - c[2]) }))
+                .sort((a, b) => a.d - b.d)[0];
+              for (const el of doc.body.querySelectorAll('*')) {
+                const st = win.getComputedStyle(el);
+                if (st.display === 'none') continue;
+                const text = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+                for (const c of [text && rgb(st.color), rgb(st.backgroundColor)]) {
+                  if (!c || c[3] < 0.5 || !t.colours.length) continue;
+                  const n = near(c);
+                  if (!n || n.d < 3 || seen.has(hex(c))) continue;
+                  seen.add(hex(c));
+                  say('colour ' + hex(c) + ' in ' + named(el) + ' is not a token (nearest: ' + n.k.name + ' '
+                    + hex(n.k.c) + ')', el);
+                }
+                const family = text && t.fonts.length && t.first(st.fontFamily);
+                if (family && !t.fonts.includes(family) && !seen.has(family)) {
+                  seen.add(family);
+                  say('font ' + family + ' in ' + named(el) + ' is not a token (' + t.fonts.join(', ') + ')', el);
+                }
+              }
             }
         """
 }

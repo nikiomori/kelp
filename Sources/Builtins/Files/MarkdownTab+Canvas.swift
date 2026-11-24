@@ -31,6 +31,11 @@ extension MarkdownTab {
     func canvasChecked(_ issues: [String]) {
         checkIssues = issues
         onCheck?(issues)
+        let new = TurnCheck.of(self).checked(issues)
+        if !new.isEmpty, let author = pageAuthor {
+            let text = TurnCheck.message(new, page: Artifacts.projectPath(url.path))
+            Task { await app.call(SessionSend(id: author.id, text: text, enter: true)) }
+        }
         guard let request = pendingCheck else { return }
         pendingCheck = nil
         Task { await app.quiet(UIBrowserReply(request: request, result: .array(issues.map(JSONValue.string)))) }

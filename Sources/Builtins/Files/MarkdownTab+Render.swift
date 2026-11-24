@@ -106,7 +106,10 @@ extension MarkdownTab {
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
                         built.html,
-                        [ownAccent, CanvasScript.source(issues: built.issues), around, column, edit, byHand, handles]
+                        [
+                            ownAccent, CanvasScript.source(issues: built.issues, system: built.tokens), around, column,
+                            edit, byHand, handles
+                        ]
                             + dash + motion
                             + again,
                         nil
@@ -165,6 +168,7 @@ extension MarkdownTab {
             // (`CanvasPage`).
             Self.loaded.setObject(.init((html, base, scripts + [place])), forKey: self)
             Builtins.pageDrawn(self)
+            if kind == .canvas || kind == .motion { followAuthor() }   // its turns end with a check (`TurnCheck`)
             links.load(
                 html, baseURL: base, scripts: scripts + [place], world: Self.world,
                 pageScripts: kind == .canvas || kind == .motion,
