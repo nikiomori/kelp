@@ -44,7 +44,9 @@ extension MarkdownTab {
                 if menu.numberOfItems > 0 { menu.addItem(.separator()) }
                 menu.addItem(
                     .sectionHeader(
-                        title: next == "tokens" ? String(localized: "Design System") : String(localized: "On the Page"))
+                        title: next == "tokens"
+                            ? String(localized: "Design System")
+                            : next == "nearest" ? String(localized: "Closest Token") : String(localized: "On the Page"))
                 )
             }
             let made = menu.add(title) { [weak self] in

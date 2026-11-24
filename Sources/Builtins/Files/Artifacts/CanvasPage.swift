@@ -194,6 +194,7 @@ enum CanvasPage {
         \(CanvasVariants.style)
         \(MarkColumn.style)
         \(CanvasEditMode.style)
+        \(CanvasTokens.style)
         \(CanvasHandles.style)
         \(CanvasEditBar.style)
         \(CanvasCrop.style)

@@ -6,15 +6,19 @@ import Foundation
 /// load, and controls without a `data-id`. The findings, after those from the files' own checks (`CanvasPage.lint`),
 /// go three places: to `kelpSync` as `{kind: "check", issues}`, to the Check list in the column (`kelp-check` with
 /// `window.kelpIssues`), and onto the boards as a `!` on each element at fault.
-/// With a design system (`system`: its colour and font token names), it also finds a colour or a font that isn't a
-/// token (naming the nearest colour token) and a picture from the web, which breaks an export and offline viewing.
+/// With a design system (`system`: its token names by group), it also finds a colour, a font, a text size or a corner
+/// radius that isn't a token (naming the nearest), and a picture from the web, which breaks an export and offline
+/// viewing.
 /// `kelpZoom(z)` sets the canvas's size by hand (nil fits it to the pane beside the column).
 enum CanvasScript {
+    /// The token groups Check holds the boards to.
+    private static let checked = ["color", "font", "size", "radius"]
+
     static func source(issues: [String], system: [String: [String]] = [:]) -> String {
         """
         (function () {
           const known = \(MarkdownTab.js(issues));
-          const SYSTEM = \(MarkdownTab.js(system.filter { ["color", "font"].contains($0.key) }));
+          const SYSTEM = \(MarkdownTab.js(system.filter { Self.checked.contains($0.key) }));
           const frames = [...document.querySelectorAll('iframe[data-board]')];
           const canvas = document.getElementById('kelp-canvas');
           // Fits the rows to the pane beside the column (down to a quarter, then it scrolls), or the size set by
@@ -168,13 +172,22 @@ enum CanvasScript {
               const first = v => v.split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
               const fonts = (SYSTEM.font || []).map(n => st.getPropertyValue('--font-' + n).trim()).filter(Boolean)
                 .map(first);
-              return { colours, fonts, first };
+              // Sizes and radii as this board resolves them, in pixels.
+              const px = (group, prop) => (SYSTEM[group] || []).map(name => {
+                probe.style[prop] = 'var(--' + group + '-' + name + ')';
+                doc.body.append(probe);
+                const v = parseFloat(win.getComputedStyle(probe)[prop]);
+                probe.remove(); probe.removeAttribute('style');
+                return { name, v };
+              }).filter(t => t.v > 0);
+              const sizes = px('size', 'fontSize'), radii = px('radius', 'borderTopLeftRadius');
+              return { colours, fonts, first, sizes, radii };
             }
             function system(f, doc, win, say) {
               for (const img of doc.body.querySelectorAll('img[src^="http"], video[src^="http"]'))
                 say('picture from the web in ' + named(img) + ': it breaks an export and offline viewing; '
                   + 'copy it beside the page', img);
-              if (!SYSTEM.color && !SYSTEM.font) return;
+              if (!SYSTEM.color && !SYSTEM.font && !SYSTEM.size && !SYSTEM.radius) return;
               const t = tokens(win, doc), seen = new Set();
               const near = c => t.colours.map(k => ({ k, d: Math.hypot(k.c[0] - c[0], k.c[1] - c[1], k.c[2] - c[2]) }))
                 .sort((a, b) => a.d - b.d)[0];
@@ -190,6 +203,16 @@ enum CanvasScript {
                   say('colour ' + hex(c) + ' in ' + named(el) + ' is not a token (nearest: ' + n.k.name + ' '
                     + hex(n.k.c) + ')', el);
                 }
+                // A size or a radius a pixel off every token: the nearest named.
+                const off = (list, v, what) => {
+                  if (!list.length || !(v > 0) || list.some(k => Math.abs(k.v - v) < 0.5) || seen.has(what + v)) return;
+                  seen.add(what + v);
+                  const n = list.reduce((a, b) => Math.abs(b.v - v) < Math.abs(a.v - v) ? b : a);
+                  say(what + ' ' + Math.round(v) + 'px in ' + named(el) + ' is not a token (nearest: ' + n.name + ' '
+                    + Math.round(n.v) + 'px)', el);
+                };
+                if (text) off(t.sizes, parseFloat(st.fontSize), 'size');
+                off(t.radii, parseFloat(st.borderTopLeftRadius), 'radius');
                 const family = text && t.fonts.length && t.first(st.fontFamily);
                 if (family && !t.fonts.includes(family) && !seen.has(family)) {
                   seen.add(family);

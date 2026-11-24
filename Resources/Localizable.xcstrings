@@ -33199,6 +33199,36 @@
           }
         }
       }
+    },
+    "Use %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять %@"
+          }
+        }
+      }
+    },
+    "All %d": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все %d"
+          }
+        }
+      }
+    },
+    "Closest Token": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ближайший токен"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

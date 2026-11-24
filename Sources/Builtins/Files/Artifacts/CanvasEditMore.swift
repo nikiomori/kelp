@@ -6,7 +6,7 @@ import Foundation
 /// (`attribute`), layout as styles, both by hand like any change in Edit.
 enum CanvasEditMore {
     static func source(labels: [String: String]) -> String {
-        "(function (L) {\n" + body + "\n})(\(MarkdownTab.js(labels)));"
+        "(function (L) {\n" + body + "\n})(\(MarkdownTab.js(labels)));" + CanvasTokens.source(labels: labels)
     }
 
     private static let body = """

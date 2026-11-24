@@ -179,7 +179,7 @@ enum CanvasEdit {
             if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
             const rows = issues.map(t => {
               const r = el('div', 'kelp-row kelp-issue');
-              r.append(el('span', 'kelp-mark-warn', '!'), el('span', 'kelp-grow', t));
+              r.append(el('span', 'kelp-mark-warn', '!'), el('span', 'kelp-grow', t)); window.kelpIssueFix?.(t, r);
               return r;
             });
             const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');

@@ -46,7 +46,7 @@ extension MarkdownTab {
         if arrangeMessage(kind, body) || propsMessage(kind, body) || slidesMessage(kind, body) { return true }
         if ["boardMenu", "keepVariant", "moreLike"].contains(kind) { return variantsMessage(kind, body) }
         if presetsMessage(kind, body) || captionsMessage(kind, body) || soundMessage(kind, body) { return true }
-        if attributeMessage(kind, body) { return true }
+        if attributeMessage(kind, body) || tokenMessage(kind, body) { return true }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain", "markRef": marksMessage(kind, body)
