@@ -79,7 +79,11 @@ enum CanvasHandles {
           K.sheet.addEventListener('mousedown', ev => {
             if (K.mode() !== 'edit' || !at) return;
             const hit = K.under(ev, true);
-            if (hit && hit.f === at.f && at.e.contains(hit.e) && start(ev, null)) ev.preventDefault();
+            // The chosen element is taken where it shows, even past the board's edge (a layer waiting off stage).
+            const b = K.box(at.f, at.e), x = ev.clientX + scrollX, y = ev.clientY + scrollY;
+            const onIt = hit ? hit.f === at.f && at.e.contains(hit.e)
+              : x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+            if (onIt && start(ev, null)) ev.preventDefault();
           });
           // The board's edges and middle, and the other elements' edges and middles, in the board's points.
           function snap(dx, dy) {
