@@ -16,7 +16,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let editors: EditorHost
     let inspector: InspectorController
     let sidebar: SidebarController
-    private let split = ShellSplit()
+    let split = ShellSplit()
     private let surface: DropRoot
     /// The sidebar's side and the inspector's side of the window.
     let left: Side, right: Side
@@ -41,6 +41,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     var pillFloor: NSLayoutConstraint?
     /// The traffic lights' right end and left start, in the window.
     var lightsEnd: CGFloat = 69, lightsStart: CGFloat = 12
+    /// Where AppKit put each traffic light, and where `placeLights` moved it.
+    var lightPlaces: [ObjectIdentifier: (home: NSPoint, at: NSPoint)] = [:]
+    var lightWatches: [NSObjectProtocol] = []
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
     let sidebarToggle = NSButton.titlebar(
         "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
@@ -56,8 +59,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         editors = EditorHost(app: app)
         sidebar = SidebarController(app: app)
         inspector = InspectorController(app: app)
-        let leftFloater = Floater(width: 260, inset: 0, autosave: "sidebar.floatWidth")
-        let rightFloater = Floater(width: 300, inset: Card.gap, autosave: "inspector.floatWidth")
+        // Both stand as far in from the window's edges, a little: the traffic lights ride in the sidebar's corner.
+        let leftFloater = Floater(width: 260, inset: Metrics.gapTight, autosave: "sidebar.floatWidth")
+        let rightFloater = Floater(width: 300, inset: Metrics.gapTight, autosave: "inspector.floatWidth")
         left = Side(Self.column(sidebar), sidebar, leftFloater, inner: .trailing)
         right = Side(Self.column(inspector), inspector, rightFloater, inner: .leading)
         surface = DropRoot(app: app)
@@ -95,6 +99,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         right.floater.attach(leading: false)
         for side in sides { side.edge.onEnter = { [weak self, unowned side] in self?.peek(side) } }
         let lights = measureLights(created)
+        watchLights()
         let floor = sidebarToggle.leadingAnchor.constraint(
             greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12)
         toggleFloor = floor
@@ -151,17 +156,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self?.surface.show(look)
             self?.sides.forEach { $0.floater.show(look) }
         }
-        let autoHides = [
-            (left, sidebarToggle, SettingKeys.sidebarAutoHide, String(localized: "Auto-Hide Sidebar")),
-            (right, inspectorToggle, SettingKeys.inspectorAutoHide, String(localized: "Auto-Hide Inspector"))
-        ]
-        for (side, toggle, setting, title) in autoHides {
+        // Each panel's button itself switches its auto-hide (decision 109): no menu or setting row for the same thing.
+        for (side, setting) in [(left, SettingKeys.sidebarAutoHide), (right, SettingKeys.inspectorAutoHide)] {
             track(owner: self) {
                 app.settings[setting]
             } changed: { [weak self, unowned side] in
                 self?.setAutoHide(side, $0)
-                // The sidebar's button itself switches its auto-hide (decision 109): no menu for the same thing.
-                toggle.menu = side === self?.left ? nil : self?.autoHideMenu(title, setting, $0)
             }
         }
     }
@@ -191,15 +191,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         slot.addChild(panel)
         slot.view.pin(panel.view)
         let item = NSSplitViewItem(viewController: slot)
-        item.canCollapse = true
+        // Not by dragging its divider shut: a panel is in its column or away at its edge (its button), never just
+        // gone. Kelp still closes the column itself (auto-hide, focus mode, a narrow window).
+        item.canCollapse = false
         item.holdingPriority = .init(260)   // a resized window widens the editor area, not the panels
         return item
-    }
-    /// The right-click menu on a panel toggle, which sets the panel's auto-hide, as in Settings › Appearance.
-    private func autoHideMenu(_ title: String, _ setting: Setting<Bool>, _ on: Bool) -> NSMenu {
-        let menu = NSMenu(), app = app
-        menu.add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
-        return menu
     }
     /// Makes room for the update pill while an update is ready.
     private func followPill(_ app: AppModel) {
@@ -255,6 +251,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// window). This isn't saved, but opening or closing the inspector yourself is (`inspector.collapsed`). The split's
     /// own collapse-on-resize only acts on live resizes.
     private var narrowedAt: CGFloat?
+    /// The last slide of the side columns (`slide`): only its end lets the widths it held go.
+    var slideTurn = 0
 
     /// In focus mode and with auto-hide, the pointer at an edge brings that side's panel in over the editor area. The
     /// editor area keeps its size, so terminals aren't resized and nothing reflows. Once the pointer leaves the panel
@@ -274,17 +272,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             }   // back only 20 pt past where it stepped aside, or it flaps
         } else if !right.item.isCollapsed, editors.view.frame.width < 640 {
             narrowedAt = width
+            right.openWidth = right.column.frame.width
             right.item.isCollapsed = true
         }
     }
 
+    /// The inspector's button and ⌥⌘0 do as the sidebar's do (`toggleSidebarPanel`): a panel is either in its column or
+    /// away at the window's edge, where it comes in under the pointer. One closed by an older Kelp, or by a narrow
+    /// window, opens first.
     @objc func toggleInspectorPanel() {
         narrowedAt = nil
         if inFocusMode { return togglePeek(right) }
-        if right.autoHide { return togglePin(right) }
-        let collapsed = !right.item.isCollapsed
-        slide([(right, collapsed)])
-        UserDefaults.standard.set(collapsed, forKey: "inspector.collapsed")
+        if !right.autoHide, right.item.isCollapsed {
+            UserDefaults.standard.set(false, forKey: "inspector.collapsed")   // as an older Kelp left it
+            return slide([(right, false)])
+        }
+        app.settings.set(SettingKeys.inspectorAutoHide, !right.autoHide)
     }
     func showInspector(panel: String, keys: Bool = false) {
         if right.item.isCollapsed, peeking !== right {
@@ -294,7 +297,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     /// The sidebar button and ⌘0 put the sidebar away so that it still comes in at the window's left edge, as Dia's
     /// does (decision 109): hidden and auto-hide are one state, the setting, not two ways to the same thing. A sidebar
-    /// left collapsed by an older Kelp opens first.
+    /// left collapsed by an older Kelp opens first. The inspector does the same at the right edge.
     @objc func toggleSidebarPanel() {
         if inFocusMode { return togglePeek(left) }
         if !left.autoHide, left.item.isCollapsed { return slide([(left, false)]) }
@@ -303,7 +306,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// Whether View's item hides the sidebar, by what choosing it does: a sidebar put away that peeks gets docked by
     /// it, so it says Show (`toggleSidebarPanel`).
     var sidebarShown: Bool { inFocusMode ? peeking === left : !left.autoHide && !left.item.isCollapsed }
-    var inspectorShown: Bool { !right.item.isCollapsed || peeking === right }
+    var inspectorShown: Bool { inFocusMode ? peeking === right : !right.autoHide && !right.item.isCollapsed }
 
     /// Leaves focus mode when quitting, so the panels come back first. Otherwise the split's autosave would start the
     /// next launch wrong.

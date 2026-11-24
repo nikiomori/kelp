@@ -656,7 +656,13 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     _ = try await r.c.call(SessionWrite(id: me.id, text: kid.id + "\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: kid.id)).contains("first") })   // its own child: typed
     let child = try #require(r.d.sessions.existing(kid.id))
-    _ = child.update { $0.status = .waiting }
+    // As a hook says it: a status set on the record alone went back to what the screen said when the echo of `first`
+    // came in after it, as it did on a slow run (Thread Sanitizer), and the attach typed on.
+    child.hook(.waiting, asker: "")
+    // Output after the question (the user typing there, a late echo) doesn't end it.
+    _ = try await r.c.call(SessionWrite(id: kid.id, text: "echo\n"))
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: kid.id)).contains("echo") })
+    #expect(child.asksSomething)
     _ = try await r.c.call(SessionWrite(id: me.id, text: "go\n"))
     #expect(
         try await waitFor(10) {
@@ -666,7 +672,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     // The attach is over: the daemon hung up (the stream read to its end), so what it would type after the answer can't
     // join what it typed before.
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("ended") })
-    _ = child.update { $0.status = .working }
+    child.hook(.working)
     _ = try await r.c.call(SessionWrite(id: me.id, text: "third\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("sent") })   // it tried
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("third"))

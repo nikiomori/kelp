@@ -22,7 +22,6 @@ extension MainWindowController {
     func setAutoHide(_ side: Side, _ on: Bool) {
         guard on != side.autoHide else { return }   // so the first read, before loading, keeps the saved layout
         side.autoHide = on
-        side.pinned = false
         followLights()   // the lights and the toggle move with the column, from its first frame
         if inFocusMode { side.closedBefore = on }
         if peeking === side { stopPeek() }
@@ -37,7 +36,8 @@ extension MainWindowController {
         if side === right { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
     }
     /// Opens or closes columns together as a floater slides, and at once under Reduce Motion. The terminals beside
-    /// them keep their size until the columns stop, because a program in one would redraw for every width on the way.
+    /// them take their new size once, as the columns start (`EditorHost.holdWidth`), because a program in one would
+    /// redraw for every width on the way.
     /// `then` runs once the columns stand, or at once when nothing moves.
     func slide(_ columns: [(side: Side, collapsed: Bool)], then: (@MainActor () -> Void)? = nil) {
         let moves = columns.filter { $0.side.item.isCollapsed != $0.collapsed }
@@ -52,30 +52,49 @@ extension MainWindowController {
             then?()
             return
         }
-        GhosttyTerminalView.holdSize(true)
+        slideTurn += 1
+        let turn = slideTurn
+        // A column opens as wide as it last stood open (or as its floater), set first, because the split would reopen
+        // it at whatever width it last had, and the editor area's width below must be the one it ends at.
+        for move in moves where !move.collapsed && move.side.column.frame.width <= 0 {
+            move.side.column.setFrameSize(NSSize(width: move.side.lastOpenWidth, height: 0))
+        }
         moves.forEach { $0.side.holdWidth(closing: $0.collapsed) }
-        // The side that stays is the one whose panel isn't moving. With both moving, what's shown travels with the
-        // left.
-        editors.holdWidth(trailing: !moves.contains { $0.side === right })
+        // What's shown travels with the edge that moves, as a page's content does when its sidebar opens, and the far
+        // side takes the new width once the columns stand. When it stood still while the column came over it, the
+        // column covered its first tabs and they all jumped over at the end. With both moving, it travels with the
+        // left. The editor area loses what opens and gains what closes, a divider with each column.
+        let change = moves.reduce(CGFloat(0)) { sum, move in
+            sum + (move.collapsed ? 1 : -1) * (move.side.column.frame.width + split.splitView.dividerThickness)
+        }
+        editors.holdWidth(trailing: !moves.contains { $0.side === left }, by: change)
+        // Its terminals take that width now, laid out while their size is held and then given it in one step, which
+        // doesn't show the "120 × 40" badge that a resize by hand does.
+        GhosttyTerminalView.holdSize(true)
+        window?.contentView?.layoutSubtreeIfNeeded()
+        GhosttyTerminalView.holdSize(false)
         // Columns that only close leave as panels do: sooner, speeding away.
+        // Columns that open move as a fold does: at once, settling slowly, long enough to follow (as a page's sidebar
+        // opens in about 300 ms).
         let leaving = moves.allSatisfy(\.collapsed)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = leaving ? Motion.fast : Motion.base
-            ctx.timingFunction = CAMediaTimingFunction(name: leaving ? .easeIn : .easeOut)
+            ctx.duration = leaving ? Motion.fast : Motion.fold
+            ctx.timingFunction = leaving ? CAMediaTimingFunction(name: .easeIn) : Motion.soft
             moves.forEach { $0.side.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
-                self?.editors.letWidthGo()
-                self?.sides.forEach { $0.letWidthGo() }
-                // Lay out before the terminals take their size, so they take the final size, once.
-                self?.window?.contentView?.layoutSubtreeIfNeeded()
-                GhosttyTerminalView.holdSize(false)
+                // A slide that another one cut short leaves the widths to the last one.
+                if turn == self?.slideTurn {
+                    self?.editors.letWidthGo()
+                    self?.sides.forEach { $0.letWidthGo() }
+                    self?.window?.contentView?.layoutSubtreeIfNeeded()
+                }
                 then?()
             }
         }
     }
 
-    func hides(_ side: Side) -> Bool { inFocusMode || side.autoHide && !side.pinned }
+    func hides(_ side: Side) -> Bool { inFocusMode || side.autoHide }
 
     /// Puts each panel where it belongs now: in its column, or in its floater while it hides. A panel leaving its open
     /// column for the floater keeps its width there.
@@ -113,16 +132,42 @@ extension MainWindowController {
         let away = hides(left)
         let floor = away ? lightsStart : lightsEnd + 12
         if toggleFloor?.constant != floor {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Motion.duration(away ? Motion.fast : Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: away ? .easeIn : .easeOut)
+            NSAnimationContext.runAnimationGroup { ctx in   // with the column, as `slide` moves it
+                ctx.duration = Motion.duration(away ? Motion.fast : Motion.fold)
+                ctx.timingFunction = away ? CAMediaTimingFunction(name: .easeIn) : Motion.soft
                 toggleFloor?.animator().constant = floor
                 pillFloor?.animator().constant = floor
             }
         }
+        placeLights()
         let shown = !away || peeking === left
         for view in lights where view.isHidden == shown && !Floater.carries(view) {
             fade(view, hidden: !shown)
+        }
+    }
+    /// While the sidebar is away, its floater stands its inset in from the window's corner, and the traffic lights it
+    /// carries sit as far in, so they sit in its corner as they sit in a window's. AppKit lays the buttons out again
+    /// now and then (a resize, the window becoming key), and each time they move in again (`watchLights`).
+    func placeLights() {
+        let shift = hides(left) ? left.floater.inset : 0
+        for button in lights {
+            let id = ObjectIdentifier(button), now = button.frame.origin
+            let home = lightPlaces[id].flatMap { $0.at == now ? $0.home : nil } ?? now
+            let down = button.superview?.isFlipped == true ? shift : -shift
+            let at = NSPoint(x: home.x + shift, y: home.y + down)
+            lightPlaces[id] = (home, at)
+            if now != at { button.setFrameOrigin(at) }
+        }
+    }
+    func watchLights() {
+        for button in lights {
+            button.postsFrameChangedNotifications = true
+            lightWatches.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSView.frameDidChangeNotification, object: button, queue: .main
+                ) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.placeLights() }   // queue: .main
+                })
         }
     }
     /// The traffic lights. A peeking sidebar carries them in and out at its top, as Arc's does.
@@ -177,25 +222,18 @@ extension MainWindowController {
         side.floater.slide(in: false, animated: animated, carrying: side === left && hides(left) ? lights : [])
         followLights()
     }
-    /// Called when the panels change for good (focus mode, auto-hide switched, pinned), so the peeking panel goes at
+    /// Called when the panels change for good (focus mode, auto-hide switched), so the peeking panel goes at
     /// once.
     func stopPeek() { endPeek(animated: false) }
     func togglePeek(_ side: Side) {
         if peeking === side { endPeek() } else { peek(side) }
     }
-    /// With auto-hide, a pinned panel stays in its column (a peeking panel moves there). Unpinned, it goes away and
-    /// comes in at the edge again.
-    func togglePin(_ side: Side) {
-        side.pinned.toggle()
-        if side.pinned { return land([(side, false)]) }
-        if peeking === side { stopPeek() }
-        floatWidths()
-        slide([(side, true)]) { [weak self] in self?.place() }
-    }
-
-    /// Opens columns for panels that no longer hide. A panel in its floater comes in there (or stays, peeking) over its
-    /// opening column, and is put in the column once the column stands. Moving a panel takes the main thread some
-    /// 40 ms, and when the panel moved first, that was a wait between the key and anything happening.
+    /// Opens columns for panels that no longer hide. A panel out of sight goes into its column at once and rides in
+    /// with it at its width, the editor area moving over with the column's edge: one motion, as a page's sidebar
+    /// opens. When it came in on its floater's spring over a column opening on another curve, and then jumped from the
+    /// floater (inset, border, shadow) into the column, the two motions and the jump read as lag. Moving the panel
+    /// takes the main thread some 40 ms before the motion starts. A panel peeking stays in its floater over the opening
+    /// column, and goes into the column once the column stands.
     func land(_ columns: [(side: Side, collapsed: Bool)]) {
         for (side, collapsed) in columns where !collapsed && !hides(side) {
             guard side.panel.superview === side.floater.box else { continue }
@@ -207,7 +245,9 @@ extension MainWindowController {
                 peekMoves = nil
                 peeking = nil
             } else {
-                side.floater.slide(in: true)
+                side.openWidth = side.floater.width
+                side.column.pin(side.panel)
+                if side === left { sidebar.gutter = 0 }
             }
         }
         slide(columns) { [weak self] in
@@ -228,14 +268,14 @@ final class Side {
     let edge = EdgeTrigger()
     /// The panel's edge next to the editor area, which lets go while its column slides.
     let inner: NSLayoutConstraint.Attribute
-    /// Settings › Appearance › Auto-hide. When on, the panel stays away as in focus mode, for good.
+    /// Switched by the panel's button (⌘0 / ⌥⌘0). When on, the panel stays away at its edge as in focus mode.
     var autoHide = false
-    /// True when the toggle (⌘0 / ⌥⌘0) pinned an auto-hidden panel. It then stays in like a normal panel until the
-    /// toggle is pressed again.
-    var pinned = false
     /// True when the column was closed (or the panel hid) before focus mode, so leaving focus mode puts that back.
     var closedBefore = false
-    private var openWidth: CGFloat = 0
+    /// The panel's width when its column was last open (or its floater's, coming from there).
+    var openWidth: CGFloat = 0
+    /// The width its column opens at: as it last stood open, else as its floater.
+    var lastOpenWidth: CGFloat { openWidth >= item.minimumThickness ? openWidth : floater.width }
     private var held: WidthHold?
 
     init(

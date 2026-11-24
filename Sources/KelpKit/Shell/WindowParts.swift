@@ -28,12 +28,11 @@ final class ShellSplit: NSSplitViewController {
 
 /// The place that holds a hiding panel (auto-hide, focus mode). It keeps the panel while the panel is away and, when
 /// the pointer reaches the window's edge, brings it in over the editor area with rounded corners and a shadow, as Arc's
-/// sidebar does. The panel sits `inset` from the window's edges, or flush with them for the sidebar, where the traffic
-/// lights are (at a 6 pt inset, the lights sat on its corner with a strip of window around them).
+/// sidebar does. The panel sits `inset` from the window's edges.
 @MainActor
 final class Floater: NSView {
     private static let radius = Metrics.radiusXL
-    private let inset: CGFloat
+    let inset: CGFloat
     /// What holds the panel, with the theme's colour (`tint`) under it.
     let box = NSView()
     let tint = NSView()

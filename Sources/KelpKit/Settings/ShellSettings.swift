@@ -143,20 +143,22 @@ extension Builtins {
         s(
             SettingKeys.inspectorIcons, "Icon alignment", .enum, options: ["left", "center", "right"],
             look: .segments, group: "Inspector"),
+        // Switched by the inspector's button and ⌥⌘0 (`MainWindowController.toggleInspectorPanel`), not a row.
         s(
             SettingKeys.inspectorAutoHide, "Auto-hide inspector", .boolean,
             "Comes in while the pointer is at the window’s right edge.",
-            group: "Inspector")
+            group: "Inspector", hidden: true)
     ]
 
     /// The rows of Appearance › Sidebar: choices that change what people see in the list. The sidebar reads each one
     /// where it draws that part.
     static let sidebarRows = [
+        // Switched by the sidebar's button and ⌘0 (`MainWindowController.toggleSidebarPanel`), not a row.
         s(
             SettingKeys.sidebarAutoHide, "Auto-hide sidebar", .boolean,
             "Comes in while the pointer is at the window’s left edge, like the Dock. The sidebar button and its key "
                 + "switch it.",
-            group: "Sidebar"),
+            group: "Sidebar", hidden: true),
         s(
             SettingKeys.rowHeight, "Row height", .enum,
             nil,
