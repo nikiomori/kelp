@@ -36,7 +36,8 @@ extension MainWindowController {
         if side === right { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
     }
     /// Opens or closes columns together as a floater slides, and at once under Reduce Motion. The terminals beside
-    /// them keep their size until the columns stop, because a program in one would redraw for every width on the way.
+    /// them take their new size once, as the columns start (`EditorHost.holdWidth`), because a program in one would
+    /// redraw for every width on the way.
     /// `then` runs once the columns stand, or at once when nothing moves.
     func slide(_ columns: [(side: Side, collapsed: Bool)], then: (@MainActor () -> Void)? = nil) {
         let moves = columns.filter { $0.side.item.isCollapsed != $0.collapsed }
@@ -51,13 +52,17 @@ extension MainWindowController {
             then?()
             return
         }
-        GhosttyTerminalView.holdSize(true)
         moves.forEach { $0.side.holdWidth(closing: $0.collapsed) }
         // What's shown travels with the edge that moves, as a page's content does when its sidebar opens, and the far
         // side takes the new width once the columns stand. When it stood still while the column came over it, the
         // column covered its first tabs and they all jumped over at the end. With both moving, it travels with the
         // left.
-        editors.holdWidth(trailing: !moves.contains { $0.side === left })
+        // The editor area loses what opens and gains what closes, a divider with each column.
+        let change = moves.reduce(CGFloat(0)) { sum, move in
+            let column = move.side.column.frame.width > 0 ? move.side.column.frame.width : move.side.floater.width
+            return sum + (move.collapsed ? 1 : -1) * (column + split.splitView.dividerThickness)
+        }
+        editors.holdWidth(trailing: !moves.contains { $0.side === left }, by: change)
         // Columns that only close leave as panels do: sooner, speeding away.
         // Columns that open move as a fold does: at once, settling slowly, long enough to follow (as a page's sidebar
         // opens in about 300 ms).
@@ -70,9 +75,7 @@ extension MainWindowController {
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
                 self?.editors.letWidthGo()
                 self?.sides.forEach { $0.letWidthGo() }
-                // Lay out before the terminals take their size, so they take the final size, once.
                 self?.window?.contentView?.layoutSubtreeIfNeeded()
-                GhosttyTerminalView.holdSize(false)
                 then?()
             }
         }

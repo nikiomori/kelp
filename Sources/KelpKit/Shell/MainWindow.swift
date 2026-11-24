@@ -16,7 +16,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let editors: EditorHost
     let inspector: InspectorController
     let sidebar: SidebarController
-    private let split = ShellSplit()
+    let split = ShellSplit()
     private let surface: DropRoot
     /// The sidebar's side and the inspector's side of the window.
     let left: Side, right: Side
