@@ -729,3 +729,36 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     async let second = c.call(CommentSend(id: wt.id, session: s.id, only: [twice.id]))
     #expect(try await first + second == 1)
 }
+
+/// ⌘P's lines of output: each running session that printed the text gives its newest line with it and how many lines
+/// have it; one without it, or not running, gives nothing.
+@Test func findingTextInWhatSessionsPrinted() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let failed = try await session(r, "printf '$ npm run migrate\\nError: migrate failed\\n'; cat")
+    let quiet = try await session(r, "echo nothing here; cat")
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: failed.id)).contains("failed") })
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: quiet.id)).contains("nothing") })
+    let found = try await r.c.call(SessionFind(ids: [failed.id, quiet.id, "gone"], query: "MIGRATE"))
+    #expect(found == [SessionFound(id: failed.id, line: "Error: migrate failed", count: 2)])
+}
+
+/// Matches as Ghostty's find does, and cuts a long line to the part around the match.
+@Test(arguments: [
+    ("Make", "a\nmake it\r\nMAKE IT AGAIN  \nb", "MAKE IT AGAIN", 2),
+    ("ошибка", "Ошибка\nошибка сети", "ошибка сети", 1),   // only ASCII letters fold, as in Ghostty
+    (
+        "needle", String(repeating: "x", count: 80) + " needle end",
+        "…" + String(repeating: "x", count: 19) + " needle end", 1
+    ),
+    ("redraw", "50% redraw\r100% redraw", "100% redraw", 2)
+])
+func outputSearchFindsTheNewestLine(query: String, text: String, line: String, count: Int) {
+    let found = OutputSearch.newest(query, in: text)
+    #expect(found?.line == line && found?.count == count)
+}
+
+@Test func outputSearchFindsNothingInLinesWithoutTheText() {
+    #expect(OutputSearch.newest("migrate", in: "a\nb") == nil)
+    #expect(OutputSearch.newest("", in: "a") == nil)
+}

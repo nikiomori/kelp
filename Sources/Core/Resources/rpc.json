@@ -4939,6 +4939,26 @@
         ],
         "type" : "object"
       },
+      "SessionFound" : {
+        "description" : "A session's lines with what was looked for: the newest one, cut to the part around it, and how many there are.",
+        "properties" : {
+          "count" : {
+            "type" : "integer"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "count",
+          "id",
+          "line"
+        ],
+        "type" : "object"
+      },
       "SessionRole" : {
         "description" : "The job Kelp started a session for (`Session.role`). A `reviewer` session reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text meant for \"the agent\" never go to it.",
         "enum" : [
@@ -12791,6 +12811,40 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "Finds `query` in what each of the running sessions `ids` printed lately (the last megabyte the daemon keeps), for ⌘P. It matches as the terminal's own find does, ignoring the case of ASCII letters. Sessions without it, or not running, are left out.",
+      "name" : "session.find",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "ids",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SessionFound"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Starts a new chat beside this one, in the same folder, from a copy of its conversation; this chat goes on as it was. Only Claude Code and Codex fork a conversation (`--fork-session`, `codex fork`), so other agents are refused.",
