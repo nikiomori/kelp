@@ -39247,26 +39247,6 @@
         }
       }
     },
-    "Failed · Details": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не вышло · Подробнее"
-          }
-        }
-      }
-    },
-    "Couldn’t make %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось сделать %@"
-          }
-        }
-      }
-    },
     "sound": {
       "localizations": {
         "ru": {

@@ -48,13 +48,14 @@ enum MotionExports {
             let made: NSColor = verdict.map { $0.ok ? .systemGreen : .systemOrange } ?? .tertiaryLabelColor
             dot.layer?.backgroundColor =
                 (failure != nil ? NSColor.systemRed : progress != nil ? .controlAccentColor : made).cgColor
-            how.stringValue = progress.map { "\(Int($0 * 100)) %" } ?? verdict?.summary ?? ""
-            how.toolTip = verdict.map { ($0.problems + $0.warnings).joined(separator: "\n") }
+            // A failure was told in a banner when it happened; its row keeps why, in a word and in full on hover.
+            how.stringValue =
+                failure.map { _ in String(localized: "Failed") } ?? progress.map { "\(Int($0 * 100)) %" }
+                ?? verdict?.summary ?? ""
+            how.toolTip = failure ?? verdict.map { ($0.problems + $0.warnings).joined(separator: "\n") }
             how.isHidden = how.stringValue.isEmpty
-            if failure != nil {
-                act.title = String(localized: "Failed · Details")
-                act.onClick = { Task { await details(item) } }
-            } else if progress != nil {
+            act.isHidden = failure != nil
+            if progress != nil {
                 act.title = String(localized: "Cancel")
                 act.onClick = { item.task?.cancel() }
             } else {
@@ -63,13 +64,6 @@ enum MotionExports {
             }
         }
         return row
-    }
-
-    private static func details(_ item: Item) async {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Couldn’t make \(item.url.lastPathComponent)")
-        alert.informativeText = item.failure ?? ""
-        _ = await runSheet(alert)
     }
 
     /// A frame with a transparent background, from two pictures of it: on black and on white. Over black a pixel is
