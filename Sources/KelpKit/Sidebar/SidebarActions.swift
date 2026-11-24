@@ -262,6 +262,7 @@ extension SidebarController {
             menu.addChoiceMenu(SettingKeys.serverLook, app, title: String(localized: "Servers"))
         }
         menu.addChoiceMenu(SettingKeys.agentIcons, app, title: String(localized: "Agent Icons"))
+        menu.addChoiceMenu(SettingKeys.closeEmptyGroups, app, title: String(localized: "Close Empty Groups"))
         menu.addToggle(SettingKeys.gitBadges, app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)

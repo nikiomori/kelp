@@ -42,7 +42,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             }
         }
         /// The item whose card the row shows. A project with its own screen stands for that screen.
-        var cardKind: SidebarItem.Kind { workspace.map(SidebarItem.Kind.workspace) ?? kind }
+        /// The card a row shows. A project's row stands for its own screen while that screen has no row; once the
+        /// project has several screens, its card is the project's, with every screen's chats.
+        var cardKind: SidebarItem.Kind {
+            let screens = children.contains { if case .workspace = $0.kind { true } else { false } }
+            return screens ? kind : workspace.map(SidebarItem.Kind.workspace) ?? kind
+        }
         /// What a dragged row reorders: a project's id or a workspace's id.
         var id: String? {
             switch kind {

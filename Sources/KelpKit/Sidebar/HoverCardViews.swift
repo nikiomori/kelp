@@ -34,7 +34,11 @@ struct CardView: View {
                     + Text(changes.totalRemoved > 0 ? "−\(changes.totalRemoved)" : "").foregroundColor(.textRed))
                     .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
-            ForEach(model.agents, id: \.id) { agent in
+            ForEach(Array(model.agents.enumerated()), id: \.element.id) { index, agent in
+                if let screen = model.heading(at: index) {
+                    Text(screen).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
                     HStack(spacing: Metrics.gap) {
                         StatusIcon(status: agent.markStatus, of: agent)

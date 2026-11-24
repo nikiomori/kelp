@@ -92,6 +92,12 @@ extension OneAtATime {
             let open = names(o)
             #expect(open.count == 5)   // the project, its own screen, Here, Release, There
             #expect(open[1].contains("main") && open[2].contains("Here") && open[3].contains("Release"))
+            // The project's card holds every screen's chats, each screen's under its name.
+            let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
+            #expect(project.cardKind == .project("r1"))
+            let card = try #require(CardModel(project.cardKind, app: vc.app))
+            #expect(card.agents.map(\.id) == [here.id, there.id])
+            #expect(card.heading(at: 0) != nil && card.heading(at: 1) == "Release")
             vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
             let folded = names(o)
             #expect(folded.count == 3 && folded[1].contains("main") && folded[2].contains("Release"))

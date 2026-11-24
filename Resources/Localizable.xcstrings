@@ -2040,6 +2040,17 @@
         }
       }
     },
+    "Close Empty Groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрывать пустые группы"
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {

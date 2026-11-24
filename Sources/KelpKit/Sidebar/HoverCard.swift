@@ -88,6 +88,13 @@ final class CardModel {
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
+    /// On a project's card with several screens, each screen's name by its id: the chats are listed under them.
+    var screenNames: [String: String] = [:]
+    /// The screen's name to show above the chat at `index`, where the list moves on to another screen.
+    func heading(at index: Int) -> String? {
+        guard let id = agents[index].worktreeId, let name = screenNames[id] else { return nil }
+        return index > 0 && agents[index - 1].worktreeId == id ? nil : name
+    }
     /// On a chat's card, the branch of its own it works on (`SidebarItem.branch`).
     var branch: Worktree?
     /// On an empty group's card, when it closes by itself (`WorkspaceActions.closesAt`).
@@ -140,7 +147,14 @@ final class CardModel {
             guard let project = app.repo(id) else { return nil }
             title = app.projectName(project.id) ?? project.name
             subtitle = app.projectPlace(project)
-            agents = []
+            // Every screen's chats, screen by screen, each screen's under its name.
+            let screens = app.workspaces(of: project)
+            agents = screens.flatMap { app.liveChats(in: $0.id) }
+            if screens.count > 1 {
+                screenNames = Dictionary(
+                    screens.map { ($0.id, app.groupName($0) ?? app.gitState.branch($0.id) ?? $0.branch) }
+                ) { first, _ in first }
+            }
             workspaceId = ""
             agentOnly = false
             repo = project
