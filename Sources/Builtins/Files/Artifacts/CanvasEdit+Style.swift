@@ -42,6 +42,7 @@ extension CanvasEdit {
           background: rgba(40,40,40,.85); color: rgba(255,255,255,.85); font: 12px -apple-system, sans-serif;
           transition: opacity .17s ease-in; }
         .kelp-present .kelp-strip { display: flex; }
+        .kelp-present .kelp-sheet { z-index: 35; right: 0; cursor: default; }   /* over the board shown: its links */
         .kelp-strip.on { opacity: 1; transition: opacity .12s ease-out; }
         .kelp-strip .kelp-ib { color: inherit; }
         .kelp-strip .kelp-sep { background: rgba(255,255,255,.2); }

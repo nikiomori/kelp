@@ -22,16 +22,14 @@ enum CanvasLinks {
           const control = 'a, button, [role="button"], [data-link]';
           const target = c => c.dataset.link || (c.getAttribute('href') || '').replace(/^#board:/, '') || null;
           const linked = c => c.hasAttribute('data-link') || (c.getAttribute('href') || '').startsWith('#board:');
-          // A click on a link, while presenting, shows its board.
-          for (const f of K.frames) {
-            const hook = () => f.contentDocument?.addEventListener('click', e => {
-              const c = e.target.closest?.(control); if (!c || !linked(c)) return;
-              const file = files.find(x => base(x) === target(c));
-              if (file && window.kelpGoTo?.(file)) e.preventDefault();
-            }, true);
-            f.addEventListener('load', hook);
-            if (f.contentDocument?.readyState === 'complete') hook();
-          }
+          // A click on a link, while presenting, shows its board. The boards run no script (their own listeners
+          // included), so the sheet over them takes the click and asks the board what is there.
+          K.sheet.addEventListener('click', e => {
+            if (K.mode() !== 'present') return;
+            const hit = K.under(e, true), c = hit?.e.closest(control); if (!c || !linked(c)) return;
+            const file = files.find(x => base(x) === target(c));
+            if (file) window.kelpGoTo?.(file);
+          });
           // Goes To: the Mac's menu of the boards, the one it goes to ticked.
           function menu(board, id, now) {
             K.post({ kind: 'linkMenu', board, id, now: now || '',

@@ -41,7 +41,10 @@ enum CanvasPresent {
               wake();
             }
           }
+          let was = null;   // the mode before presenting, back after it
           window.kelpPresent = on => {
+            if (on && K.mode() !== 'present') { was = K.mode(); K.setMode('present'); }
+            if (!on && K.mode() === 'present') K.setMode(was);
             at = on ? 0 : -1;
             document.body.classList.toggle('kelp-present', on);
             if (!on) for (const f of slides) f.style.transform = '';
