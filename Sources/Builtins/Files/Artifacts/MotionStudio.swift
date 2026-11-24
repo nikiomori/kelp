@@ -161,7 +161,7 @@ final class MotionStudio {
         var scenes: [MotionTimeline.Clip] = [], tracks: [MotionTimeline.Clip] = []
         var marks: [MotionTimeline.Mark] = []
         var range: ClosedRange<Double>?
-        var captions: [MotionTimeline.Clip] = []
+        var captions: [MotionTimeline.Clip] = [], beats: [Double] = []
     }
 
     func show(_ state: State) {
@@ -180,6 +180,7 @@ final class MotionStudio {
         if let r = state.range { rangeChip.title = String(format: "⟲ %.1f–%.1f s  ×", r.lowerBound, r.upperBound) }
         exportOptions.range = state.range
         timeline.setCaptions(state.captions)
+        if timeline.beats != state.beats { timeline.beats = state.beats }
         timeline.set(
             at: state.at, length: state.length, scenes: state.scenes, tracks: state.tracks, marks: state.marks)
         scenes = state.scenes

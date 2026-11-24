@@ -7,6 +7,7 @@ import Core
 /// file beside the page (AVFoundation) and kept for the run.
 extension MarkdownTab {
     @MainActor private static var peaks: [String: [Float]] = [:], reading: Set<String> = []
+    @MainActor private static var beatsOf: [String: Beats.Found] = [:]
 
     /// The loudness of `src` (beside the page) from second `from` for `length`, 120 bars; nil until it's read.
     func wave(of src: String, from: Double, length: Double) -> [Float]? {
@@ -15,9 +16,16 @@ extension MarkdownTab {
             if !Self.reading.contains(file.path) {
                 Self.reading.insert(file.path)
                 Task.detached {
-                    let read = Self.loudness(of: file)
+                    var read: [Float] = [], beats: Beats.Found?
+                    do {
+                        let (all, rate) = try Beats.samples(of: file)
+                        (read, beats) = (Self.loudness(all, rate: rate), Beats.find(all, rate: rate))
+                    } catch {
+                        read = []   // a file AVFoundation can't read has no bars and no beats
+                    }
                     await MainActor.run {
                         Self.peaks[file.path] = read
+                        if let beats { Self.beatsOf[file.path] = beats }
                         self.runJS("window.kelpMotion?.retell?.()")   // drawn again with its bars
                     }
                 }
@@ -31,21 +39,17 @@ extension MarkdownTab {
         return (0..<120).map { i in part[min(part.count - 1, i * part.count / 120)] }
     }
 
-    /// The file's loudness, 20 bars a second, each the loudest sample there (0–1); empty when it doesn't read.
-    nonisolated static func loudness(of file: URL) -> [Float] {
-        let audio: AVAudioFile
-        do { audio = try AVAudioFile(forReading: file) } catch { return [] }   // one AVFoundation can't read: no bars
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: audio.fileFormat.sampleRate, channels: 1),
-            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(audio.length))
-        else { return [] }
-        do { try audio.read(into: buffer) } catch { return [] }
-        guard let samples = buffer.floatChannelData?[0] else { return [] }
-        let step = max(1, Int(audio.fileFormat.sampleRate / 20)), total = Int(buffer.frameLength)
+    /// A sound's loudness, 20 bars a second, each the loudest sample there (0–1).
+    nonisolated static func loudness(_ all: [Float], rate: Double) -> [Float] {
+        let step = max(1, Int(rate / 20)), total = all.count
         var out: [Float] = []
         var at = 0
         while at < total {
             var peak: Float = 0
-            vDSP_maxmgv(samples + at, 1, &peak, vDSP_Length(min(step, total - at)))
+            all.withUnsafeBufferPointer { buffer in
+                guard let base = buffer.baseAddress else { return }
+                vDSP_maxmgv(base + at, 1, &peak, vDSP_Length(min(step, total - at)))
+            }
             out.append(min(1, peak))
             at += step
         }
@@ -63,6 +67,16 @@ extension MarkdownTab {
                 $0, id: id, name: "data-" + name, value: Double(value) == 0 && name != "volume" ? nil : value)
         }
         return true
+    }
+
+    /// The beats of the page's first sound, at the page's seconds (once its file is read).
+    func pageBeats() -> [Double] {
+        guard let sound = MotionSound.sounds(in: editor.text, folder: url.deletingLastPathComponent()).first,
+            let found = Self.beatsOf[sound.file.standardizedFileURL.path]
+        else { return [] }
+        return found.times.filter { $0 >= sound.from && $0 < sound.from + sound.length }.map {
+            sound.start + $0 - sound.from
+        }
     }
 
     /// The page's sounds follow it: Kelp plays them itself (WebKit plays no file beside a page), each from where its

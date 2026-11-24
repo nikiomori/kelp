@@ -209,3 +209,16 @@ private let board = """
         Captions.srt(page)
             == "1\n00:00:00,200 --> 00:00:01,600\nКаждый день\n\n2\n00:00:01,700 --> 00:00:03,200\nпонемногу\n")
 }
+
+/// Clicks every half second, from a quarter second in, are 120 BPM with their beats where the clicks are.
+@Test func clicksAreFoundAsBeats() throws {
+    let rate = 8000.0
+    var samples = [Float](repeating: 0, count: Int(rate * 8))
+    for click in stride(from: 0.25, to: 8, by: 0.5) {
+        for i in 0..<200 { samples[Int(click * rate) + i] = sin(Float(i) / 2) * 0.8 }
+    }
+    let found = try #require(Beats.find(samples, rate: rate))
+    #expect(abs(found.bpm - 120) < 1)
+    #expect(found.times.count == 16)
+    #expect(zip(found.times, stride(from: 0.25, to: 8, by: 0.5)).allSatisfy { abs($0 - $1) < 0.03 })
+}

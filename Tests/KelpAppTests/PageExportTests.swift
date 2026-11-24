@@ -1,5 +1,6 @@
 import AVFoundation
 import AppKit
+import Core
 import Foundation
 import Testing
 
@@ -128,6 +129,7 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     buffer.frameLength = 8000
     for i in 0..<8000 { buffer.floatChannelData?[0][i] = i < 4000 ? 0.5 * sin(Float(i) / 3) : 0 }
     try AVAudioFile(forWriting: url, settings: format.settings).write(from: buffer)
-    let bars = MarkdownTab.loudness(of: url)
+    let (all, rate) = try Beats.samples(of: url)
+    let bars = MarkdownTab.loudness(all, rate: rate)
     #expect(bars.count == 20 && bars[0] > 0.45 && bars[19] == 0)
 }

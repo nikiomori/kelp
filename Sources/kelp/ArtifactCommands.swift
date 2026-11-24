@@ -103,6 +103,7 @@ extension Main {
             _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
         case "export": try await exportPage(cwd, c)
         case "ask", "suggest": try await talk(sub ?? "", cwd, c)
+        case "beats": try await beats(cwd, c)
         default: print(usage)
         }
     }

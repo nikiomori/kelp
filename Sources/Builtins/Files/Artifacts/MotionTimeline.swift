@@ -94,7 +94,7 @@ final class MotionTimeline: NSView {
     var marksLane: CGFloat { marks.isEmpty ? 0 : Self.lane }
     private var lanes: Int { rows.count }
     /// The subtitles' cues, a lane of their own under the elements' when there are any (`setCaptions`).
-    var captions: [Clip] = []
+    var captions: [Clip] = [], beats: [Double] = []
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: Self.ruler + Self.lane * CGFloat(2 + Self.shown) + Metrics.gap)
@@ -207,6 +207,7 @@ final class MotionTimeline: NSView {
         drawClips(font)
         drawSelecting()
         drawKeyframes()
+        drawBeats()
         drawSeams()
         if let range {
             NSColor.systemYellow.setFill()
@@ -354,7 +355,7 @@ final class MotionTimeline: NSView {
 
     /// `seconds` in tenths, or the time or another scene's edge when one is within 6 points of it.
     private func snap(_ seconds: Double, _ id: String) -> Double {
-        let edges = [at] + scenes.filter { $0.id != id }.flatMap { [$0.start, $0.end] }
+        let edges = [at] + beats + scenes.filter { $0.id != id }.flatMap { [$0.start, $0.end] }
         if let near = edges.min(by: { abs($0 - seconds) < abs($1 - seconds) }), abs(x(near) - x(seconds)) < 6 {
             return near
         }

@@ -299,7 +299,9 @@ public enum Artifacts {
           `data-id` and a `data-title`: the user moves, retimes and retypes them by hand in Kelp's studio, which
           writes `translate`, `animation-delay` and `animation-duration` on the element itself. Keep those, and
           `data-hidden`. A picture or a video with its own `data-start` and `data-duration` is a layer of its own
-          for that time (the user drops them in), not a scene.
+          for that time (the user drops them in), not a scene. So is music: `<audio data-start data-duration
+          src>` (`data-volume`, `data-from`, `data-fade-in`, `data-fade-out` optional), played and mixed into the
+          video; `kelp artifact beats <name>` gives its tempo and beats at the page's seconds, to cut scenes on.
         - Fonts from the system or files beside the page; images and videos are files beside motion.html. No web
           requests.
         - Tell the user it plays beside them (Space plays, ← → step a frame) and that Export Video in its bar makes

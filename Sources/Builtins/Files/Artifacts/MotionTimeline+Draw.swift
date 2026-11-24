@@ -75,4 +75,14 @@ extension MotionTimeline {
                 font: font)
         }
     }
+
+    /// The music's beats: a thin yellow line down the lanes at each, which clips snap to.
+    func drawBeats() {
+        guard !beats.isEmpty else { return }
+        NSColor.systemYellow.setFill()
+        let area = lanesArea
+        for beat in beats where beat >= from && beat <= from + span {
+            NSRect(x: x(beat), y: area.minY, width: 1, height: area.height).fill(using: .sourceOver)
+        }
+    }
 }

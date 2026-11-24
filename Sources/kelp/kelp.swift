@@ -64,6 +64,7 @@ let usage = """
       artifact ask <name> <data-id> <question> | suggest <name> <request>…   ask on an element; offer what's next
       artifact export <name> <png|pdf|pptx|html|zip|mp4|gif|mov> [to]   pictures, PDF, PowerPoint, HTML, ZIP, video
                                            browser, where they're signed in); list one an agent published elsewhere
+      artifact beats <name>                    a motion page's music: its tempo and beats, at the page's seconds
       \(Main.dbUsage)
                                            the project's databases (compose, .env, database.yml, SQLite files) through
                                            Kelp, which holds their passwords: one statement a call; an agent's change

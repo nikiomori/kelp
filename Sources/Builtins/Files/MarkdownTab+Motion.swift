@@ -110,7 +110,7 @@ extension MarkdownTab {
                 },
                 range: (body["range"] as? [NSNumber]).flatMap { r in
                     r.count == 2 && r[1].doubleValue > r[0].doubleValue ? r[0].doubleValue...r[1].doubleValue : nil
-                }, captions: clips("captions", "start", "duration")))
+                }, captions: clips("captions", "start", "duration"), beats: pageBeats()))
     }
 
     /// Gives the stage another shape: the body's `data-width` and `data-height`. The page's own layout is the
