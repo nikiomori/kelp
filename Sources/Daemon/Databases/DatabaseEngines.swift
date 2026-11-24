@@ -91,6 +91,20 @@ enum DatabaseEngines {
         throw tooBig(name)
     }
 
+    /// Reads an HTTP answer (Appwrite's) up to `limit` bytes, and refuses a longer one whole, as a client's output is.
+    static func answer(_ request: URLRequest, from name: String, limit: Int = DatabaseEngines.outputLimit) async throws
+        -> (Data, URLResponse)
+    {
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard response.expectedContentLength <= Int64(limit) else { throw tooBig(name) }
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+            guard data.count <= limit else { throw tooBig(name) }
+        }
+        return (data, response)
+    }
+
     private static func tooBig(_ name: String) -> DatabaseFailure {
         .failed(
             "\(name)'s answer is over \(outputLimit >> 20) MB, more than Kelp reads: ask for fewer rows or columns.")

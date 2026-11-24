@@ -42,8 +42,8 @@ struct PostgresRun: DatabaseRunner {
     }
 
     /// Handles `allowed` as the wire runner does (`PostgresWire.write`), within psql's one session. The ROW_COUNT that
-    /// psql keeps for the statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own on stdin. The
-    /// statement itself still goes as `-c`, which psql sends as it is, without reading psql commands in it.
+    /// psql keeps for the statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own, after the
+    /// statements (`script`).
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         return try await off.run {
             let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
@@ -146,10 +146,10 @@ struct PostgresRun: DatabaseRunner {
     }
 
     /// Splits psql's output into each command's output after the first (the first is BEGIN's), at the markers psql
-    /// echoes between commands. `script` holds Kelp's own psql commands, run after the statements in the same session
-    /// (on stdin).
+    /// echoes between commands. `then` holds Kelp's own psql commands, run after the statements in the same session.
+    /// All of it goes on stdin (`script`).
     static func run(
-        _ databaseConnection: DatabaseConnection, _ commands: [String], then script: String? = nil,
+        _ databaseConnection: DatabaseConnection, _ commands: [String], then: String? = nil,
         timeout: TimeInterval
     ) throws -> [String] {
         let db = databaseConnection.database
@@ -157,21 +157,16 @@ struct PostgresRun: DatabaseRunner {
         var argv =
             client + [
                 "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
-                "-d",
-                db.database ?? "postgres"
+                "-d", db.database ?? "postgres", "-f", "-"
             ]
         if let user = db.user { argv += ["-U", user] }
-        for (index, command) in commands.enumerated() {
-            if index > 0 { argv += ["-c", "\\echo " + marker] }
-            argv += ["-c", command]
-        }
-        if script != nil { argv += ["-f", "-"] }
         let env = DatabaseEngines.environment([
             // UTC, as the wire runner uses (`PostgresText`), so a row found by its values compares the same text
             "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": databaseConnection.password, "PGTZ": "UTC"
         ])
         let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: script.map { Data($0.utf8) }, timeLimit: timeout,
+            argv, cwd: NSHomeDirectory(), env: env, stdin: Data((script(commands) + (then ?? "")).utf8),
+            timeLimit: timeout,
             limit: DatabaseEngines.outputLimit)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
@@ -181,6 +176,18 @@ struct PostgresRun: DatabaseRunner {
         return String(decoding: out.stdout, as: UTF8.self).components(separatedBy: marker + "\n").dropFirst().map {
             $0
         }
+    }
+
+    /// The commands as psql reads them on stdin, with a marker echoed between them, so none is in the process list or
+    /// held to an argument's length. Each goes to the server as a dollar-quoted string that `\gexec` runs, so psql
+    /// reads no command of its own (`\!`) and no variable in it, as with `-c`. The quote's tag is one the command
+    /// doesn't hold.
+    static func script(_ commands: [String]) -> String {
+        commands.enumerated().map { index, command in
+            var tag = "$kelp$"
+            while (command + "$").contains(tag) { tag = "$kelp" + String(repeating: "_", count: tag.count - 5) + "$" }
+            return (index > 0 ? "\\echo \(marker)\n" : "") + "SELECT \(tag)\(command)\(tag) \\gexec\n"
+        }.joined()
     }
 
     /// Turns psql's error output into a failure: a change refused in a read-only transaction, or the server's words.

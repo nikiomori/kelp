@@ -29,6 +29,40 @@ import Testing
 @Test func whatKelpAddsToAStatementOutlivesItsLastComment() {
     #expect(SQLText.returning("UPDATE t SET a = 1 -- fix") == "UPDATE t SET a = 1 -- fix\nRETURNING *")
     #expect(MySQLRun.counted("DELETE FROM t # old").hasPrefix("DELETE FROM t # old\n;"))
+    #expect(MySQLRun.script(["SELECT 1 -- note"]).hasPrefix("SELECT 1 -- note\n;\n"))
+}
+
+/// psql in a container reads the statements on stdin, so none is in the process list or held to an argument's length;
+/// each is a quoted string psql runs as it is (`\gexec`), its own commands (`\!`) unread, as `-c` sent them.
+@Test func psqlGetsTheStatementsAsQuotedStrings() {
+    #expect(
+        PostgresRun.script(["BEGIN", #"SELECT 1 \! touch /tmp/x"#])
+            == "SELECT $kelp$BEGIN$kelp$ \\gexec\n\\echo \(PostgresRun.marker)\n"
+            + #"SELECT $kelp$SELECT 1 \! touch /tmp/x$kelp$ \gexec"# + "\n")
+    // A statement that holds the quote's tag, or ends where it would start one, gets another
+    #expect(PostgresRun.script(["SELECT '$kelp$'"]) == "SELECT $kelp_$SELECT '$kelp$'$kelp_$ \\gexec\n")
+    #expect(PostgresRun.script(["SELECT 1 AS a$kelp"]) == "SELECT $kelp_$SELECT 1 AS a$kelp$kelp_$ \\gexec\n")
+}
+
+/// The mysql client's rows keep a row of one empty value (an empty line), and a container that has only `mariadb`
+/// (MariaDB 11's images) runs that.
+@Test func mysqlsBatchOutputKeepsEmptyRowsAndFindsMariaDB() throws {
+    #expect(MySQLRun.section("v\n\nx\n").rows == [[""], ["x"]])
+    #expect(MySQLRun.section("").columns.isEmpty)
+    let bin = tmp().appendingPathComponent("bin-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: bin) }
+    let mariadb = bin.appendingPathComponent("mariadb")
+    try "#!/bin/sh\necho mariadb \"$@\"\n".write(to: mariadb, atomically: true, encoding: .utf8)
+    chmod(mariadb.path, 0o755)
+    let ran = Process(), out = Pipe()
+    ran.executableURL = URL(fileURLWithPath: "/bin/sh")
+    ran.arguments = Array(MySQLRun.client.dropFirst()) + ["--batch"]
+    ran.environment = ["PATH": bin.path + ":/usr/bin:/bin"]
+    ran.standardOutput = out
+    try ran.run()
+    ran.waitUntilExit()
+    #expect(String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) == "mariadb --batch\n")
 }
 
 /// The built-ins that run a query given as text are refused to agents as what they'd run would be: a text check can't
