@@ -21578,6 +21578,99 @@
         }
       }
     },
+    "Fetch in the background": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получать в фоне"
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане."
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front, and at once when you come back to it, for the projects in the sidebar. Never asks for a password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане, и сразу, когда вы к нему возвращаетесь, для проектов в боковой панели. Никогда не спрашивает пароль."
+          }
+        }
+      }
+    },
+    "offline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет сети"
+          }
+        }
+      }
+    },
+    "couldn’t fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не удалось получить"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти, нажмите «Получить»"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти, нажмите «Получить»"
+          }
+        }
+      }
+    },
     "fetched %@ ago": {
       "localizations": {
         "ru": {

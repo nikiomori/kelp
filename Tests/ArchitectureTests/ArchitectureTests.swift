@@ -497,6 +497,10 @@ func codeOnly(_ s: String) -> String {
             1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
         ),
         "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
+        "Builtins/Git/BackgroundFetch.swift": (
+            1,
+            "a fetch every 5 minutes while Kelp is in front: a remote announces nothing, and only the app knows it's in front"
+        ),
         "Builtins/Agents/Session/PaneView.swift": (
             1, "a terminal out of sight lets go of its agent once it could pause idle"
         ),

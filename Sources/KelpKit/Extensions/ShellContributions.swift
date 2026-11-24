@@ -62,12 +62,17 @@ package struct TabProvider {
 package struct BranchActions {
     let running: @MainActor (_ worktree: String) -> String?
     let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
+    /// Why the background fetch of the branch's project fails, for the chip's tooltip ("fetched 1d ago — offline"),
+    /// and the symbol of the grey mark at the chip's end once it has failed long enough. nil while it works.
+    let fetch: @MainActor (_ worktree: String) -> (said: String, mark: String?)?
     package init(
         running: @escaping @MainActor (String) -> String?,
-        popover: @escaping @MainActor (String, NSPopover) -> NSViewController
+        popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
+        fetch: @escaping @MainActor (String) -> (said: String, mark: String?)? = { _ in nil }
     ) {
         self.running = running
         self.popover = popover
+        self.fetch = fetch
     }
 }
 
