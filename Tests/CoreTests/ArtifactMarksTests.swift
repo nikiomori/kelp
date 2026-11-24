@@ -48,6 +48,10 @@ private let page = ".kelp/artifacts/home/canvas.json"
     #expect(!r2)
     let r3 = m.apply(.reply(id: 1, text: "Done, at h1"))
     #expect(r3)
+    // Pointed again while with the agent: the mark follows the element, its rounds as they were.
+    let moved = m.apply(.retarget(id: 1, to: ArtifactMark(board: "boards/B.html", target: "[data-id=t2]", text: "Hi")))
+    #expect(moved && m.marks[0].target == "[data-id=t2]" && m.marks[0].board == "boards/B.html")
+    #expect(m.marks[0].state == .sent && m.marks[0].rounds.count == 1)
     let r4 = m.apply(.done(id: 7))
     #expect(!r4, "no such mark")
     let r5 = m.apply(.again(id: 1))

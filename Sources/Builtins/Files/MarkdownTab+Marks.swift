@@ -28,6 +28,10 @@ extension MarkdownTab {
             else { break }
             change(.reference(id: id), pictures: [String(id): png])
         case "markAgain": if let id { change(.again(id: id)) }
+        case "markTarget":
+            // Point Again on a mark that isn't a draft (drafts go with the rest, `marksDraft`).
+            guard let id, let mark = drafts(["marks": [body["mark"] ?? [:]]]).first else { break }
+            Task { if let mark = await stampIDs([mark]).first { change(.retarget(id: id, to: mark)) } }
         default: break
         }
     }

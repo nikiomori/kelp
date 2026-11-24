@@ -901,7 +901,8 @@
           "edit",
           "ask",
           "suggest",
-          "reference"
+          "reference",
+          "retarget"
         ],
         "type" : "string"
       },

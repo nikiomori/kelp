@@ -207,6 +207,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             case suggest
             /// A picture for mark `id` as its example (the call's `pictures`, by the mark's number).
             case reference
+            /// Mark `id` points at another element (`drafts`: the mark with its new board, target and words), from
+            /// Point Again, whatever its state.
+            case retarget
         }
         public var kind: Kind
         public var drafts: [ArtifactMark]?
@@ -243,6 +246,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         public static func edit(_ edit: HandEdit) -> Change { Change(.edit, edit: edit) }
         public static func ask(_ mark: ArtifactMark) -> Change { Change(.ask, drafts: [mark]) }
         public static func suggest(_ lines: [String]) -> Change { Change(.suggest, lines: lines) }
+        public static func retarget(id: Int, to mark: ArtifactMark) -> Change {
+            Change(.retarget, drafts: [mark], id: id)
+        }
         public static func reference(id: Int) -> Change { Change(.reference, id: id) }
     }
 
@@ -292,6 +298,11 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             }
         case .reference:
             return false   // the picture is the change, written beside the marks (`ArtifactMarksChange`)
+        case .retarget:
+            guard let to = change.drafts?.first else { return false }
+            return set(change.id, from: Set(ArtifactMark.State.allCases)) {
+                ($0.board, $0.target, $0.text, $0.area) = (to.board, to.target, to.text, to.area)
+            }
         case .ask:
             guard var mark = change.drafts?.first, mark.asked?.isEmpty == false else { return false }
             mark.id = next
