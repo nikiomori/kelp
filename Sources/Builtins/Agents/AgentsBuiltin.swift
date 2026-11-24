@@ -84,7 +84,8 @@ extension Builtins {
             launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
             dockUsage: { LimitWatch.dockFace(app) },
-            skills: [terminalsSkill, agentsSkill]
+            skills: [terminalsSkill, agentsSkill],
+            quickSections: [OutputRows.section(app)]
         )
     }
 }

@@ -219,7 +219,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
     // +3: an agent's pane shows where a dragged file will land with the editor's own hint (`DropHint`, its
     // `show(over:)` and `hide`), so a drop looks the same on every pane.
-    #expect(declared == 380, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: a built-in's rows for whatever is typed in ⌘P, under its own heading (`QuickSection`, its `init`), so Agents
+    // lists the lines open terminals printed without the shell knowing terminals.
+    #expect(declared == 382, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

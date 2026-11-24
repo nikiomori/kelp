@@ -5190,6 +5190,26 @@
         }
       }
     },
+    "%lld more matches": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё %lld"
+          }
+        }
+      }
+    },
+    "In Terminal Output": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В выводе терминалов"
+          }
+        }
+      }
+    },
     "%lld more in the log": {
       "localizations": {
         "ru": {

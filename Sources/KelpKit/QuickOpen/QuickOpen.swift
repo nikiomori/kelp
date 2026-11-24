@@ -342,14 +342,15 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             // Score off the main thread, because a big project's files take a while to score on every keystroke.
             let grouped = !commandsOnly && choosing == nil
             let keys = pool.count == all.count ? allKeys : pool.map(Self.key), fuzzy = grouped ? files.fuzzy : []
+            let sections = grouped && filesOnly == nil   // a built-in's rows for any query come after these
             scoring = Task { [weak self] in
                 let best = await Task.detached { Self.best(keys, query, files: fuzzy) }.value
                 guard let self, !Task.isCancelled else { return }
+                let own = best.map { $0 < pool.count ? pool[$0] : fileItem($0 - pool.count) }
                 // Nothing found is said, as the line and symbol modes say theirs: an empty list looked unfinished.
-                guard !best.isEmpty else {
-                    return setRows([], grouped: false, heading: String(localized: "No matches"))
-                }
-                setRows(best.map { $0 < pool.count ? pool[$0] : fileItem($0 - pool.count) }, grouped: grouped)
+                setRows(
+                    own, grouped: grouped && !own.isEmpty, heading: own.isEmpty ? String(localized: "No matches") : nil)
+                if sections { await addSections(query, after: own) }
             }
         }
     }
