@@ -84,3 +84,21 @@ import Testing
     #expect(other.grid.table.tableColumns[1].isHidden && !other.grid.table.tableColumns[3].isHidden)
     #expect(other.keptLook("customers") == nil)
 }
+
+/// The filter's conditions as SQL, each as the engine quotes it: ≥, ≤, between two values (one alone filters
+/// nothing yet), and is empty for '' (NULL isn't empty).
+@MainActor @Test func filterConditionsBecomeTheirSQL() {
+    let cases: [(DatabaseFilters.Condition, String, String, String)] = [
+        (.atLeast, "10", "", #""total" >= '10'"#),
+        (.atMost, "10", "", #""total" <= '10'"#),
+        (.between, "1", "5", #""total" BETWEEN '1' AND '5'"#),
+        (.between, "1", "", ""),
+        (.isEmpty, "", "", #""total" = ''"#)
+    ]
+    for (op, value, to, sql) in cases {
+        let filters = DatabaseFilters()
+        filters.use(columns: ["total"], engine: .postgres)
+        filters.add(column: "total", op: op, value: value, to: to)
+        #expect(filters.condition == sql, "\(op)")
+    }
+}
