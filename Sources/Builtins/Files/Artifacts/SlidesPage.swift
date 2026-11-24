@@ -67,6 +67,7 @@ enum SlidesPage {
         .k-picture .slide-body{display:grid;grid-template-columns:1fr 1fr;column-gap:5cqw;align-content:center}
         .k-picture .slide-body>p:has(img){grid-column:2;grid-row:1/span 20;margin:0;align-self:center}
         .k-picture .slide-body img{width:100%;max-height:70cqw;object-fit:contain;border-radius:1cqw}
+        .kelp-at .kelp-keep{margin-left:8px;background:var(--k-accent,#007aff);color:#fff}
         .kelp-notes{align-self:stretch;flex:none;height:96px;padding:8px 16px;border-top:1px solid var(--border);
           font:13px/19px -apple-system,sans-serif;overflow:auto}
         .kelp-notes-head{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted)}
@@ -131,6 +132,7 @@ enum SlidesPage {
             const t = el('button', 'kelp-thumb');
             t.append(el('span', null, String(i + 1)), s.cloneNode(true));
             t.onclick = () => go(i, true);
+            t.oncontextmenu = e => { e.preventDefault(); post({ kind: 'slideMenu', line: lineOf(s), n: i + 1 }); };
             thumbs.append(t);
           });
           window.kelpSlides = slides;
@@ -159,8 +161,15 @@ enum SlidesPage {
             slides.forEach((s, j) => s.classList.toggle('on', j === at));
             [...thumbs.children].forEach((t, j) => t.classList.toggle('on', j === at));
             thumbs.children[at].scrollIntoView({ block: 'nearest' });
-            where.textContent = at2.textContent = (at + 1) + ' ' + L.of + ' ' + slides.length;
-            bandAt.textContent = L.notes + ' · ' + L.slide.toLowerCase() + ' ' + where.textContent;
+            const place = (at + 1) + ' ' + L.of + ' ' + slides.length;
+            where.textContent = at2.textContent = place;
+            // A slide with other layouts, or one of them: Keep puts it in their place (`SlideVariants`).
+            if ((window.kelpSlideGroups || []).some(g => g.includes(lineOf(slides[at])))) {
+              const keep = el('button', 'kelp-pill kelp-keep', L.keep);
+              keep.onclick = () => post({ kind: 'keepSlide', line: lineOf(slides[at]) });
+              where.append(' ', keep);
+            }
+            bandAt.textContent = L.notes + ' · ' + L.slide.toLowerCase() + ' ' + place;
             field.textContent = slides[at].dataset.notes || '';
             saved.textContent = slides[at].dataset.notes ? L.saved : '';
             post({ kind: 'slideAt', at });   // the presenter's window follows

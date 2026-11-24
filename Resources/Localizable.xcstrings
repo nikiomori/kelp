@@ -32499,6 +32499,76 @@
           }
         }
       }
+    },
+    "Variations ×3…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты ×3…"
+          }
+        }
+      }
+    },
+    "Duplicate Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать доску"
+          }
+        }
+      }
+    },
+    "Remove Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать доску"
+          }
+        }
+      }
+    },
+    "copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "копия"
+          }
+        }
+      }
+    },
+    "Three More Like This": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё три как эта"
+          }
+        }
+      }
+    },
+    "Other Layouts ×3…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие раскладки ×3…"
+          }
+        }
+      }
+    },
+    "canvas.json doesn't read: fix it first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "canvas.json не читается: сначала исправьте его."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -66,6 +66,9 @@ extension MarkdownTab {
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
             let animatedNote = String(localized: "Its animation moves it: change that instead")
             let cropLabels = ["free": String(localized: "Free"), "reset": String(localized: "Reset")]
+            let variantLabels = [
+                "keep": String(localized: "Keep"), "more": String(localized: "Three More Like This")
+            ]
             let layerLabels = [
                 "layers": String(localized: "Layers"), "keys": String(localized: "↑ parent · ↓ inside · ⇥ next"),
                 "allLike": String(localized: "All like this"), "onBoards": String(localized: "on %d boards")
@@ -103,6 +106,7 @@ extension MarkdownTab {
                     let edit =
                         CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
                         + CanvasAnchors.source(labels: anchors) + CanvasBoardStates.source
+                        + CanvasVariants.source(labels: variantLabels)
                     let byHand =
                         CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                         + CanvasLayers.source(labels: layerLabels)
@@ -139,6 +143,7 @@ extension MarkdownTab {
                         String(decoding: $0, as: UTF8.self)
                     }
                     html += SlidesPage.style + SlidesPage.tokens(tokens ?? "")
+                    scripts.append("window.kelpSlideGroups = \(Self.js(SlideVariants.groups(text)));")
                     scripts.append(SlidesPage.script(labels: slideLabels))
                 }
                 guard agents else {

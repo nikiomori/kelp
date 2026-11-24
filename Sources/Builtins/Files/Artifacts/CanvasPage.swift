@@ -133,8 +133,9 @@ enum CanvasPage {
         let size = h.map { "\(w) × \($0)" } ?? "\(w)"
         let name = (board.title ?? (board.file as NSString).lastPathComponent) + " · " + size + (dark ? " · dark" : "")
         let height = h.map { " data-h=\"\($0)\"" } ?? ""
+        let variant = board.variant.map { " data-variant=\"\(MarkdownHTML.esc($0))\"" } ?? ""
         return """
-            <div class="frame"><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
+            <div class="frame"\(variant)><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
             <iframe sandbox="allow-same-origin" \
             data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
             style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(MarkdownHTML.esc(doc))"></iframe></div>
@@ -190,6 +191,7 @@ enum CanvasPage {
         \(CanvasAnchors.style)
         \(CanvasLayers.style)
         \(CanvasBoardStates.style)
+        \(CanvasVariants.style)
         \(MarkColumn.style)
         \(CanvasEditMode.style)
         \(CanvasHandles.style)

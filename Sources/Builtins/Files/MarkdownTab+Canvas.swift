@@ -44,6 +44,7 @@ extension MarkdownTab {
     /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         if arrangeMessage(kind, body) || propsMessage(kind, body) || slidesMessage(kind, body) { return true }
+        if ["boardMenu", "keepVariant", "moreLike"].contains(kind) { return variantsMessage(kind, body) }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
         case "marks", "marksDraft", "markDone", "markAgain", "markRef": marksMessage(kind, body)

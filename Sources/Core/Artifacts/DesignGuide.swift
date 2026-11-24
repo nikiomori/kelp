@@ -31,6 +31,8 @@ extension Artifacts {
               too.
             - `data-id="title"` on every element worth pointing at (headings, buttons, fields, cards): the user's marks
               come back to you by it.
+            - Variations of a board: boards of their own beside it, with `"variant": "boards/A.html"` in canvas.json;
+              the user keeps one (it takes the original's place) or asks for more like it.
             - A screen with states (hover, empty, error, loading): `data-states="default,empty,error"` on the board's
               root, styled with `[data-state=error] …`; the user switches between them and marks each.
             - Levers the user moves without you: up to 4 lines at the top of a board,

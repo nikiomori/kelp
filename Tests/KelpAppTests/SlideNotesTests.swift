@@ -16,3 +16,15 @@ import Testing
 func slideNotesGoIntoTheSource(source: String, line: Int, text: String, expected: String) {
     #expect(SlideNotes.set(source, line: line, text: text) == expected)
 }
+
+/// Other layouts of a slide come right after it, each starting with `<!-- variant -->`: they make a group, and
+/// keeping one puts it, without the marker, in the group's place.
+@Test func aSlidesVariantIsKept() throws {
+    let deck =
+        "# Deck\n\n---\n\n## Why\n- a\n\n---\n\n<!-- variant -->\n## Why, as a picture\n\n---\n\n<!-- variant -->\n## Why, in numbers\n\n---\n\n## End"
+    #expect(SlideVariants.groups(deck) == [[5, 11, 16]])
+    #expect(
+        try #require(SlideVariants.keep(deck, line: 11)) == "# Deck\n\n---\n\n## Why, as a picture\n\n---\n\n## End")
+    #expect(try #require(SlideVariants.keep(deck, line: 5)) == "# Deck\n\n---\n\n## Why\n- a\n\n---\n\n## End")
+    #expect(SlideVariants.keep(deck, line: 1) == nil)
+}

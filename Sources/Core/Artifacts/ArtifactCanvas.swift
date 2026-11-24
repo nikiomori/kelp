@@ -15,6 +15,8 @@ public struct ArtifactCanvas: Codable, Equatable, Sendable {
         /// The board's width in CSS pixels. `h` is set only for a fixed frame (a phone, a poster), and otherwise the
         /// board is as tall as its content.
         public var w: Int?, h: Int?
+        /// The board this one is a variation of (`boards/A.html`), until the user keeps one of them.
+        public var variant: String?
         public init(file: String, row: String? = nil, title: String? = nil, w: Int? = nil, h: Int? = nil) {
             self.file = file
             self.row = row
@@ -45,6 +47,18 @@ public struct ArtifactCanvas: Codable, Equatable, Sendable {
         do { canvas = try JSONDecoder().decode(Self.self, from: Data(json.utf8)) } catch { return nil }
         // A board must be a file in the artifact's own folder, so a path that leads out of it is dropped.
         return ArtifactCanvas(boards: canvas.boards.filter { !$0.file.hasPrefix("/") && !$0.file.contains("..") })
+    }
+
+    /// canvas.json with its board list changed by `change` (each board as the agent wrote it, unknown keys and all);
+    /// what else is in it is kept. Throws when it doesn't read as a canvas.
+    public static func editBoards(_ json: String, _ change: ([[String: Any]]) -> [[String: Any]]) throws -> String {
+        guard var object = try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+            let boards = object["boards"] as? [[String: Any]]
+        else { throw CocoaError(.fileReadCorruptFile) }
+        object["boards"] = change(boards)
+        let data = try JSONSerialization.data(
+            withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        return String(decoding: data, as: UTF8.self) + "\n"
     }
 
     /// The canvas that `kelp artifact new design` writes, with no boards yet.

@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import KelpKit
 import WebKit
@@ -188,7 +189,7 @@ extension MarkdownTab {
             "notesHint": String(localized: "Notes for this slide: only you see them while presenting"),
             "pause": String(localized: "Pause"), "resume": String(localized: "Go On"),
             "reset": String(localized: "Reset Time"), "before": String(localized: "Before"),
-            "after": String(localized: "Coming Next")
+            "after": String(localized: "Coming Next"), "keep": String(localized: "Keep")
         ]
     }
 
@@ -210,6 +211,25 @@ extension MarkdownTab {
 
     func slidesMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         switch kind {
+        case "slideMenu":
+            guard let line = (body["line"] as? NSNumber)?.intValue, let n = (body["n"] as? NSNumber)?.intValue else {
+                break
+            }
+            let menu = NSMenu(), page = Artifacts.projectPath(url.path)
+            menu.add(String(localized: "Other Layouts ×3…")) { [weak self] in
+                self?.send(
+                    "Other layouts on \(page): write three other layouts of slide \(n) (line \(line)) as slides right "
+                        + "after it, each starting with a `<!-- variant -->` line. Same words; "
+                        + "leave slide \(n) as it is."
+                )
+            }
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        case "keepSlide":
+            guard let line = (body["line"] as? NSNumber)?.intValue,
+                let next = SlideVariants.keep(editor.text, line: line)
+            else { break }
+            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
+            Task { _ = await saveFile?() }
         case "slideAt":
             if let at = (body["at"] as? NSNumber)?.intValue { Presenter.follow(self, at: at) }
         case "notes":

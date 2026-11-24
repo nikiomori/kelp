@@ -137,3 +137,13 @@ private let board = """
     )
     #expect(BoardEdit.setStyle(page, className: "card", property: "color", value: "red\"") == nil)
 }
+
+/// Keeping a variation takes the board's variations off canvas.json and leaves everything else the agent wrote there.
+@Test func keptVariationsLeaveTheCanvas() throws {
+    let json =
+        #"{"boards": [{"file": "boards/A.html", "w": 900}, {"file": "boards/A-b.html", "variant": "boards/A.html"}, {"file": "boards/B.html", "note": "mine"}], "pages": 2}"#
+    let out = try ArtifactCanvas.editBoards(json) { $0.filter { ($0["variant"] as? String) != "boards/A.html" } }
+    #expect(ArtifactCanvas.read(out)?.boards.map(\.file) == ["boards/A.html", "boards/B.html"])
+    #expect(out.contains(#""note" : "mine""#) && out.contains(#""pages" : 2"#))
+    #expect(throws: (any Error).self) { try ArtifactCanvas.editBoards("{", { $0 }) }
+}
