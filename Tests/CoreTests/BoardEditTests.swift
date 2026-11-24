@@ -255,3 +255,12 @@ private let board = """
         ])
     #expect(BoardLinks.file("choose", in: ["boards/welcome.html", "boards/choose.html"]) == "boards/choose.html")
 }
+
+/// A 997 Hz sine at a tenth of full scale is −23 LUFS by BS.1770 (−3.01 at full scale); silence has no loudness.
+@Test func aSineIsAsLoudAsTheStandardSays() throws {
+    let rate = 48000.0
+    let sine = (0..<Int(rate * 3)).map { Float(0.1 * sin(2 * Double.pi * 997 * Double($0) / rate)) }
+    let lufs = try #require(Loudness.integrated(sine, rate: rate))
+    #expect(abs(lufs - -23.01) < 0.1, "\(lufs)")
+    #expect(Loudness.integrated([Float](repeating: 0, count: 48000), rate: rate) == nil)
+}

@@ -60,7 +60,7 @@ extension MarkdownTab {
     /// (seconds); a video's speed and whether it loops.
     func soundMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         guard kind == "soundProp", let id = body["id"] as? String, let name = body["name"] as? String,
-            ["volume", "from", "fade-in", "fade-out", "rate", "loop"].contains(name),
+            ["volume", "from", "fade-in", "fade-out", "rate", "loop", "duck", "loudness"].contains(name),
             let value = body["value"] as? String
         else { return false }
         // What is as if it weren't set goes: a speed of 1, no loop, no fade, the file from its start.
@@ -108,10 +108,7 @@ final class SoundPlayer {
             heard.insert(sound.file)
             let player: AVAudioPlayer
             do { player = try self.player(sound.file) } catch { continue }   // a file it can't play stays silent
-            let ramp = min(
-                sound.fadeIn > 0 ? (t - sound.start) / sound.fadeIn : 1,
-                sound.fadeOut > 0 ? (sound.start + sound.length - t) / sound.fadeOut : 1, 1)
-            player.volume = sound.volume * Float(max(0, ramp))
+            player.volume = sound.level(at: t)
             player.rate = Float(rate)
             let want = sound.from + (t - sound.start)
             if !player.isPlaying {

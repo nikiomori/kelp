@@ -122,6 +122,14 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
             ])
     let late = try #require(MotionSound.sounds(in: page, folder: folder, from: 2).first)
     #expect((late.start, late.from, late.length) == (0, 1, 3))
+    // Music quieter under a voice: 12 dB down while it speaks, sloping 0.3 s either side; brought to −14 LUFS.
+    let two =
+        #"<audio data-start="0" data-duration="6" data-duck="12" data-loudness="-14" src="m.m4a"></audio>"#
+        + #"<audio data-start="1" data-duration="2" src="v.m4a"></audio>"#
+    let music = try #require(MotionSound.sounds(in: two, folder: folder).first)
+    #expect(music.ducks == [1...3] && music.loudness == -14)
+    #expect(music.level(at: 0.5) == 1 && abs(music.level(at: 2) - 0.251) < 0.001)
+    #expect(music.level(at: 0.85) > 0.251 && music.level(at: 0.85) < 1)
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-tone-\(UUID().uuidString).caf")
     defer { try? FileManager.default.removeItem(at: url) }
     let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1))

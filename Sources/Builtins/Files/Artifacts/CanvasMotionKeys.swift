@@ -228,9 +228,24 @@ enum CanvasMotionKeys {
             volume.append(range, pct);
             const pair = K.el('span', 'kelp-ipair');
             pair.append(field('fade-in', e.dataset.fadeIn || 0, 's'), field('fade-out', e.dataset.fadeOut || 0, 's'));
+            // Quieter under the other sounds (a voice), by so many decibels; brought to a loudness at export.
+            const choice = (name, now, options) => {
+              const seg = K.el('span', 'kelp-iseg');
+              for (const [v, t] of options) {
+                const b = K.el('button', String(now || 0) === v ? 'on' : '', t);
+                b.onclick = () => K.post({ kind: 'soundProp', id, name, value: v });
+                seg.append(b);
+              }
+              return seg;
+            };
+            const duck = choice('duck', e.dataset.duck, [['0', L.off], ['6', '−6'], ['12', '−12'], ['18', '−18']]);
+            const level = choice('loudness', e.dataset.loudness,
+              [['0', L.asIs], ['-23', '−23'], ['-16', '−16'], ['-14', '−14']]);
+            duck.title = L.duckTip; level.title = L.loudnessTip;
             const s = K.el('div', 'kelp-isec');
             s.append(K.el('div', 'kelp-ititle', L.sound));
-            const rows = [[L.volume, volume], [L.from, field('from', e.dataset.from || 0, 's')], [L.fades, pair]];
+            const rows = [[L.volume, volume], [L.from, field('from', e.dataset.from || 0, 's')], [L.fades, pair],
+              [L.duck, duck], [L.loudness, level]];
             for (const [label, control] of rows) {
               const r = K.el('div', 'kelp-irow');
               r.append(K.el('span', 'kelp-ilabel', label), control, K.el('span'));

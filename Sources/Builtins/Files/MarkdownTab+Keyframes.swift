@@ -173,6 +173,11 @@ extension MarkdownTab {
             "sound": String(localized: "Sound"), "volume": String(localized: "Volume"),
             "video": String(localized: "Video"), "speed": String(localized: "Speed"),
             "loop": String(localized: "Loop"), "no": String(localized: "No"), "yes": String(localized: "Yes"),
+            "duck": String(localized: "Under a Voice"), "off": String(localized: "Off"),
+            "duckTip": String(localized: "Decibels quieter while another sound plays"),
+            "loudness": String(localized: "Level To"), "asIs": String(localized: "As Is"),
+            "loudnessTip": String(
+                localized: "Brought to this loudness (LUFS) in the video: −14 is what most sites play at"),
             "from": String(localized: "Starts in the File"), "fades": String(localized: "Fade In · Out"),
             "place": String(localized: "Place"), "size": String(localized: "Size"),
             "box": String(localized: "Box"), "plain": String(localized: "Plain"),

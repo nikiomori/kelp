@@ -33519,6 +33519,46 @@
           }
         }
       }
+    },
+    "Under a Voice": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Под голосом"
+          }
+        }
+      }
+    },
+    "Decibels quieter while another sound plays": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На сколько децибел тише, пока звучит другой звук"
+          }
+        }
+      }
+    },
+    "Level To": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять"
+          }
+        }
+      }
+    },
+    "Brought to this loudness (LUFS) in the video: −14 is what most sites play at": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость в ролике (LUFS): −14 — как играют большинство сайтов"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
