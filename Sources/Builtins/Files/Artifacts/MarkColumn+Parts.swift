@@ -1,15 +1,8 @@
 import Foundation
 
 extension MarkColumn {
-    /// The column's drafts' parts: the circle that leaves one out of the send, ⋮⋮ to reorder, and the example picture
-    /// pasted or dropped into a note. Function declarations, so they sit anywhere in the column's script.
+    /// The column's drafts' parts: ⋮⋮ to reorder, and the example picture pasted or dropped into a note. Function declarations, so they sit anywhere in the column's script.
     static let helpers = """
-        // Whether a draft goes with the next send: a circle, filled when it does.
-        function check(m) {
-          const c = el('button', 'kelp-check' + (skip.has(m.id) ? '' : ' on'));
-          c.onclick = e => { e.stopPropagation(); skip.has(m.id) ? skip.delete(m.id) : skip.add(m.id); draw(); };
-          return c;
-        }
         // ⋮⋮: dragged over another draft, puts this one before it, in the order the agent will do them.
         function grip(m, box) {
           const g = el('span', 'kelp-grip', '⋮⋮');

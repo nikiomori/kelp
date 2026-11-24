@@ -16,9 +16,7 @@ extension MarkdownTab {
         let id = (body["id"] as? NSNumber)?.intValue
         switch kind {
         case "marks":
-            sendMarks(
-                drafts(body), only: body["only"] as? [Int], queue: body["queue"] as? Bool ?? false,
-                seen: (body["seen"] as? NSNumber)?.intValue)
+            sendMarks(drafts(body), queue: body["queue"] as? Bool ?? false, seen: (body["seen"] as? NSNumber)?.intValue)
         case "marksDraft":
             let list = drafts(body), seen = (body["seen"] as? NSNumber)?.intValue
             Task { change(.drafts(await stampIDs(list), seen: seen)) }
@@ -61,16 +59,16 @@ extension MarkdownTab {
         return marks
     }
 
-    /// Sends the drafts chosen (`only`: their places among `drafts`, all when nil), in order: first all drafts as they
+    /// Sends the drafts, in order: first all drafts as they
     /// are (so each has its number), then with a picture of each area and stroke, and then the message, to the chat
     /// that made the page (or the agent on screen). With `queue` while that agent works, they wait for its turn to end.
-    private func sendMarks(_ drafts: [ArtifactMark], only: [Int]?, queue: Bool, seen: Int?) {
+    private func sendMarks(_ drafts: [ArtifactMark], queue: Bool, seen: Int?) {
         Task {
             // Who gets them is settled first: with no agent to take them, they stay drafts.
             guard let agent = await markTaker() else { return }
             guard let numbered = await changed(.drafts(await stampIDs(drafts), seen: seen)) else { return }
             let all = numbered.marks.filter { $0.state == .draft }
-            let sending = only.map { $0.filter(all.indices.contains).map { all[$0] } } ?? all
+            let sending = all
             if queue, agent.status == .working {
                 markQueue += sending.map(\.id).filter { !markQueue.contains($0) }
                 return followAuthor()
@@ -211,7 +209,7 @@ extension MarkdownTab {
             "changedIn": String(localized: "Changed in version"), "goneIn": String(localized: "Gone in version"),
             "same": String(localized: "Not changed: its chat may say why"),
             "composeHint": String(localized: "↩ add  ·  ⌘↩ send  ·  ⎋ remove"),
-            "chosen": String(localized: "%d chosen"), "sendCount": String(localized: "Send %d"),
+            "sendCount": String(localized: "Send %d"),
             "queue": String(localized: "Queue"), "sendNow": String(localized: "Send Now"),
             "working": String(localized: "%@ is working"), "queued": String(localized: "%d queued"),
             "asks": String(localized: "%@ asks"), "answer": String(localized: "Your answer"),

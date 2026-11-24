@@ -27,11 +27,9 @@ enum MarkColumn {
           const layer = el('div', 'kelp-marks'), composer = el('div', 'kelp-composer');
           document.body.append(layer, composer);
           composer.style.display = 'none';
-          let page = null, tab = 'marks', at = 0, doneOpen = false, before = false, filter = 'waiting';
-          // The drafts left out of the next send (by number), and the agent at work with how many wait for it.
-          const skip = new Set();
+          let page = null, tab = 'marks', at = 0, before = false, filter = 'waiting';
+          // The agent at work, with how many wait for it.
           let busy = { who: '', queued: 0 };
-          const chosen = () => by('draft').filter(m => !skip.has(m.id));
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
           // With the newest mark seen: a draft the agent added since (a question) isn't one removed.
@@ -68,7 +66,7 @@ enum MarkColumn {
           function row(m, current) {
             const box = el('div', 'kelp-mark' + (current ? ' kelp-on' : ''));
             const head = el('div', 'kelp-row');
-            if (m.state === 'draft') head.append(grip(m, box), check(m));
+            if (m.state === 'draft') head.append(grip(m, box));
             const what = page ? page.what(m) : '';
             const who = m.asked ? L.asks.replace('%@', L.agent) + ' · ' : '';
             head.append(num(m), el('span', 'kelp-grow kelp-what', who + what));
@@ -195,14 +193,9 @@ enum MarkColumn {
             if (d.length) { out.push(sec(L.fresh + ' · ' + d.length)); d.forEach(m => out.push(row(m))); }
             if (M.edits.length) { out.push(sec(L.yourEdits + ' · ' + M.edits.length), ...edits()); }
             if (s.length) { out.push(sec(L.withAgent + ' · ' + s.length)); s.forEach(m => out.push(row(m))); }
+            // Done ones show under Done or All: Waiting is what's left to do.
             if (done.length && filter === 'all') {
               out.push(sec(L.done + ' · ' + done.length)); done.forEach(m => out.push(row(m)));
-            }
-            else if (done.length) {
-              const h = sec(L.done + ' · ' + done.length + (doneOpen ? ' ▾' : ' ▸'));
-              h.classList.add('kelp-fold'); h.onclick = () => { doneOpen = !doneOpen; draw(); };
-              out.push(h);
-              if (doneOpen) done.forEach(m => out.push(row(m)));
             }
             // What the agent suggests asking next: a click makes it a mark on the whole page, its note to edit.
             if (M.suggestions?.length) {
@@ -217,11 +210,11 @@ enum MarkColumn {
               }
             }
             if (d.length || M.edits.length) {
-              const n = chosen().length, foot = el('div', 'kelp-row kelp-end');
+              const n = d.length, foot = el('div', 'kelp-row kelp-end');
               const button = (text, prominent, run) => {
                 const b = el('button', prominent ? 'kelp-prominent' : 'kelp-pill', text); b.onclick = run; return b;
               };
-              foot.append(el('span', 'kelp-grow kelp-hint', d.length ? L.chosen.replace('%d', n) : ''));
+              foot.append(el('span', 'kelp-grow'));
               // While the agent works: they wait for its turn to end, or go now as a message typed into it.
               if (busy.who) {
                 foot.append(button(L.queue, false, () => send(true)), button(L.sendNow, true, () => send()));
@@ -242,7 +235,7 @@ enum MarkColumn {
             const band = busy.who
               ? [el('span', 'kelp-busy-dot', '●'), el('span', null, L.working.replace('%@', busy.who) + queued)] : [];
             if (!more.length) return C.open([which], rows(), band);
-            const tabs = C.tabs([['marks', L.marks + ' ' + open]].concat(more), tab, key => { tab = key; draw(); });
+            const tabs = C.tabs([['marks', L.marks]].concat(more), tab, key => { tab = key; draw(); });
             C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab), band);
           }
 
@@ -314,13 +307,13 @@ enum MarkColumn {
             showBefore(false); m.state = 'draft'; m.note = ''; post({ kind: 'markAgain', id: m.id }); draw();
             compose(m);   // what's still wrong, written beside this mark
           }
-          // Sends the drafts chosen, in their order (`only`: their places among the drafts), now or once the agent's
-          // turn ends (`queue`).
+          // Sends the drafts, in their order, now or once the agent's turn ends (`queue`). One not to send is taken
+          // away (×).
           function send(queue) {
             for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
-            const d = by('draft'), only = d.map((m, i) => skip.has(m.id) ? -1 : i).filter(i => i >= 0);
-            if (!only.length && !M.edits.length) return;
-            post({ kind: 'marks', marks: d, only, queue: !!queue, seen: seen() });
+            const d = by('draft');
+            if (!d.length && !M.edits.length) return;
+            post({ kind: 'marks', marks: d, queue: !!queue, seen: seen() });
           }
 
           addEventListener('keydown', e => {

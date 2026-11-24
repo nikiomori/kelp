@@ -14,9 +14,6 @@ extension MarkColumn {
           background: color-mix(in srgb, var(--k-orange) 12%, transparent); }
         .kelp-busy-dot { color: var(--k-orange); }
         .kelp-grip { color: var(--k-quiet); cursor: grab; font-size: 10px; letter-spacing: -2px; }
-        .kelp-check { flex: none; width: 14px; height: 14px; padding: 0; border: 0; border-radius: 50%;
-          background: none; box-shadow: inset 0 0 0 1.5px var(--k-quiet); }
-        .kelp-check.on { background: var(--k-accent); box-shadow: inset 0 0 0 1.5px var(--k-accent); }
         .kelp-edit-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 3px;
           vertical-align: -1px; box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-marks { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 11; }
