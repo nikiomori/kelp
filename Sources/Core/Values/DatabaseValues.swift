@@ -329,6 +329,12 @@ public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+extension [DatabaseRun] {
+    /// The change `session`'s row asks about now: the oldest of its runs that asks, since the row asks its questions
+    /// oldest first and runs are listed newest first (`db.activity`). What shows a change to allow shows this one.
+    public func asked(by session: String) -> DatabaseRun? { last { $0.session == session && $0.state == .asks } }
+}
+
 /// A database's tables, as an agent reads them before it writes a query.
 public struct DatabaseSchema: Codable, Sendable, Equatable {
     public var tables: [Table]

@@ -12671,7 +12671,7 @@
       }
     },
     {
-      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once.",
+      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once. `run` is the database run (`DatabaseRun.id`) whose change was shown: the answer goes to that change's question alone.",
       "name" : "session.choose",
       "paramStructure" : "by-name",
       "params" : [
@@ -12691,6 +12691,13 @@
         },
         {
           "name" : "question",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "run",
           "required" : false,
           "schema" : {
             "type" : "string"

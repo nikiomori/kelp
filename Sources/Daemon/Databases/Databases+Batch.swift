@@ -38,9 +38,13 @@ extension Databases {
                 let tried = try await DatabaseEngines.batch(
                     databaseConnection, statements, keep: { _ in false }, off: offloads)
                 run.state = .asks
-                run.changed = Self.total(tried)
+                // A change inside a query (`changesUncounted`) counts what it returns: the total isn't the rows'
+                let uncounted = statements.contains(where: SQLText.changesUncounted)
+                run.changed = uncounted ? nil : Self.total(tried)
                 note(databaseQuery.worktreeId, run, result: Self.result(run.id, statements, tried, ms: 0))
-                let question = Self.question(statements: statements.count, database: name, changed: run.changed)
+                let question =
+                    Self.question(statements: statements.count, database: name, changed: run.changed)
+                    + (uncounted ? " Kelp can’t count the rows they change." : "")
                 guard await answered(databaseQuery, &run, ls, question, asker: (session, asker.pid)) else {
                     throw RPCError.refused(run.error ?? "The user didn't allow it.")
                 }

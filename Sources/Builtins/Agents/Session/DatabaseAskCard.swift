@@ -64,7 +64,7 @@ final class DatabaseAskCard: NSView {
             guard !question.isEmpty else { return self?.show(nil) ?? () }
             Task { [weak self] in
                 let runs = await app.quiet(DatabaseActivity(worktreeId: worktree))?.runs ?? []
-                self?.show(runs.first { $0.session == session && $0.state == .asks })
+                self?.show(runs.asked(by: session))
             }
         }
     }
@@ -100,9 +100,11 @@ final class DatabaseAskCard: NSView {
         showButton.title = String(localized: "Show Rows")
         guard shown > 0, let rows, let table = rows.change?.tableName else {
             title.stringValue = String(localized: "\(who) wants to change \(run.database)")
+            // A change with no count of rows (DDL, a change inside a query) that was tried says only that
             detail.stringValue =
                 run.changed.map { String(localized: "\($0) rows would change. Tried, then rolled back.") }
-                ?? String(localized: "It couldn’t be tried first.")
+                ?? (rows == nil
+                    ? String(localized: "It couldn’t be tried first.") : String(localized: "Tried, then rolled back."))
             return
         }
         title.stringValue =
@@ -139,6 +141,6 @@ final class DatabaseAskCard: NSView {
     @objc private func allowed() { answer("allow") }
     @objc private func denied() { answer("deny") }
     private func answer(_ action: String) {
-        Notifications.answer(app, session, action, question: app.session(session)?.summary)
+        Notifications.answer(app, session, action, question: app.session(session)?.summary, run: asking?.id)
     }
 }

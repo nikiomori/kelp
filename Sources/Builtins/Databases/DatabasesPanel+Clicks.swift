@@ -35,7 +35,7 @@ extension DatabasesPanel {
 
     func answer(_ run: DatabaseRun, allow: Bool) {
         guard let sid = run.session else { return }
-        Notifications.answer(app, sid, allow ? "allow" : "deny", question: app.session(sid)?.summary)
+        Notifications.answer(app, sid, allow ? "allow" : "deny", question: app.session(sid)?.summary, run: run.id)
     }
 
     func start(_ db: DatabaseInfo) {

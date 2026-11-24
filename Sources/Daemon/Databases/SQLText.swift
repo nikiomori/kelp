@@ -194,6 +194,18 @@ enum SQLText {
         String(code(sql).prefix { $0.isLetter }).uppercased()
     }
 
+    /// Whether the count a statement reports is the rows it changes: an INSERT, UPDATE, DELETE, MERGE or REPLACE.
+    static func countsItsRows(_ sql: String) -> Bool {
+        ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(verb(sql))
+    }
+
+    /// Whether a statement that reads as a query changed rows from inside: a change in a WITH (`WITH d AS (DELETE …)
+    /// SELECT 1`), an EXPLAIN ANALYZE of one, a function or procedure that writes. Its count is of what it returns
+    /// (or nothing), not of the rows it changes, so the number of rows it may change can't be held to the trial's.
+    static func changesUncounted(_ sql: String) -> Bool {
+        ["WITH", "EXPLAIN", "SELECT", "CALL", "EXEC", "EXECUTE", "VALUES", "TABLE"].contains(verb(sql))
+    }
+
     /// Returns the one statement a call may run. More than one statement, or a client command (psql's \…, duckdb's
     /// .…), is refused before anything runs. Running one at a time keeps a read-only transaction whole (a "COMMIT;
     /// DELETE …" would end it), and makes what the user allowed everything that runs. The text is read every way its

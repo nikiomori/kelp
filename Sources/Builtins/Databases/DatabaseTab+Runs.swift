@@ -115,8 +115,8 @@ extension DatabaseTab {
     @objc func allowAsked() { answer("allow") }
     @objc func denyAsked() { answer("deny") }
     private func answer(_ action: String) {
-        guard let session = asking?.session else { return }
-        Notifications.answer(app, session, action, question: app.session(session)?.summary)
+        guard let asking, let session = asking.session else { return }
+        Notifications.answer(app, session, action, question: app.session(session)?.summary, run: asking.id)
     }
 
     func openRun(_ run: DatabaseRun, toEditor: Bool) {
