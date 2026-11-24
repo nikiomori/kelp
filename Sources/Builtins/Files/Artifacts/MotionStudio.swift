@@ -38,19 +38,11 @@ final class MotionStudio {
                 loop, speed, time, frame, rangeChip, whole,
                 IconButton(.symbol("diamond"), tip: String(localized: "Keyframe at the Time (K)")) { [weak self] in
                     self?.onKeyframe?()
-                },
-                IconButton(.symbol("scissors"), tip: String(localized: "Split at the Time (S)")) { [weak self] in
-                    self?.cut("split")
-                },
-                IconButton(.symbol("arrow.left.to.line"), tip: String(localized: "Trim the Start to the Time")) {
-                    [weak self] in self?.cut("trimStart")
-                },
-                IconButton(.symbol("arrow.right.to.line"), tip: String(localized: "Trim the End to the Time")) {
-                    [weak self] in self?.cut("trimEnd")
                 }
             ],
             [
-                zoomSlider, TextButton(String(localized: "Fit")) { [weak self] in self?.timeline.setZoom(1) }, size,
+                zoomSlider, TextButton(String(localized: "Fit Timeline")) { [weak self] in self?.timeline.setZoom(1) },
+                size,
                 export
             ], stretching: frame)
         speed.toolTip = String(localized: "How fast it plays")
@@ -146,8 +138,6 @@ final class MotionStudio {
     var onGroup: (([(was: MotionTimeline.Clip, now: MotionTimeline.Clip)]) -> Void)?
     var onMany: ((String, [String]) -> Void)?
 
-    private func cut(_ kind: String) { onCut?(kind, timeline.picked) }
-
     /// A shape chosen for the stage: its width and height in pixels.
     var onFormat: ((Int, Int) -> Void)?
     /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.
@@ -238,23 +228,11 @@ final class MotionStudio {
             item.state = reframe == way ? .on : .off
             size.menu?.addItem(item)
         }
-        size.menu?.addItem(.separator())
-        let other = NSMenuItem(
-            title: String(localized: "Also in Other Formats…"), action: #selector(adaptChosen), keyEquivalent: "")
-        other.target = self
-        size.menu?.addItem(other)
         size.selectItem(at: shown)
     }
 
     /// What a change of the stage's shape does to what's drawn on it (`StageReframe`).
     private(set) var reframe = StageReframe.fit
-
-    /// Also in Other Formats…: the tab asks which, and the agent makes them.
-    var onAdapt: (() -> Void)?
-    @objc private func adaptChosen() {
-        fillFormats()
-        onAdapt?()
-    }
 
     @objc private func reframeChosen(_ item: NSMenuItem) {
         reframe = (item.representedObject as? String).flatMap(StageReframe.init(rawValue:)) ?? .fit

@@ -338,6 +338,10 @@ final class ArtifactBar: NSObject {
             menu.addItem(.separator())
         }
         if md.page == .slides { md.presentItems(menu) }
+        if md.page == .motion {   // the agent makes the video again in other shapes (MarkdownTab+Adapt)
+            menu.add(String(localized: "Also in Other Formats…")) { md.askAdaptations() }
+            menu.addItem(.separator())
+        }
         // Slides have their own PDF, a page a slide (Export); printing would cut them by the sheet.
         if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
         exportItems(menu)
