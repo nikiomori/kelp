@@ -23636,6 +23636,26 @@
         }
       }
     },
+    "Back to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@"
+          }
+        }
+      }
+    },
+    "Back to %@ · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@ · %@"
+          }
+        }
+      }
+    },
     "Back to Project": {
       "localizations": {
         "ru": {

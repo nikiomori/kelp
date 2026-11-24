@@ -402,6 +402,7 @@ package final class AppModel {
             if session.isOlder(than: old) { return }
             if old != session { upsert(session) }   // the views follow `sessions`
             notifier?.statusChanged(session, old)
+            workbench.noteTurn(session, was: old)
             if old?.status != session.status { arrangement.followParked(session) }
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)

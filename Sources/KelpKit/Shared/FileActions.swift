@@ -74,6 +74,7 @@ package struct FileActions {
         Task {
             guard let agent = await pickAgent() else { return }
             await app.call(SessionSend(id: agent.id, text: text + " ", enter: false))
+            app.workbench.lastPrompted = agent.id
             app.workbench.focus(session: agent.id)
         }
     }
