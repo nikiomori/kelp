@@ -1,14 +1,13 @@
 import Foundation
 
 /// The controls Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`). They are the column on the
-/// right that Mark and Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or
-/// both), and the zoom capsule at the bottom right (− % + and Fit). They are drawn with Kelp's own tokens, in the
-/// window's light or dark look. They send `themes` (light, dark or both) and `zoom` (a size, or null for Fit) to
-/// `kelpSync`, and the tab keeps both for the next drawing. Without `floats` (a doc's page, a dashboard), only the
-/// column is added.
+/// right that Mark and Edit fill (`window.kelpColumn`) and the zoom capsule at the bottom right (− % + and Fit); the
+/// themes are in ⋯ › View. They are drawn with Kelp's own tokens, in the window's light or dark look. They send `zoom`
+/// (a size, or null for Fit) to `kelpSync`, and the tab keeps it for the next drawing. Without `floats` (a doc's page,
+/// a dashboard), only the column is added.
 enum CanvasChrome {
     struct Labels {
-        var light: String, dark: String, both: String, fit: String, zoomOut: String, zoomIn: String
+        var fit: String, zoomOut: String, zoomIn: String
     }
 
     /// A glyph for a button on the page, drawn as the window's symbols are, not typed (a font's × ‹ › − + ↑ look unlike
@@ -27,7 +26,7 @@ enum CanvasChrome {
         }
     }
 
-    static func source(themes: String, labels l: Labels, floats: Bool = true) -> String {
+    static func source(labels l: Labels, floats: Bool = true) -> String {
         let js: (String) -> String = MarkdownTab.js
         return """
             (function () {
@@ -67,11 +66,6 @@ enum CanvasChrome {
               for (const b of document.querySelectorAll('[data-kelp]'))
                 b.onclick = () => post({ kind: b.dataset.kelp, why: b.dataset.why || '' });
               if (!\(floats)) return;
-              // One theme at a time, or both side by side: the tab draws the boards again.
-              const themes = el('div', 'kelp-float kelp-themes');
-              themes.append(window.kelpColumn.tabs(
-                [['light', \(js(l.light))], ['dark', \(js(l.dark))], ['both', \(js(l.both))]], \(js(themes)),
-                key => post({ kind: 'themes', value: key })));
               // The canvas's size: steps down and up, or fitted to the pane.
               const zoom = el('div', 'kelp-float kelp-zoom');
               const out = el('button', 'kelp-ib'), into = el('button', 'kelp-ib');
@@ -86,7 +80,7 @@ enum CanvasChrome {
               fit.onclick = () => set(null);
               zoom.append(out, shown, into, el('span', 'kelp-sep'), fit);
               addEventListener('kelp-zoom', () => { shown.textContent = Math.round(now() * 100) + '%'; });
-              document.body.append(themes, zoom);
+              document.body.append(zoom);
             })();
             """
     }
@@ -121,9 +115,8 @@ enum CanvasChrome {
         .kelp-float { position: fixed; z-index: 15; display: flex; align-items: center; gap: 2px; padding: 0 4px;
           height: 30px; border-radius: 8px; background: var(--k-float); color: var(--k-label);
           box-shadow: 0 0 0 .5px var(--k-sep), 0 2px 6px rgba(0,0,0,.2); font: 12px -apple-system, sans-serif; }
-        .kelp-themes { top: 10px; right: 14px; }
         .kelp-zoom { bottom: 14px; right: 14px; }
-        .kelp-with-col .kelp-themes, .kelp-with-col .kelp-zoom { right: 274px; }
+        .kelp-with-col .kelp-zoom { right: 274px; }
         .kelp-seg { display: inline-flex; height: 22px; padding: 2px; box-sizing: border-box; border-radius: 999px;
           background: var(--k-rest); gap: 2px; }
         .kelp-seg button { height: 18px; padding: 0 9px; border: 0; border-radius: 999px; background: none;

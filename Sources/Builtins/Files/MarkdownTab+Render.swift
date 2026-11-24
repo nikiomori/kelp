@@ -80,7 +80,7 @@ extension MarkdownTab {
             ]
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
-                CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
+                CanvasPage.chosenThemes
                 ?? (dark ? .dark : .light)
             let canvasView = CanvasPage.View(
                 themes: isDashboard ? (dark ? .dark : .light) : themes, writer: canvasWriter, dashboard: isDashboard)
@@ -100,9 +100,7 @@ extension MarkdownTab {
                         kind == .motion
                         ? MotionPage.build(text, folder: base, root: root)
                         : CanvasPage.build(snapshot, folder: base, root: root, view: canvasView)
-                    let around = CanvasChrome.source(
-                        themes: kind == .motion ? "" : themes.rawValue, labels: chrome,
-                        floats: !canvasView.dashboard && kind != .motion)
+                    let around = CanvasChrome.source(labels: chrome, floats: !canvasView.dashboard && kind != .motion)
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
                     let edit =
                         CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
@@ -157,7 +155,7 @@ extension MarkdownTab {
                 let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
                 html += PageMarks.style
                 scripts += [
-                    ownAccent, CanvasChrome.source(themes: "", labels: chrome, floats: false),
+                    ownAccent, CanvasChrome.source(labels: chrome, floats: false),
                     MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }

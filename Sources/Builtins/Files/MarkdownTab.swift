@@ -61,6 +61,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var handEdited: Set<String> = [], markQueue: [Int] = [], followingAuthor = false   // the queue: `followAuthor`
     var handSteps: (undo: [HandStep], redo: [HandStep]) = ([], [])   // for ⌘Z and ⇧⌘Z (`undoHandEdit`)
     var lastRewrite: Task<Void, Never>?   // board rewrites one after another (`rewrite`)
+    var canvasLanguage = "as"   // ⋯ › View's As Is, +40% or RTL, kept across drawings (`viewMenu`)
     let handEditRest = Debounce()
     /// The bar for checking the marks an agent's turn handed back.
     lazy var reviewBar = MarkReviewBar { [weak self] call in self?.runJS(call) }

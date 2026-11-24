@@ -11,6 +11,11 @@ enum CanvasPage {
     /// theme is used.
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
+    /// The themes chosen in ⋯ › View (light, dark or both), on this Mac; nil until one is.
+    static var chosenThemes: Themes? {
+        get { UserDefaults.standard.string(forKey: themesKey).flatMap(Themes.init) }
+        set { UserDefaults.standard.set(newValue?.rawValue, forKey: themesKey) }
+    }
 
     /// How the canvas is drawn: in which themes, which agent is writing it now (the board being written gets the
     /// ring), and whether it is a dashboard. A dashboard shows its boards as the pane's page, one view at a time,
@@ -196,7 +201,6 @@ enum CanvasPage {
         \(CanvasEditMode.style)
         \(CanvasTokens.style)
         \(CanvasBoardWidth.style)
-        \(CanvasLanguages.style)
         \(CanvasHandles.style)
         \(CanvasEditBar.style)
         \(CanvasCrop.style)

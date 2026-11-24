@@ -133,9 +133,6 @@ extension MarkdownTab {
             send(
                 "Update \(Artifacts.projectPath(url.path)): run its commands again and bring every figure up to date, "
                     + "its data-source time too.")
-        case "themes":
-            UserDefaults.standard.set(body["value"] as? String, forKey: CanvasPage.themesKey)
-            rerender()
         case "zoom": canvasZoom = body["value"] as? Double
         case "source": modeSegment = 1
         case "fixCheck": sendCheck()
@@ -175,7 +172,6 @@ extension MarkdownTab {
 
     var canvasChromeLabels: CanvasChrome.Labels {
         CanvasChrome.Labels(
-            light: String(localized: "Light"), dark: String(localized: "Dark"), both: String(localized: "Both"),
             fit: String(localized: "Fit"), zoomOut: String(localized: "Smaller"), zoomIn: String(localized: "Bigger"))
     }
 
@@ -190,7 +186,36 @@ extension MarkdownTab {
     }
 
     /// Sets the mode chosen with View / Mark / Edit in the bar.
+    /// ⋯ › View on a canvas: its boards as they are, 40% longer or right to left (not in Edit, which writes what they
+    /// show), and one theme or both.
+    func viewMenu() -> NSMenu {
+        let menu = NSMenu()
+        for (view, title) in [
+            ("as", String(localized: "As Is")), ("longer", String(localized: "+40%")),
+            ("rtl", String(localized: "RTL"))
+        ] {
+            let item = menu.add(title) { [weak self] in
+                self?.canvasLanguage = view
+                self?.runJS("window.kelpLanguage?.(\(Self.js(view)))")
+            }
+            item.state = canvasLanguage == view ? .on : .off
+            item.isEnabled = view == "as" || !editing
+        }
+        menu.addItem(.separator())
+        for (themes, title) in [
+            (CanvasPage.Themes.light, String(localized: "Light")), (.dark, String(localized: "Dark")),
+            (.both, String(localized: "Both"))
+        ] {
+            menu.add(title) { [weak self] in
+                CanvasPage.chosenThemes = themes
+                self?.rerender()
+            }.state = CanvasPage.chosenThemes == themes ? .on : .off
+        }
+        return menu
+    }
+
     func setCanvasMode(_ mode: CanvasMode) {
+        if mode == .edit { canvasLanguage = "as" }   // Edit shows the boards as they are
         if mode != .view { (split.arrangedSubviews.last as? VersionsPanel)?.removeFromSuperview() }   // one column
         marking = mode == .mark
         if marking { followAuthor() }
@@ -286,7 +311,8 @@ extension MarkdownTab {
     /// The scripts that turn things back on after the canvas is drawn again: the zoom, marking or editing, and the
     /// chosen element.
     var canvasModeScripts: [String] {
-        let zoom = canvasZoom.map { ["kelpZoom(\($0))"] } ?? []
+        let zoom =
+            (canvasZoom.map { ["kelpZoom(\($0))"] } ?? []) + ["window.kelpLanguage?.(\(Self.js(canvasLanguage)))"]
         if marking { return zoom + ["kelpMark(true)", busyScript] }
         guard editing else { return zoom }
         let select = chosen.map { "kelpSelect(\(Self.js($0.board)), \(Self.js($0.id)))" }

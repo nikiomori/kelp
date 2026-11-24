@@ -333,6 +333,10 @@ final class ArtifactBar: NSObject {
             }
             menu.addItem(.separator())
         }
+        if md.page == .canvas, !md.isDashboard {
+            menu.add(String(localized: "View"), submenu: md.viewMenu())
+            menu.addItem(.separator())
+        }
         // Slides have their own PDF, a page a slide (Export); printing would cut them by the sheet.
         if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
         exportItems(menu)

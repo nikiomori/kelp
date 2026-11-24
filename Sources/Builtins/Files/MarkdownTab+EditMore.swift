@@ -28,10 +28,9 @@ extension MarkdownTab {
             "table": String(localized: "Table"), "chooseTable": String(localized: "Choose…"),
             "field": String(localized: "Column"), "row": String(localized: "Row"),
             "redraw": String(localized: "Its numbers were changed by hand in its table: draw it again from them."),
-            "asIs": String(localized: "As Is"),
+
             "longer": String(localized: "+40%"), "rtl": String(localized: "RTL"),
-            "longerTip": String(localized: "Text 40% longer, as in German or Finnish"),
-            "rtlTip": String(localized: "Right to left, as in Arabic or Hebrew"),
+
             "needsScreen": String(localized: "Needs a screen after this: what happens when it's pressed?")
         ]
     }

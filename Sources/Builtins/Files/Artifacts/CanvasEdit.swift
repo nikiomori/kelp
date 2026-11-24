@@ -44,6 +44,7 @@ enum CanvasEdit {
           let mode = null;
           const setMode = m => {
             mode = m; outline.style.display = 'none'; sheet.style.display = m ? 'block' : 'none';
+            document.body.dataset.mode = m || '';
             outline.classList.toggle('kelp-outline-edit', m === 'edit');   // orange is Mark's: a mark waits for you
           };
           const pointed = e => e.closest('[data-id]') || e;
@@ -151,7 +152,7 @@ enum CanvasEdit {
           // Mark's tools: an element (a click), an area, a stroke or an arrow (a drag), a label (a click, then its
           // words; a double click changes them), each on one board. In Mark, ⌘Z and ⇧⌘Z take the last drawn away and
           // put it back.
-          // They sit at the bottom: the top's right holds the views (languages, themes), and both don't fit across.
+          // They sit at the bottom, in the middle of the boards.
           let tool = 'element', drag = null, undone = [];
           const tools = el('div', 'kelp-float kelp-tools');
           const step = (back) => {
