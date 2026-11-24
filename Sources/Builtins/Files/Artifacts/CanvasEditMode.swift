@@ -168,6 +168,7 @@ enum CanvasEditMode {
             if (at) { tag.textContent = nameOf(at.e); outline(); }
             draw();
           }
+          window.kelpProps.choose = choose;
           window.kelpSelect = (board, id) => {
             const f = K.light(board), e = f && f.contentDocument
               && f.contentDocument.querySelector('[data-id="' + CSS.escape(id) + '"]');
@@ -180,7 +181,8 @@ enum CanvasEditMode {
             if (!at) return;
             const p = P[key] || { prop: key }, e = at.e;
             if (value) e.style.setProperty(p.prop, value); else e.style.removeProperty(p.prop);
-            K.post({ kind: 'style', board: at.f.dataset.board, id: idOf(e), property: p.prop, value: value || null });
+            K.post({ kind: 'style', board: at.f.dataset.board, id: idOf(e), property: p.prop, value: value || null,
+              like: window.kelpProps.like?.(e) });
             changed();
           }
           window.kelpProps.set = set;
@@ -189,7 +191,8 @@ enum CanvasEditMode {
             for (const [k, v] of Object.entries(props)) {
               if (v) at.e.style.setProperty(k, v); else at.e.style.removeProperty(k);
             }
-            K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(at.e), props });
+            K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(at.e), props,
+              like: window.kelpProps.like?.(at.e) });
             changed();
           }
           // One row: its name, what it is now, ↺ while it's changed by hand.
@@ -289,7 +292,7 @@ enum CanvasEditMode {
             return line;
           }
           function inspector() {
-            const e = at.e, id = idOf(e), out = [];
+            const e = at.e, id = idOf(e), out = (window.kelpProps.top || []).flatMap(top => top(at));
             if (!id) {
               // Found again by its place among the body's elements of its tag, to write a data-id into its file.
               const give = K.el('button', 'kelp-pill', L.giveID), doc = e.ownerDocument;

@@ -32459,6 +32459,46 @@
           }
         }
       }
+    },
+    "Layers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слои"
+          }
+        }
+      }
+    },
+    "↑ parent · ↓ inside · ⇥ next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑ к родителю · ↓ внутрь · ⇥ соседний"
+          }
+        }
+      }
+    },
+    "All like this": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все такие же"
+          }
+        }
+      }
+    },
+    "on %d boards": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на %d досках"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -33,7 +33,30 @@ public enum BoardEdit {
             value.map({ !$0.contains(where: { ";\"<>{}".contains($0) }) }) ?? true,
             let tag = openingTag(source, id: id)
         else { return nil }
-        let opening = String(source[tag])
+        var out = source
+        out.replaceSubrange(tag, with: restyle(String(source[tag]), property: property, value: value))
+        return out
+    }
+
+    /// Sets `property` on every element with class `className` (`card`, no dot), returning the page and how many it
+    /// changed; nil when the property or value can't be written.
+    public static func setStyle(_ source: String, className: String, property: String, value: String?) -> (String, Int)?
+    {
+        guard property.allSatisfy({ $0.isLetter || $0 == "-" }), !className.isEmpty,
+            className.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }),
+            value.map({ !$0.contains(where: { ";\"<>{}".contains($0) }) }) ?? true
+        else { return nil }
+        var out = source, count = 0
+        for found in source.matches(of: /<[a-zA-Z][^<>]*\sclass="([^"]*)"[^<>]*>/).reversed()
+        where found.output.1.split(separator: " ").contains(Substring(className)) {
+            out.replaceSubrange(found.range, with: restyle(String(found.output.0), property: property, value: value))
+            count += 1
+        }
+        return (out, count)
+    }
+
+    /// Opening tag `opening` with `property` set to `value` in its style (taken away when nil).
+    private static func restyle(_ opening: String, property: String, value: String?) -> String {
         var declarations: [(String, String)] = []
         if let style = opening.firstMatch(of: /\sstyle="([^"]*)"/) {
             declarations = style.output.1.split(separator: ";").compactMap { part in
@@ -47,9 +70,7 @@ public enum BoardEdit {
         let attribute = style.isEmpty ? "" : " style=\"\(style)\""
         var tagText = opening.replacing(/\sstyle="[^"]*"/, with: "")
         tagText.insert(contentsOf: attribute, at: tagText.index(before: tagText.endIndex))
-        var out = source
-        out.replaceSubrange(tag, with: tagText)
-        return out
+        return tagText
     }
 
     /// Sets attribute `name` of element `id` (the page's `<body>` when nil) to `value`, adding it when the element has

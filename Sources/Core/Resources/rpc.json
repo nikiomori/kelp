@@ -422,6 +422,10 @@
           "kind" : {
             "$ref" : "#/components/schemas/ArtifactMark.Kind"
           },
+          "like" : {
+            "description" : "The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.",
+            "type" : "string"
+          },
           "note" : {
             "description" : "The note the user is writing now: a draft's note, empty once sent.",
             "type" : "string"

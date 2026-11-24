@@ -209,7 +209,7 @@ extension MarkdownTab {
             "queue": String(localized: "Queue"), "sendNow": String(localized: "Send Now"),
             "working": String(localized: "%@ is working"), "queued": String(localized: "%d queued"),
             "asks": String(localized: "%@ asks"), "answer": String(localized: "Your answer"),
-            "next": String(localized: "Next you might ask"),
+            "next": String(localized: "Next you might ask"), "allLike": String(localized: "All like this"),
             "waiting": String(localized: "Waiting"), "all": String(localized: "All"),
             "noneDone": String(localized: "No mark is done yet.")
         ]

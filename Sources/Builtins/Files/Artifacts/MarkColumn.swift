@@ -103,6 +103,17 @@ enum MarkColumn {
                 else if (e.key === 'Enter') note.blur();
               });
               body.append(note);
+              // About every element like this one (its class), not only it.
+              const like = m.kind === 'element' && page?.likeOf?.(m);
+              if (like) {
+                const box = el('label', 'kelp-like'), check = el('input');
+                check.type = 'checkbox'; check.checked = !!m.like;
+                check.onchange = () => {
+                  const d = by('draft')[i]; if (d) d.like = check.checked ? '.' + like.cls : null; keep();
+                };
+                box.append(check, L.allLike + ' · .' + like.cls + ' ×' + like.count);
+                body.append(box);
+              }
               if (m.reference) body.append(example(m));
             } else if (said) {
               body.append(el('div', 'kelp-said' + (m.state === 'done' ? ' kelp-faded' : ''), said.note || L.look));

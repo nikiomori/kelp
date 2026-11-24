@@ -79,6 +79,8 @@ extension MarkdownTab {
             rewrite(board, edit: { _ in HandEdit(board: board, id: id, what: "text", from: old, to: text) }) {
                 BoardEdit.setInner($0, id: id, html: html)
             }
+        case "style" where body["like"] is [String: Any], "styles" where body["like"] is [String: Any]:
+            restyleAll(body)
         case "style":
             guard let board = body["board"] as? String, let id = body["id"] as? String,
                 let property = body["property"] as? String

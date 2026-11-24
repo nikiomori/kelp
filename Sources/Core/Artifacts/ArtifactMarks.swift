@@ -71,6 +71,8 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     /// A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder
     /// (`marks/3-ref.png`).
     public var reference: String?
+    /// The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.
+    public var like: String?
     /// The note the user is writing now: a draft's note, empty once sent.
     public var note: String
     public var state: State
@@ -79,8 +81,9 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public init(
         id: Int = 0, kind: Kind = .element, board: String = "", target: String = "", text: String = "",
         area: [Double]? = nil, path: String? = nil, picture: String? = nil, time: Double? = nil, note: String = "",
-        state: State = .draft, rounds: [Round] = [], asked: String? = nil, reference: String? = nil
+        state: State = .draft, rounds: [Round] = [], asked: String? = nil, reference: String? = nil, like: String? = nil
     ) {
+        self.like = like
         self.asked = asked
         self.reference = reference
         self.time = time

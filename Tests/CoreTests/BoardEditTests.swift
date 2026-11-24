@@ -124,3 +124,16 @@ private let board = """
             && fill.components(separatedBy: "data-kelp-frame").count == 2)
     #expect(StageReframe.none.apply(page, old: (1920, 1080), width: 1080, height: 1920) == page)
 }
+
+/// A style for every element of a class: each with the class among others gets it, one with a longer class name that
+/// starts the same doesn't, and a value that could end the attribute is refused.
+@Test func everyElementOfAClassTakesAStyle() throws {
+    let page = #"<div class="card big">A</div><div class="cards">B</div><p class="card" style="color: red">C</p>"#
+    let (out, n) = try #require(BoardEdit.setStyle(page, className: "card", property: "border-radius", value: "12px"))
+    #expect(n == 2)
+    #expect(
+        out
+            == #"<div class="card big" style="border-radius: 12px">A</div><div class="cards">B</div><p class="card" style="color: red; border-radius: 12px">C</p>"#
+    )
+    #expect(BoardEdit.setStyle(page, className: "card", property: "color", value: "red\"") == nil)
+}

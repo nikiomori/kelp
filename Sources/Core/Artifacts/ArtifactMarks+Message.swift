@@ -15,6 +15,7 @@ extension ArtifactMarks {
         for m in marks {
             var what = [m.board]
             switch m.kind {
+            case .element where m.like != nil: what += ["\(m.like ?? "") (every element like it, on every board)"]
             case .element: what += [m.target, m.text.isEmpty ? "" : "«\(m.text)»"]
             case .quote: what += ["«\(m.text)»"]
             case .area where m.area == nil && m.path == nil: what.append("the whole page")
