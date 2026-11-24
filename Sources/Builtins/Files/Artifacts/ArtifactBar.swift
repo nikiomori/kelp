@@ -261,8 +261,8 @@ final class ArtifactBar: NSObject {
     private func show(check found: [String]) {
         issues = found
         _ = view
-        check.isHidden = false
-        check.title = found.isEmpty ? String(localized: "No Issues") : String(localized: "\(found.count) to Fix")
+        check.isHidden = found.isEmpty   // nothing to fix: nothing to show
+        check.title = String(localized: "\(found.count) to Fix")
         check.toolTip = String(localized: "What Kelp found where it drew the boards: cut-off text, contrast, sizes")
     }
 

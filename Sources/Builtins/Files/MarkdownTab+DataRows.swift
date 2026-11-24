@@ -35,12 +35,13 @@ extension MarkdownTab {
                 let path = pageFolder.appendingPathComponent(file).path
                 if let read = await app.quiet(FilesRead(path: path)) { tables[file] = DataRows.parse(read.text) }
             }
+            takesRows = !tables.isEmpty
             runJS("window.kelpSetRows?.(\(Self.js(tables)))")
         }
     }
 
     /// Table: a CSV file, copied beside the page when it is elsewhere; the element takes its first column.
-    private func chooseTable(_ board: String, _ id: String) {
+    func chooseTable(_ board: String, _ id: String) {
         Task {
             let panel = NSOpenPanel()
             panel.allowedContentTypes = [.commaSeparatedText]

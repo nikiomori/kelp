@@ -53,8 +53,8 @@ enum CanvasData {
           setTimeout(need, 0);
           if (!props) return;
           props.more = (props.more || []).concat([(e, id) => {
-            const own = [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
-            if (!own && e.tagName !== 'IMG') return [];
+            // Once it takes a column; the first table is chosen from the element's menu (Take from a Table…).
+            if (!e.getAttribute('data-field')) return [];
             const { file, col } = field(e), table = rows[file], board = props.at().f.dataset.board;
             const s = K.el('div', 'kelp-isec');
             s.append(K.el('div', 'kelp-ititle', L.fromData));

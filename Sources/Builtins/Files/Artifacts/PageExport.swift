@@ -51,7 +51,7 @@ extension ArtifactBar {
         for format in PageExport.formats(for: markdown.page) {
             menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
         }
-        if markdown.page == .canvas || markdown.page == .motion {
+        if markdown.takesRows {   // only a page whose elements take a table's columns
             menu.add(String(localized: "For Each Row of Its Table…")) { [weak markdown] in markdown?.exportEachRow() }
         }
         menu.add(String(localized: "Build in Code…")) { [weak markdown] in markdown?.buildInCode() }

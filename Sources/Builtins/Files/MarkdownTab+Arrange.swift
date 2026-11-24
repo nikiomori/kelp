@@ -120,6 +120,9 @@ extension MarkdownTab {
             menu.add(String(localized: "Replace Image…")) { [weak self] in self?.replaceImage(board, id) }
         }
         if media { menu.add(String(localized: "Crop")) { [weak self] in self?.runJS("window.kelpCrop?.()") } }
+        if page == .canvas {
+            menu.add(String(localized: "Take from a Table…")) { [weak self] in self?.chooseTable(board, id) }
+        }
         menu.addItem(.separator())
         menu.add(String(localized: "Delete")) { [weak self] in self?.removeElement(board, id) }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)

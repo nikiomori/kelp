@@ -45,6 +45,8 @@ final class MotionExportPopover: NSObject {
     private let loops = CapsuleSegments(
         labels: [String(localized: "Forever"), String(localized: "Once")], name: String(localized: "GIF Plays"))
     private let cover = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    /// Each part's name over its choices, so a part that doesn't apply to the format goes with its name.
+    private var names: [ObjectIdentifier: NSTextField] = [:]
     private let go: (MotionExport) -> Void
     /// The second shown now, which Cover takes; and Save Frame as PNG…, which saves it.
     var now = 0.0, onSaveFrame: (() -> Void)?
@@ -67,10 +69,7 @@ final class MotionExportPopover: NSObject {
         rate.selectedSegment = MotionExport.rates.firstIndex(of: options.fps) ?? 1
         size.selectedSegment = options.scale == 2 ? 1 : 0
         quality.selectedSegment = MotionExport.Quality.allCases.firstIndex(of: options.quality) ?? 0
-        movNote.isHidden = options.format != .mov
-        quality.isEnabled = options.format == .mp4
         loops.selectedSegment = options.once ? 1 : 0
-        loops.isEnabled = options.format == .gif
         for control in [format, rate, size, quality, loops] {
             control.target = self
             control.action = #selector(changed)
@@ -87,7 +86,9 @@ final class MotionExportPopover: NSObject {
                 name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
             parts.append(label)
             parts.append(control)
+            names[ObjectIdentifier(control)] = label
         }
+        showParts()
         let export = NSButton(title: String(localized: "Export…"), target: self, action: #selector(go(_:)))
         export.keyEquivalent = "\r"
         export.controlSize = .regular
@@ -130,6 +131,16 @@ final class MotionExportPopover: NSObject {
         popover.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
     }
 
+    /// Only the parts the format has: Quality for an MP4, Plays for a GIF, the note for a MOV.
+    private func showParts() {
+        movNote.isHidden = options.format != .mov
+        for (control, shown) in [(quality, options.format == .mp4), (loops, options.format == .gif)] {
+            control.isHidden = !shown
+            names[ObjectIdentifier(control)]?.isHidden = !shown
+        }
+        if let stack = popover.contentViewController?.view { popover.contentSize = stack.fittingSize }
+    }
+
     /// The popover's width, as the system's are.
     static let width: CGFloat = 300
 
@@ -146,13 +157,11 @@ final class MotionExportPopover: NSObject {
     @objc private func changed() {
         options.format = MotionExport.Format.allCases[max(format.selectedSegment, 0)]
         options.quality = MotionExport.Quality.allCases[max(quality.selectedSegment, 0)]
-        movNote.isHidden = options.format != .mov
-        quality.isEnabled = options.format == .mp4
+        showParts()
         options.fps = MotionExport.rates[max(rate.selectedSegment, 0)]
         options.scale = size.selectedSegment == 1 ? 2 : 1
         options.onlyRange = onlyRange.state == .on
         options.once = loops.selectedSegment == 1
-        loops.isEnabled = options.format == .gif
         options.cover = cover.state == .on ? now : nil
     }
 }
