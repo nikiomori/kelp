@@ -131,6 +131,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
         indicate()
         table.reloadData()
+        scroll.isHidden = columns.isEmpty   // no header over an empty state
     }
 
     /// The column's header: its name, and a key's mark for a primary key. The type, NOT NULL and what the column

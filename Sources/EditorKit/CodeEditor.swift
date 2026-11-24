@@ -296,6 +296,8 @@ public final class CodeEditor: NSObject {
     }
 
     public func focus() { textView.window?.makeFirstResponder(textView) }
+    /// Selects `range` of the text, so what is typed next replaces it.
+    public func select(_ range: NSRange) { textView.setSelectedRange(range) }
 
     /// Fills whole lines behind the text: each range's lines, the editor's width. An empty list fills none.
     public func tint(_ tints: [(range: NSRange, color: NSColor)]) {

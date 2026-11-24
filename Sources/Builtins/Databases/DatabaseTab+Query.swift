@@ -16,6 +16,8 @@ extension DatabaseTab {
             await MainActor.run { self?.completions(line: line, column: column) ?? [] }
         }
         editor.onChange = { [weak self] _ in self?.draft.after(0.5) { self?.keepDraft() } }
+        editor.alwaysWraps = true   // a long statement stays in view
+        editor.refreshAppearance()
         let rows = NSSplitView()
         rows.isVertical = false
         rows.dividerStyle = .thin
@@ -67,8 +69,9 @@ extension DatabaseTab {
         let from = sidebar.current ?? tables.first?.name
         sidebar.current = nil
         arrange()
-        if editor.text.isEmpty, let from {
+        if editor.text.isEmpty, let from {   // selected, so typing a statement of one's own replaces it
             editor.setText("SELECT * FROM " + DatabaseEdits.name(from, engine) + " LIMIT 100;")
+            editor.select(NSRange(location: 0, length: (editor.text as NSString).length))
         }
         grid.editable = false
         grid.source = nil

@@ -213,6 +213,8 @@ import Testing
     tab.startedQuery()
     #expect(tab.title == "Query · shop" && tab.sidebar.current == nil)
     #expect(tab.editor.text == #"SELECT * FROM "orders" LIMIT 100;"#)
+    #expect(tab.editor.selectedRange.length == (tab.editor.text as NSString).length)   // typing replaces it
+    #expect(tab.grid.scroll.isHidden)   // no empty header over "Run a Statement"
     #expect(DatabaseTab.title("shop", showing: .table("users")) == "users · shop")
     #expect(DatabaseTab.title("shop", showing: .run("r1")) == "shop")
 }
