@@ -9,7 +9,7 @@ enum CanvasEditMore {
         "(function (L) {\n" + body + "\n})(\(MarkdownTab.js(labels)));" + CanvasTokens.source(labels: labels)
             + CanvasAccess.source(labels: labels) + CanvasBoardWidth.source(labels: labels)
             + CanvasLinks.source(labels: labels) + CanvasLanguages.source(labels: labels) + CanvasObjects.source
-            + CanvasCharts.source(labels: labels)
+            + CanvasCharts.source(labels: labels) + CanvasData.source(labels: labels)
     }
 
     private static let body = """

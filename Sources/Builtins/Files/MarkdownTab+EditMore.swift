@@ -24,7 +24,9 @@ extension MarkdownTab {
             "mark": String(localized: "Mark It"), "asDrawn": String(localized: "As Drawn"),
             "drag": String(localized: "Drag to see it at any width"), "flow": String(localized: "Flow"),
             "goesTo": String(localized: "Goes To"), "nowhere": String(localized: "Nowhere"),
-            "toAgent": String(localized: "To the Agent"),
+            "toAgent": String(localized: "To the Agent"), "fromData": String(localized: "From Data"),
+            "table": String(localized: "Table"), "chooseTable": String(localized: "Choose…"),
+            "field": String(localized: "Column"), "row": String(localized: "Row"),
             "redraw": String(localized: "Its numbers were changed by hand in its table: draw it again from them."),
             "asIs": String(localized: "As Is"),
             "longer": String(localized: "+40%"), "rtl": String(localized: "RTL"),
@@ -48,6 +50,7 @@ extension MarkdownTab {
             chartMessage(body)
             return true
         }
+        if rowsMessage(kind, body) { return true }
         guard kind == "attribute" else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String,
             let name = body["name"] as? String, ["href", "target", "alt", "data-link"].contains(name)

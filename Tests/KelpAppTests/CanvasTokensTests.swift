@@ -53,11 +53,13 @@ import Testing
         const node = () => ({ style: {}, dataset: {}, classList: { toggle() {} }, children: [], append() {} });
         var window = { kelpCanvas: { frames: [], el: node, sheet: { addEventListener() {} } }, kelpProps: {} };
         var document = { createElement: node, body: { matches: () => false }, querySelector: () => null };
+        var setTimeout = () => 0, clearTimeout = () => {};
         """)
     context.evaluateScript(CanvasEditMore.source(labels: [:]))
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
     #expect(context.evaluateScript("typeof window.kelpIssueFix")?.toString() == "function")
-    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 4)
+    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 5)
+    #expect(context.evaluateScript("typeof window.kelpSetRows")?.toString() == "function")
     #expect(context.evaluateScript("window.kelpCheckMore.length")?.toInt32() == 2)
     #expect(context.evaluateScript("typeof window.kelpChartChanged")?.toString() == "function")
 }

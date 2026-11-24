@@ -235,7 +235,7 @@ extension MarkdownTab {
 
     /// Records the page from its first frame to its last into `to`, showing how far it got in the bar. The video
     /// opens in a tab when it's done.
-    private func record(to: URL, _ options: MotionExport, _ item: MotionExports.Item) async {
+    func record(to: URL, _ options: MotionExport, _ item: MotionExports.Item) async {
         do {
             guard
                 let length = try await web.evaluateJavaScript("window.kelpMotion?.duration()", contentWorld: Self.world)

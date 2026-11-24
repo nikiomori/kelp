@@ -277,3 +277,14 @@ private let board = """
     #expect(ChartData.read(changed, id: "rev") == [["Month", "Revenue"], ["Jan", "160"]])
     #expect(ChartData.read("<div data-id=\"x\"></div>", id: "x") == nil)
 }
+
+/// A CSV reads as rows, quotes and all; a page names the files its elements take columns of; a row names its file.
+@Test func dataRowsAreReadFromACSV() {
+    let csv = "name,city\r\n\"Иванова, Ольга\",Москва\n\"Say \"\"hi\"\"\",\"two\nlines\"\n\n"
+    #expect(DataRows.parse(csv) == [["name", "city"], ["Иванова, Ольга", "Москва"], ["Say \"hi\"", "two\nlines"]])
+    #expect(DataRows.parse("name;sum\nОльга;1,5\n") == [["name", "sum"], ["Ольга", "1,5"]])
+    let page = #"<h2 data-field="clients.csv:name">Hi</h2><img data-field="clients.csv:photo"><p data-field="b.csv:x">"#
+    #expect(DataRows.files(in: page) == ["clients.csv", "b.csv"])
+    #expect(
+        DataRows.name(["Ольга / Иванова"], index: 3) == "Ольга  Иванова" && DataRows.name([""], index: 3) == "row-3")
+}

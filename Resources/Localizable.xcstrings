@@ -33759,6 +33759,66 @@
           }
         }
       }
+    },
+    "From Data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из данных"
+          }
+        }
+      }
+    },
+    "Column": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Столбец"
+          }
+        }
+      }
+    },
+    "Not from Data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не из данных"
+          }
+        }
+      }
+    },
+    "“%@” has no columns.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» нет столбцов."
+          }
+        }
+      }
+    },
+    "Nothing on this page takes a column of a table yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этой странице пока ничто не берёт столбец таблицы."
+          }
+        }
+      }
+    },
+    "For Each Row of Its Table…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для каждой строки таблицы…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

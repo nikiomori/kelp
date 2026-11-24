@@ -51,6 +51,9 @@ extension ArtifactBar {
         for format in PageExport.formats(for: markdown.page) {
             menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
         }
+        if markdown.page == .canvas || markdown.page == .motion {
+            menu.add(String(localized: "For Each Row of Its Table…")) { [weak markdown] in markdown?.exportEachRow() }
+        }
         menu.add(String(localized: "Build in Code…")) { [weak markdown] in markdown?.buildInCode() }
         turnItems(menu)
     }
@@ -110,7 +113,7 @@ extension MarkdownTab {
     }
 
     /// Each board of the canvas, at its own size, as `<board>.png` in `folder`.
-    private func exportBoards(into folder: URL) async throws {
+    func exportBoards(into folder: URL) async throws {
         struct Canvas: Decodable {
             struct Board: Decodable { var file: String, w: Double, h: Double }
             var boards: [Board]
