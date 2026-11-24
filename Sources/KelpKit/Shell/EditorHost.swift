@@ -63,7 +63,7 @@ final class EditorHost: NSViewController {
     /// (the panel on the other side is moving).
     private var held: [WidthHold] = []
     func holdWidth(trailing: Bool, by change: CGFloat = 0) {
-        guard held.isEmpty else { return }
+        letWidthGo()   // a slide cut short by another: the new one's width
         held = card.subviews.filter { $0.frame.width > 0 }.compactMap {
             WidthHold($0, in: card, edge: trailing ? .leading : .trailing, width: max(1, $0.frame.width + change))
         }

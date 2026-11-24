@@ -77,5 +77,21 @@ extension StripPlaceTests {
         #expect(try await waitFor(5) { main.inspector.view.isDescendant(of: split) })
         #expect(!app.settings[SettingKeys.inspectorAutoHide] && main.inspectorShown)
         #expect(!main.left.item.canCollapse && !main.right.item.canCollapse)
+        // Closed by an older Kelp, it opens and stays open next time.
+        UserDefaults.standard.set(true, forKey: "inspector.collapsed")
+        main.right.item.isCollapsed = true
+        main.toggleInspectorPanel()
+        #expect(!UserDefaults.standard.bool(forKey: "inspector.collapsed"))
+        // Under Reduce Motion, away and back at once, the docked panel follows its column again.
+        Motion.pinned = true
+        defer { Motion.pinned = nil }
+        main.toggleInspectorPanel()
+        main.toggleInspectorPanel()
+        #expect(
+            try await waitFor(5) {
+                main.right.column.setFrameSize(NSSize(width: 333, height: 500))
+                main.right.column.layoutSubtreeIfNeeded()
+                return main.inspector.view.frame.width == main.right.column.frame.width
+            })
     }
 }

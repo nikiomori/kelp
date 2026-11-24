@@ -246,6 +246,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// window). This isn't saved, but opening or closing the inspector yourself is (`inspector.collapsed`). The split's
     /// own collapse-on-resize only acts on live resizes.
     private var narrowedAt: CGFloat?
+    /// The last slide of the side columns (`slide`): only its end lets the widths it held go.
+    var slideTurn = 0
 
     /// In focus mode and with auto-hide, the pointer at an edge brings that side's panel in over the editor area. The
     /// editor area keeps its size, so terminals aren't resized and nothing reflows. Once the pointer leaves the panel
@@ -265,6 +267,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             }   // back only 20 pt past where it stepped aside, or it flaps
         } else if !right.item.isCollapsed, editors.view.frame.width < 640 {
             narrowedAt = width
+            right.openWidth = right.column.frame.width
             right.item.isCollapsed = true
         }
     }
@@ -275,7 +278,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleInspectorPanel() {
         narrowedAt = nil
         if inFocusMode { return togglePeek(right) }
-        if !right.autoHide, right.item.isCollapsed { return slide([(right, false)]) }
+        if !right.autoHide, right.item.isCollapsed {
+            UserDefaults.standard.set(false, forKey: "inspector.collapsed")   // as an older Kelp left it
+            return slide([(right, false)])
+        }
         app.settings.set(SettingKeys.inspectorAutoHide, !right.autoHide)
     }
     func showInspector(panel: String, keys: Bool = false) {

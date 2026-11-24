@@ -52,17 +52,27 @@ extension MainWindowController {
             then?()
             return
         }
+        slideTurn += 1
+        let turn = slideTurn
+        // A column opens as wide as it last stood open (or as its floater), set first, because the split would reopen
+        // it at whatever width it last had, and the editor area's width below must be the one it ends at.
+        for move in moves where !move.collapsed && move.side.column.frame.width <= 0 {
+            move.side.column.setFrameSize(NSSize(width: move.side.lastOpenWidth, height: 0))
+        }
         moves.forEach { $0.side.holdWidth(closing: $0.collapsed) }
         // What's shown travels with the edge that moves, as a page's content does when its sidebar opens, and the far
         // side takes the new width once the columns stand. When it stood still while the column came over it, the
         // column covered its first tabs and they all jumped over at the end. With both moving, it travels with the
-        // left.
-        // The editor area loses what opens and gains what closes, a divider with each column.
+        // left. The editor area loses what opens and gains what closes, a divider with each column.
         let change = moves.reduce(CGFloat(0)) { sum, move in
-            let column = move.side.column.frame.width > 0 ? move.side.column.frame.width : move.side.floater.width
-            return sum + (move.collapsed ? 1 : -1) * (column + split.splitView.dividerThickness)
+            sum + (move.collapsed ? 1 : -1) * (move.side.column.frame.width + split.splitView.dividerThickness)
         }
         editors.holdWidth(trailing: !moves.contains { $0.side === left }, by: change)
+        // Its terminals take that width now, laid out while their size is held and then given it in one step, which
+        // doesn't show the "120 × 40" badge that a resize by hand does.
+        GhosttyTerminalView.holdSize(true)
+        window?.contentView?.layoutSubtreeIfNeeded()
+        GhosttyTerminalView.holdSize(false)
         // Columns that only close leave as panels do: sooner, speeding away.
         // Columns that open move as a fold does: at once, settling slowly, long enough to follow (as a page's sidebar
         // opens in about 300 ms).
@@ -73,9 +83,12 @@ extension MainWindowController {
             moves.forEach { $0.side.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
-                self?.editors.letWidthGo()
-                self?.sides.forEach { $0.letWidthGo() }
-                self?.window?.contentView?.layoutSubtreeIfNeeded()
+                // A slide that another one cut short leaves the widths to the last one.
+                if turn == self?.slideTurn {
+                    self?.editors.letWidthGo()
+                    self?.sides.forEach { $0.letWidthGo() }
+                    self?.window?.contentView?.layoutSubtreeIfNeeded()
+                }
                 then?()
             }
         }
@@ -206,9 +219,8 @@ extension MainWindowController {
                 peekMoves = nil
                 peeking = nil
             } else {
-                let width = side.floater.width
+                side.openWidth = side.floater.width
                 side.column.pin(side.panel)
-                side.holdWidth(closing: false, width: width)
                 if side === left { sidebar.gutter = 0 }
             }
         }
@@ -234,7 +246,10 @@ final class Side {
     var autoHide = false
     /// True when the column was closed (or the panel hid) before focus mode, so leaving focus mode puts that back.
     var closedBefore = false
-    private var openWidth: CGFloat = 0
+    /// The panel's width when its column was last open (or its floater's, coming from there).
+    var openWidth: CGFloat = 0
+    /// The width its column opens at: as it last stood open, else as its floater.
+    var lastOpenWidth: CGFloat { openWidth >= item.minimumThickness ? openWidth : floater.width }
     private var held: WidthHold?
 
     init(
@@ -252,10 +267,9 @@ final class Side {
     /// While its column slides, the panel keeps the width it has when open, and the column uncovers or covers it. When
     /// it was laid out for every width on the way, the sidebar's rows dropped and took back their badges, and a panel's
     /// lines rewrapped.
-    func holdWidth(closing: Bool, width: CGFloat? = nil) {
+    func holdWidth(closing: Bool) {
         guard panel.superview === column, held == nil else { return }
         if closing { openWidth = panel.frame.width }
-        if let width { openWidth = width }   // the width it had in its floater, coming from there
         // The edge beside the editor area lets go, and the edge on the window's side keeps the panel in place.
         guard openWidth > 0, let hold = WidthHold(panel, in: column, edge: inner, width: openWidth) else { return }
         column.clipsToBounds = true
