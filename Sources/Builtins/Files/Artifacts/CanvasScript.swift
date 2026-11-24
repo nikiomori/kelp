@@ -157,7 +157,36 @@ enum CanvasScript {
                 if (ratio < (big ? 3 : 4.5)) say('contrast ' + ratio.toFixed(1) + ':1 in ' + named(el), el);
               }
               if (bare) say(bare + ' buttons, links, fields or headings without a data-id');
+              access(doc, win, say);
               system(f, doc, win, say);
+            }
+            // What VoiceOver would miss (Webflow's Audit): a picture without words, a button or a link without a name,
+            // a heading level skipped, and an order CSS shows differently from how it is read.
+            function access(doc, win, say) {
+              const shown = el => win.getComputedStyle(el).display !== 'none' && !el.closest('[aria-hidden="true"]');
+              for (const img of doc.body.querySelectorAll('img:not([alt])')) {
+                if (shown(img)) say('picture without a description (alt) in ' + named(img), img);
+              }
+              for (const el of doc.body.querySelectorAll('button, a[href], [role="button"]')) {
+                const words = (el.textContent || '').trim() || el.getAttribute('aria-label') || el.getAttribute('title')
+                  || [...el.querySelectorAll('img[alt]')].map(i => i.alt).join('');
+                if (!words && !el.hasAttribute('aria-labelledby') && shown(el))
+                  say((el.tagName === 'A' ? 'link' : 'button') + ' without a name in ' + named(el), el);
+              }
+              let last = 0;
+              for (const h of doc.body.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
+                const level = +h.tagName[1];
+                if (last && level > last + 1 && shown(h))
+                  say('h' + level + ' after h' + last + ' in ' + named(h) + ': skips a level', h);
+                last = level;
+              }
+              for (const el of doc.body.querySelectorAll('*')) {
+                const st = win.getComputedStyle(el);
+                const turned = /reverse/.test(st.flexDirection) || [...el.children].some(c =>
+                  win.getComputedStyle(c).order !== '0');
+                if (turned && el.children.length > 1 && /flex|grid/.test(st.display) && shown(el))
+                  say('reading order differs from what is seen in ' + named(el) + ' (order or a reversed row)', el);
+              }
             }
             // The design system's tokens as this board resolves them: colours by name, fonts by first family.
             const hex = c => '#' + c.slice(0, 3).map(v => Math.round(v).toString(16).padStart(2, '0')).join('');

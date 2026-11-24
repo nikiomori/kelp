@@ -33229,6 +33229,26 @@
           }
         }
       }
+    },
+    "Describe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать описание"
+          }
+        }
+      }
+    },
+    "Mark It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометить"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -4,26 +4,37 @@ import Testing
 
 @testable import BuiltinFiles
 
-/// Check's findings about a value that isn't a token are read back for their fix: the board, what, the value, the
-/// element and the nearest token, from a light or a dark board.
-@MainActor @Test func aFindingAboutATokenIsReadForItsFix() throws {
-    let pattern = try NSRegularExpression(pattern: CanvasTokens.finding)
-    let cases: [(String, [String])] = [
+/// Check's findings are read back for their fix: a value that isn't a token (the board, what, the value, the element,
+/// the nearest token) and what VoiceOver would miss (the board, what, the element), from a light or a dark board.
+@MainActor @Test func aFindingIsReadForItsFix() throws {
+    let tokens = CanvasTokens.finding, access = CanvasAccess.finding
+    let cases: [(String, String, [String])] = [
         (
-            "boards/A.html: colour #1f7a5a in [data-id=cta] is not a token (nearest: accent #2f7d5b)",
+            tokens, "boards/A.html: colour #1f7a5a in [data-id=cta] is not a token (nearest: accent #2f7d5b)",
             ["boards/A.html", "colour", "#1f7a5a", "cta", "accent"]
         ),
         (
-            "b.html (dark): size 34px in [data-id=title] is not a token (nearest: title 36px)",
+            tokens, "b.html (dark): size 34px in [data-id=title] is not a token (nearest: title 36px)",
             ["b.html", "size", "34px", "title", "title"]
         ),
         (
-            "a.html: radius 10px in [data-id=hero] is not a token (nearest: l 12px)",
+            tokens, "a.html: radius 10px in [data-id=hero] is not a token (nearest: l 12px)",
             ["a.html", "radius", "10px", "hero", "l"]
         ),
-        ("a.html: font Georgia in [data-id=t] is not a token (body)", [])
+        (tokens, "a.html: font Georgia in [data-id=t] is not a token (body)", []),
+        (
+            access, "a.html: picture without a description (alt) in [data-id=hero]",
+            ["a.html", "picture without a description", "hero"]
+        ),
+        (access, "a.html: h4 after h1 in [data-id=small]: skips a level", ["a.html", "h4 after h1", "small"]),
+        (
+            access, "a.html: reading order differs from what is seen in [data-id=rev] (order or a reversed row)",
+            ["a.html", "reading order differs", "rev"]
+        ),
+        (access, "a.html: 2 buttons, links, fields or headings without a data-id", [])
     ]
-    for (line, parts) in cases {
+    for (source, line, parts) in cases {
+        let pattern = try NSRegularExpression(pattern: source)
         let m = pattern.firstMatch(in: line, range: NSRange(line.startIndex..., in: line))
         let got = m.map { m in (1..<m.numberOfRanges).map { (line as NSString).substring(with: m.range(at: $0)) } }
         #expect((got ?? []) == parts, "\(line)")
