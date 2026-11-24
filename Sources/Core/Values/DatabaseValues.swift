@@ -64,14 +64,15 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         /// The character the engine's SQL quotes a name in: "orders", or `orders` in MySQL.
         public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
 
-        /// The engine a container image runs, judged by the image's name and not its registry or owner. Examples are
-        /// postgres:16, bitnami/postgresql, timescale/timescaledb-ha, mariadb and percona-server. nil for other images.
+        /// The engine a container image runs, judged by the image's whole name and not its registry or owner. Examples
+        /// are postgres:16, bitnami/postgresql, timescale/timescaledb-ha, mariadb and percona-server. nil for other
+        /// images, such as postgrest or postgres-exporter, which only have a database's name in theirs.
         public init?(image: String) {
             let last = image.lowercased().split(separator: "/").last ?? ""
-            let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
-            if ["postgres", "postgis", "timescale", "pgvector"].contains(where: name.contains) {
+            let name = String(last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? "")
+            if ["postgres", "postgresql", "postgis", "timescaledb", "timescaledb-ha", "pgvector"].contains(name) {
                 self = .postgres
-            } else if ["mysql", "mariadb", "percona"].contains(where: name.contains) {
+            } else if ["mysql", "mysql-server", "mariadb", "percona", "percona-server"].contains(name) {
                 self = .mysql
             } else {
                 return nil
