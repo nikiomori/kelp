@@ -81,11 +81,19 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
     /// Whether a host is this Mac (or its Docker), meaning a loopback address or this Mac's own name. A `.local` name
     /// doesn't count, because whoever answers for it on the network could be another machine. A name without a dot
-    /// doesn't count either, because it may be a compose service or a host in a search domain.
+    /// doesn't count either, because it may be a compose service or a host in a search domain. A name that only starts
+    /// with "127." ("127.evil.example") is a name, not the loopback address.
     public static func isLocal(_ host: String) -> Bool {
         let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
-            || host.hasPrefix("127.") || host.hasSuffix(".localhost")
+            || isLoopbackIPv4(host) || host.hasSuffix(".localhost")
+    }
+
+    /// An address in 127.0.0.0/8 written as four numbers.
+    private static func isLoopbackIPv4(_ host: String) -> Bool {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 4 && parts[0] == "127"
+            && parts.allSatisfy { $0.allSatisfy { ("0"..."9").contains($0) } && UInt8($0) != nil }
     }
 
     /// Read with gethostname rather than ProcessInfo.hostName, because gethostname does no DNS lookup.

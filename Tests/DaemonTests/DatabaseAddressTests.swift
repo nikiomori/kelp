@@ -29,10 +29,16 @@ import Testing
 /// This Mac is a loopback address or its own name; a `.local` name, one without a dot and an IPv6 address elsewhere
 /// are someone else's: no ~/.pgpass for them, and agents only read them until the user says otherwise.
 @Test func onlyLoopbackAndThisMacsNameAreThisMac() {
-    for host in ["localhost", "127.0.0.1", "127.0.1.1", "::1", "[::1]", "host.docker.internal", "app.localhost"] {
+    let here = [
+        "localhost", "127.0.0.1", "127.0.1.1", "127.255.0.9", "::1", "[::1]", "host.docker.internal", "a.localhost"
+    ]
+    for host in here {
         #expect(DatabaseInfo.isLocal(host), "\(host)")
     }
-    for host in ["pg.local", "db", "2001:db8::bad", "fe80::1%en0", "db.example.com"] {
+    for host in [
+        "pg.local", "db", "2001:db8::bad", "fe80::1%en0", "db.example.com", "127.evil.example", "127.0.0.1.nip.io",
+        "127.0.0.256", "127.1", "127.+0.0.1"
+    ] {
         #expect(!DatabaseInfo.isLocal(host), "\(host)")
         #expect(!PgPass.mayUse(for: DatabaseInfo(name: "app", engine: .postgres, source: ".env"), host: host))
     }
