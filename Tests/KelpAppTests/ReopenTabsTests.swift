@@ -132,8 +132,17 @@ extension OneAtATime {
         actions.left(empty.id)
         #expect(try await waitFor { try await !open().contains(stale.id) })
         #expect(try await open().contains(empty.id))
+        // A chat's own branch is a group with nothing in it, which its agent works in from the screen the chat is on.
+        let chat = try await rig.client.call(SessionCreate(worktreeId: rig.workspace.id, agent: "shell"))
+        app.upsert(chat)
+        let made = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id)).map {
+            var group = $0
+            if group.id == made.id { group.madeBy = chat.id }
+            return group
+        }
         actions.closeIdle(now: Date(timeIntervalSinceNow: WorkspaceActions.emptyFor + 60))
         #expect(try await waitFor { try await !open().contains(empty.id) })
-        #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id]))
+        #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id, made.id]))
     }
 }

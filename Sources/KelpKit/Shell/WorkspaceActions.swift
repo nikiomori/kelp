@@ -271,15 +271,17 @@ package struct WorkspaceActions {
         app.uiState[Self.emptyKey] = .object(since.mapValues(JSONValue.double))
     }
 
-    /// Closes the groups that stayed empty for a day: no tab, no agent, not on screen. One on a branch with work of
-    /// its own stays, since nothing of it may go unasked. Until the saved tabs are read, every group looks empty.
+    /// Closes the groups that stayed empty for a day: no tab, no agent, not on screen, and not the branch of a chat
+    /// still open (its agent works in that folder from another screen). One on a branch with work of its own stays, since nothing of it may go unasked. Until the saved tabs are read, every group looks empty.
     func closeIdle(now: Date = Date()) {
         guard app.connected, app.uiState.loaded else { return }
         let since = emptySince
         for group in app.worktrees where !group.archived && !app.workbench.isOnScreen(group.id) {
             let at = since[group.id].map(Date.init(timeIntervalSince1970:)) ?? group.createdAt
             guard now.timeIntervalSince(at) >= Self.emptyFor, app.workbench.layouts[group.id].allTabs.isEmpty,
-                !app.sessions.contains(where: { $0.worktreeId == group.id && $0.status != .exited }),
+                !app.sessions.contains(where: {
+                    $0.status != .exited && ($0.worktreeId == group.id || $0.id == SidebarTree.maker(group))
+                }),
                 let repo = app.repo(group.repoId),
                 let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
             else { continue }
