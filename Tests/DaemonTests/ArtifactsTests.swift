@@ -195,6 +195,20 @@ private func tempRoot() throws -> URL {
     #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.n == 24)
 }
 
+/// A page made before its chat started (From File) is that chat's once a turn's prompt names it: it keeps versions
+/// of that turn and of the next ones.
+@Test func aPageNamedInAChatsPromptIsThatChats() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.doc, title: "From file", root: root.path, session: nil)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "Make a page") == 0)
+    #expect(
+        try Artifacts.keepVersions(root: root.path, session: "s1", label: "Fill \(Artifacts.projectPath(page.path))")
+            == 1)
+    try "# More\n".write(to: page, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "and more") == 1)
+    #expect(Artifacts.items(root: root.path).first?.session == "s1")
+}
+
 /// A version kept from a record read before another version was kept takes the next number, not the same one.
 @Test func versionsKeptFromAnOldRecordDontOverwriteEachOther() throws {
     let root = try tempRoot()

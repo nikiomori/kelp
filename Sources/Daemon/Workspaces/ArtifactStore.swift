@@ -180,13 +180,21 @@ extension Artifacts {
     @discardableResult
     static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
         var kept = 0, failed: (any Error)?
-        // A page another chat made counts too when its marks went to this chat: the turn answers them.
-        for (slug, record) in list(root: root)
-        where record.file != nil
-            && (record.session == session
-                || hasMarks(sentTo: session, in: dir(root: root).appendingPathComponent(slug)))
-        {
-            do { kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0 } catch {
+        // A page another chat made counts too when its marks went to this chat: the turn answers them. A page made
+        // for a chat before it started (From File, Make from This) is named in its first prompt, and is that chat's
+        // from then on.
+        for (slug, record) in list(root: root) where record.file != nil {
+            let folder = dir(root: root).appendingPathComponent(slug)
+            let named = record.session == nil && label.contains(projectPath(target(slug, record, root: root)))
+            guard named || record.session == session || hasMarks(sentTo: session, in: folder) else { continue }
+            do {
+                if named {
+                    var adopted = record
+                    adopted.session = session
+                    try save(adopted, in: folder)
+                }
+                kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0
+            } catch {
                 failed = failed ?? error
             }   // one page failing doesn't stop the others; the first error is thrown at the end
         }
