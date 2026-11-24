@@ -202,3 +202,23 @@ extension OneAtATime {
         #expect(try await rig.client.call(WorktreeList(repoId: rig.project.id)).contains { $0.id == branch.id })
     }
 }
+
+extension OneAtATime {
+    /// A branch group whose work can't be told (its folder gone) never closes by itself, and its countdown stops.
+    @Test func aBranchWhoseWorkCantBeToldStopsCountingDown() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let made = try await rig.client.call(
+            WorktreeCreate(repoId: rig.project.id, branch: "gone", tabs: false, setup: false))
+        try FileManager.default.removeItem(atPath: made.worktree.path)
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        let later = Date(timeIntervalSinceNow: 2 * (try #require(actions.emptyFor)))
+        #expect(try #require(actions.closesAt(made.worktree)) < later)
+        actions.closeIdle(now: later)
+        #expect(try await waitFor { actions.closesAt(made.worktree) == nil })
+        #expect(try await rig.client.call(WorktreeList(repoId: rig.project.id)).contains { $0.id == made.worktree.id })
+    }
+}

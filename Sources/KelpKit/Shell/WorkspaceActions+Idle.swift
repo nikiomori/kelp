@@ -61,10 +61,11 @@ extension WorkspaceActions {
         let due = app.worktrees.filter { closesAt($0).map { $0 <= now } == true }, going = Set(due.map(\.id))
         for group in due {
             // What was closed there goes to a group that stays, not to another one closing now.
-            guard let repo = app.repo(group.repoId), WorkspaceActions.closing.insert(group.id).inserted,
+            guard let repo = app.repo(group.repoId),
                 let next = WorkspaceClosing.afterLastTab(
                     of: group, rows: app.workspaces(of: repo).filter { $0.id == group.id || !going.contains($0.id) },
-                    repos: app.repos)
+                    repos: app.repos),
+                WorkspaceActions.closing.insert(group.id).inserted
             else { continue }
             // Throws only when cancelled, and then the group stays.
             Task { () async throws in
@@ -73,9 +74,9 @@ extension WorkspaceActions {
                     app.workbench.timeUp.remove(group.id)
                 }
                 if group.path != repo.path {
-                    guard let work = await work(on: group.id) else { return }
-                    // Its countdown stops, and it isn't asked about again while Kelp runs.
-                    guard !work.isAny else {
+                    // With work of its own, or none that can be told (its folder gone, its machine away), its
+                    // countdown stops, and it isn't asked about again while Kelp runs.
+                    guard let work = await work(on: group.id), !work.isAny else {
                         WorkspaceActions.kept.insert(group.id)
                         return
                     }
@@ -96,7 +97,7 @@ extension WorkspaceActions {
 @MainActor private extension WorkspaceActions {
     /// The groups `closeIdle` is closing now, so a second call meanwhile leaves them alone.
     static var closing: Set<String> = []
-    // ponytail: kept until Kelp quits, so a branch merged meanwhile counts down again only after a restart.
+    // Limit: kept until Kelp quits, so a branch merged meanwhile counts down again only after a restart.
     /// Branch groups found to hold work of their own: they never close by themselves.
     static var kept: Set<String> = []
 }

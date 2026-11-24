@@ -264,8 +264,8 @@ struct OwnBranch: View {
                 Image(systemName: "arrow.triangle.branch").foregroundStyle(.secondary)
                 Text(branch.branch).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: Metrics.gapWide)
-                Button("Changes") {
-                    model.app.workbench.open(TabURI.diff(branch.id), workspace: branch.id)
+                Button("Changes") {   // on the chat's screen, as its row's mark opens them: the branch has no row
+                    model.app.workbench.open(TabURI.diff(branch.id), workspace: model.workspaceId)
                     model.closeCard()
                 }
                 .controlSize(.small)

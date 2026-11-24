@@ -118,8 +118,11 @@ extension OneAtATime {
             vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
             let folded = names(o)
             #expect(folded.count == 3 && folded[1].contains("main") && folded[2].contains("Release"))
-            // → on the folded project's row opens it again, as ← folded it.
+            // → on the folded project's row opens it again, as ← folded it; so does a screen's row's "+N" (its toggle).
             #expect(vc.outline.onRight(0) && names(o).count == 5)
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            vc.toggle(try #require(o.item(atRow: 2) as? SidebarController.Node))
+            #expect(names(o).count == 5)
             vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
             let screen = try #require(o.view(atColumn: 0, row: 2, makeIfNecessary: true) as? SidebarCell)
             #expect(screen.stack.total == 1)   // There, as a logo
