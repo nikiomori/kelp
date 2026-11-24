@@ -10,7 +10,7 @@ import KelpKit
 /// database opens straight to the form.
 @MainActor
 final class DatabaseSheet: NSObject, NSTextFieldDelegate {
-    static let width: CGFloat = 520
+    static let width: CGFloat = 600
     let app: AppModel, worktreeId: String
     let window = NSPanel(
         contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
