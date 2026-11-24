@@ -20523,16 +20523,6 @@
         }
       }
     },
-    "Check Again": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверить снова"
-          }
-        }
-      }
-    },
     "It runs in a terminal tab; then Try Again.": {
       "localizations": {
         "ru": {
@@ -33536,16 +33526,6 @@
         }
       }
     },
-    "No Issues": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проблем нет"
-          }
-        }
-      }
-    },
     "%lld to Fix": {
       "localizations": {
         "ru": {
@@ -33960,16 +33940,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подстройки"
-          }
-        }
-      }
-    },
-    "What should change?": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Что изменить?"
           }
         }
       }
@@ -37707,16 +37677,6 @@
         }
       }
     },
-    "The agent finished its turn": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Агент закончил ход"
-          }
-        }
-      }
-    },
     "Previous Mark": {
       "localizations": {
         "ru": {
@@ -38023,26 +37983,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MP4 или GIF всей страницы, кадр за кадром"
-          }
-        }
-      }
-    },
-    "This element has no data-id yet, so it can’t be changed by hand.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "У элемента ещё нет data-id, поэтому руками его не поменять."
-          }
-        }
-      }
-    },
-    "Give It a data-id": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Дать data-id"
           }
         }
       }
@@ -38427,16 +38367,6 @@
         }
       }
     },
-    "Split at the Time (S)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Разрезать на линии (S)"
-          }
-        }
-      }
-    },
     "Trim the Start to the Time": {
       "localizations": {
         "ru": {
@@ -38697,26 +38627,6 @@
         }
       }
     },
-    "Take Back the Last Drawn": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отменить последний рисунок"
-          }
-        }
-      }
-    },
-    "Put It Back": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вернуть"
-          }
-        }
-      }
-    },
     "The Whole Video": {
       "localizations": {
         "ru": {
@@ -38747,32 +38657,12 @@
         }
       }
     },
-    "+ To the Whole Video": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "+ Ко всему ролику"
-          }
-        }
-      }
-    },
     "A mark about the whole video, not one moment of it": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Пометка ко всему ролику, а не к одному моменту"
-          }
-        }
-      }
-    },
-    "%d chosen": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Выбрано: %d"
           }
         }
       }
@@ -39467,16 +39357,6 @@
         }
       }
     },
-    "Variations ×3…": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Варианты ×3…"
-          }
-        }
-      }
-    },
     "Duplicate Board": {
       "localizations": {
         "ru": {
@@ -39513,16 +39393,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ещё три как эта"
-          }
-        }
-      }
-    },
-    "Other Layouts ×3…": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Другие раскладки ×3…"
           }
         }
       }
@@ -40317,26 +40187,6 @@
         }
       }
     },
-    "Text 40% longer, as in German or Finnish": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Текст на 40 % длиннее, как в немецком или финском"
-          }
-        }
-      }
-    },
-    "Right to left, as in Arabic or Hebrew": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Справа налево, как в арабском или иврите"
-          }
-        }
-      }
-    },
     "Video": {
       "localizations": {
         "ru": {
@@ -40687,26 +40537,6 @@
         }
       }
     },
-    "Its numbers were changed by hand in its table: draw it again from them.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Числа в его таблице изменены вручную: перерисуй график по ним."
-          }
-        }
-      }
-    },
-    "Export to PowerPoint": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Экспорт в PowerPoint"
-          }
-        }
-      }
-    },
     "Its words as text boxes over each slide's picture, or the slides as pictures, exactly as here.": {
       "localizations": {
         "ru": {
@@ -40793,6 +40623,166 @@
           "stringUnit": {
             "state": "translated",
             "value": "Для каждой строки таблицы…"
+          }
+        }
+      }
+    },
+    "%@ didn’t answer it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответа от %@ нет"
+          }
+        }
+      }
+    },
+    "“%@” moves by an animation that never ends: change it in its code.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» двигает бесконечная анимация: меняйте её в коде."
+          }
+        }
+      }
+    },
+    "“%@” moves only while its animation runs: put the playhead there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» движется, только пока идёт его анимация: поставьте туда указатель времени."
+          }
+        }
+      }
+    },
+    "Fit Timeline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать дорожки"
+          }
+        }
+      }
+    },
+    "Lock in Place": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Mark the Whole Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка на всё видео"
+          }
+        }
+      }
+    },
+    "Numbers…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Числа…"
+          }
+        }
+      }
+    },
+    "Split at the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать здесь"
+          }
+        }
+      }
+    },
+    "Take from a Table…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять из таблицы…"
+          }
+        }
+      }
+    },
+    "Turned or scaled: its corners would pull it askew": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повёрнут или масштабирован: углы потянут его вкривь"
+          }
+        }
+      }
+    },
+    "Unlock: Choose and Move It on the Stage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить: выбирать и двигать на сцене"
+          }
+        }
+      }
+    },
+    "Variations of This Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты этой доски"
+          }
+        }
+      }
+    },
+    "Variations of This Slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты этого слайда"
+          }
+        }
+      }
+    },
+    "What should change? A picture dropped here is an example.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что изменить? Картинка, брошенная сюда, — пример."
+          }
+        }
+      }
+    },
+    "Work Area %.1f–%.1f s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочая область %.1f–%.1f с"
+          }
+        }
+      }
+    },
+    "Check Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить снова"
           }
         }
       }
