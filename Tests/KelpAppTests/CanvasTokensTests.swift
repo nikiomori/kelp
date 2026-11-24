@@ -74,3 +74,22 @@ import Testing
     #expect(turned.hasPrefix("Make .kelp/artifacts/home-2/motion.html from .kelp/artifacts/home/canvas.json"))
     #expect(turned.hasSuffix("Decisions already made on it: #1 bigger."))
 }
+
+/// A rehearsal tells the agent the length aimed at and taken, each slide's time, and which ran long (over half again
+/// their share), the longest first; the speaker's window that times them parses.
+@MainActor @Test func aRehearsalSaysWhatRanLong() throws {
+    let times: [Double] = [20, 190, 160, 70]
+    #expect(Rehearsal.long(times, target: 240) == [1, 2])
+    #expect(
+        Rehearsal.message(page: "deck.md", times: times, target: 240) == """
+            Rehearsed deck.md: aimed at 4:00, took 7:20.
+            Per slide: 1 0:20, 2 3:10, 3 2:40, 4 1:10.
+            Longest: 2 (3:10), 3 (2:40); cut each toward 1:00, keeping what it says.
+            """)
+    #expect(!Rehearsal.message(page: "deck.md", times: [50, 50], target: 600).contains("Longest"))
+    let context = try #require(JSContext())
+    let js = Presenter.script(labels: [:], target: 600)
+    let literal = String(data: try JSONSerialization.data(withJSONObject: [js]), encoding: .utf8) ?? "[]"
+    context.evaluateScript("new Function(\(literal)[0])")
+    #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
+}

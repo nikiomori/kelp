@@ -15,14 +15,18 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     private weak var tab: MarkdownTab?
     private var windows: [NSWindow] = []
     private var views: [WKWebView] = []
+    /// A rehearsal's length aimed at, in seconds, and the time on each slide so far.
+    private var target: Double?, times: [Double] = []
 
-    /// Starts presenting the slides in `tab` with the speaker's window.
-    static func start(for tab: MarkdownTab) {
+    /// Starts presenting the slides in `tab` with the speaker's window; a rehearsal times each slide against
+    /// `rehearsing` (seconds).
+    static func start(for tab: MarkdownTab, rehearsing: Double? = nil) {
         guard let last = MarkdownTab.loaded.object(forKey: tab)?.page, open[ObjectIdentifier(tab)] == nil else {
             return
         }
         let presenter = Presenter()
         presenter.tab = tab
+        presenter.target = rehearsing
         open[ObjectIdentifier(tab)] = presenter
         let room = NSScreen.screens.first { $0 != tab.view.window?.screen }
         tab.presentingBoards = true
@@ -34,7 +38,7 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
         let here = (tab.view.window?.screen ?? NSScreen.main)?.visibleFrame ?? .zero
         let size = NSSize(width: min(1056, here.width - 80), height: min(600, here.height - 80))
         presenter.add(
-            last, extra: script(labels: tab.slidesLabels),
+            last, extra: script(labels: tab.slidesLabels, target: rehearsing),
             frame: NSRect(origin: NSPoint(x: here.midX - size.width / 2, y: here.midY - size.height / 2), size: size),
             borderless: false)
         tab.runJS("window.kelpGo?.(window.kelpAt || 0)")
@@ -80,6 +84,7 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
         MainActor.assumeIsolated {
             guard let body = message.body as? [String: Any], let kind = body["kind"] as? String else { return }
             if kind == "present" { return end() }
+            if kind == "rehearsed" { times = (body["times"] as? [NSNumber] ?? []).map(\.doubleValue) }
             guard kind == "slideAt", let at = (body["at"] as? NSNumber)?.intValue else { return }
             for web in views where web != message.webView {
                 web.evaluateJavaScript("kelpGo(\(at))", in: nil, in: MarkdownTab.world)
@@ -105,14 +110,16 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             tab.runJS("kelpPresent(false)")
             tab.onPresentEnded?()
         }
+        if let target { tab.rehearsed(times, target: target) }
     }
 
     /// The speaker's page: the slides' own script has run, and this lays them out for the speaker instead.
-    static func script(labels: [String: String]) -> String {
+    static func script(labels: [String: String], target: Double? = nil) -> String {
         """
         (function () {
           const S = window.kelpSlides; if (!S) return;
           const L = \(MarkdownTab.js(labels)), post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
+          const TARGET = \(target.map { String($0) } ?? "null");
           const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls;
             if (text != null) e.textContent = text; return e; };
           document.body.classList.add('kelp-presenter');
@@ -128,11 +135,20 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
           root.append(left, right);
           document.body.append(root);
           let at = 0, started = Date.now(), held = 0, paused = false;
+          // A rehearsal: the time on each slide, kept as the speaker moves on and told to Kelp each time.
+          const spent = S.map(() => 0), aim = el('span', 'kp-where');
+          let since = Date.now();
+          const mm = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+          const keep = () => { if (!paused) spent[at] += (Date.now() - since) / 1000; since = Date.now(); };
+          if (TARGET) top.insertBefore(aim, where);
           const tick = () => {
             const s = Math.floor(((paused ? held : held + Date.now() - started)) / 1000);
-            clock.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+            clock.textContent = mm(s);
+            const here = spent[at] + (paused ? 0 : (Date.now() - since) / 1000);
+            if (TARGET) aim.textContent = L.aim + ' ' + mm(TARGET) + ' · ' + L.onIt + ' ' + mm(here);
           };
           pause.onclick = () => {
+            if (TARGET) keep();
             if (paused) started = Date.now(); else held += Date.now() - started;
             paused = !paused; pause.textContent = paused ? L.resume : L.pause; tick();
           };
@@ -143,6 +159,7 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             if (S[i]) { const c = S[i].cloneNode(true); c.classList.add('on'); into.append(c); }
           };
           window.kelpGo = i => {
+            if (TARGET) { keep(); post({ kind: 'rehearsed', times: spent.slice() }); }
             at = Math.max(0, Math.min(S.length - 1, i));
             where.textContent = L.slide + ' ' + (at + 1) + ' ' + L.of + ' ' + S.length;
             copy(at, now); copy(at - 1, was, L.before); copy(at + 1, next, L.after);
@@ -151,7 +168,10 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
           addEventListener('keydown', e => {
             const d = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, ArrowUp: -1,
               PageUp: -1 }[e.key];
-            if (e.key === 'Escape') { post({ kind: 'present' }); return; }
+            if (e.key === 'Escape') {
+              if (TARGET) { keep(); post({ kind: 'rehearsed', times: spent.slice() }); }
+              post({ kind: 'present' }); return;
+            }
             if (!d) return;
             e.preventDefault(); e.stopImmediatePropagation();
             kelpGo(at + d); post({ kind: 'slideAt', at });
@@ -189,7 +209,8 @@ extension MarkdownTab {
             "notesHint": String(localized: "Notes for this slide: only you see them while presenting"),
             "pause": String(localized: "Pause"), "resume": String(localized: "Go On"),
             "reset": String(localized: "Reset Time"), "before": String(localized: "Before"),
-            "after": String(localized: "Coming Next"), "keep": String(localized: "Keep")
+            "after": String(localized: "Coming Next"), "keep": String(localized: "Keep"),
+            "aim": String(localized: "aiming at"), "onIt": String(localized: "on this slide")
         ]
     }
 
@@ -206,6 +227,7 @@ extension MarkdownTab {
             guard let self else { return }
             Presenter.start(for: self)
         }
+        menu.add(String(localized: "Rehearse…")) { [weak self] in self?.rehearse() }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 

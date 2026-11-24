@@ -33599,6 +33599,86 @@
           }
         }
       }
+    },
+    "Rehearse": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетиция"
+          }
+        }
+      }
+    },
+    "Rehearse…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетировать…"
+          }
+        }
+      }
+    },
+    "Present with notes against a length; each slide is timed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показ с заметками на время: каждый слайд засекается."
+          }
+        }
+      }
+    },
+    "minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "минут"
+          }
+        }
+      }
+    },
+    "Rehearsal: %@ of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетиция: %@ из %@"
+          }
+        }
+      }
+    },
+    "Slide %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайд %lld"
+          }
+        }
+      }
+    },
+    "aiming at": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "цель"
+          }
+        }
+      }
+    },
+    "on this slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на этом слайде"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
