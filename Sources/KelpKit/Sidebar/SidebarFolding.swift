@@ -288,7 +288,10 @@ extension SidebarController {
         guard !gone.isEmpty, gone.count <= fewRows, let list = outline.enclosingScrollView else { return }
         for key in gone {
             guard let node = node(key), case let row = outline.row(forItem: node), row >= 0 else { continue }
-            outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(in: list)
+            // An empty group whose time ran out fades over a fold's time, drifting up into its project.
+            let due = (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.ranOut == true
+            outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(
+                in: list, duration: due ? Motion.fold : Motion.base, drift: due ? Metrics.gap : 0)
         }
     }
 

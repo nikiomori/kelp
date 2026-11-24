@@ -19,6 +19,9 @@ package final class Workbench {
     var mainWindow: NSWindow? { window?.window }
     /// Focus Mode puts the side panels away, and also what a tab adds over its content (breadcrumbs).
     package internal(set) var inFocusMode = false
+    /// The empty groups whose time ran out and that are closing (`WorkspaceActions.closeIdle`). Their rows show the
+    /// sand running out before they go.
+    var timeUp: Set<String> = []
 
     // What an extension may ask of the window (it never gets the window itself).
     /// Brings the window of the workspace on screen to the front, as after a sheet or a settings change made elsewhere.

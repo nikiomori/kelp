@@ -110,6 +110,10 @@ final class SidebarCell: NSTableCellView {
     let detail = NSTextField(labelWithString: "")
     /// The chats of a folded project or group, shown as their agents' logos (AgentStack).
     let stack = AgentStack()
+    /// On an empty group's row, the hourglass that counts down the last of its time (`showCountdown`).
+    let hourglass = NSImageView()
+    /// The hourglass symbol on show, so the sand runs out once, when it changes.
+    var sand: String?
     /// Whether the chevron last showed the row folded. When this changes, the chevron turns instead of switching.
     var shownFolded: Bool?
     var hovering = false
@@ -175,7 +179,10 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(TextSize.body)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, trailing])
+            hourglass.symbolConfiguration = .chrome(Metrics.iconSmall)
+            hourglass.contentTintColor = .secondaryLabelColor
+            hourglass.isHidden = true
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, hourglass, trailing])
         case .agent:
             title.font = .ui(TextSize.body)
             glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -331,6 +338,7 @@ final class SidebarCell: NSTableCellView {
             // In a folded project, the screen's row holds its chats as logos.
             let held = node.hidden.compactMap(app.session)
             stack.show(!held.isEmpty ? held : collapsed ? AgentStack.chats(under: node, app) : [], app)
+            showCountdown(worktree)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
             speakGroup(onBranch: onBranch)

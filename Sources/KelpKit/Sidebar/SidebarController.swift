@@ -302,7 +302,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         clock = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in   // main run loop
             MainActor.assumeIsolated {
                 if self?.view.window?.occlusionState.contains(.visible) == true { self?.updateVisibleCells() }
+                // An empty group's hourglass counts down here, so the row goes when it reaches nothing.
+                if let app = self?.app { WorkspaceActions(app).closeIdle() }
             }
+        }
+        track(owner: self) { [app] in
+            app.workbench.timeUp
+        } changed: { [weak self] _ in
+            self?.updateVisibleCells()
         }
     }
 

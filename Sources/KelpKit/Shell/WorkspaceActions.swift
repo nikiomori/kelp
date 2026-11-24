@@ -36,7 +36,7 @@ package struct WorkspaceActions {
     }
 
     /// The work on a branch's folder, or nil when it can't be told (for example, the folder is gone).
-    private func work(on id: String) async -> Work? {
+    func work(on id: String) async -> Work? {
         guard let dirty = await app.quiet(WorktreeDirty(id: id)),
             let commits = await app.quiet(WorktreeUnmerged(id: id))
         else {
@@ -246,53 +246,6 @@ package struct WorkspaceActions {
         for sid in chats { await app.call(SessionMove(id: sid, worktreeId: id)) }
         if let sid = chats.first { app.workbench.focus(session: sid) }
         for wid in from { app.workbench.editors?.chatsLeft(wid) }
-    }
-
-    /// How long a group with nothing in it stays: a day after it was last on screen or lost its last tab.
-    static let emptyFor: TimeInterval = 24 * 3600
-    static let emptyKey = "workbench.emptySince"
-
-    /// When each empty group was last on screen or lost its last tab, by group id.
-    var emptySince: [String: Double] {
-        guard case .object(let all)? = app.uiState[Self.emptyKey] else { return [:] }
-        return all.compactMapValues(\.number)
-    }
-
-    /// Called when the screen left a group. A group with nothing open stays as it was set up, for a day.
-    func left(_ id: String) {
-        if app.workbench.layouts[id].allTabs.isEmpty { emptied(id) }
-        closeIdle()
-    }
-
-    /// Called when a group's last tab closed or its last chat moved out: the day it may stay empty starts now.
-    func emptied(_ id: String, now: Date = Date()) {
-        var since = emptySince.filter { id in app.worktree(id.key) != nil }
-        since[id] = now.timeIntervalSince1970
-        app.uiState[Self.emptyKey] = .object(since.mapValues(JSONValue.double))
-    }
-
-    /// Closes the groups that stayed empty for a day: no tab, no agent, not on screen, and not the branch of a chat
-    /// still open (its agent works in that folder from another screen). One on a branch with work of its own stays, since nothing of it may go unasked. Until the saved tabs are read, every group looks empty.
-    func closeIdle(now: Date = Date()) {
-        guard app.connected, app.uiState.loaded else { return }
-        let since = emptySince
-        for group in app.worktrees where !group.archived && !app.workbench.isOnScreen(group.id) {
-            let at = since[group.id].map(Date.init(timeIntervalSince1970:)) ?? group.createdAt
-            guard now.timeIntervalSince(at) >= Self.emptyFor, app.workbench.layouts[group.id].allTabs.isEmpty,
-                !app.sessions.contains(where: {
-                    $0.status != .exited && ($0.worktreeId == group.id || $0.id == SidebarTree.maker(group))
-                }),
-                let repo = app.repo(group.repoId),
-                let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
-            else { continue }
-            Task {
-                if group.path != repo.path {
-                    guard let work = await work(on: group.id), !work.isAny else { return }
-                }
-                guard await app.workbench.keepClosedTabs(of: group, on: next) else { return }
-                _ = await app.quiet(WorktreeRemove(id: group.id))
-            }
-        }
     }
 
     /// Closes several workspaces at once (sidebar multi-selection) with one question; each project keeps at least one.

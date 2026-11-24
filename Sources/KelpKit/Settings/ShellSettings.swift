@@ -37,6 +37,8 @@ extension SettingKeys {
     static let projectColor = Setting("workbench.sidebar.projectColor", "icon")
     static let serverLook = Setting("workbench.sidebar.serverLook", "stripes")
     static let sidebarOrder = Setting("workbench.sidebar.order", "manual")
+    /// How long a group with no tab and no agent stays before it closes by itself: "hour", "day", "week" or "never".
+    static let closeEmptyGroups = Setting("workbench.emptyGroups.close", "day")
 }
 
 /// The shell's rows in Settings, beside its keys: what each row is called, its choices and its help.
@@ -196,6 +198,18 @@ extension Builtins {
             "Agents First moves rows as agents start and stop.",
             options: ["manual", "active"],
             labels: ["manual": String(localized: "As You Arrange Them"), "active": String(localized: "Agents First")],
-            look: .segments, group: "Sidebar")
+            look: .segments, group: "Sidebar"),
+        s(
+            SettingKeys.closeEmptyGroups, "Close empty groups", .enum,
+            "A group with no tabs and no agents closes by itself after this long, if nothing opens there.",
+            help:
+                "A group with no tabs and no agents closes by itself after this long, if nothing opens there. "
+                + "An hourglass on its row counts down the last part. A group on a branch with work of its own "
+                + "never closes by itself.",
+            options: ["hour", "day", "week", "never"],
+            labels: [
+                "hour": String(localized: "After an Hour"), "day": String(localized: "After a Day"),
+                "week": String(localized: "After a Week"), "never": String(localized: "Never")
+            ], group: "Sidebar")
     ]
 }

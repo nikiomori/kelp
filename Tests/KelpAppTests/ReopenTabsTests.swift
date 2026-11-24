@@ -126,7 +126,8 @@ extension OneAtATime {
         var layout = bench.layouts[full.id]
         _ = layout.add("untitled:1", to: nil)
         bench.layouts[full.id] = layout
-        actions.emptied(stale.id, now: Date(timeIntervalSinceNow: -2 * WorkspaceActions.emptyFor))
+        let day = try #require(actions.emptyFor)
+        actions.emptied(stale.id, now: Date(timeIntervalSinceNow: -2 * day))
         let open = { try await rig.client.call(WorktreeList(repoId: rig.project.id)).map(\.id) }
         // Leaving the empty group closes the one empty for two days, and not the one just left.
         actions.left(empty.id)
@@ -141,7 +142,15 @@ extension OneAtATime {
             if group.id == made.id { group.madeBy = chat.id }
             return group
         }
-        actions.closeIdle(now: Date(timeIntervalSinceNow: WorkspaceActions.emptyFor + 60))
+        // Settings › Close empty groups says how long: Never keeps it, an hour is gone after two.
+        actions.emptied(empty.id, now: Date(timeIntervalSinceNow: -7200))
+        defer { app.settings.set(SettingKeys.closeEmptyGroups, nil) }
+        app.settings.set(SettingKeys.closeEmptyGroups, "never")
+        #expect(actions.closesAt(empty) == nil)
+        app.settings.set(SettingKeys.closeEmptyGroups, "hour")
+        #expect(try #require(actions.closesAt(empty)) < Date())
+        app.settings.set(SettingKeys.closeEmptyGroups, nil)
+        actions.closeIdle(now: Date(timeIntervalSinceNow: day + 60))
         #expect(try await waitFor { try await !open().contains(empty.id) })
         #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id, made.id]))
     }

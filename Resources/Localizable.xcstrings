@@ -1919,6 +1919,105 @@
         }
       }
     },
+    "Close empty groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрывать пустые группы"
+          }
+        }
+      }
+    },
+    "A group with no tabs and no agents closes by itself after this long, if nothing opens there.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группа без вкладок и агентов закрывается сама через это время, если в ней ничего не открыть."
+          }
+        }
+      }
+    },
+    "A group with no tabs and no agents closes by itself after this long, if nothing opens there. An hourglass on its row counts down the last part. A group on a branch with work of its own never closes by itself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Группа без вкладок и агентов закрывается сама через это время, если в ней ничего не открыть. В конце срока песочные часы на её строке показывают, сколько осталось. Группа на ветке со своей работой сама не закрывается никогда."
+          }
+        }
+      }
+    },
+    "After an Hour": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через час"
+          }
+        }
+      }
+    },
+    "After a Day": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через день"
+          }
+        }
+      }
+    },
+    "After a Week": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Через неделю"
+          }
+        }
+      }
+    },
+    "Closing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрывается"
+          }
+        }
+      }
+    },
+    "Empty: closes by itself in %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пустая: закроется сама через %@"
+          }
+        }
+      }
+    },
+    "Empty: it closes by itself %@, unless something opens here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пустая: закроется сама %@, если здесь ничего не открыть."
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {

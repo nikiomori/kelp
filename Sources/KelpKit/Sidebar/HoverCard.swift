@@ -88,6 +88,8 @@ final class CardModel {
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
+    /// On an empty group's card, when it closes by itself (`WorkspaceActions.closesAt`).
+    var closes: Date?
     /// On a project's card, the project. `worktrees` holds the disk its other worktrees take (nil while `du` runs).
     let repo: Repo?
     /// The ids whose mute the card shows, which are the row's. A workspace alone in its project is also that
@@ -155,6 +157,7 @@ final class CardModel {
             muteIds = [worktree.id] + (alone ? [worktree.repoId] : [])
             server = project.flatMap { RemoteHost.of($0.path)?.host }
             folder = app.gitFolder(of: worktree.id)?.id
+            closes = WorkspaceActions(app).closesAt(worktree)
         case .host, .parked:
             return nil
         }

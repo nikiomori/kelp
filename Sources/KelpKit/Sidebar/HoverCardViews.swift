@@ -16,6 +16,11 @@ struct CardView: View {
                     Text(model.subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            if let when = model.closes?.formatted(.relative(presentation: .named)) {
+                Text("Empty: it closes by itself \(when), unless something opens here.")
+                    .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let host = model.server, let servers = model.app.extensions.all.servers {
                 servers.section(host, model.closeCard)
             }
