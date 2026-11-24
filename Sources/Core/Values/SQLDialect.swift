@@ -26,6 +26,34 @@ extension DatabaseInfo.Engine {
         return "'" + value.replacingOccurrences(of: "'", with: "''") + "'"
     }
 
+    /// Writes a value for a column of this SQL type, as the schema names it. A MySQL binary column's value, which Kelp
+    /// shows as hex (0x…), is written as hex, so it means those bytes; text typed there is written as text.
+    public func literal(_ value: String?, type: String) -> String {
+        guard self == .mysql, let value, Self.bytes(type), value.hasPrefix("0x"), value.count.isMultiple(of: 2),
+            value.dropFirst(2).allSatisfy(\.isHexDigit)
+        else { return literal(value) }
+        return "X'" + value.dropFirst(2) + "'"
+    }
+
+    /// Whether a MySQL column of this type holds bytes: BINARY, VARBINARY, BIT or a BLOB.
+    static func bytes(_ type: String) -> Bool {
+        let type = type.lowercased()
+        return ["binary", "varbinary", "bit"].contains { type.hasPrefix($0) } || type.hasSuffix("blob")
+    }
+
+    /// The condition that a quoted column holds a value as Kelp shows it, for a row found by all its values: "note" =
+    /// 'x', or "note" IS NULL. Postgres compares the text the value's type writes (`format('%s', …)`, which is what
+    /// Kelp shows), because json and xml have no "=" and a bool's `::text` is "true" where it shows "t". A MySQL FLOAT
+    /// compares its text too, because '0.1' read as a double isn't the float 0.1.
+    public func shows(_ column: String, _ value: String?, type: String = "") -> String {
+        guard let value else { return column + " IS NULL" }
+        switch self {
+        case .postgres: return "format('%s', \(column)) = " + literal(value)
+        case .mysql where type.lowercased().hasPrefix("float"): return "CONCAT(\(column)) = " + literal(value)
+        default: return column + " = " + literal(value, type: type)
+        }
+    }
+
     /// The case-insensitive LIKE: ILIKE in Postgres. The other engines' LIKE already ignores case for text.
     public var likeAnyCase: String { self == .postgres ? "ILIKE" : "LIKE" }
 

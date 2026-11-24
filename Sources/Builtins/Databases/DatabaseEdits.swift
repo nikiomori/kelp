@@ -50,19 +50,25 @@ struct DatabaseEdits: Equatable {
     }
 
     /// Returns the deletes, then the updates, then the inserts, each in row order.
+    /// `types` holds each column's type as the schema names it, for the values whose SQL depends on it
+    /// (`DatabaseInfo.Engine.literal(_:type:)`, `shows`).
     func statements(
-        table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]]
+        table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]],
+        types: [String: String] = [:]
     ) -> [String] {
         let primaries = primary.compactMap { columns.firstIndex(of: $0) }
         let keyed = !primaries.isEmpty && primaries.count == primary.count
         let keys = keyed ? primaries : Array(columns.indices)
         let name = Self.name(table, engine)
+        func literal(_ value: String?, _ column: Int) -> String {
+            engine.literal(value, type: types[columns[column]] ?? "")
+        }
         func match(_ row: Int) -> String {
             keys.map { key in
-                let old = rows[row][key]
-                // Without a key every column is compared. Postgres compares them as text, because json has no "=".
-                let column = Self.name(columns[key], engine) + (!keyed && engine == .postgres ? "::text" : "")
-                return column + (old == nil ? " IS NULL" : " = \(engine.literal(old))")
+                let old = rows[row][key], column = Self.name(columns[key], engine)
+                // Without a key every column is compared, as Kelp shows it (json has no "=", a bool shows as "t")
+                if !keyed { return engine.shows(column, old, type: types[columns[key]] ?? "") }
+                return column + (old == nil ? " IS NULL" : " = \(literal(old, key))")
             }.joined(separator: " AND ")
         }
         // Limit: rows are told apart by their values, so of two identical rows either one goes.
@@ -82,7 +88,7 @@ struct DatabaseEdits: Equatable {
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
             let set = changed.keys.sorted().map { column in
-                "\(Self.name(columns[column], engine)) = \(engine.literal(changed[column] ?? nil))"
+                "\(Self.name(columns[column], engine)) = \(literal(changed[column] ?? nil, column))"
             }
             return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
         }
@@ -90,7 +96,7 @@ struct DatabaseEdits: Equatable {
             let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
             guard !given.isEmpty else { return nil }
             return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
-                + ") VALUES (" + given.map { engine.literal(row[$0]) }.joined(separator: ", ") + ")"
+                + ") VALUES (" + given.map { literal(row[$0], $0) }.joined(separator: ", ") + ")"
         }
         return deletes + updates + inserts
     }

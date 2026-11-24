@@ -21,8 +21,8 @@ import Testing
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["a", "b", "c"], primary: [], rows: rows) == [
             #"UPDATE "t" SET "b" = 'o''k', "c" = NULL WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
-                + #"WHERE "a"::text = '2' AND "#
-                + #""b"::text = 'it''s' AND "c"::text = 'x' LIMIT 1)"#
+                + #"WHERE format('%s', "a") = '2' AND "#
+                + #"format('%s', "b") = 'it''s' AND format('%s', "c") = 'x' LIMIT 1)"#
         ])
     #expect(
         edits.statements(table: "t", engine: .mysql, columns: ["a", "b", "c"], primary: [], rows: rows) == [
@@ -31,6 +31,25 @@ import Testing
     #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public.my``t`")   // a "." of MySQL's is the name's
     #expect(DatabaseEdits.name("audit.my\"t", .postgres) == #""audit"."my""t""#)
     #expect(DatabaseInfo.Engine.mysql.literal(#"a\b"#) == #"'a\\b'"#)
+}
+
+/// A MySQL BINARY key, shown as hex, finds its row by those bytes, and text typed into a binary column stays text; a
+/// keyless FLOAT is compared as the text it shows.
+@Test func mySQLBytesAndFloatsFindTheirRows() {
+    var edits = DatabaseEdits()
+    let rows: [[String?]] = [["0x00ff", "0.1", "a"]]
+    edits.set(row: 0, column: 2, to: "0x41", was: "a")
+    let types = ["id": "binary(2)", "f": "float", "v": "varchar(9)"]
+    #expect(
+        edits.statements(
+            table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: ["id"], rows: rows, types: types)
+            == ["UPDATE `t` SET `v` = '0x41' WHERE `id` = X'00ff'"])
+    #expect(
+        edits.statements(table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: [], rows: rows, types: types)
+            == ["UPDATE `t` SET `v` = '0x41' WHERE `id` = X'00ff' AND CONCAT(`f`) = '0.1' AND `v` = 'a' LIMIT 1"])
+    #expect(DatabaseInfo.Engine.mysql.literal("0x41", type: "blob") == "X'41'")
+    #expect(DatabaseInfo.Engine.mysql.literal("hello", type: "varbinary(9)") == "'hello'")
+    #expect(DatabaseInfo.Engine.postgres.literal("0x41", type: "bytea") == "'0x41'")
 }
 
 @Test func aDatabaseTabsAddressNamesItsWorkspaceDatabaseAndRun() {
@@ -70,7 +89,7 @@ import Testing
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id", "w"], rows: rows)
             .first == #"DELETE FROM "t" WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
-            + #"WHERE "id"::text = '2' AND "v"::text = 'b' LIMIT 1)"#)
+            + #"WHERE format('%s', "id") = '2' AND format('%s', "v") = 'b' LIMIT 1)"#)
     // Without a key, SQLite finds a row by its values through its rowid, a NULL cell by IS NULL: of two identical
     // rows, one changes.
     let path = NSTemporaryDirectory() + "kelp-edits-\(UUID().uuidString).sqlite"
@@ -222,3 +241,4 @@ import Testing
     let said = texts(tab.empty)
     #expect(said.contains("Can’t Read shop") && !said.contains("Not Kept"), "\(said)")
 }
+

@@ -233,10 +233,36 @@ struct MySQLWire: DatabaseRunner {
     static func run(_ conn: MySQLConnection, _ sql: String) async throws -> DatabaseRows {
         let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
         try await conn.simpleQuery(sql) { row in
-            let names = row.columnDefinitions.map(\.name), values = row.values.map { $0.map { String(buffer: $0) } }
-            kept.withLock { $0.add(columns: names, values) }
+            let names = row.columnDefinitions.map(\.name)
+            let bytes = row.columnDefinitions.map { binary($0.characterSet, $0.columnType) }
+            let values = zip(row.values, bytes).map { value, binary in value.map { text($0, binary: binary) } }
+            // Hex isn't the value's own text, so an agent's change to such rows isn't kept to put back
+            let hex = zip(row.values, bytes).contains { $0 != nil && $1 }
+            kept.withLock {
+                $0.add(columns: names, values)
+                if hex { $0.opaque = true }
+            }
         }.get()
         return kept.withLock { $0 }
+    }
+
+    /// A value as text. A binary string, a blob or a BIT comes as bytes, written as hex (0x…, the first 64 bytes of a
+    /// longer one), as MySQL reads it back in SQL (`DatabaseInfo.Engine.literal(_:type:)`).
+    static func text(_ value: ByteBuffer, binary: Bool) -> String {
+        guard binary else { return String(buffer: value) }
+        let shown = value.getBytes(at: value.readerIndex, length: min(value.readableBytes, PostgresText.byteaShown))
+        let count = value.readableBytes
+        return "0x" + (shown ?? []).map { String(format: "%02x", $0) }.joined()
+            + (count > PostgresText.byteaShown ? "… (\(count) bytes)" : "")
+    }
+
+    /// Whether the column's values are bytes: the binary character set on a string, blob, BIT or geometry. A number
+    /// has that character set too, and is text all the same.
+    static func binary(_ set: MySQLProtocol.CharacterSet, _ type: MySQLProtocol.DataType) -> Bool {
+        let bytes: [MySQLProtocol.DataType] = [
+            .string, .varString, .varchar, .blob, .tinyBlob, .mediumBlob, .longBlob, .bit, .geometry
+        ]
+        return set == .binary && bytes.contains(type)
     }
 
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {

@@ -55,7 +55,7 @@ extension DatabaseTab {
         guard let name = mode.table, let table = current else { return nil }
         return grid.edits.statements(
             table: name, engine: engine, columns: grid.columns, primary: table.columns.filter(\.primary).map(\.name),
-            rows: grid.rows)
+            rows: grid.rows, types: Dictionary(table.columns.map { ($0.name, $0.type) }) { first, _ in first })
     }
 
     @objc func saveEdits() { Task { await saveChanges() } }

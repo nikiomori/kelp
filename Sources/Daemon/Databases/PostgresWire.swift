@@ -171,23 +171,23 @@ struct PostgresWire: DatabaseRunner {
     /// are counted up to `countLimit`.
     static func rows(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
         let sequence = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger)
-        var result = DatabaseRows(columns: sequence.columns.map(\.name))
+        var texts = PostgresTexts(rows: DatabaseRows(columns: sequence.columns.map(\.name)))
         for try await row in sequence {
-            result.add(row.map(PostgresText.text))
-            if result.total >= DatabaseEngines.countLimit { break }
+            texts.add(Array(row))
+            if texts.rows.total >= DatabaseEngines.countLimit { break }
         }
-        return result
+        return try await texts.finish(on: conn)
     }
 
     /// Runs a statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it returned.
     /// Up to `keep` rows are kept as they come, and the rest are only counted.
     static func command(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
-        let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
+        let kept = OSAllocatedUnfairLock(initialState: PostgresTexts())
         let metadata = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger) { row in
-            let names = row.map(\.columnName), values = row.map(PostgresText.text)
-            kept.withLock { $0.add(columns: names, values) }
+            kept.withLock { $0.add(Array(row)) }
         }.get()
-        var result = kept.withLock { $0 }
+        var texts = kept.withLock { $0 }
+        var result = try await texts.finish(on: conn)
         result.changed = metadata.rows ?? (["SELECT", "SHOW"].contains(metadata.command) ? nil : 0)
         return result
     }

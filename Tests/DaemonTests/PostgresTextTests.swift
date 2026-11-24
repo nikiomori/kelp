@@ -1,4 +1,5 @@
 import Foundation
+import MySQLNIO
 import NIOCore
 import PostgresNIO
 import Testing
@@ -64,6 +65,13 @@ private func array(_ element: UInt32, _ items: [[UInt8]?]) -> [Part] {
             [.u8(3), .u8(64), .u8(0), .u8(16), .bytes([0x20, 0x01, 0x0d, 0xb8] + Array(repeating: 0, count: 11) + [1])],
             "2001:db8::1/64"
         ),
+        (.float4, [.u32(Float(0.1).bitPattern)], "0.1"),   // the real, not the double nearest it
+        (.float4, [.u32(Float(1_234_567).bitPattern)], "1.234567e+06"),
+        (.float4, [.u32(Float(0.0001).bitPattern)], "0.0001"),
+        (.float8, [.i64(Int64(bitPattern: (1e15).bitPattern))], "1e+15"),
+        (.float8, [.i64(Int64(bitPattern: (123_456_789_012_345.6).bitPattern))], "123456789012345.6"),
+        (.float8, [.i64(Int64(bitPattern: (-1.5e-7).bitPattern))], "-1.5e-07"),
+        (.float8, [.i64(Int64(bitPattern: (100.0).bitPattern))], "100"),
         (.money, [.i64(1234)], "$12.34"),
         (.money, [.i64(-5)], "-$0.05"),
         (.bytea, [.bytes([0xDE, 0xAD, 0xBE, 0xEF])], "\\xdeadbeef"),
@@ -76,4 +84,37 @@ private func array(_ element: UInt32, _ items: [[UInt8]?]) -> [Part] {
         var bytes = buffer(parts)
         #expect(PostgresText.value(&bytes, type: type) == expected, "\(type) \(expected)")
     }
+}
+
+/// A value of a type Kelp doesn't write (an enum array) goes back to the server, which writes it; one of a row past the
+/// kept ones isn't asked about, and a bytea longer than is shown makes the rows not their own text.
+@Test func postgresAsksTheServerForTypesItDoesntWrite() {
+    func cell(_ type: PostgresDataType, _ bytes: [UInt8], _ column: Int) -> PostgresCell {
+        PostgresCell(
+            bytes: ByteBuffer(bytes: bytes), dataType: type, format: .binary, columnName: "c\(column)",
+            columnIndex: column)
+    }
+    let enumArray = PostgresDataType(16_400)
+    var texts = PostgresTexts()
+    texts.add([cell(.int4, [0, 0, 0, 7], 0), cell(enumArray, [0, 0, 0, 1, 0, 0, 0, 0], 1)])
+    #expect(texts.rows.rows == [["7", ""]] && texts.asked.count == 1)
+    #expect(texts.questions.map(\.sql) == ["SELECT $1::text"])
+    texts.fill([["{paid,new}"]])
+    #expect(texts.rows.rows == [["7", "{paid,new}"]] && texts.asked.isEmpty && !texts.rows.opaque)
+    texts.add([cell(.bytea, Array(repeating: 1, count: 65), 0), cell(enumArray, [1], 1)])
+    #expect(texts.rows.opaque && texts.asked.count == 1)
+    texts.rows.rows = Array(repeating: [], count: DatabaseEngines.keep)
+    texts.add([cell(enumArray, [1], 0)])
+    #expect(texts.asked.count == 1)   // the row isn't kept, so neither is its question
+}
+
+/// MySQL's bytes (a BINARY(16) key, a BLOB, a BIT) show as hex, as SQL writes them back; a number, which comes in the
+/// binary character set too, and text show as they come.
+@Test func mySQLBytesShowAsHex() {
+    #expect(MySQLWire.binary(.binary, .string) && MySQLWire.binary(.binary, .blob) && MySQLWire.binary(.binary, .bit))
+    #expect(!MySQLWire.binary(.binary, .long) && !MySQLWire.binary(.utf8mb4, .varString))
+    #expect(MySQLWire.text(ByteBuffer(bytes: [0x00, 0xDE, 0xAD]), binary: true) == "0x00dead")
+    #expect(MySQLWire.text(ByteBuffer(string: "abc"), binary: false) == "abc")
+    let long = MySQLWire.text(ByteBuffer(bytes: Array(repeating: 0xAB, count: 65)), binary: true)
+    #expect(long.hasSuffix("… (65 bytes)"))
 }
