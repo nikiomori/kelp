@@ -51,6 +51,7 @@ extension ArtifactBar {
         for format in PageExport.formats(for: markdown.page) {
             menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
         }
+        menu.add(String(localized: "Build in Code…")) { [weak markdown] in markdown?.buildInCode() }
     }
 }
 

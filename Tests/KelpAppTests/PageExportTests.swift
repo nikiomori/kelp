@@ -85,3 +85,14 @@ import Testing
     let off = await MotionVerify.check(url, .init(width: 8, height: 2, fps: 10, duration: 0.5), warnings: [])
     #expect(!off.ok && off.problems.count == 2)
 }
+
+/// Build in Code guesses a web project's stack from its package.json, the most particular first.
+@MainActor
+@Test(arguments: [
+    (#"{"dependencies": {"next": "15", "react": "19"}}"#, "Next.js"), (#"{"dependencies": {"react": "19"}}"#, "React"),
+    (#"{"devDependencies": {"svelte": "5"}}"#, "Svelte"), (#"{"dependencies": {"vue": "3"}}"#, "Vue"),
+    ("{}", "HTML and CSS")
+])
+func buildInCodeGuessesTheStack(json: String, stack: String) {
+    #expect(MarkdownTab.stack(packageJSON: json) == stack)
+}

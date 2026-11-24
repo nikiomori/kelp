@@ -32569,6 +32569,66 @@
           }
         }
       }
+    },
+    "Build in Code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать в коде"
+          }
+        }
+      }
+    },
+    "Build in Code…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать в коде…"
+          }
+        }
+      }
+    },
+    "An agent writes it as working code that keeps this look, and says how to run and check it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент напишет рабочий код с тем же видом и скажет, как его запустить и проверить."
+          }
+        }
+      }
+    },
+    "With it: the page, the tokens, its pictures, %lld decided marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С собой: страница, токены, картинки, решённых пометок: %lld"
+          }
+        }
+      }
+    },
+    "What": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что"
+          }
+        }
+      }
+    },
+    "Stack": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стек"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
