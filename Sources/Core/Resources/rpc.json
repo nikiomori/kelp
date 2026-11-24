@@ -1441,6 +1441,74 @@
         ],
         "type" : "object"
       },
+      "DatabaseComparison" : {
+        "description" : "How a branch's copy of a database differs from the database it copies (`db.diff`), table by table: the columns and the number of rows. The rows themselves aren't compared.",
+        "properties" : {
+          "branch" : {
+            "type" : "string"
+          },
+          "copy" : {
+            "description" : "The copy's name, the name of the database it copies, and the branch the copy is for.",
+            "type" : "string"
+          },
+          "original" : {
+            "type" : "string"
+          },
+          "tables" : {
+            "description" : "Every table of either, by name.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseComparison.Table"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "branch",
+          "copy",
+          "original",
+          "tables"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table" : {
+        "properties" : {
+          "change" : {
+            "$ref" : "#/components/schemas/DatabaseComparison.Table.Change"
+          },
+          "columns" : {
+            "description" : "The columns that differ: \"+ paid_at TEXT\", \"− note TEXT\", \"total INTEGER → REAL\".",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "description" : "The table's rows in the copy and in the original; nil where it isn't, or they couldn't be counted.",
+            "type" : "integer"
+          },
+          "was" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "change",
+          "columns",
+          "name"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table.Change" : {
+        "enum" : [
+          "same",
+          "changed",
+          "added",
+          "dropped"
+        ],
+        "type" : "string"
+      },
       "DatabaseHealth" : {
         "properties" : {
           "name" : {
@@ -7891,6 +7959,33 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "Compares a branch's copy of a database (`DatabaseInfo.copy`) with the database it copies: each table's columns and number of rows. `database` names the copy; nil means the workspace's only copy. Agents compare only what they may read.",
+      "name" : "db.diff",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseComparison"
+        }
+      }
     },
     {
       "description" : "Brings the connections `ids` of `source` into All my projects as copies, which Import Again reads again. With `passwords`, the passwords are taken now, from the app's file or its keychain (macOS asks for each). Without it, a password in another app's keychain is read when the database is first opened (`DatabaseInfo.passwordIn`). With `useHere`, the databases are also used in the workspace's project.",

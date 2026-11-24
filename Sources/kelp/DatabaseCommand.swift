@@ -4,7 +4,7 @@ import Foundation
 extension Main {
     static let dbUsage = """
         db list | schema [table] [--db name] | query <sql; sql…> [--db name] [--limit 200] [--json]
-           | open [name] | copy [name]
+           | open [name] | copy [name] | diff [name]
         """
 
     /// `db <action>` works with the project's databases through kelpd, which holds their passwords (`db.*`).
@@ -51,6 +51,8 @@ extension Main {
             let name = try await database(args.first ?? named, worktree.id, client)
             let copy = try await client.call(DatabaseCopy(worktreeId: worktree.id, database: name))
             print("\(copy.name): \(copy.address)")
+        case "diff":   // how this branch's copy differs from the database it copies: columns and row counts
+            print(try await client.call(DatabaseDiff(worktreeId: worktree.id, database: args.first ?? named)).text)
         case "open":
             let name = try await database(args.first ?? named, worktree.id, client)
             _ = try await client.call(

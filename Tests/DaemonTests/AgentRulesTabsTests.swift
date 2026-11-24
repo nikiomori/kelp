@@ -63,6 +63,8 @@ import Testing
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db")), true, "its own workspace's it opens"),
             (own, DatabaseSchemaRead(worktreeId: wt.id, database: "db"), true, "and reads its tables"),
             (own, DatabaseSchemaRead(worktreeId: elsewhere.id, database: "db"), false, "not another workspace's"),
+            (own, DatabaseDiff(worktreeId: wt.id), true, "and compares its branch's copy"),
+            (own, DatabaseDiff(worktreeId: elsewhere.id), false, "not another workspace's copy"),
             (own, UIOpen(uri: "file:///tmp/a.txt", worktreeId: wt.id), true, "and a file"),
             (
                 own, UIOpen(uri: "file:///tmp/a.txt"), false,

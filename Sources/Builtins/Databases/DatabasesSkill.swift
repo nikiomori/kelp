@@ -32,6 +32,8 @@ extension Builtins {
           ask, 1000 at most (page with LIMIT and OFFSET past that); cells over 200 characters are cut; a read stops
           after 15 s. `--json` prints one JSON object a line (every value a string, NULL as null), the summary on
           stderr. `--db` can be left out when there's one.
+        - `kelp db diff [name]` — how this branch's copy differs from the database it copies: each table's added or
+          changed columns and its row count, not the rows themselves. Fit for a pull request's description.
         - `kelp db open [name]` — the database in a tab beside you, for the user.
 
         Reads run in a read-only transaction. A change (INSERT, UPDATE, DELETE, DDL) goes by the database:

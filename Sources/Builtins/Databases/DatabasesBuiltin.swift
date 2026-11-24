@@ -96,7 +96,11 @@ extension Builtins {
             ],
             tabs: [
                 TabProvider(
-                    schemes: [TabURI.databaseScheme], make: { DatabaseTab(uri: $0, app: app) },
+                    schemes: [TabURI.databaseScheme],
+                    make: { uri in
+                        DatabaseURI(uri)?.compare == nil
+                            ? DatabaseTab(uri: uri, app: app) : DatabaseCompareTab(uri: uri, app: app) as TabContent
+                    },
                     placeholder: { uri in
                         (DatabaseURI(uri).map(DatabaseTab.title) ?? TabURI.body(uri), .symbol(DatabaseLook.symbol), nil)
                     })
@@ -158,10 +162,11 @@ extension TabURI {
     static let databaseScheme = "db"
 }
 
-/// "db:<workspace>/<name>", with "?run=<id>" for one run's rows or "?table=<name>" for a table's rows.
+/// "db:<workspace>/<name>", with "?run=<id>" for one run's rows, "?table=<name>" for a table's rows, or
+/// "?compare=<original>" for how a branch's copy differs from the database it copies (`DatabaseCompareTab`).
 struct DatabaseURI: Equatable {
     var worktree: String, name: String
-    var run: String?, table: String?
+    var run: String?, table: String?, compare: String?
 }
 
 extension DatabaseURI {
@@ -172,7 +177,8 @@ extension DatabaseURI {
         let query = parts.query ?? ""
         run = query.hasPrefix("run=") ? String(query.dropFirst(4)) : nil
         table = query.hasPrefix("table=") ? String(query.dropFirst(6)).removingPercentEncoding : nil
+        compare = query.hasPrefix("compare=") ? String(query.dropFirst(8)).removingPercentEncoding : nil
     }
 
-    var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table) }
+    var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table, compare: compare) }
 }

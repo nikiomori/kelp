@@ -36,7 +36,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let name: DatabaseTabName
     var title: String { name.title }
     static func title(_ address: DatabaseURI) -> String {
-        address.table.map { "\($0) · \(address.name)" } ?? address.name
+        address.compare.map { "\(address.name) ↔ \($0)" } ?? address.table.map { "\($0) · \(address.name)" }
+            ?? address.name
     }
     var icon: NSImage? { .symbol(DatabaseLook.symbol) }
     var isEdited: Bool { !grid.edits.isEmpty }

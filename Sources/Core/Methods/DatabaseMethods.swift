@@ -153,6 +153,19 @@ public struct DatabaseCopyRemove: InternalMethod {
     }
 }
 
+/// Compares a branch's copy of a database (`DatabaseInfo.copy`) with the database it copies: each table's columns and
+/// number of rows. `database` names the copy; nil means the workspace's only copy. Agents compare only what they may
+/// read.
+public struct DatabaseDiff: RPCMethod {
+    public static let name = "db.diff"
+    public typealias Result = DatabaseComparison
+    public var worktreeId: String, database: String?
+    public init(worktreeId: String, database: String? = nil) {
+        self.worktreeId = worktreeId
+        self.database = database
+    }
+}
+
 /// Returns what the Databases panel shows: the databases and what was run on them lately.
 public struct DatabaseActivity: InternalMethod {
     public static let name = "db.activity"

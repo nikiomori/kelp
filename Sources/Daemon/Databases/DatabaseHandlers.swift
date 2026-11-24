@@ -69,6 +69,6 @@ extension DatabaseResultRead: Handled {
 extension Methods {
     static let databaseMethods: [any Answered.Type] = [
         DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self, DatabaseSave.self, DatabaseRemove.self,
-        DatabaseCopy.self, DatabaseCopyRemove.self, DatabaseActivity.self, DatabaseResultRead.self
+        DatabaseCopy.self, DatabaseCopyRemove.self, DatabaseActivity.self, DatabaseResultRead.self, DatabaseDiff.self
     ]
 }

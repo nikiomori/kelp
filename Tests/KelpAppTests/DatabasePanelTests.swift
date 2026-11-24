@@ -128,3 +128,22 @@ private func db(
     list.find = "dev"
     #expect(names(list.rows) == ["project 2", "use false", "heading library(2)", "group Work 1", "lib dev"])
 }
+
+/// The compare tab's grid: a row for each table that differs, in `kelp db diff`'s order, with the rows the copy has
+/// more or fewer (or both's, when the same), then one line for the tables the same in both.
+@MainActor @Test func theCompareTabsRowsFoldTheTablesTheSame() {
+    let comparison = DatabaseComparison(
+        copy: "shop_fix", original: "shop", branch: "fix",
+        tables: [
+            .init(name: "customers", change: .same, rows: 5, was: 5),
+            .init(name: "order_items", change: .same, rows: 8, was: 20),
+            .init(name: "orders", change: .changed, columns: ["+ paid_at TEXT"], rows: 1240, was: 1240),
+            .init(name: "products", change: .same, rows: 3, was: 3),
+            .init(name: "refunds", change: .added, rows: 37)
+        ])
+    #expect(
+        DatabaseCompareTab.rows(comparison) == [
+            ["orders", "+ paid_at TEXT", 1240.formatted()], ["refunds", "new table", "+37"],
+            ["order_items", "same", "−12"], ["2 more", "same", "same"]
+        ])
+}
