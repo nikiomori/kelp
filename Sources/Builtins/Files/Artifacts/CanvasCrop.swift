@@ -93,8 +93,9 @@ enum CanvasCrop {
           });
           addEventListener('mousemove', ev => {
             if (!drag || !crop) return;
-            const r = crop.e.getBoundingClientRect();
-            const dx = (ev.clientX - drag.x) / r.width, dy = (ev.clientY - drag.y) / r.height;
+            // The pointer moves in the page's pixels; the board is drawn at the canvas's zoom.
+            const r = K.box(crop.f, crop.e);
+            const dx = (ev.clientX - drag.x) / r.w, dy = (ev.clientY - drag.y) / r.h;
             const [t, ri, b, l] = drag.cut, c = crop.cut, keep = 0.05;
             if (drag.side === 'top') c[0] = Math.min(Math.max(t + dy, 0), 1 - b - keep);
             if (drag.side === 'bottom') c[2] = Math.min(Math.max(b - dy, 0), 1 - t - keep);
