@@ -1102,6 +1102,40 @@
         ],
         "type" : "object"
       },
+      "ChangeRisk" : {
+        "description" : "What makes an agent's change worth a second look before Allow (`QueryResult.risk`): the card that asks says it in a line of its own. Only these kinds have one; a plain change has none, so the line isn't read past.",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ChangeRisk.Kind"
+          },
+          "table" : {
+            "description" : "The table (or what is dropped) as the statement names it, quotes included.",
+            "type" : "string"
+          },
+          "values" : {
+            "description" : "How many rows (or a column's values that aren't NULL) go, when Kelp counted them.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "kind",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "ChangeRisk.Kind" : {
+        "enum" : [
+          "noWhere",
+          "drop",
+          "truncate",
+          "dropColumn",
+          "noUndo"
+        ],
+        "type" : "string"
+      },
       "ChangedEvent" : {
         "description" : "Sent when projects or workspaces changed, so clients read the lists again. The params are just the word. It is still sent for clients that read lists, while the changed records themselves come as `event.repo`, `event.worktree` and `event.removed`.",
         "enum" : [
@@ -4048,6 +4082,10 @@
           },
           "ms" : {
             "type" : "integer"
+          },
+          "risk" : {
+            "$ref" : "#/components/schemas/ChangeRisk",
+            "description" : "What makes an asked change's trial worth a second look (no WHERE, a DROP…), for the card that asks. nil for a plain change, and on every other result."
           },
           "rows" : {
             "items" : {

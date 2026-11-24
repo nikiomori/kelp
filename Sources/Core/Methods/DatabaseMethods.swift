@@ -37,6 +37,9 @@ public enum DatabaseTimes {
     /// The time limit for asking Postgres whether the role is a superuser (`Databases.query`, for a production
     /// database).
     public static let superuser: TimeInterval = 5
+    /// The time limit for counting what an asked change takes away (`ChangeRisk.values`): a DROP's rows, a column's
+    /// values.
+    public static let risk: TimeInterval = 5
     /// How much longer than its statement's time limit a call may take before it is given up (`DatabaseWire.within`, a
     /// client's run).
     public static let slack: TimeInterval = 10
@@ -57,9 +60,10 @@ public enum DatabaseTimes {
     }
 
     /// The sum of the time limits for each step of an agent's statement: the superuser check, trying it as a read, its
-    /// trial (MySQL's client asks first whether it can roll back), the user's answer, and the change.
+    /// trial (MySQL's client asks first whether it can roll back), counting what it takes away, the user's answer, and
+    /// the change.
     public static var query: TimeInterval {
-        reach + call(superuser) + call(longestRead) + call(read) + call(trial) + DatabaseQuery.answerWithin
+        reach + call(superuser) + call(longestRead) + call(read) + call(trial) + call(risk) + DatabaseQuery.answerWithin
             + call(write)
     }
     /// The time limit for applying the table's edits in one transaction. Limit: Appwrite's edits are one request each,

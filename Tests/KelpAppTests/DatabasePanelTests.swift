@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Testing
 
+@testable import BuiltinAgents
 @testable import BuiltinDatabases
 
 private func db(
@@ -155,4 +156,26 @@ private func db(
             ["orders", "+ paid_at TEXT", 1240.formatted()], ["refunds", "new table", "+37"],
             ["order_items", "same", "−12"], ["2 more", "same", "same"]
         ])
+}
+
+/// The ask card's risk line says each kind in its own words, with what goes counted when Kelp counted it.
+@MainActor @Test func theAskCardSaysWhatMakesAChangeRisky() {
+    let rows: [(ChangeRisk, String)] = [
+        (ChangeRisk(kind: .noWhere, table: "orders"), "No WHERE: every row of orders changes."),
+        (
+            ChangeRisk(kind: .dropColumn, table: "orders", column: "note", values: 113),
+            "Drops a column: 113 values of note go with it. Undo This Change can’t bring them back."
+        ),
+        (
+            ChangeRisk(kind: .drop, table: "\"Order Items\"", values: 1),
+            "Drops a table: 1 row of Order Items goes with it. Undo This Change can’t bring it back."
+        ),
+        (ChangeRisk(kind: .drop, table: "orders_idx"), "Drops orders_idx. Undo This Change can’t bring it back."),
+        (
+            ChangeRisk(kind: .truncate, table: "orders", values: 12),
+            "Empties a table: 12 rows of orders go. Undo This Change can’t bring them back."
+        ),
+        (ChangeRisk(kind: .noUndo, table: "orders"), "Undo This Change can’t put these rows back.")
+    ]
+    for (risk, said) in rows { #expect(DatabaseAskCard.sentence(risk) == said) }
 }

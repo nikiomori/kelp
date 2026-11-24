@@ -235,6 +235,9 @@ public struct QueryResult: Codable, Sendable, Equatable {
     /// The statements run in one transaction (`kelp db query "a; b"`), each with the number of rows it changed. Either
     /// all of them were kept or none was. nil for a single statement.
     public var statements: [StatementResult]?
+    /// What makes an asked change's trial worth a second look (no WHERE, a DROP…), for the card that asks. nil for a
+    /// plain change, and on every other result.
+    public var risk: ChangeRisk?
     /// How many rows of a result Kelp keeps, and how far it counts rows beyond that. `total` stops at `counted`.
     public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {

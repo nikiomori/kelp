@@ -201,12 +201,17 @@ extension Databases {
                     + "(a standby, a file's rights)."
             )
         }
-        var change: RowChange?
-        if let trial { change = await rowChange(databaseConnection, sql, trial) }
+        var change: RowChange?, kept: QueryResult?
+        if let trial {
+            change = await rowChange(databaseConnection, sql, trial)
+            kept = Self.kept(trial, id: run.id, change: change)
+            let risk = await risk(databaseConnection, sql, change: kept?.change)
+            kept?.risk = risk
+        }
         run.state = .asks
         // Only a row change's count is the rows that would change: a DDL's 0 or a WITH's selected rows isn't
         run.changed = SQLText.countsItsRows(sql) ? trial?.changed : nil
-        note(databaseQuery.worktreeId, run, result: trial.map { Self.kept($0, id: run.id, change: change) })
+        note(databaseQuery.worktreeId, run, result: kept)
         let question = Self.question(
             sql, database: databaseConnection.database.name, changed: trial?.changed,
             held: DatabaseEngines.runner(databaseConnection, off: offloads).holdsAllowed)

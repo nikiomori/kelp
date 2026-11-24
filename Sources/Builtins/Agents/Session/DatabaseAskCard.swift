@@ -16,6 +16,10 @@ final class DatabaseAskCard: NSView {
     private let title = NSTextField(wrappingLabelWithString: "")
     private let sql = NSTextField(wrappingLabelWithString: "")
     private let detail = NSTextField(wrappingLabelWithString: "")
+    /// What makes the change worth a second look (`ChangeRisk`), on an orange line under the title. Hidden for a plain
+    /// change.
+    private let risk = NSTextField(wrappingLabelWithString: "")
+    private lazy var riskLine = FillStack(views: [risk])
     private let preview = ChangePreview()
     private lazy var showButton = NSButton(title: "", target: self, action: #selector(showRows))
     private var asking: DatabaseRun?
@@ -34,6 +38,14 @@ final class DatabaseAskCard: NSView {
         sql.lineBreakMode = .byTruncatingTail
         detail.font = .ui(TextSize.row)
         title.font = .ui(TextSize.body, weight: .semibold)
+        risk.font = .ui(TextSize.row, weight: .medium)
+        risk.textColor = .textOrange
+        risk.maximumNumberOfLines = 3
+        riskLine.fill = .fillTint(.systemOrange)
+        riskLine.layer?.cornerRadius = Metrics.radiusSM
+        riskLine.edgeInsets = NSEdgeInsets(
+            top: Metrics.lineGap, left: Metrics.gap, bottom: Metrics.lineGap, right: Metrics.gap)
+        riskLine.isHidden = true
         // Both are sentences: they aren't cut in the middle, they take another line.
         title.maximumNumberOfLines = 2
         detail.maximumNumberOfLines = 3
@@ -45,13 +57,13 @@ final class DatabaseAskCard: NSView {
         head.spacing = Metrics.gap
         let buttons = NSStackView(views: [showButton, NSView(), deny, allow])
         buttons.spacing = Metrics.gapWide
-        let stack = NSStackView(views: [head, sql, preview, detail, buttons])
+        let stack = NSStackView(views: [head, riskLine, sql, preview, detail, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gap
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
-        for view in [head, sql, detail, buttons] {
+        for view in [head, riskLine, sql, detail, buttons] {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         }
         pin(FloatingCard(stack))
@@ -94,6 +106,9 @@ final class DatabaseAskCard: NSView {
     private func say(_ run: DatabaseRun, _ rows: QueryResult?) {
         let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
         sql.isHidden = rows?.statements != nil   // with several statements, each has its own line
+        let said = rows?.statements == nil ? rows?.risk.map(Self.sentence) : nil
+        risk.stringValue = said ?? ""
+        riskLine.isHidden = said == nil
         if let parts = rows?.statements { return say(run, parts, who) }
         let shown = rows.map(preview.show) ?? 0
         preview.isHidden = shown == 0
@@ -132,6 +147,46 @@ final class DatabaseAskCard: NSView {
         showButton.title =
             parts.count > shown
             ? String(localized: "Show All \(parts.count) Statements") : String(localized: "Show Statements")
+    }
+
+    /// The line for what makes a change worth a second look: only these kinds have one.
+    static func sentence(_ risk: ChangeRisk) -> String {
+        let table = risk.tableName, column = risk.columnName ?? ""
+        switch risk.kind {
+        case .noWhere: return String(localized: "No WHERE: every row of \(table) changes.")
+        case .noUndo: return String(localized: "Undo This Change can’t put these rows back.")
+        case .dropColumn:
+            guard let n = risk.values else {
+                return String(
+                    localized:
+                        "Drops a column: the values of \(column) go with it. Undo This Change can’t bring them back.")
+            }
+            return n == 1
+                ? String(
+                    localized:
+                        "Drops a column: 1 value of \(column) goes with it. Undo This Change can’t bring it back.")
+                : String(
+                    localized:
+                        "Drops a column: \(n) values of \(column) go with it. Undo This Change can’t bring them back.")
+        case .drop:
+            guard let n = risk.values else {
+                return String(localized: "Drops \(table). Undo This Change can’t bring it back.")
+            }
+            return n == 1
+                ? String(
+                    localized: "Drops a table: 1 row of \(table) goes with it. Undo This Change can’t bring it back.")
+                : String(
+                    localized:
+                        "Drops a table: \(n) rows of \(table) go with it. Undo This Change can’t bring them back.")
+        case .truncate:
+            guard let n = risk.values else {
+                return String(localized: "Empties \(table). Undo This Change can’t bring its rows back.")
+            }
+            return n == 1
+                ? String(localized: "Empties a table: 1 row of \(table) goes. Undo This Change can’t bring it back.")
+                : String(
+                    localized: "Empties a table: \(n) rows of \(table) go. Undo This Change can’t bring them back.")
+        }
     }
 
     @objc private func showRows() {

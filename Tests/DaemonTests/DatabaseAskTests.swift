@@ -174,3 +174,55 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     #expect(function.hasPrefix("Allow CREATE FUNCTION tidy() RETURNS void AS $$ BEGIN PERFORM step1;"))
     #expect(function.hasSuffix("(23 lines, whole in Databases) in app?"))
 }
+
+/// What makes an asked change worth a second look is read from its text, and only these kinds have a line: no WHERE, a
+/// DROP or TRUNCATE, a dropped column, a row change Undo This Change couldn't put back. A plain change has none.
+@Test func aChangesRiskIsReadFromItsText() {
+    let undoable = RowChange(kind: .delete, table: "orders", key: ["id"])
+    let rows: [(String, RowChange?, ChangeRisk?, String?)] = [
+        ("UPDATE orders SET status = 'archived'", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("delete from orders -- where id = 1", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("UPDATE orders SET note = 'where'", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("DELETE FROM orders WHERE id = 1", undoable, nil, nil),
+        ("DELETE FROM orders WHERE id = 1", nil, ChangeRisk(kind: .noUndo, table: "orders"), nil),
+        ("INSERT INTO orders VALUES (4, 'new')", RowChange(kind: .insert, table: "orders", key: ["id"]), nil, nil),
+        (
+            "ALTER TABLE orders DROP COLUMN note", nil, ChangeRisk(kind: .dropColumn, table: "orders", column: "note"),
+            "SELECT count(note) FROM orders"
+        ),
+        ("ALTER TABLE orders DROP CONSTRAINT orders_pkey", nil, nil, nil),
+        (
+            #"DROP TABLE IF EXISTS "Order Items""#, nil, ChangeRisk(kind: .drop, table: #""Order Items""#),
+            #"SELECT count(*) FROM "Order Items""#
+        ),
+        ("DROP INDEX CONCURRENTLY orders_idx", nil, ChangeRisk(kind: .drop, table: "orders_idx"), nil),
+        ("TRUNCATE TABLE orders", nil, ChangeRisk(kind: .truncate, table: "orders"), "SELECT count(*) FROM orders"),
+        ("CREATE TABLE t (a int)", nil, nil, nil)
+    ]
+    for (sql, change, risk, counting) in rows {
+        let found = Databases.risk(sql, change: change)
+        #expect(found?.risk == risk && found?.counting == counting, "\(sql)")
+    }
+}
+
+/// An agent's DROP COLUMN asked about: its trial is kept with how many values of the column go.
+@Test func anAskedDropCountsWhatGoes() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try askDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let asked = Task {
+        try await w.d.workspaces.databases.query(
+            DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "ALTER TABLE orders DROP COLUMN status"),
+            origin: agent.id)
+    }
+    #expect(try await waitFor { try summary(w, agent.id).hasPrefix("Allow ALTER TABLE") })
+    let run = try #require(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first)
+    let kept = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: run.id))
+    #expect(kept?.risk == ChangeRisk(kind: .dropColumn, table: "orders", column: "status", values: 3))
+    #expect(run.changed == nil)   // a DDL's 0 isn't a count of rows that would change
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary(w, agent.id))))
+    _ = try? await asked.value
+    #expect(try count(path, "SELECT count(*) FROM orders") == 3)
+}
