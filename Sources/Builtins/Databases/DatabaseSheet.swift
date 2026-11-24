@@ -24,8 +24,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let tiles = NSStackView()
     /// When the line saying Kelp looks for other apps' connections came up, so it stays at least `LoadingView.held`.
     private var lookingSince: Date?
-    /// The pane shown after the first one, kept alive while it shows.
-    private var pane: AnyObject?
+    /// The pane shown after the first one, kept alive while it shows. Read by a test.
+    private(set) var pane: AnyObject?
 
     /// `library` means the database edited is one of All My Projects, so it is saved back there.
     static func run(_ app: AppModel, worktreeId: String, editing: DatabaseInfo?, library: Bool = false) async {
