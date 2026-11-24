@@ -41,3 +41,25 @@ import Testing
     #expect(tab.grid.editable)
     #expect(DatabaseTab.order([("a", true)]) != DatabaseTab.order([("a", false)]))
 }
+
+/// ⌘C copies the selected rows as TSV with their header, or the one cell looked at as its value; ⌘V puts TSV into
+/// the cells from there on as edits, saving nothing: the header line is left out, NULL is NULL, and a line past the
+/// rows adds one.
+@MainActor @Test func copyAndPasteGoThroughTheGrid() {
+    let (grid, window) = editableGrid([])
+    defer { withExtendedLifetime(window) {} }
+    grid.source = ("orders", .sqlite)
+    grid.show(columns: ["id", "note"], rows: [["1", "a"], ["2", nil]])
+    grid.table.selectRowIndexes([0, 1], byExtendingSelection: false)
+    grid.table.copy(nil)
+    #expect(NSPasteboard.general.string(forType: .string) == "id\tnote\n1\ta\n2\tNULL")
+    grid.table.lookedAt = (1, 1)
+    grid.table.selectRowIndexes([1], byExtendingSelection: false)
+    grid.table.copy(nil)
+    #expect(NSPasteboard.general.string(forType: .string) == "NULL")
+    grid.table.selectRowIndexes([0], byExtendingSelection: false)   // the cell looked at is another row's now
+    copyText("id\tnote\n1\tz\n2\tNULL\n3\tnew\n")
+    grid.table.paste(nil)
+    #expect(grid.edits.value(row: 0, column: 1) == .some("z") && grid.edits.added == [["3", "new"]])
+    #expect(grid.edits.count == 2 && grid.count == 3)
+}

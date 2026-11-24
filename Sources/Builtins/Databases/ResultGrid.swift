@@ -3,20 +3,6 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The grid's table: Space shows the row, and ⌫ marks the selected rows to be deleted.
-final class GridTable: NSTableView {
-    var onSpace: () -> Void = {}
-    var onDelete: () -> Void = {}
-
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 49 where event.modifierFlags.isDisjoint(with: [.command, .option, .control]): onSpace()
-        case 51, 117: onDelete()
-        default: super.keyDown(with: event)
-        }
-    }
-}
-
 /// Rows as a grid. Each result column is a column, with a key's mark in its header and its type in the header's
 /// tooltip when the table is known. NULL shows in grey, numbers in digits that line up, and stripes only where there
 /// are rows. A table's rows can be edited, with a primary key or without one (a view's can't): cells typed over, rows
@@ -78,6 +64,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.menu?.delegate = self
         table.headerView?.menu = NSMenu()
         table.headerView?.menu?.delegate = self
+        table.onCopy = { [weak self] in self?.copySelection() }
+        table.onPaste = { [weak self] in self?.pasteFromClipboard() }
         scroll.documentView = table
         area.pin(scroll)
         scroll.hasVerticalScroller = true
@@ -92,9 +80,11 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Shows these rows. `keeping` keeps the columns' widths and which are hidden, when the columns are the same: the
     /// same table read again (another page, order or filter, or after Save).
     func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = [], keeping: Bool = false) {
-        let kept = keeping && columns == self.columns ? Dictionary(
-            table.tableColumns.map { ($0.identifier.rawValue, (width: $0.width, hidden: $0.isHidden)) },
-            uniquingKeysWith: { a, _ in a }) : [:]
+        let kept =
+            keeping && columns == self.columns
+            ? Dictionary(
+                table.tableColumns.map { ($0.identifier.rawValue, (width: $0.width, hidden: $0.isHidden)) },
+                uniquingKeysWith: { a, _ in a }) : [:]
         self.columns = columns
         self.rows = rows
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })

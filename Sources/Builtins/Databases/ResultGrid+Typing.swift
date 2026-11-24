@@ -33,13 +33,7 @@ extension ResultGrid {
         guard let field = notification.object as? NSTextField else { return }
         let row = table.row(for: field), column = field.tag
         guard row >= 0 else { return }
-        if let value = change(field.stringValue, row: row, column: column) {
-            if row >= rows.count {
-                edits.setAdded(row - rows.count, column: column, to: value)
-            } else {
-                edits.set(row: row, column: column, to: value, was: rows[row][column])
-            }
-        }
+        if let value = change(field.stringValue, row: row, column: column) { set(row: row, column: column, to: value) }
         changed(rows: [row])
     }
 
@@ -68,11 +62,7 @@ extension ResultGrid {
         guard let cell = typingCell else { return NSSound.beep() }
         let row = table.row(for: cell.field), column = cell.field.tag
         cell.field.abortEditing()
-        if row >= rows.count {
-            edits.setAdded(row - rows.count, column: column, to: nil)
-        } else if rows.indices.contains(row), rows[row].indices.contains(column) {
-            edits.set(row: row, column: column, to: nil, was: rows[row][column])
-        }
+        if rows.indices.contains(row) || row >= rows.count { set(row: row, column: column, to: nil) }
         changed(rows: [row])
     }
 
