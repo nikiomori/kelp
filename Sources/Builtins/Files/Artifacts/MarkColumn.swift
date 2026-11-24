@@ -37,7 +37,8 @@ enum MarkColumn {
           const keep = () => post({ kind: 'marksDraft', marks: by('draft') });
           const typing = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)
             && !!document.activeElement.closest('.kelp-col, .kelp-composer');
-          const num = m => el('span', 'kelp-num kelp-n-' + m.state, m.state === 'done' ? '✓' : String(m.id || '·'));
+          const num = m => m.asked && m.state === 'draft' ? el('span', 'kelp-num kelp-n-ask', '?')
+            : el('span', 'kelp-num kelp-n-' + m.state, m.state === 'done' ? '✓' : String(m.id || '·'));
 
           function pins() {
             layer.replaceChildren();
@@ -53,7 +54,9 @@ enum MarkColumn {
                   height: (r.h + 6) + 'px' });
                 layer.append(box);
               }
-              const pin = el('div', 'kelp-pin kelp-n-' + m.state, String(m.id || '·'));
+              const asking = m.asked && m.state === 'draft';
+              const pin = el('div', 'kelp-pin kelp-n-' + (asking ? 'ask' : m.state),
+                asking ? '?' : String(m.id || '·'));
               Object.assign(pin.style, { left: (r.x + r.w - 9) + 'px', top: (r.y - 9) + 'px' });
               layer.append(pin);
             }
@@ -64,7 +67,9 @@ enum MarkColumn {
             const box = el('div', 'kelp-mark' + (current ? ' kelp-on' : ''));
             const head = el('div', 'kelp-row');
             if (m.state === 'draft') head.append(grip(m, box), check(m));
-            head.append(num(m), el('span', 'kelp-grow kelp-what', page ? page.what(m) : ''));
+            const what = page ? page.what(m) : '';
+            const who = m.asked ? L.asks.replace('%@', L.agent) + ' · ' : '';
+            head.append(num(m), el('span', 'kelp-grow kelp-what', who + what));
             const where = m.state !== 'done' && page?.status?.(m);   // its element: moved, gone, or (nothing) in place
             if (where) head.append(page.statusChip(m, where));
             if (m.state === 'draft') {
@@ -85,11 +90,12 @@ enum MarkColumn {
               body.append(el('div', 'kelp-past', L.you + ': ' + (r.note || L.look)));
               if (r.reply) body.append(el('div', 'kelp-past', L.agent + ': ' + r.reply));
             }
+            if (m.asked && m.state === 'draft') body.append(el('div', 'kelp-said', m.asked));
             if (m.state === 'draft') {
               // By its place among the drafts, which the daemon keeps: the mark itself may be replaced meanwhile.
               const i = by('draft').indexOf(m), note = el('input', 'kelp-field');
               const take = () => { const d = by('draft')[i]; if (d) d.note = note.value; };
-              note.placeholder = m.rounds.length ? L.whatsWrong : L.note; note.value = m.note;
+              note.placeholder = m.asked ? L.answer : m.rounds.length ? L.whatsWrong : L.note; note.value = m.note;
               note.addEventListener('change', () => { take(); keep(); });
               note.addEventListener('keydown', e => {
                 if (e.key === 'Enter' && e.metaKey) { take(); send(); }
@@ -165,7 +171,9 @@ enum MarkColumn {
 
           function rows() {
             const d = by('draft'), s = by('sent'), c = by('check'), done = by('done');
-            if (!M.marks.length && !M.edits.length) return [el('p', 'kelp-note', page ? page.empty : '')];
+            if (!M.marks.length && !M.edits.length && !M.suggestions?.length) {
+              return [el('p', 'kelp-note', page ? page.empty : '')];
+            }
             if (filter === 'done') return done.length ? done.map(m => row(m)) : [el('p', 'kelp-note', L.noneDone)];
             const out = [];
             if (c.length) {
@@ -182,6 +190,18 @@ enum MarkColumn {
               h.classList.add('kelp-fold'); h.onclick = () => { doneOpen = !doneOpen; draw(); };
               out.push(h);
               if (doneOpen) done.forEach(m => out.push(row(m)));
+            }
+            // What the agent suggests asking next: a click makes it a mark on the whole page, its note to edit.
+            if (M.suggestions?.length) {
+              out.push(sec(L.next));
+              for (const line of M.suggestions) {
+                const b = el('button', 'kelp-suggest', line);
+                b.onclick = () => {
+                  M.suggestions = M.suggestions.filter(s => s !== line);
+                  window.kelpMarks.add({ kind: 'area', whole: true, note: line });
+                };
+                out.push(b);
+              }
             }
             if (d.length || M.edits.length) {
               const n = chosen().length, foot = el('div', 'kelp-row kelp-end');

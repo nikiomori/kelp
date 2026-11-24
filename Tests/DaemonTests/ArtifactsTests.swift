@@ -429,6 +429,19 @@ private func tempRoot() throws -> URL {
     #expect(try !ArtifactKeepVersion(path: path, label: "title").handle(NoService()), "nothing new since")
     let last = try #require(Artifacts.record(in: folder)?.versions?.last)
     #expect((last.n, last.label, last.byUser) == (4, "title", true))
+    // The agent asks about the title: a mark of its own, on the board that has it, for the user to answer; it suggests
+    // what to ask next, until the user's next send.
+    let asked = try ArtifactAsk(path: path, id: "title", text: "Bigger still?").handle(NoService())
+    let withQuestion = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path))
+    #expect(
+        withQuestion.marks.last.map { ($0.id, $0.board, $0.target, $0.asked, $0.state) }
+            ?? (0, "", "", nil, .done) == (asked, "boards/A.html", "[data-id=title]", "Bigger still?", .draft))
+    #expect(throws: RPCError.self) { try ArtifactAsk(path: path, id: "nothing", text: "?").handle(NoService()) }
+    #expect(
+        try ArtifactSuggest(path: path, lines: ["Dark version", " ", "Reviews", "More", "Fourth"]).handle(NoService()))
+    #expect(
+        ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).suggestions
+            == ["Dark version", "Reviews", "More"])
     // Version 3 brought back is kept as a new version that says so, even when the page reads as the last one.
     #expect(try ArtifactKeepRestored(path: path, from: 3).handle(NoService()))
     let restored = try #require(Artifacts.record(in: folder)?.versions?.last)

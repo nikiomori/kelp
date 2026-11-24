@@ -150,7 +150,8 @@ extension MarkdownTab {
             element: String(localized: "Element"),
             area: String(localized: "Area"), pen: String(localized: "Pen"), arrow: String(localized: "Arrow"),
             label: String(localized: "Label"), undo: String(localized: "Take Back the Last Drawn"),
-            redo: String(localized: "Put It Back"), whole: String(localized: "The Whole Video"))
+            redo: String(localized: "Put It Back"), whole: String(localized: "The Whole Video"),
+            wholePage: String(localized: "The Whole Page"))
     }
 
     var canvasChromeLabels: CanvasChrome.Labels {

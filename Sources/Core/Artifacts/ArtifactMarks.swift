@@ -66,6 +66,8 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public var picture: String?
     /// On a motion page, the second of the video it was made at.
     public var time: Double?
+    /// The agent's question, when the agent put the mark (`kelp artifact ask`): the user's note answers it.
+    public var asked: String?
     /// The note the user is writing now: a draft's note, empty once sent.
     public var note: String
     public var state: State
@@ -74,8 +76,9 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public init(
         id: Int = 0, kind: Kind = .element, board: String = "", target: String = "", text: String = "",
         area: [Double]? = nil, path: String? = nil, picture: String? = nil, time: Double? = nil, note: String = "",
-        state: State = .draft, rounds: [Round] = []
+        state: State = .draft, rounds: [Round] = [], asked: String? = nil
     ) {
+        self.asked = asked
         self.time = time
         self.id = id
         self.kind = kind
@@ -122,6 +125,8 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     public var next: Int
     public var marks: [ArtifactMark]
     public var edits: [HandEdit]
+    /// What the agent suggests the user asks next, shown under the marks until the next send.
+    public var suggestions: [String] = []
 
     public init(next: Int = 1, marks: [ArtifactMark] = [], edits: [HandEdit] = []) {
         self.next = next
@@ -133,6 +138,7 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         marks = try c.decode([ArtifactMark].self, forKey: .marks)
         edits = try c.decodeIfPresent([HandEdit].self, forKey: .edits) ?? []
+        suggestions = try c.decodeIfPresent([String].self, forKey: .suggestions) ?? []
         next = max(try c.decodeIfPresent(Int.self, forKey: .next) ?? 1, (marks.map(\.id).max() ?? 0) + 1)
     }
 
@@ -181,6 +187,10 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             case reply
             /// A change made by hand on a board (`edit`), kept for the next marks.
             case edit
+            /// The agent asks about an element (`drafts`: the one mark, its `asked` set), from `kelp artifact ask`.
+            case ask
+            /// The agent's suggestions for what to ask next (`lines`, three at most), from `kelp artifact suggest`.
+            case suggest
         }
         public var kind: Kind
         public var drafts: [ArtifactMark]?
@@ -190,11 +200,13 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         public var before: Int?
         public var text: String?
         public var edit: HandEdit?
+        public var lines: [String]?
 
         public init(
             _ kind: Kind, drafts: [ArtifactMark]? = nil, ids: [Int]? = nil, id: Int? = nil, to: String? = nil,
-            before: Int? = nil, text: String? = nil, edit: HandEdit? = nil
+            before: Int? = nil, text: String? = nil, edit: HandEdit? = nil, lines: [String]? = nil
         ) {
+            self.lines = lines
             self.kind = kind
             self.drafts = drafts
             self.ids = ids
@@ -213,6 +225,8 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         public static func again(id: Int) -> Change { Change(.again, id: id) }
         public static func reply(id: Int, text: String) -> Change { Change(.reply, id: id, text: text) }
         public static func edit(_ edit: HandEdit) -> Change { Change(.edit, edit: edit) }
+        public static func ask(_ mark: ArtifactMark) -> Change { Change(.ask, drafts: [mark]) }
+        public static func suggest(_ lines: [String]) -> Change { Change(.suggest, lines: lines) }
     }
 
     /// Applies `change` at time `now`. Returns false when it changes nothing (an unknown mark, or one in a state that
@@ -245,6 +259,7 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
                 any = true
             }
             if any { edits = [] }   // they went with these marks
+            if any { suggestions = [] }   // and what was suggested before them was answered by them
             return any
         case .done:
             return set(change.id, from: [.check, .sent]) { $0.state = .done }
@@ -258,6 +273,19 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
                 let said = mark.rounds[mark.rounds.count - 1].reply
                 mark.rounds[mark.rounds.count - 1].reply = said.map { $0 + "\n" + line } ?? line
             }
+        case .ask:
+            guard var mark = change.drafts?.first, mark.asked?.isEmpty == false else { return false }
+            mark.id = next
+            mark.state = .draft
+            next += 1
+            marks.append(mark)
+            return true
+        case .suggest:
+            let lines = (change.lines ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }.prefix(3).map { String($0.prefix(200)) }
+            guard lines != suggestions else { return false }
+            suggestions = Array(lines)
+            return true
         case .edit:
             guard let edit = change.edit else { return false }
             if let i = edits.firstIndex(where: { ($0.board, $0.id, $0.what) == (edit.board, edit.id, edit.what) }) {
@@ -312,51 +340,6 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             return before.flatMap { BoardEdit.element($0, id: id) } == now ? .same : .changed
         }
         return before == after ? .same : .changed
-    }
-
-    /// The message that sends `marks` (drafts about to go) to the agent, with the hand edits waiting. `page` is the
-    /// page's path in the project (`.kelp/artifacts/home/canvas.json`), `name` its folder's name, and `version` the
-    /// version they are sent with.
-    public static func message(
-        _ marks: [ArtifactMark], edits: [HandEdit], page: String, name: String, version: Int?
-    ) -> String {
-        let folder = (page as NSString).deletingLastPathComponent
-        var lines = [
-            "Marks on \(page)\(version.map { " (version \($0))" } ?? ""). Change only what each mark points at; "
-                + "if you can't or won't, say why with `kelp artifact reply \(name) <#> \"…\"`."
-        ]
-        for m in marks {
-            var what = [m.board]
-            switch m.kind {
-            case .element: what += [m.target, m.text.isEmpty ? "" : "«\(m.text)»"]
-            case .quote: what += ["«\(m.text)»"]
-            case .area where m.area == nil && m.path == nil: what.append("the whole page")
-            case .area, .pen:
-                let near = m.target.isEmpty ? "" : " near \(m.target)"
-                let box = m.area.map { a in " " + a.map { String(Int($0.rounded())) }.joined(separator: ",") } ?? ""
-                what.append((m.kind == .area ? "area" : "pen") + (m.kind == .area ? box : near))
-                if !m.text.isEmpty { what.append("labelled «\(m.text)»") }
-            }
-            if let time = m.time { what.append(String(format: "at %.2f s", time)) }
-            if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
-            let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
-            let note = m.note.isEmpty ? "look at this" : m.note
-            lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)
-            if let last = m.rounds.last {
-                let said = last.reply.map { "; you said «\($0)»" } ?? ""
-                lines.append("  (before: «\(last.note)»\(said))")
-            }
-        }
-        if !edits.isEmpty {
-            lines.append("Edited by the user since\(version.map { " version \($0)" } ?? " then"), keep these:")
-            for e in edits {
-                let change =
-                    e.what == "text"
-                    ? "text «\(e.from ?? "")» → «\(e.to ?? "")»" : "\(e.what) \(e.from ?? "none") → \(e.to ?? "none")"
-                lines.append("  \(e.board) [data-id=\(e.id)] \(change)")
-            }
-        }
-        return lines.joined(separator: "\n")
     }
 }
 

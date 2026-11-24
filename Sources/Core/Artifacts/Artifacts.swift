@@ -78,6 +78,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 /// agent's reply.
 public struct ArtifactMarkCounts: Codable, Equatable, Sendable {
     public var sent: Int, check: Int, replies: Int
+    /// The agent's questions waiting for the user, and its suggestions shown.
+    public var asked: Int?, suggested: Int?
     public init(sent: Int, check: Int, replies: Int = 0) {
         self.sent = sent
         self.check = check
@@ -328,7 +330,9 @@ public enum Artifacts {
           read it. The user edits these files by hand too: read a file again before you edit it, and never undo a
           change you didn't make (`Edited by the user` lines name them). If you can't do a mark or need an answer,
           say so with `kelp artifact reply <name> <#> "…"`, one line. You never close a mark: the user checks each
-          one. `kelp artifact marks <name>` lists those still open.
+          one. `kelp artifact marks <name>` lists those still open. Unsure about an element? Do what you can and ask
+          on it: `kelp artifact ask <name> <data-id> "…"`. At the end of a turn you may offer up to three next steps:
+          `kelp artifact suggest <name> "…" "…"`.
 
         """
 

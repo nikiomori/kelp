@@ -2,6 +2,11 @@ import Foundation
 
 extension MarkColumn {
     static let style = """
+        .kelp-n-ask { background: var(--k-purple, #bf5af2) !important; color: #fff !important; }
+        .kelp-suggest { display: block; width: calc(100% - 24px); margin: 0 12px 6px; padding: 5px 8px; border: 0;
+          border-radius: 6px; background: var(--k-hover); color: var(--k-label); font: 12px -apple-system, sans-serif;
+          text-align: left; }
+        .kelp-suggest:hover { background: var(--k-sel); }
         .kelp-col-band { display: none; align-items: center; gap: 6px; padding: 6px 12px; font-size: 11px;
           background: color-mix(in srgb, var(--k-orange) 12%, transparent); }
         .kelp-busy-dot { color: var(--k-orange); }

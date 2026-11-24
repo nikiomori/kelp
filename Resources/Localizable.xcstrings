@@ -32419,6 +32419,46 @@
           }
         }
       }
+    },
+    "%@ asks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спрашивает"
+          }
+        }
+      }
+    },
+    "Your answer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш ответ"
+          }
+        }
+      }
+    },
+    "Next you might ask": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дальше можно"
+          }
+        }
+      }
+    },
+    "The Whole Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вся страница"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -102,6 +102,7 @@ extension Main {
             }
             _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
         case "export": try await exportPage(cwd, c)
+        case "ask", "suggest": try await talk(sub ?? "", cwd, c)
         default: print(usage)
         }
     }
@@ -119,6 +120,26 @@ extension Main {
     }
 
     /// Returns the file of the page named `name` in the project at `root`, or ends with `usage`.
+    /// `artifact ask <name> <data-id> <question>` puts the agent's question on an element, for the user to answer;
+    /// `artifact suggest <name> <request>…` offers up to three things the user may ask for next.
+    static func talk(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
+        let ask = sub == "ask"
+        let usage =
+            ask
+            ? "artifact ask <name> <data-id> <your question>"
+            : "artifact suggest <name> \"<request>\" [\"<request>\" …]"
+        guard args.count >= (ask ? 3 : 2) else { fail(usage) }
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        if ask {
+            let n = try await c.call(
+                ArtifactAsk(path: target, id: args[1], text: args.dropFirst(2).joined(separator: " ")))
+            print("Asked as #\(n) on \(args[1]). The answer comes with the user's next marks.")
+        } else {
+            _ = try await c.call(ArtifactSuggest(path: target, lines: Array(args.dropFirst().prefix(3))))
+            print("Suggested. The user sees them under the marks until the next send.")
+        }
+    }
+
     /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
     /// `kelp shot` does.
     static func exportPage(_ cwd: String, _ c: RPCClient) async throws {

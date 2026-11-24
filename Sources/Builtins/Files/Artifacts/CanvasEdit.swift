@@ -15,7 +15,7 @@ enum CanvasEdit {
     struct Labels: Encodable {
         var pick: String, tweaks: String, check: String, askFix: String, noMarks: String, noIssues: String
         var of: String, escEnds: String, element: String, area: String, pen: String
-        var arrow: String, label: String, undo: String, redo: String, whole: String
+        var arrow: String, label: String, undo: String, redo: String, whole: String, wholePage: String
     }
 
     /// `before` holds each board as a mark to check was sent with, by `board@version@theme`, for Before.
@@ -101,7 +101,7 @@ enum CanvasEdit {
           }
           const hooks = {
             empty: L.noMarks,
-            what: m => m.kind === 'area' && !m.area ? L.whole
+            what: m => m.kind === 'area' && !m.area ? (window.kelpMotion ? L.whole : L.wholePage)
               : m.kind === 'area' && m.text ? L.label + ' «' + m.text + '»' : m.kind === 'area' ? L.area
               : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
               : m.target + (m.text ? ' «' + m.text + '»' : ''),

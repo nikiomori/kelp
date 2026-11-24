@@ -117,6 +117,31 @@ public struct ArtifactKeepRestored: InternalMethod {
     }
 }
 
+/// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the
+/// user answers in its note; the answer comes with the user's next marks. Returns the mark's number.
+public struct ArtifactAsk: RPCMethod {
+    public static let name = "artifact.ask"
+    public typealias Result = Int
+    public var path: String, id: String, text: String
+    public init(path: String, id: String, text: String) {
+        self.path = path
+        self.id = id
+        self.text = text
+    }
+}
+
+/// `kelp artifact suggest`: what the agent suggests the user asks next about a page (`path`, its file), three at most,
+/// shown under its marks until the next send; a click makes one a mark to send.
+public struct ArtifactSuggest: RPCMethod {
+    public static let name = "artifact.suggest"
+    public typealias Result = Bool
+    public var path: String, lines: [String]
+    public init(path: String, lines: [String]) {
+        self.path = path
+        self.lines = lines
+    }
+}
+
 /// `kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark
 /// must be with the agent or waiting for the user's check; closing it is the user's.
 public struct ArtifactReply: RPCMethod {
