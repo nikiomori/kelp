@@ -301,7 +301,7 @@ extension MarkdownTab {
             item.verdict = verdict
             item.progress = nil
             leaveCheck(verdict, for: to)
-            await writeSRT(beside: to)
+            await writeSRT(beside: to, over: span)
             app.workbench.open(TabURI.file(to.path))
         } catch {
             runJS("window.kelpMotion?.done()")

@@ -21,7 +21,8 @@ public enum Captions {
     /// The cues of an SRT or a WebVTT file, in order; their tags and cue settings left out.
     public static func parse(_ text: String) -> [Cue] {
         var out: [Cue] = []
-        let blocks = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n\n")
+        // A line of only spaces between cues still parts them.
+        let blocks = text.replacingOccurrences(of: "\r\n", with: "\n").split(separator: /\n[ \t]*\n/)
         for block in blocks {
             let lines = block.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
             guard let at = lines.firstIndex(where: { $0.contains("-->") }) else { continue }
@@ -99,14 +100,20 @@ public enum Captions {
         return style(out, look: look)
     }
 
-    /// The page's subtitles as an SRT file; empty when it has none.
-    public static func srt(_ page: String) -> String {
+    /// The page's subtitles as an SRT file, timed from the start of `span` and only those within it (a video of the
+    /// work area); empty when it has none. A cue styled by hand keeps its words (a `<br>` as a new line).
+    public static func srt(_ page: String, over span: ClosedRange<Double>? = nil) -> String {
         let cues = page.matches(
-            of: /<p data-id="cap-\d+" data-start="([0-9.]+)" data-duration="([0-9.]+)">([^<]*)<\/p>/)
-        return cues.enumerated().map { i, m in
+            of: /<p data-id="cap-\d+" data-start="([0-9.]+)" data-duration="([0-9.]+)">(.*?)<\/p>/.dotMatchesNewlines())
+        let (from, to) = (span?.lowerBound ?? 0, span?.upperBound ?? .infinity)
+        let kept = cues.compactMap { m -> (start: Double, end: Double, text: String)? in
             let start = Double(m.output.1) ?? 0, end = start + (Double(m.output.2) ?? 0)
-            return "\(i + 1)\n\(clock(start)) --> \(clock(end))\n\(BoardEdit.unescape(String(m.output.3)))\n"
-        }.joined(separator: "\n")
+            guard end > from, start < to else { return nil }
+            let words = String(m.output.3).replacing(/<br\s*\/?>/, with: "\n").replacing(/<[^>]*>/, with: "")
+            return (max(start, from) - from, min(end, to) - from, BoardEdit.unescape(words))
+        }
+        return kept.enumerated().map { i, c in "\(i + 1)\n\(clock(c.start)) --> \(clock(c.end))\n\(c.text)\n" }
+            .joined(separator: "\n")
     }
 
     /// What the page's subtitles look like now (`box bottom 48`), when it has them.

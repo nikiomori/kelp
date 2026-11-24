@@ -226,6 +226,13 @@ private let board = """
     #expect(
         Captions.srt(page)
             == "1\n00:00:00,200 --> 00:00:01,600\nКаждый день\n\n2\n00:00:01,700 --> 00:00:03,200\nпонемногу\n")
+    // A video of the work area 1–3 s: its subtitles from its own start, cut to it; one styled by hand keeps its words.
+    let styled = page.replacingOccurrences(of: ">понемногу<", with: "><b>понемногу</b><br>и<")
+    #expect(
+        Captions.srt(styled, over: 1...3)
+            == "1\n00:00:00,000 --> 00:00:00,600\nКаждый день\n\n2\n00:00:00,700 --> 00:00:02,000\nпонемногу\nи\n")
+    // A line of spaces between cues still parts them.
+    #expect(Captions.parse(srt.replacingOccurrences(of: "день\n\n", with: "день\n  \n")) == cues)
 }
 
 /// Clicks every half second, from a quarter second in, are 120 BPM with their beats where the clicks are.

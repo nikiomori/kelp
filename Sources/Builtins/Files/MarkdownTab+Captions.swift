@@ -85,9 +85,9 @@ extension MarkdownTab {
         }
     }
 
-    /// Writes the page's subtitles beside video `video` as SRT, when it has any.
-    func writeSRT(beside video: URL) async {
-        let srt = Captions.srt(editor.text)
+    /// Writes the page's subtitles beside video `video` as SRT, when it has any, timed as the video made of `span`.
+    func writeSRT(beside video: URL, over span: ClosedRange<Double>) async {
+        let srt = Captions.srt(editor.text, over: span)
         guard !srt.isEmpty else { return }
         let path = video.deletingPathExtension().appendingPathExtension("srt").path
         _ = await app.call(FilesWrite(path: path, text: srt, base: nil))
