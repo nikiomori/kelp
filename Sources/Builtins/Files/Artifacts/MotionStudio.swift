@@ -16,6 +16,7 @@ final class MotionStudio {
         timeline.onGroup = { [weak self] moves in self?.onGroup?(moves) }
         timeline.onMany = { [weak self] kind, ids in self?.onMany?(kind, ids) }
         timeline.onDropFiles = { [weak self] files, at in self?.onDropFiles?(files, at) }
+        timeline.onTypedCaptions = { [weak self] in self?.onTypedCaptions?() }
         timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
         timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
         timeline.onMark = { [weak self] id in self?.act("window.kelpMarks?.reveal(\(id))") }
@@ -117,6 +118,8 @@ final class MotionStudio {
     var exports: [MotionExports.Item] = []
     private let act: (String) -> Void
     var onExport: ((MotionExport) -> Void)?, onSaveFrame: (() -> Void)?
+    /// The time typed subtitles share: the work area, or from the time shown to the end.
+    var captionSpan: ClosedRange<Double> { exportOptions.range ?? at...max(at + 1, timeline.length) }
     /// A clip moved or trimmed on the timeline: as it was, as it is now, and its lane (0 for the scenes).
     var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
@@ -130,7 +133,7 @@ final class MotionStudio {
     /// An element's block clicked on the timeline: its `data-id`, to choose on the stage.
     var onChoose: ((String) -> Void)?
     /// Files dropped on the timeline, and the second they were dropped at.
-    var onDropFiles: (([URL], Double) -> Void)?
+    var onDropFiles: (([URL], Double) -> Void)?, onTypedCaptions: (() -> Void)?
     /// A clip cut, trimmed, copied or pasted: the kind, and the clip clicked last on the timeline.
     var onCut: ((String, String?) -> Void)?
     /// K, or ◆: a keyframe at the time.

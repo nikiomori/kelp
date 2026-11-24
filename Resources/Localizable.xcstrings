@@ -33479,6 +33479,46 @@
           }
         }
       }
+    },
+    "Subtitles from Text…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры из текста…"
+          }
+        }
+      }
+    },
+    "Subtitles from Text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры из текста"
+          }
+        }
+      }
+    },
+    "Each line is a subtitle. They share the work area, or the rest from the time shown, by length.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждая строка — субтитр. Они делят рабочую область или время от указателя до конца по длине строк."
+          }
+        }
+      }
+    },
+    "Make Subtitles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать субтитры"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

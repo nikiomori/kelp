@@ -15,6 +15,7 @@ extension MarkdownTab {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] options in self?.exportVideo(options) }
         made.onSaveFrame = { [weak self] in self?.saveFrame() }
+        made.onTypedCaptions = { [weak self] in self?.typedCaptions() }
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }

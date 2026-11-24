@@ -204,6 +204,10 @@ private let board = """
     let cues = Captions.parse(srt)
     #expect(cues == [.init(start: 0.2, end: 1.6, text: "Каждый день"), .init(start: 1.7, end: 3.2, text: "понемногу")])
     #expect(Captions.parse(vtt) == [cues[1]])
+    // Typed lines share the time by their length, an edge near a beat moved onto it.
+    let typed = Captions.timed("Каждый день\n\nпонемногу, но каждый день", over: 0...6, beats: [2, 4])
+    #expect(typed.map(\.text) == ["Каждый день", "понемногу, но каждый день"])
+    #expect(typed.map(\.start) == [0, 2] && typed[1].end == 6)   // 1.83 moved onto the beat at 2
     // Only the formats' own tags go: a "<" in the words stays, and an entity is read as its character.
     let words = "WEBVTT\n\n00:01.000 --> 00:02.000\n<v Аня><c.loud>от < 10 до > 5</c> &amp; <00:01.500>дальше\n"
     #expect(Captions.parse(words).map(\.text) == ["от < 10 до > 5 & дальше"])

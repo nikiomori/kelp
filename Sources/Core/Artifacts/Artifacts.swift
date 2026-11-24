@@ -302,6 +302,7 @@ public enum Artifacts {
           for that time (the user drops them in), not a scene. So is music: `<audio data-start data-duration
           src>` (`data-volume`, `data-from`, `data-fade-in`, `data-fade-out` optional), played and mixed into the
           video; `kelp artifact beats <name>` gives its tempo and beats at the page's seconds, to cut scenes on.
+          `kelp artifact captions <name> --text <file>` makes subtitles from a script, a line each.
         - Fonts from the system or files beside the page; images and videos are files beside motion.html. No web
           requests.
         - Tell the user it plays beside them (Space plays, ← → step a frame) and that Export Video in its bar makes

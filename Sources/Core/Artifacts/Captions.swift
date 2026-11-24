@@ -39,6 +39,27 @@ public enum Captions {
         return out
     }
 
+    /// Cues from typed `text`, a line each (empty lines left out), shared out over `span` by how long each line is,
+    /// so a longer line stays on longer (OpenMotion's manual captions). A cue's edge within a quarter of a second of
+    /// one of `beats` moves onto it.
+    public static func timed(_ text: String, over span: ClosedRange<Double>, beats: [Double] = []) -> [Cue] {
+        let lines = text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let weights = lines.map { Double(max($0.count, 8)) }, total = weights.reduce(0, +)
+        guard total > 0, span.upperBound > span.lowerBound else { return [] }
+        let snap = { (t: Double) in
+            beats.min(by: { abs($0 - t) < abs($1 - t) }).flatMap { abs($0 - t) <= 0.25 ? $0 : nil } ?? t
+        }
+        var at = span.lowerBound, out: [Cue] = []
+        for (line, weight) in zip(lines, weights) {
+            let end = at + (span.upperBound - span.lowerBound) * weight / total
+            let start = out.isEmpty ? snap(at) : out[out.count - 1].end
+            out.append(Cue(start: start, end: max(start + 0.2, snap(end)), text: line))
+            at = end
+        }
+        return out
+    }
+
     /// `00:01:02,500`, `01:02.500` or `2.5` as seconds.
     static func seconds(_ text: String) -> Double? {
         let parts = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".").split(

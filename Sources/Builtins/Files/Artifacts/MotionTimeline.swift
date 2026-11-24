@@ -85,6 +85,8 @@ final class MotionTimeline: NSView {
     var selecting = Selecting(), keyframing = Keyframing()
     /// Clips moved together (as they were, as they are now), and several acted on at once (`remove`, `copy`, `cut`).
     var onGroup: (([(was: Clip, now: Clip)]) -> Void)?, onMany: ((String, [String]) -> Void)?
+    /// Subtitles from Text…, from the menu of the timeline's empty space.
+    var onTypedCaptions: (() -> Void)?
 
     /// A lane's height is a row's; the ruler is a little lower.
     static let ruler = Metrics.row - Metrics.gapTight, lane = Metrics.row, shown = 6

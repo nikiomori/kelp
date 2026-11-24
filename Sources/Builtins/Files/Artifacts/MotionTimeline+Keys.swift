@@ -66,7 +66,10 @@ extension MotionTimeline {
             menu.add(String(localized: "Delete")) { [weak self] in self?.onRemove?(clip.id) }
             return menu
         }
-        return gapMenu(at: p)
+        if let gaps = gapMenu(at: p) { return gaps }
+        let menu = NSMenu()
+        menu.add(String(localized: "Subtitles from Text…")) { [weak self] in self?.onTypedCaptions?() }
+        return menu
     }
 
     override func resetCursorRects() {

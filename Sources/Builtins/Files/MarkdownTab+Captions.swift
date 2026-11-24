@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// A motion page's subtitles (`Captions`): an SRT or a WebVTT file dropped on the stage becomes their block, a lane on
@@ -14,6 +15,33 @@ extension MarkdownTab {
         }
         let edit = HandEdit(board: pageFile, id: "captions", what: "subtitles", from: nil, to: file.lastPathComponent)
         rewritePage(edit) { Captions.write($0, cues: cues) }
+    }
+
+    /// Subtitles from Text…: the lines typed become the subtitles, each on as long as it is long, over the work area
+    /// or from the time shown to the end, their edges on the music's beats where one is near.
+    func typedCaptions() {
+        Task {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Subtitles from Text")
+            alert.informativeText = String(
+                localized:
+                    "Each line is a subtitle. They share the work area, or the rest from the time shown, by length.")
+            let scroll = NSTextView.scrollableTextView()
+            scroll.frame.size = NSSize(width: Metrics.alertAccessory, height: Metrics.alertAccessory / 2)
+            scroll.borderType = .bezelBorder
+            let text = scroll.documentView as? NSTextView
+            text?.font = .ui(TextSize.row)
+            alert.accessoryView = scroll
+            alert.addButton(withTitle: String(localized: "Make Subtitles"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            alert.window.initialFirstResponder = text
+            guard await runSheet(alert) == .alertFirstButtonReturn, let typed = text?.string else { return }
+            let cues = Captions.timed(typed, over: motionStudio.captionSpan, beats: pageBeats())
+            guard !cues.isEmpty else { return }
+            let edit = HandEdit(
+                board: pageFile, id: "captions", what: "subtitles", from: nil, to: "\(cues.count) typed")
+            rewritePage(edit) { Captions.write($0, cues: cues) }
+        }
     }
 
     func captionsMessage(_ kind: String, _ body: [String: Any]) -> Bool {
