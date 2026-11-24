@@ -228,3 +228,24 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
         try await PostgresWire(connection: DatabaseConnection(database: db)).read("SELECT 1", timeout: 3)
     }
 }
+
+/// Two DBeaver connections at one address, their users kept with the passwords that weren't taken: imported again,
+/// each mends its own entry instead of both landing on the first.
+@Test func twoConnectionsAtOneAddressStayTwoWhenImportedAgain() async throws {
+    let home = tmp().appendingPathComponent("kelp-import-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: home) }
+    let file = home.appendingPathComponent("Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json")
+    try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let one = #"{"provider": "postgresql", "configuration": {"host": "localhost", "port": "5432", "database": "shop"}"#
+    try #"{"connections": {"pg-ro": \#(one), "name": "shop"}, "pg-rw": \#(one), "name": "shop"}}}"#
+        .write(to: file, atomically: true, encoding: .utf8)
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let dbs = w.d.workspaces.databases
+    let both = DatabaseImport(
+        worktreeId: wt.id, source: "dbeaver", ids: ["pg-ro", "pg-rw"], passwords: false, useHere: false)
+    #expect(try dbs.importNow(both, home: home).imported.map(\.name) == ["shop", "shop-2"])
+    #expect(try dbs.importNow(both, home: home).imported.map(\.name) == ["shop", "shop-2"])
+    #expect(try dbs.library().map(\.name).sorted() == ["shop", "shop-2"])
+}
