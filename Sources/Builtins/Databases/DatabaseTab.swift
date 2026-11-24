@@ -70,6 +70,9 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         labels: [String(localized: "Data"), String(localized: "Structure")],
         name: String(localized: "Show"))
     let sqlText = NSTextField(wrappingLabelWithString: "")
+    /// The table's indexes, a block of their own under its columns in Structure.
+    let indexesText = NSTextField(wrappingLabelWithString: "")
+    lazy var indexesBox = indexesBlock()
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
     /// Keeps the query typed in the editor for the database once typing pauses (`keepDraft`).
     let draft = Debounce()
@@ -196,18 +199,18 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
                 button.bezelColor = .controlAccentColor
             }
         }
-        let center = NSStackView(views: [askBar, top, failureBar, filters.view, sqlBox, rows, foot])
+        let center = NSStackView(views: [askBar, top, failureBar, filters.view, sqlBox, rows, indexesBox, foot])
         center.orientation = .vertical
         center.spacing = 0
         center.detachesHiddenViews = true
-        for v in [askBar, top, failureBar, filters.view, sqlBox, rows, foot] {
+        for v in [askBar, top, failureBar, filters.view, sqlBox, rows, indexesBox, foot] {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         rows.setContentHuggingPriority(.defaultLow, for: .vertical)
         // A bar narrower than its controls cuts them at its end rather than widening the tab, so the details take
         // their width from the rows and never push the window past its size. Its labels shorten first.
         let clips = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.windowSizeStayPut.rawValue - 1)
-        for bar in [askBar, top.stack, filters.view, sqlBox, foot.stack] {
+        for bar in [askBar, top.stack, filters.view, sqlBox, indexesBox, foot.stack] {
             bar.setClippingResistancePriority(clips, for: .horizontal)
         }
         // The list and the details keep their width as the window changes, and the rows take the rest. The user can
@@ -367,6 +370,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         explain.isHidden = mode != .query
         saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun
+        indexesBox.isHidden = !table || data || current?.indexes.isEmpty != false
         editor.view.isHidden = mode != .query
         // Until something is picked, the tab is named by its address, because a query isn't what the tab opens on.
         name.title = mode == .query && !chosen ? Self.title(address) : Self.title(address.name, showing: mode)

@@ -169,3 +169,37 @@ import Testing
     try await Task.sleep(for: .seconds(1.3))
     #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
 }
+
+/// What is wrong with a database takes a second line in a narrow panel rather than being cut ("Its compose
+/// service…" lost the part that says what happened).
+@MainActor @Test func aDatabasesReasonTakesASecondLine() throws {
+    let rows = DatabasePanelRows(panel: DatabasesPanel(app: AppModel(builtins: [])))
+    let said = "Its compose service db isn’t running: Start starts it."
+    let row = rows.problem(
+        DatabaseInfo(name: "app_dev", engine: .postgres), DatabaseHealth(name: "app_dev", state: .stopped, reason: said))
+    row.frame = NSRect(x: 0, y: 0, width: 260, height: TextSize.of(Metrics.rowTwoLine))
+    row.layoutSubtreeIfNeeded()
+    func fields(_ v: NSView) -> [NSTextField] { [v as? NSTextField].compactMap { $0 } + v.subviews.flatMap(fields) }
+    let why = try #require(fields(row).first { $0.stringValue == said })
+    let font = try #require(why.font)
+    let wide = (said as NSString).size(withAttributes: [.font: font]).width
+    let lines = (why.frame.height / (font.ascender - font.descender + font.leading)).rounded(.down)
+    #expect(lines * why.frame.width >= wide, "\(why.frame) for \(wide)")
+}
+
+/// Structure lists the columns in the grid and the indexes in a block of their own under it, not as grid rows.
+@MainActor @Test func structuresIndexesStandApart() async throws {
+    let (tab, window) = editableTab([])
+    defer { withExtendedLifetime(window) {} }
+    tab.schema = DatabaseSchema(tables: [
+        DatabaseSchema.Table(
+            name: "orders", columns: [.init(name: "id", type: "integer", nullable: false, primary: true)],
+            indexes: ["orders_status (status, placed_at)"])
+    ])
+    tab.part.selectedSegment = 1
+    await tab.showTable("orders")
+    #expect(tab.grid.rows.count == 1)
+    #expect(!tab.indexesBox.isHidden && tab.indexesText.stringValue == "orders_status (status, placed_at)")
+    tab.showPart(0)
+    #expect(try await waitFor { tab.indexesBox.isHidden })
+}

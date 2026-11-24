@@ -241,14 +241,13 @@ extension DatabaseTab {
         guard let table = current else { return }
         grid.editable = false
         grid.source = nil
-        var rows = table.columns.map { column -> [String?] in
+        let rows = table.columns.map { column -> [String?] in
             [
                 column.name, column.type, column.nullable ? String(localized: "yes") : String(localized: "no"),
                 column.primary ? String(localized: "primary key") : "", column.references ?? ""
             ]
         }
-        let index = String(localized: "index")
-        if !table.indexes.isEmpty { rows += [["", "", "", "", ""]] + table.indexes.map { [index, $0, "", "", ""] } }
+        indexesText.stringValue = table.indexes.joined(separator: "\n")   // under the columns (`indexesBlock`)
         grid.show(
             columns: [
                 String(localized: "column"), String(localized: "type"), String(localized: "null"),
@@ -265,6 +264,28 @@ extension DatabaseTab {
                 ? String(localized: "1 index") : String(localized: "\(table.indexes.count) indexes")
         status.stringValue = [columns, indexes].compactMap { $0 }.joined(separator: " · ")
         footChanged()
+    }
+
+    /// The block under Structure's columns that lists the table's indexes, one a line, with a line over it.
+    func indexesBlock() -> NSStackView {
+        let title = NSTextField.label(
+            String(localized: "Indexes"), font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+        indexesText.font = .uiMono(TextSize.caption)
+        indexesText.isSelectable = true
+        indexesText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let words = NSStackView(views: [title, indexesText])
+        words.orientation = .vertical
+        words.alignment = .leading
+        words.spacing = Metrics.lineGap
+        words.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
+        let line = NSBox()
+        line.boxType = .separator
+        let box = NSStackView(views: [line, words])
+        box.orientation = .vertical
+        box.spacing = 0
+        for v in [line, words] { v.widthAnchor.constraint(equalTo: box.widthAnchor).isActive = true }
+        box.isHidden = true
+        return box
     }
 
     /// CREATE TABLE as the columns read, which is what an agent or a migration starts from.

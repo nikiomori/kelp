@@ -262,9 +262,13 @@ struct DatabasePanelRows {
         // keeps only the rest.
         var said = databaseHealth.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
-        let why = NSTextField.label(
-            said, font: .ui(TextSize.caption),
-            color: databaseHealth.state == .stopped ? .secondaryLabelColor : .textRed)
+        // What happened is the end of the line ("…isn't running"), so it takes a second line rather than being cut.
+        let why = NSTextField(wrappingLabelWithString: said)
+        why.font = .ui(TextSize.caption)
+        why.textColor = databaseHealth.state == .stopped ? .secondaryLabelColor : .textRed
+        why.maximumNumberOfLines = 2
+        why.cell?.truncatesLastVisibleLine = true
+        why.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         why.toolTip = databaseHealth.reason
         var views: [NSView] = [why, NSView()]
         if databaseHealth.state == .stopped {

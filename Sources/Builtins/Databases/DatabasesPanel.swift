@@ -300,8 +300,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let base =
             switch rows[row] {
             case .heading: TextSize.of(Metrics.rowSection)
-            case .database, .asks, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
-            case .problem, .migrations, .run, .group, .project, .use: TextSize.of(Metrics.row)
+            case .database, .asks, .problem, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
+            case .migrations, .run, .group, .project, .use: TextSize.of(Metrics.row)
             }
         let part = cards[row]
         return base + (part?.first == true ? ListRowView.cardPad : 0) + (part?.last == true ? ListRowView.cardPad : 0)
