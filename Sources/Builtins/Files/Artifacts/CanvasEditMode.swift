@@ -12,7 +12,7 @@ import Foundation
 /// board's file by the element's data-id (`BoardEdit`). `window.kelpProps` is what the floating bar (`CanvasEditBar`)
 /// shares.
 enum CanvasEditMode {
-    /// The words the column shows, by key: title, noID, giveID, choose, text, layout, position, fill, time, size,
+    /// The words the column shows, by key: title, choose, text, layout, position, fill, time, size,
     /// weight, colour, padding, gap, background, radius, opacity, offset, frame, startLength, none, auto, regular,
     /// medium, semibold, bold, reset, seconds.
     typealias Labels = [String: String]
@@ -125,7 +125,7 @@ enum CanvasEditMode {
             open(key) {
               const at = window.kelpProps.at(); if (!at) return;
               K.post({ kind: 'propMenu', key, items: menu(key, at.e), reset: shown(key, at.e).set,
-                board: at.f.dataset.board, id: idOf(at.e) });
+                board: at.f.dataset.board, id: K.need(at.f, at.e) });
             }
           };
         """
@@ -185,7 +185,8 @@ enum CanvasEditMode {
             if (!at) return;
             const p = P[key] || { prop: key }, e = at.e;
             if (value) e.style.setProperty(p.prop, value); else e.style.removeProperty(p.prop);
-            K.post({ kind: 'style', board: at.f.dataset.board, id: idOf(e), property: p.prop, value: value || null,
+            K.post({ kind: 'style', board: at.f.dataset.board, id: K.need(at.f, e), property: p.prop,
+              value: value || null,
               like: window.kelpProps.like?.(e) });
             changed();
           }
@@ -195,7 +196,7 @@ enum CanvasEditMode {
             for (const [k, v] of Object.entries(props)) {
               if (v) at.e.style.setProperty(k, v); else at.e.style.removeProperty(k);
             }
-            K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(at.e), props,
+            K.post({ kind: 'styles', board: at.f.dataset.board, id: K.need(at.f, at.e), props,
               like: window.kelpProps.like?.(at.e) });
             changed();
           }
@@ -278,7 +279,8 @@ enum CanvasEditMode {
             return section(L.fill, rows);
           }
           function time(e, id) {
-            const when = timing(e), send = (start, length) => K.post({ kind: 'retimeElement', id, start, length });
+            const when = timing(e), send = (start, length) =>
+              K.post({ kind: 'retimeElement', id: id || K.need(at.f, e), start, length });
             const sec = v => (Math.round(v * 100) / 100) + ' ' + L.seconds, num = v => parseFloat(v.replace(',', '.'));
             return section(L.time, [row(L.startLength, pair(
               field('', sec(when[0]), v => send(num(v) || 0, when[1])),
@@ -296,16 +298,8 @@ enum CanvasEditMode {
             return line;
           }
           function inspector() {
+            // One without a data-id gets one at its first change (`K.need`).
             const e = at.e, id = idOf(e), out = (window.kelpProps.top || []).flatMap(top => top(at));
-            if (!id) {
-              // Found again by its place among the body's elements of its tag, to write a data-id into its file.
-              const give = K.el('button', 'kelp-pill', L.giveID), doc = e.ownerDocument;
-              give.onclick = () => K.post({ kind: 'giveID', board: at.f.dataset.board, tag: e.tagName.toLowerCase(),
-                index: [...doc.body.getElementsByTagName(e.tagName)].indexOf(e) });
-              const r = K.el('div', 'kelp-row kelp-end');
-              r.append(give);
-              return [...out, K.el('p', 'kelp-note', L.noID), r];
-            }
             const text = window.kelpProps.isText?.(e);
             if (text) out.push(section(L.text, ['font', 'size', 'weight', 'colour'].map(popup).concat([align(e)])));
             const layout = ['padding', 'gap'].filter(key => (T[P[key].group] || []).length);

@@ -85,6 +85,11 @@ private let board = """
     #expect(BoardEdit.giveID(given.text, tag: "p", index: 2)?.text == given.text, "one that has an id keeps it")
     #expect(BoardEdit.giveID(page, tag: "p\"", index: 0) == nil)
     #expect(BoardEdit.freeID(page, "p") == "p-2")
+    // Counted as the page's DOM counts: not in a comment, a template or a script; the page's own new id is kept.
+    let hidden = #"<body><!-- <p>old</p> --><template><p>t</p></template><script>"<p>"</script><p>a</p><p>b</p></body>"#
+    #expect(
+        BoardEdit.giveID(hidden, tag: "p", index: 1, named: "p-7")?.text.contains(#"<p data-id="p-7">b</p>"#) == true)
+    #expect(BoardEdit.giveID(page, tag: "p", index: 0, named: "p-1")?.id == "p-2", "a taken name is not used twice")
     #expect(BoardEdit.appendToBody("<body><p>a</p></body>", "<img>") == "<body><p>a</p><img>\n</body>")
     #expect(BoardEdit.appendToBody("<p>a</p>", "<img>") == "<p>a</p><img>\n")
 }

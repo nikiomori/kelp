@@ -52,7 +52,7 @@ enum CanvasLinks {
             const at = props.at(), now = linked(e) ? target(e) : null;
             const s = K.el('div', 'kelp-isec'), r = K.el('div', 'kelp-irow'), b = K.el('button', 'kelp-ipop');
             b.append(K.el('span', 'kelp-itok', now ? titleOf(files.find(x => base(x) === now) || now) : L.nowhere));
-            b.onclick = () => menu(at.f.dataset.board, id, now);
+            b.onclick = () => menu(at.f.dataset.board, id || K.need(at.f, e), now);
             r.append(K.el('span', 'kelp-ilabel', L.goesTo), b, K.el('span'));
             s.append(K.el('div', 'kelp-ititle', L.flow), r);
             return [s];

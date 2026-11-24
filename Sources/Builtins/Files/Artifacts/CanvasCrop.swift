@@ -71,16 +71,16 @@ enum CanvasCrop {
             if (!keep) { c.e.style.clipPath = c.was; return; }
             const now = c.cut.some(v => v > 0.001) ? inset(c.cut) : '';
             c.e.style.clipPath = now;
-            if (now !== c.was) K.post({ kind: 'styles', board: c.f.dataset.board, id: c.e.getAttribute('data-id'),
+            if (now !== c.was) K.post({ kind: 'styles', board: c.f.dataset.board, id: K.need(c.f, c.e),
               props: { 'clip-path': now || null } });
           }
           window.kelpCrop = () => {
             const at = props.at();
-            if (at && /^(IMG|VIDEO)$/.test(at.e.tagName) && at.e.getAttribute('data-id')) start(at.f, at.e);
+            if (at && /^(IMG|VIDEO)$/.test(at.e.tagName)) start(at.f, at.e);
           };
           K.sheet.addEventListener('dblclick', ev => {
             const hit = K.mode() === 'edit' && K.under(ev, true);
-            if (hit && /^(IMG|VIDEO)$/.test(hit.e.tagName) && hit.e.getAttribute('data-id')) start(hit.f, hit.e);
+            if (hit && /^(IMG|VIDEO)$/.test(hit.e.tagName)) start(hit.f, hit.e);
           });
           let drag = null;
           for (const h of sides) h.addEventListener('mousedown', ev => {

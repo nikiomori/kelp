@@ -50,7 +50,7 @@ enum CanvasEditMore {
           function attribute(e, id, name, value) {
             const at = props.at(); if (!at) return;
             if (value == null) e.removeAttribute(name); else e.setAttribute(name, value);
-            K.post({ kind: 'attribute', board: at.f.dataset.board, id, name, value });
+            K.post({ kind: 'attribute', board: at.f.dataset.board, id: id || K.need(at.f, e), name, value });
             props.redraw();
           }
           function link(e, id) {

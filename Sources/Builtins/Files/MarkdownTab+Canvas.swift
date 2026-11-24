@@ -237,7 +237,10 @@ extension MarkdownTab {
             if let made = edit(editor.text) { rewritePage(made, change) }
             return
         }
-        Task {
+        // One after another: a data-id given at an element's first change is written before that change reads it.
+        let before = lastRewrite
+        lastRewrite = Task {
+            await before?.value
             guard let file = await app.call(FilesRead(path: path)) else { return }
             guard let text = change(file.text) else {
                 Banner.show(String(localized: "Couldn’t find that element in \(board) as it is now: drawn again."))
@@ -253,8 +256,6 @@ extension MarkdownTab {
     var canvasEditLabels: CanvasEditMode.Labels {
         [
             "title": String(localized: "Properties"),
-            "noID": String(localized: "This element has no data-id yet, so it can’t be changed by hand."),
-            "giveID": String(localized: "Give It a data-id"),
             "choose": String(localized: "Click an element on a board to change its style, or double-click a text."),
             "text": String(localized: "Text"), "layout": String(localized: "Layout"),
             "position": String(localized: "Position"), "fill": String(localized: "Fill"),

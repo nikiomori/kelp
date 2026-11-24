@@ -65,7 +65,8 @@ enum CanvasData {
             };
             const pop = (title, post) => {
               const b = K.el('button', 'kelp-ipop');
-              b.append(K.el('span', 'kelp-itok', title)); b.onclick = () => K.post(post);
+              b.append(K.el('span', 'kelp-itok', title));
+              b.onclick = () => K.post(Object.assign({}, post, { id: id || K.need(props.at().f, e) }));
               return b;
             };
             row(L.table, pop(file ? file + (table ? ' · ' + (table.length - 1) : '') : L.chooseTable,

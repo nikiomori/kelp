@@ -54,12 +54,13 @@ extension MarkdownTab {
         guard let board = body["board"] as? String, let tag = body["tag"] as? String,
             let index = (body["index"] as? NSNumber)?.intValue, index >= 0
         else { return }
+        let named = body["id"] as? String   // the one the page gave it already
         let edit = { [weak self] (source: String) -> HandEdit? in
-            guard let given = BoardEdit.giveID(source, tag: tag, index: index) else { return nil }
+            guard let given = BoardEdit.giveID(source, tag: tag, index: index, named: named) else { return nil }
             self?.chosen = (board, given.id)
             return HandEdit(board: board, id: given.id, what: "data-id", from: nil, to: given.id)
         }
-        rewrite(board, edit: edit) { BoardEdit.giveID($0, tag: tag, index: index)?.text }
+        rewrite(board, edit: edit) { BoardEdit.giveID($0, tag: tag, index: index, named: named)?.text }
     }
 
     /// Hides element `id` from the page and the video (`data-hidden`), or shows it again.

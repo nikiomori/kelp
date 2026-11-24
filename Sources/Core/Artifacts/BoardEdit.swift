@@ -119,12 +119,21 @@ public enum BoardEdit {
 
     /// Gives the `index`th `<tag>` of the page's body (or of a board's fragment) a data-id made from the tag, the first
     /// of `h2-1`, `h2-2`… no element has. Returns the text and the id, or nil when there is no such tag.
-    public static func giveID(_ source: String, tag: String, index: Int) -> (text: String, id: String)? {
+    public static func giveID(_ source: String, tag: String, index: Int, named: String? = nil) -> (
+        text: String, id: String
+    )? {
         guard !tag.isEmpty, tag.allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
         let start = bodyTag(source)?.upperBound ?? source.startIndex
+        // What the page's DOM doesn't count among the body's elements: comments, a template's insides, and the text
+        // of scripts and styles.
+        let unseen = source.ranges(
+            of: /<!--[\s\S]*?-->|<template\b[\s\S]*?<\/template>|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>/
+                .ignoresCase())
         var opens: [Range<String.Index>] = [], from = start
         while let found = source.range(of: "<" + tag, options: .caseInsensitive, range: from..<source.endIndex) {
-            if source[found.upperBound...].first.map({ $0.isWhitespace || $0 == ">" || $0 == "/" }) ?? false {
+            if source[found.upperBound...].first.map({ $0.isWhitespace || $0 == ">" || $0 == "/" }) ?? false,
+                !unseen.contains(where: { $0.contains(found.lowerBound) && $0.lowerBound != found.lowerBound })
+            {
                 opens.append(found)
             }
             from = found.upperBound
@@ -136,7 +145,9 @@ public enum BoardEdit {
         {
             return (source, String(had.1))
         }
-        let id = freeID(source, tag.lowercased())
+        let id =
+            named.flatMap { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" } ? $0 : nil }
+            .flatMap { source.contains("data-id=\"\($0)\"") ? nil : $0 } ?? freeID(source, tag.lowercased())
         var out = source
         out.insert(contentsOf: " data-id=\"\(id)\"", at: source.index(opens[index].lowerBound, offsetBy: tag.count + 1))
         return (out, id)

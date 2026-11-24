@@ -89,7 +89,7 @@ enum CanvasTypeOver {
               e.style.visibility = '';
               if (!keep) return;
               const html = clean(f).trim(), text = f.textContent.trim();
-              const board = hit.f.dataset.board, id = e.getAttribute('data-id');
+              const board = hit.f.dataset.board, id = K.need(hit.f, e);
               if (!text || html === oldHTML.trim()) return;
               if (html === text.replace(/&/g, '&amp;').replace(/</g, '&lt;') && !/[<]/.test(oldHTML)) {
                 e.textContent = text;

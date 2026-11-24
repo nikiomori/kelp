@@ -300,8 +300,19 @@ enum CanvasEdit {
             if (m) labelField(Object.assign(at, { x: m.area[0], y: m.area[1] }), m);
           });
           for (const f of frames) f.addEventListener('load', draw);
+          // An element's data-id, given at its first change by hand when it has none: written into the board at
+          // once (`giveID`, found again by its place among the body's elements of its tag), before the change.
+          function need(f, e) {
+            const had = e.getAttribute('data-id'); if (had) return had;
+            const doc = e.ownerDocument, tag = e.tagName.toLowerCase();
+            let n = 1; while (doc.querySelector('[data-id="' + tag + '-' + n + '"]')) n++;
+            const id = tag + '-' + n, index = [...doc.body.getElementsByTagName(e.tagName)].indexOf(e);
+            e.setAttribute('data-id', id);
+            post({ kind: 'giveID', board: f.dataset.board, tag, index, id });
+            return id;
+          }
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode,
-            hooks, find, inPage, describe, tool: () => tool };
+            hooks, find, inPage, describe, need, tool: () => tool };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });

@@ -148,7 +148,7 @@ enum CanvasHandles {
               const v = e.style.getPropertyValue(p);
               if (v !== was[p]) props[p] = v || null;
             }
-            if (Object.keys(props).length) K.post({ kind: 'styles', board: f.dataset.board, id: idOf(e), props });
+            if (Object.keys(props).length) K.post({ kind: 'styles', board: f.dataset.board, id: K.need(f, e), props });
           }
           addEventListener('mouseup', () => {
             if (!drag) return;
@@ -158,7 +158,7 @@ enum CanvasHandles {
               const to = d.e.style.getPropertyValue('translate');
               d.e.style.removeProperty('translate');
               if (d.was.translate) d.e.style.translate = d.was.translate;
-              K.post({ kind: 'keyTranslate', id: idOf(d.e), translate: to });
+              K.post({ kind: 'keyTranslate', id: K.need(d.f, d.e), translate: to });
             } else if (d.moved) save(d.e, d.f, d.was);
           });
           // The arrows move the chosen element; it is written once they rest.
@@ -211,18 +211,18 @@ enum CanvasHandles {
           // ⌫ takes the chosen element out, ⌘D copies it; a right click chooses an element and asks for its menu.
           addEventListener('keydown', ev => {
             const t = ev.target;
-            if (K.mode() !== 'edit' || !at || !idOf(at.e)) return;
+            if (K.mode() !== 'edit' || !at) return;
             if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
             const kind = ev.key === 'Backspace' || ev.key === 'Delete' ? 'remove'
               : ev.metaKey && ev.key.toLowerCase() === 'd' ? 'duplicate' : null;
             if (!kind) return;
             ev.preventDefault();
-            K.post({ kind, board: at.f.dataset.board, id: idOf(at.e) });
+            K.post({ kind, board: at.f.dataset.board, id: K.need(at.f, at.e) });
           });
           K.sheet.addEventListener('contextmenu', ev => {
             if (K.mode() !== 'edit') return;
-            const hit = K.under(ev, false), id = hit && idOf(hit.e);
-            if (!id) return;
+            const hit = K.under(ev, false); if (!hit) return;
+            const id = K.need(hit.f, hit.e);
             ev.preventDefault();
             window.kelpSelect?.(hit.f.dataset.board, id);
             K.post({ kind: 'selected', board: hit.f.dataset.board, id });
@@ -231,13 +231,13 @@ enum CanvasHandles {
           });
           // Brings the chosen element in front of the others beside it, or sends it behind them.
           window.kelpArrange = front => {
-            if (!at || !idOf(at.e)) return;
+            if (!at) return;
             const e = at.e, zs = [...(e.parentElement?.children || [])].filter(o => o !== e)
               .map(o => parseInt(css(o).zIndex) || 0);
             const z = front ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1, props = { 'z-index': String(z) };
             if (css(e).position === 'static') props.position = 'relative';
             for (const [p, v] of Object.entries(props)) e.style.setProperty(p, v);
-            K.post({ kind: 'styles', board: at.f.dataset.board, id: idOf(e), props });
+            K.post({ kind: 'styles', board: at.f.dataset.board, id: K.need(at.f, e), props });
           };
           // What is at a point of the page (a drop): the board, the image there with its data-id, and the point in
           // the board's own points.
