@@ -15,8 +15,10 @@ extension Sessions {
                 return
             }
             guard FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path) else { return }
-            try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt)
+            // The marks are handed back even when a page's version couldn't be kept; that error is still told.
+            let kept = Result { try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt) }
             try Artifacts.settleMarks(root: workspace.path, session: session, prompt: prompt)
+            _ = try kept.get()
         }
     }
 
