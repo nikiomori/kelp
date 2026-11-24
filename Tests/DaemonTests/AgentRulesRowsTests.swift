@@ -101,6 +101,18 @@ import Testing
         (
             .session(mine.id), ArtifactReply(path: elsewhere.path + "/.kelp/artifacts/x/canvas.json", id: 1, text: "?"),
             false, "but not on one in another's"
+        ),
+        (
+            .session(mine.id), ArtifactAsk(path: wt.path + "/.kelp/artifacts/x/motion.html", id: "t", text: "?"), true,
+            "it asks about an element of a page in its workspace"
+        ),
+        (
+            .session(mine.id), ArtifactSuggest(path: elsewhere.path + "/.kelp/artifacts/x/motion.html", lines: ["a"]),
+            false, "and offers what's next, but not on another's"
+        ),
+        (
+            .session(mine.id), ArtifactSuggest(path: wt.path + "/.kelp/artifacts/x/motion.html", lines: ["a"]), true,
+            "only on its own"
         )
     ]
     try expectRows(w.d, table)
