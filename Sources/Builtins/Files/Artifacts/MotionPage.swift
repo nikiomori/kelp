@@ -100,7 +100,7 @@ enum MotionPage {
               if (!e || !timing || !isFinite(timing.endTime)) continue;
               const start = (timing.delay || 0) / 1000, end = timing.endTime / 1000;
               const track = by.get(e) || { id: e.dataset.id || '', title: named(e), start, end, delays: [],
-                lengths: [], hidden: e.dataset.hidden === 'true', e };
+                lengths: [], hidden: e.dataset.hidden === 'true', locked: e.dataset.locked === 'true', e };
               track.start = Math.min(track.start, start); track.end = Math.max(track.end, end);
               track.delays.push(start); track.lengths.push((timing.activeDuration || 0) / 1000);
               // The keyframes a drag on the stage writes into: its animation that moves it (translate), else its first;
@@ -119,7 +119,7 @@ enum MotionPage {
               const how = (rate > 0 && rate !== 1 ? ' · ' + rate + '×' : '')
                 + (e.dataset.loop === 'true' ? ' · ⟲' : '');
               by.set(e, { id: e.dataset.id || '', title: named(e) + how, start, end: start + (+e.dataset.duration || 0),
-                delays: [], lengths: [], hidden: e.dataset.hidden === 'true', e,
+                delays: [], lengths: [], hidden: e.dataset.hidden === 'true', locked: e.dataset.locked === 'true', e,
                 sound: e.tagName === 'AUDIO' ? e.getAttribute('src') || '' : undefined,
                 from: +e.dataset.from || 0 });
             }

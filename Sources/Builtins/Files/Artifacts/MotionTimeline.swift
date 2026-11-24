@@ -18,6 +18,8 @@ final class MotionTimeline: NSView {
         var trims: Bool { delays.count <= 1 }
         /// An element hidden by hand (`data-hidden`): not in the page or the video.
         var hidden = false
+        /// An element locked by hand (`data-locked`): not chosen or moved on the stage, as a background stays put.
+        var locked = false
         /// Its first animation's keyframes, when it has one; a scene's way in from the one before.
         var keys: Keys?, transition: String?
         /// A sound's loudness, 0–1, a bar for each part of the clip's length; nil for anything else.
@@ -53,6 +55,8 @@ final class MotionTimeline: NSView {
     }
     /// An element hidden or shown again (its `data-id`), and the elements in their new order, the frontmost first.
     var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
+    /// An element locked or unlocked (its `data-id`).
+    var onLock: ((String, Bool) -> Void)?
     /// How close it looks: 1 shows the whole length, more shows `length / zoom` seconds from `from`.
     private(set) var zoom = 1.0
     var from = 0.0
@@ -114,7 +118,7 @@ final class MotionTimeline: NSView {
             ([String(localized: "Scenes")] + tracks.map(\.title)).map {
                 NSAttributedString(string: $0, attributes: [.font: NSFont.ui(TextSize.row)]).size().width
             }.max() ?? 0
-        names = min(max(widest + Metrics.inset + Metrics.gapWide + 18 + Metrics.gap, 120), 180)
+        names = min(max(widest + Metrics.inset + Metrics.gapWide + 36 + Metrics.gap, 120), 180)
         // While it plays past what shows, the view turns the page.
         if at < from || at > from + span { from = at - span * 0.1 }
         from = min(max(from, 0), length - span)
@@ -187,10 +191,12 @@ final class MotionTimeline: NSView {
                 row.fill()
             }
             let element = i > 0 && i <= tracks.count, hidden = element && tracks[i - 1].hidden
+            let locked = element && tracks[i - 1].locked
             text(
                 name, at: NSPoint(x: Metrics.inset, y: row.midY), font: nameFont,
-                color: hidden ? .tertiaryLabelColor : .secondaryLabelColor, width: nameWidth - (element ? 18 : 0))
+                color: hidden ? .tertiaryLabelColor : .secondaryLabelColor, width: nameWidth - (element ? 36 : 0))
             if element, hidden || i == hoveredLane { drawEye(lane: i, hidden: hidden) }
+            if element, locked || i == hoveredLane { drawLock(lane: i, locked: locked) }
         }
         drawLaneDrag()
         NSGraphicsContext.restoreGraphicsState()

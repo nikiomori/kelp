@@ -19,6 +19,7 @@ extension MarkdownTab {
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
+        made.onLock = { [weak self] id, lock in self?.lockElement(id, lock) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
         made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
         made.onKeyframe = { [weak self] in self?.keyframe() }
@@ -91,6 +92,7 @@ extension MarkdownTab {
                             easing: k["easing"] as? [String] ?? [])
                     })
                 clip.transition = (c["trans"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                clip.locked = c["locked"] as? Bool ?? false
                 if let sound = c["sound"] as? String {
                     clip.wave = self.wave(
                         of: sound, from: (c["from"] as? NSNumber)?.doubleValue ?? 0, length: clip.length)

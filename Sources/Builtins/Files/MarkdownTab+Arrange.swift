@@ -66,6 +66,17 @@ extension MarkdownTab {
         rewrite(board, edit: edit) { BoardEdit.giveID($0, tag: tag, index: index, named: named)?.text }
     }
 
+    /// Locks element `id` in place (`data-locked`): the stage doesn't choose or move it, the timeline still does.
+    func lockElement(_ id: String, _ lock: Bool) {
+        let edit = { (_: String) in
+            HandEdit(
+                board: MotionPage.board, id: id, what: "locked", from: lock ? nil : "true", to: lock ? "true" : nil)
+        }
+        rewrite(MotionPage.board, edit: edit) {
+            BoardEdit.setAttribute($0, id: id, name: "data-locked", value: lock ? "true" : nil)
+        }
+    }
+
     /// Hides element `id` from the page and the video (`data-hidden`), or shows it again.
     func hideElement(_ id: String, _ hide: Bool) {
         let edit = { (_: String) in

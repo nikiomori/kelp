@@ -18,6 +18,7 @@ final class MotionStudio {
         timeline.onDropFiles = { [weak self] files, at in self?.onDropFiles?(files, at) }
         timeline.onTypedCaptions = { [weak self] in self?.onTypedCaptions?() }
         timeline.onHide = { [weak self] id, hide in self?.onHide?(id, hide) }
+        timeline.onLock = { [weak self] id, lock in self?.onLock?(id, lock) }
         timeline.onRestack = { [weak self] ids in self?.onRestack?(ids) }
         timeline.onMark = { [weak self] id in self?.act("window.kelpMarks?.reveal(\(id))") }
         timeline.onDuplicate = { [weak self] id in self?.onDuplicate?(id) }
@@ -141,7 +142,7 @@ final class MotionStudio {
     /// A shape chosen for the stage: its width and height in pixels.
     var onFormat: ((Int, Int) -> Void)?
     /// An element hidden or shown on the timeline, and the elements restacked there, the frontmost first.
-    var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
+    var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?, onLock: ((String, Bool) -> Void)?
     /// A clip taken out or copied on the timeline: its `data-id`.
     var onRemove: ((String) -> Void)?, onDuplicate: ((String) -> Void)?
 

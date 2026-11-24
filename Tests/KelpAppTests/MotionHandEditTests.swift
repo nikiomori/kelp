@@ -106,6 +106,10 @@ extension OneAtATime {
         #expect(editor.text.contains(#"data-hidden="true""#))
         tab.hideElement("a", false)
         #expect(!editor.text.contains("data-hidden"))
+        tab.lockElement("a", true)
+        #expect(editor.text.contains(#"data-locked="true""#))
+        tab.lockElement("a", false)
+        #expect(!editor.text.contains("data-locked"))
     }
 }
 

@@ -58,7 +58,7 @@ enum CanvasHandles {
             setTimeout(() => { tag.textContent = was; }, 1800);
           }
           function start(ev, corner) {
-            if (!at || !shown(at.e)) return false;
+            if (!at || !shown(at.e) || at.e.closest('[data-locked="true"]')) return false;
             const e = at.e;
             // On a motion page an animated element moves at its keyframe for the time shown; elsewhere it can't.
             const keyed = movesItself(e) && !!window.kelpMotion;

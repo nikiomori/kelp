@@ -194,6 +194,8 @@ enum CanvasEdit {
               const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
               if (!doc || outside) continue;
               const hit = doc.elementFromPoint((e.clientX - r.left) / k, (e.clientY - r.top) / k);
+              // A layer locked on the timeline isn't chosen on the stage in Edit (a background stays put).
+              if (mode === 'edit' && hit?.closest('[data-locked="true"]')) return null;
               return hit && hit !== doc.documentElement && hit !== doc.body ? { f, e: raw ? hit : pointed(hit) } : null;
             }
             return null;

@@ -3,7 +3,8 @@ import DesignKit
 
 /// The elements' lanes as layers: the frontmost on top. A lane dragged by its name to another place restacks the
 /// elements (`onRestack`), its eye hides the element from the page and the video (`onHide`), and the lanes scroll when
-/// there are more than fit. The eye shows on the lane under the pointer, and always on a hidden one.
+/// there are more than fit. The eye shows on the lane under the pointer, and always on a hidden one; so does the lock
+/// before it (`onLock`), always on a locked one.
 extension MotionTimeline {
     /// Where lane `lane`'s eye is, at the end of its name.
     func eyeRect(lane: Int) -> NSRect {
@@ -11,11 +12,22 @@ extension MotionTimeline {
         return NSRect(x: names - Metrics.gap - 16, y: row.midY - 8, width: 16, height: 16)
     }
 
+    /// Where lane `lane`'s lock is, before its eye.
+    func lockRect(lane: Int) -> NSRect { eyeRect(lane: lane).offsetBy(dx: -18, dy: 0) }
+
     func drawEye(lane: Int, hidden: Bool) {
-        let image = NSImage.symbol(hidden ? "eye.slash" : "eye")
-        let color = NSImage.SymbolConfiguration(hierarchicalColor: hidden ? .tertiaryLabelColor : .secondaryLabelColor)
+        draw(hidden ? "eye.slash" : "eye", in: eyeRect(lane: lane), quiet: hidden)
+    }
+
+    func drawLock(lane: Int, locked: Bool) {
+        draw(locked ? "lock.fill" : "lock.open", in: lockRect(lane: lane), quiet: !locked)
+    }
+
+    private func draw(_ symbol: String, in r: NSRect, quiet: Bool) {
+        let image = NSImage.symbol(symbol)
+        let color = NSImage.SymbolConfiguration(hierarchicalColor: quiet ? .tertiaryLabelColor : .secondaryLabelColor)
         let tinted = image.withSymbolConfiguration(color) ?? image
-        let r = eyeRect(lane: lane), k = min(r.width / max(image.size.width, 1), 1)
+        let k = min(r.width / max(image.size.width, 1), 1)
         let size = NSSize(width: image.size.width * k, height: image.size.height * k)
         tinted.draw(
             in: NSRect(x: r.midX - size.width / 2, y: r.midY - size.height / 2, width: size.width, height: size.height),
@@ -29,10 +41,13 @@ extension MotionTimeline {
             hoveredLane = lane
             needsDisplay = true
         }
-        guard let lane, eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) else {
-            toolTip = nil
-            return
+        guard let lane else { return toolTip = nil }
+        if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
+            return toolTip =
+                tracks[lane - 1].locked
+                ? String(localized: "Unlock: Choose and Move It on the Stage") : String(localized: "Lock in Place")
         }
+        guard eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) else { return toolTip = nil }
         toolTip =
             tracks[lane - 1].hidden ? String(localized: "Show in the Video") : String(localized: "Hide in the Video")
     }
@@ -59,6 +74,8 @@ extension MotionTimeline {
         guard !clip.id.isEmpty else { return true }
         if eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
             onHide?(clip.id, !clip.hidden)
+        } else if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
+            onLock?(clip.id, !clip.locked)
         } else {
             laneDrag = (lane - 1, lane - 1)
         }
