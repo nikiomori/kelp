@@ -249,7 +249,8 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let label = NSTextField.label(
                 [Self.day(migration.id), migration.name].filter { !$0.isEmpty }.joined(separator: " "),
                 font: .uiMono(TextSize.caption))
-            label.lineBreakMode = .byTruncatingMiddle
+            label.lineBreakMode = .byTruncatingTail   // the day reads first, the name gives way
+            label.toolTip = "\(migration.id) \(migration.name)"
             let mark = symbol(migration.applied ? "checkmark.circle" : "circle")
             mark.toolTip = migration.applied ? String(localized: "Applied") : String(localized: "Not applied")
             return line([mark, label, NSView()], inset: Metrics.inset + Metrics.indentStep)
