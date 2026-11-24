@@ -56,7 +56,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         editors = EditorHost(app: app)
         sidebar = SidebarController(app: app)
         inspector = InspectorController(app: app)
-        let leftFloater = Floater(width: 260, inset: 0, autosave: "sidebar.floatWidth")
+        // Both stand as far in from the window's edges, as cards (the sidebar's was flush, under the traffic lights).
+        let leftFloater = Floater(width: 260, inset: Card.gap, autosave: "sidebar.floatWidth")
         let rightFloater = Floater(width: 300, inset: Card.gap, autosave: "inspector.floatWidth")
         left = Side(Self.column(sidebar), sidebar, leftFloater, inner: .trailing)
         right = Side(Self.column(inspector), inspector, rightFloater, inner: .leading)
