@@ -227,6 +227,12 @@ final class Forwards: Sendable {
     static func spec(_ here: Int, _ target: String) -> String { "127.0.0.1:\(here):\(target)" }
 }
 
+extension Remotes {
+    /// Whether `path` can be read without dialling: it's on this Mac, or its host's shared connection is open. A poll
+    /// asks this first, because Kelp never dials a host by itself. It asks ssh, so it's for `offload`.
+    func connected(_ path: String) -> Bool { of(path).map { $0.connection != nil } ?? true }
+}
+
 extension RemoteHost {
     /// The name the shared connection gives itself (its process), or nil when there is none. The name changes when the
     /// connection does.

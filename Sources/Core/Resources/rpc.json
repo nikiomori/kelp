@@ -3959,6 +3959,39 @@
         ],
         "type" : "object"
       },
+      "QuietFetch" : {
+        "description" : "What a background fetch did (`GitFetchQuietly`): whether it ran, why it failed, and when the last fetch that worked was.",
+        "properties" : {
+          "fetched" : {
+            "description" : "When the last fetch that worked was (FETCH_HEAD), in seconds since 1970; nil for a remote project.",
+            "type" : "number"
+          },
+          "host" : {
+            "description" : "The remote's host, as git named it in its error (\"github.com\"), when it did.",
+            "type" : "string"
+          },
+          "ran" : {
+            "description" : "False when it didn't run: a remote project whose host has no connection open.",
+            "type" : "boolean"
+          },
+          "trouble" : {
+            "$ref" : "#/components/schemas/QuietFetch.Trouble"
+          }
+        },
+        "required" : [
+          "ran"
+        ],
+        "type" : "object"
+      },
+      "QuietFetch.Trouble" : {
+        "description" : "Why a fetch failed, as far as git's words tell: no network (or a host that doesn't answer), a remote that wants a sign-in or a key it can't use without asking, or anything else.",
+        "enum" : [
+          "offline",
+          "signIn",
+          "other"
+        ],
+        "type" : "string"
+      },
       "RemoteHostKey.Key" : {
         "properties" : {
           "fingerprint" : {
@@ -9198,6 +9231,27 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "Fetches workspace `worktreeId`'s remotes for Kelp's background fetch (Settings › Source Control): as Fetch does, but without a password or passphrase prompt nobody would see, and giving up sooner. A failure is the answer, not an error. A remote project is fetched only over a connection already open: Kelp doesn't dial a host by itself.",
+      "name" : "git.fetchQuietly",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/QuietFetch"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Returns the history as graph rows, at most `limit`. `more` says there are more rows.",
