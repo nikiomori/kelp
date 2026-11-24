@@ -152,6 +152,7 @@ enum CanvasEdit {
           const draw = () => K?.draw();
           // Mark's tools: an element (a click), an area, a stroke or an arrow (a drag), a label (a click, then its
           // words; a double click changes them), each on one board. ↶ ↷ take the last drawn away and put it back.
+          // They sit at the bottom: the top's right holds the views (languages, themes), and both don't fit across.
           let tool = 'element', drag = null, undone = [];
           const tools = el('div', 'kelp-float kelp-tools');
           const step = (back) => {
