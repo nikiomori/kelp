@@ -1,6 +1,56 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ can't go back: %@ The files still can.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ не вернуть: %2$@ Файлы вернуть можно."
+          }
+        }
+      }
+    },
+    "And %@, as it was before the turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "И %@ — какой была до хода"
+          }
+        }
+      }
+    },
+    "Put %@ back as it was before this turn?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть %@ к состоянию до этого хода?"
+          }
+        }
+      }
+    },
+    "Put %@ back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть %@"
+          }
+        }
+      }
+    },
+    "Put %@ back as it was before the turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернул %@ к состоянию до хода"
+          }
+        }
+      }
+    },
     "Continue from where you stopped.": {
       "localizations": {
         "ru": {
@@ -37572,16 +37622,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снаружи"
-          }
-        }
-      }
-    },
-    "Project": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проект"
           }
         }
       }
