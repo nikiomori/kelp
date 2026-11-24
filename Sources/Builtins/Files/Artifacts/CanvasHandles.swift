@@ -13,8 +13,8 @@ import Foundation
 /// An element whose own animation moves or sizes it isn't moved by hand: its tag says so. What changed goes to
 /// `kelpSync` as `styles` (the board, the data-id and each property changed), once the drag ends.
 enum CanvasHandles {
-    static func source(animated: String) -> String {
-        "(function (ANIMATED) {\n" + body + "\n})(\(MarkdownTab.js(animated)));"
+    static func source(animated: String, turned: String) -> String {
+        "(function (ANIMATED, TURNED) {\n" + body + "\n})(\(MarkdownTab.js(animated)), \(MarkdownTab.js(turned)));"
     }
 
     private static let body = """
@@ -26,6 +26,10 @@ enum CanvasHandles {
           });
           let at = null, drag = null, busy = false, nudged = null;
           const idOf = e => e.getAttribute('data-id');
+          // Hidden at this time of a motion page (its scene not on yet, or hidden by hand): nothing to drag.
+          const shown = e => css(e).visibility !== 'hidden' && e.getClientRects().length > 0;
+          // Turned or scaled by a transform: its corners would pull it off the pointer.
+          const turned = e => { const s = css(e); return s.transform !== 'none' || s.rotate !== 'none'; };
           const css = e => e.ownerDocument.defaultView.getComputedStyle(e);
           const scaleOf = f => f.getBoundingClientRect().width / f.offsetWidth;
           const numbers = s => (s && s !== 'none' ? s.match(/-?[\\d.]+/g) || [] : []).map(Number);
@@ -34,7 +38,7 @@ enum CanvasHandles {
           const movesItself = e => e.getAnimations().some(a => (a.effect?.getKeyframes?.() || [])
             .some(k => 'translate' in k || 'scale' in k));
           function place() {
-            const on = at && K.mode() === 'edit' && idOf(at.e);
+            const on = at && K.mode() === 'edit' && shown(at.e);
             handles.style.display = on ? 'block' : 'none';
             if (!on) return;
             const b = K.box(at.f, at.e);
@@ -48,18 +52,19 @@ enum CanvasHandles {
           addEventListener('kelp-zoom', place);
           addEventListener('resize', place);
           // The chosen element's tag says why it doesn't move, for a moment.
-          function refuse() {
+          function refuse(why = ANIMATED) {
             const tag = document.querySelector('.kelp-tag'); if (!tag) return;
-            const was = tag.textContent; tag.textContent = ANIMATED;
+            const was = tag.textContent; tag.textContent = why;
             setTimeout(() => { tag.textContent = was; }, 1800);
           }
           function start(ev, corner) {
-            if (!at || !idOf(at.e)) return false;
+            if (!at || !shown(at.e)) return false;
             const e = at.e;
             // On a motion page an animated element moves at its keyframe for the time shown; elsewhere it can't.
             const keyed = movesItself(e) && !!window.kelpMotion;
             if (movesItself(e) && !keyed) { refuse(); return false; }
             if (keyed && corner) return false;
+            if (corner && turned(e)) { refuse(TURNED); return false; }
             const st = css(e), r = e.getBoundingClientRect(), was = {};
             for (const p of ['translate', 'width', 'height', 'scale', 'transform-origin'])
               was[p] = e.style.getPropertyValue(p);
@@ -159,10 +164,14 @@ enum CanvasHandles {
           // The arrows move the chosen element; it is written once they rest.
           addEventListener('keydown', ev => {
             const t = ev.target;
-            if (K.mode() !== 'edit' || !at || !idOf(at.e) || !ev.key.startsWith('Arrow') || ev.metaKey) return;
+            if (K.mode() !== 'edit' || !at || !shown(at.e) || !ev.key.startsWith('Arrow') || ev.metaKey) return;
             if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
             ev.preventDefault();
             if (movesItself(at.e)) return refuse();
+            // Another element nudged a moment ago is written now, before this one starts.
+            if (nudged && nudged.e !== at.e) {
+              clearTimeout(nudged.timer); save(nudged.e, nudged.f, nudged.was); nudged = null;
+            }
             const n = ev.shiftKey ? 10 : 1, [x, y] = moved(at.e);
             const v = { ArrowLeft: [-n, 0], ArrowRight: [n, 0], ArrowUp: [0, -n], ArrowDown: [0, n] }[ev.key];
             if (!nudged) nudged = { e: at.e, f: at.f, was: { translate: at.e.style.getPropertyValue('translate') } };

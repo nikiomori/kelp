@@ -65,6 +65,7 @@ extension MarkdownTab {
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
             let animatedNote = String(localized: "Its animation moves it: change that instead")
+            let turnedNote = String(localized: "Turned or scaled: its corners would pull it askew")
             let cropLabels = ["free": String(localized: "Free"), "reset": String(localized: "Reset")]
             let variantLabels = [
                 "keep": String(localized: "Keep"), "more": String(localized: "Three More Like This")
@@ -111,7 +112,7 @@ extension MarkdownTab {
                         CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                         + CanvasLayers.source(labels: layerLabels) + CanvasEditMore.source(labels: layerLabels)
                     let handles =
-                        CanvasHandles.source(animated: animatedNote) + CanvasEditBar.source
+                        CanvasHandles.source(animated: animatedNote, turned: turnedNote) + CanvasEditBar.source
                         + CanvasCrop.source(labels: cropLabels) + CanvasTypeOver.source
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (

@@ -145,6 +145,10 @@ enum CanvasEditMode {
           };
           function outline() {
             if (!at) return;
+            // Hidden at this time of a motion page: no outline over nothing.
+            const seen = at.e.ownerDocument.defaultView.getComputedStyle(at.e).visibility !== 'hidden';
+            chosen.style.display = tag.style.display = seen ? 'block' : 'none';
+            if (!seen) return;
             const b = K.box(at.f, at.e);
             // The 2-point line straddles the element's edge, where the corners' handles sit.
             K.place(chosen, { x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
