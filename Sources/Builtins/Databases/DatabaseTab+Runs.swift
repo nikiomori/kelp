@@ -66,6 +66,12 @@ extension DatabaseTab {
         return n == 1 ? String(localized: "1 row changed") : String(localized: "\(n.formatted()) rows changed")
     }
 
+    /// "12 rows", or "1,000 of 12,408 rows shown" when a statement gave more than the grid holds.
+    static func shown(_ shown: Int, of total: Int) -> String {
+        total > shown
+            ? String(localized: "\(shown.formatted()) of \(total.formatted()) rows shown") : rows(total)
+    }
+
     /// How long a read took: "84 ms", "1.5 s".
     nonisolated static func took(_ ms: Int) -> String {
         ms < 1000 ? "\(ms) ms" : (Double(ms) / 1000).formatted(.number.precision(.fractionLength(1))) + " s"
@@ -175,6 +181,8 @@ extension DatabaseTab {
         if isEdited, await !close() { return }
         chosen = true
         mode = next
+        readingEnded()   // a read still on its way is for what the tab showed: its wheel stops
+        rowCount.stringValue = ""
         grid.orders = []
         page = 0
         part.selectedSegment = 0

@@ -39,18 +39,21 @@ extension DatabaseTab {
         readingEnded()
         guard let result else { return }
         grid.editable = current?.kind != "view"   // a table without a key too: its rows are found by their values
+        let again = grid.source?.table == name
         grid.source = (name, engine)
         let orders = grid.orders
-        grid.show(columns: result.columns, rows: result.rows, info: info)
+        grid.show(columns: result.columns, rows: result.rows, info: info, keeping: again)
         grid.orders = orders
         grid.indicate()
         empty.show(result.rows.isEmpty ? String(localized: "No Rows") : nil, symbol: "tablecells")
         arrange()
-        counted = nil
-        if !condition.isEmpty {
+        // Turning pages keeps the count: the filter and the rows it counted are the same.
+        let counting = name + " WHERE " + condition
+        if asked == 0 || counted?.of != counting { counted = nil }
+        if !condition.isEmpty, counted == nil {
             let rows = await count(name, condition)
             guard still() else { return }
-            counted = rows
+            counted = rows.map { ($0, counting) }
         }
         pageChanged(shown: result.rows.count, ms: result.ms)
         await mark(name, primary: primary, still: still)
@@ -93,15 +96,15 @@ extension DatabaseTab {
         // before ANALYZE).
         let ended = shown < Self.pageSize
         let estimate = (filters.isActive ? nil : current?.rows).flatMap { $0 >= first + shown ? $0 : nil }
-        let total = ended ? first + shown : counted ?? estimate
+        let total = ended ? first + shown : counted?.rows ?? estimate
         let exact = ended || counted != nil || engine.isFile
-        var words: [String] = []
+        var words: [String] = [""]   // after the count, which is a label of its own
         if shown == 0 {
-            words.append(String(localized: "No rows"))
+            rowCount.stringValue = String(localized: "No rows")
         } else {
             let range = "\((first + 1).formatted())–\((first + shown).formatted())"
             let all = total.map { (exact ? "" : "≈ ") + Self.rows($0) }   // "≈ 12 408 rows"
-            words.append(all.map { String(localized: "\(range) of \($0)") } ?? range)
+            rowCount.stringValue = all.map { String(localized: "\(range) of \($0)") } ?? range
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
@@ -127,6 +130,7 @@ extension DatabaseTab {
         case .table(let name):
             Task {
                 guard await settleEdits() else { return }
+                counted = nil
                 await showTable(name)
             }
         case .run(let id): Task { await showRun(id) }
@@ -165,6 +169,7 @@ extension DatabaseTab {
     func toggleDetails() {
         details.view.isHidden.toggle()
         detailsClosed = details.view.isHidden
+        if !detailsClosed { detailsChanged() }
     }
 
     /// Shows the table's data (0) or its structure (1), as the foot's Data / Structure does.
@@ -292,10 +297,11 @@ extension DatabaseTab {
                 && short.map { run.sql.lowercased().contains($0) } != false
         }
         details.agentName = agentToAsk.map { app.catalog.name($0.agent) }
-        details.show(picked == nil ? nil : .row)
         // The details stay closed until a row is picked, because what they'd say of the table is on screen already.
-        // Once the user closes them, they stay closed.
+        // Once the user closes them, they stay closed, and aren't built again for each row picked.
         if picked != nil, !detailsClosed { details.view.isHidden = false }
+        guard !details.view.isHidden else { return }
+        details.show(picked == nil ? nil : .row)
     }
 
     /// Applies a field edited in the details as the same edit in the row's cell.
@@ -318,56 +324,6 @@ extension DatabaseTab {
         Task {
             await leave(to: .table(target))
             filters.add(column: column, op: .equal, value: value)
-        }
-    }
-
-    // MARK: Copy and export
-
-    func copyMenu() {
-        let menu = NSMenu()
-        let picked = grid.selectedRows.isEmpty ? Array(grid.rows.indices) : grid.selectedRows
-        let what = grid.selectedRows.isEmpty ? String(localized: "the Page") : Self.rows(picked.count).capitalizedFirst
-        for format in ResultText.Format.allCases {
-            menu.add(String(localized: "Copy \(what) as \(format.rawValue)")) { [weak self] in
-                guard let self else { return }
-                copyText(text(format, picked))
-            }
-        }
-        menu.addItem(.separator())
-        for format in [ResultText.Format.csv, .json] {
-            menu.add(String(localized: "Export \(what) as \(format.rawValue)…")) { [weak self] in
-                self?.export(format, picked)
-            }
-        }
-        if let table = current {
-            menu.addItem(.separator())
-            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in
-                if let self { copyText(definition(table)) }
-            }
-        }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-
-    private func text(_ format: ResultText.Format, _ picked: [Int]) -> String {
-        ResultText.text(
-            format, grid.columns, picked.map { grid.rows[$0] }, types: grid.types, from: (mode.table, engine))
-    }
-
-    /// Saves the rows where the user says: a file of their own choosing, not one in the project.
-    private func export(_ format: ResultText.Format, _ picked: [Int]) {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = (mode.table ?? address.name) + "." + format.fileExtension
-        let body = text(format, picked)
-        Task {
-            guard await runSheet(panel) == .OK, let url = panel.url else { return }
-            // Written off the main thread, because a big table's text may go to a slow disk.
-            let written = await Task.detached { Result { try body.write(to: url, atomically: true, encoding: .utf8) } }
-                .value
-            if case .failure(let error) = written {
-                Banner.show(
-                    String(localized: "Couldn’t save \(url.lastPathComponent): \(error.localizedDescription)"),
-                    style: .error)
-            }
         }
     }
 }

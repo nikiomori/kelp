@@ -88,6 +88,7 @@ extension DatabaseTab {
             return false
         }
         grid.edits.clear()
+        counted = nil   // saved rows may be counted differently
         await showTable(name)
         let saved = done.changed ?? 0, number = saved.formatted()
         status.stringValue +=

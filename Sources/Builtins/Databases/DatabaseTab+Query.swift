@@ -203,12 +203,13 @@ extension DatabaseTab {
             readingEnded()
             guard let result else { return }
             grid.show(columns: result.columns, rows: result.rows)
+            grid.cut = result.total > result.rows.count ? result.total : nil
             empty.show(
                 result.columns.isEmpty
                     ? String(localized: "Done") : result.rows.isEmpty ? String(localized: "No Rows") : nil)
             status.stringValue =
                 (result.changed.map { String(localized: "\($0) rows changed") }
-                    ?? String(localized: "\(result.total) rows")) + " · " + Self.took(result.ms)
+                    ?? Self.shown(result.rows.count, of: result.total)) + " · " + Self.took(result.ms)
             await loadTables()   // a CREATE or a DROP changes the list of tables
         }
     }

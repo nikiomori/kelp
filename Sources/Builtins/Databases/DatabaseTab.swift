@@ -74,6 +74,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// Keeps the query typed in the editor for the database once typing pauses (`keepDraft`).
     let draft = Debounce()
     let status = NSTextField(labelWithString: "")
+    /// "1–200 of 1,240 rows" in the foot, apart from the rest of the status so it stays whole as the foot fills.
+    let rowCount = NSTextField(labelWithString: "")
     let changes = NSTextField(labelWithString: "")
     let askBar = FillStack()
     let askText = NSTextField(labelWithString: "")
@@ -87,8 +89,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// The page of a table's rows that is shown, and how many rows a page holds.
     var page = 0
     static let pageSize = 200
-    /// How many rows the table has with the filter on, once they were counted.
-    var counted: Int?
+    /// How many rows the table has with the filter on, once they were counted, and the table and filter counted.
+    var counted: (rows: Int, of: String)?
     /// The read in progress. It is shown only past a second, so a quick read doesn't flicker.
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
@@ -271,19 +273,26 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         }
         save.keyEquivalent = "s"
         save.keyEquivalentModifierMask = .command
-        status.font = .uiDigits(TextSize.caption)
-        status.textColor = .secondaryLabelColor
-        status.alignment = .center
-        status.lineBreakMode = .byTruncatingTail
+        for label in [rowCount, status] {
+            label.font = .uiDigits(TextSize.caption)
+            label.textColor = .secondaryLabelColor
+            label.lineBreakMode = .byTruncatingTail
+        }
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        rowCount.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         changes.font = .uiDigits(TextSize.caption, weight: .medium)
         changes.textColor = .textOrange
         busy.style = .spinning
         busy.controlSize = .small
         busy.isDisplayedWhenStopped = false
-        return Bar.foot(
-            [part, addRow, busy, status],
+        let bar = Bar.foot(
+            [part, addRow, busy, rowCount, status],
             [changes, showSQL, discardButton, save, ask, saveQuery, columnsButton, previous, next])
+        bar.stack.setCustomSpacing(0, after: rowCount)   // the status goes on from the count after a " · "
+        // Where the edits' buttons leave too little room, Columns and Show SQL (both in the menus too) go before the
+        // count is cut.
+        for button in [columnsButton, showSQL] { bar.stack.setVisibilityPriority(.detachOnlyIfNecessary, for: button) }
+        return bar
     }
 
     private func buildAskBar() {
@@ -347,7 +356,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let table = mode.table != nil, data = table && part.selectedSegment == 0
         part.isHidden = !table
         filterToggle.isHidden = !data
-        if !data { filters.view.isHidden = true }
+        if !data {
+            filters.view.isHidden = true
+            rowCount.stringValue = ""
+        }
         for v in [previous, next, columnsButton] as [NSView] { v.isHidden = !data }
         addRow.isHidden = !data || !grid.editable
         reload.isHidden = mode.isRun

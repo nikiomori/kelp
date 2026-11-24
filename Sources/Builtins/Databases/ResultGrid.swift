@@ -61,6 +61,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var source: (table: String, engine: DatabaseInfo.Engine)?
     /// The most rows a table shows.
     static let shown = 1000
+    /// How many rows the result had, when it had more than are shown (and so copied or exported).
+    var cut: Int?
 
     override init() {
         super.init()
@@ -87,11 +89,17 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// How many rows are shown: those read, then those added.
     var count: Int { rows.count + edits.added.count }
 
-    func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = []) {
+    /// Shows these rows. `keeping` keeps the columns' widths and which are hidden, when the columns are the same: the
+    /// same table read again (another page, order or filter, or after Save).
+    func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = [], keeping: Bool = false) {
+        let kept = keeping && columns == self.columns ? Dictionary(
+            table.tableColumns.map { ($0.identifier.rawValue, (width: $0.width, hidden: $0.isHidden)) },
+            uniquingKeysWith: { a, _ in a }) : [:]
         self.columns = columns
         self.rows = rows
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         edits.clear()
+        cut = nil
         marked = []
         change = nil
         numeric = Set(
@@ -115,6 +123,10 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             let fk = self.info[name]?.references == nil ? 0 : 3
             column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * charWidth + 18))
             column.minWidth = 40
+            if let look = kept[String(i)] {
+                column.width = look.width
+                column.isHidden = look.hidden
+            }
             table.addTableColumn(column)
         }
         indicate()

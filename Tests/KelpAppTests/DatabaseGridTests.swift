@@ -113,8 +113,13 @@ import Testing
     tab.grid.editable = true
     tab.grid.show(columns: ["note"], rows: [["a"]])
     tab.grid.edits.set(row: 0, column: 0, to: "b", was: "a")   // the foot's edit buttons show too
+    tab.schema = DatabaseSchema(tables: [DatabaseSchema.Table(name: "orders", rows: 1240)])
     tab.arrange()
+    tab.pageChanged(shown: 200, ms: 3)
     window.layoutIfNeeded()
+    // The row count stays whole beside the edits' buttons: the rest of the status shortens first.
+    #expect(tab.rowCount.stringValue.hasPrefix("1–200 of"))
+    #expect(tab.rowCount.frame.width >= tab.rowCount.intrinsicContentSize.width - 0.5, "\(tab.rowCount.frame)")
     tab.toggleDetails()
     window.layoutIfNeeded()
     #expect(!tab.details.view.isHidden)
@@ -137,4 +142,30 @@ import Testing
     tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
     #expect(try await waitFor(10) { tab.run.isEnabled })
     #expect(tab.grid.rows.count == 2 && tab.grid.edits.count == 1)
+}
+
+/// The same table read again keeps the columns' widths and the ones hidden; another table's columns start afresh.
+@MainActor @Test func aTableReadAgainKeepsItsColumnsLook() {
+    let (grid, window) = editableGrid([["a"]])
+    defer { withExtendedLifetime(window) {} }
+    grid.show(columns: ["id", "note"], rows: [["1", "a"]])
+    grid.table.tableColumns[1].width = 211
+    grid.table.tableColumns[2].isHidden = true
+    grid.show(columns: ["id", "note"], rows: [["2", "b"]], keeping: true)
+    #expect(grid.table.tableColumns[1].width == 211 && grid.table.tableColumns[2].isHidden)
+    grid.show(columns: ["id", "note"], rows: [["2", "b"]])
+    #expect(grid.table.tableColumns[1].width != 211 && !grid.table.tableColumns[2].isHidden)
+}
+
+/// A statement that gave more rows than the grid holds says so; leaving a slow read stops its wheel and its words.
+@MainActor @Test func theFootSaysWhatItShows() async throws {
+    #expect(DatabaseTab.shown(2, of: 5) == "2 of 5 rows shown" && DatabaseTab.shown(5, of: 5) == "5 rows")
+    let (tab, window) = editableTab([["a"]])
+    defer { withExtendedLifetime(window) {} }
+    await tab.loadTables()   // the tab's own first read (no kelpd here: it fails) is over
+    try await Task.sleep(for: .milliseconds(300))
+    tab.startReading("orders")
+    await tab.leave(to: .query)
+    try await Task.sleep(for: .seconds(1.3))
+    #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
 }
