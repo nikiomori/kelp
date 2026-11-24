@@ -373,6 +373,7 @@ enum MarkColumn {
             find: id => M.marks.find(m => m.id === id),
             list: () => M.marks,
             step, showBefore,
+            openTab(key) { tab = key; draw(); },
             finish: () => finish(by('check')[at]),
             again: () => sendAgain(by('check')[at]),
             // Scrolls mark `id` into view and returns its box on screen, with a margin, for its picture.

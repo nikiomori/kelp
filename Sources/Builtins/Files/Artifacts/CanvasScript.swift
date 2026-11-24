@@ -77,7 +77,7 @@ enum CanvasScript {
             const issues = [...new Set(out)].slice(0, 40);
             window.kelpIssues = issues;
             dispatchEvent(new CustomEvent('kelp-check'));
-            webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: issues });
+            webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues, narrow: !!window.kelpNarrowShown });
           }
           window.kelpRecheck = () => setTimeout(done, 50);   // the boards drawn differently (another language)
           if (!left) {

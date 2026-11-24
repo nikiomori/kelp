@@ -27,11 +27,13 @@ extension MarkdownTab {
     /// Called when a board or the design system changed on disk, so the canvas is drawn again.
     func boardsChanged() { rerender(after: .milliseconds(150)) }
 
-    /// Takes what Kelp's script found on the canvas just drawn. The bar shows it, and it answers a waiting check.
-    func canvasChecked(_ issues: [String]) {
+    /// Takes what Kelp's script found on the canvas just drawn. The bar shows it, and it answers a waiting check. What
+    /// doesn't fit a phone's width (`@390:`) goes to the agent after its turn only while a board is shown that narrow
+    /// (`narrow`): a desktop design isn't made to answer for a phone.
+    func canvasChecked(_ issues: [String], narrow: Bool = false) {
         checkIssues = issues
         onCheck?(issues)
-        let new = TurnCheck.of(self).checked(issues)
+        let new = TurnCheck.of(self).checked(Self.told(issues, narrow: narrow))
         if !new.isEmpty, let author = pageAuthor {
             let text = TurnCheck.message(new, page: Artifacts.projectPath(url.path))
             Task { await app.call(SessionSend(id: author.id, text: text, enter: true)) }
@@ -41,6 +43,11 @@ extension MarkdownTab {
         Task { await app.quiet(UIBrowserReply(request: request, result: .array(issues.map(JSONValue.string)))) }
     }
 
+    /// What of the check goes to the agent after its turn: the fit at a narrower width only while one is shown.
+    nonisolated static func told(_ issues: [String], narrow: Bool) -> [String] {
+        narrow ? issues : issues.filter { $0.firstMatch(of: #/ @\d+: /#) == nil }
+    }
+
     /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         if arrangeMessage(kind, body) || propsMessage(kind, body) || slidesMessage(kind, body) { return true }
@@ -48,7 +55,7 @@ extension MarkdownTab {
         if presetsMessage(kind, body) || captionsMessage(kind, body) || soundMessage(kind, body) { return true }
         if attributeMessage(kind, body) || tokenMessage(kind, body) { return true }
         switch kind {
-        case "check": canvasChecked(body["issues"] as? [String] ?? [])
+        case "check": canvasChecked(body["issues"] as? [String] ?? [], narrow: body["narrow"] as? Bool ?? false)
         case "marks", "marksDraft", "markDone", "markAgain", "markRef": marksMessage(kind, body)
         case "motion": motionMessage(body)
         case "undo": undoHandEdit(redo: body["redo"] as? Bool ?? false)

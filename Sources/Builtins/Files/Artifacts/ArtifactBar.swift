@@ -305,33 +305,18 @@ final class ArtifactBar: NSObject {
         }
     }
 
+    /// The check's findings with their fixes: the column's Check tab, in Mark.
     private func showCheck() {
-        checkMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
-    }
-
-    /// What the check found, and asking the agent to fix it or checking again.
-    private func checkMenu() -> NSMenu {
-        let menu = NSMenu(), md = markdown
-        for issue in issues.prefix(20) {
-            menu.addItem(
-                withTitle: issue.count > 90 ? String(issue.prefix(89)) + "…" : issue, action: nil, keyEquivalent: ""
-            )
-            .isEnabled = false
-        }
-        if !issues.isEmpty { menu.addItem(.separator()) }
-        if !issues.isEmpty {
-            let who = md.pageAuthor.map { app.catalog.name($0.agent) } ?? String(localized: "the Agent")
-            menu.add(String(localized: "Ask \(who) to Fix")) { md.sendCheck() }
-        }
-        menu.add(String(localized: "Check Again")) { md.rerender() }
-        return menu
+        markdown.setCanvasMode(.mark)
+        modes.selectedSegment = MarkdownTab.CanvasMode.mark.rawValue
+        markdown.runJS("window.kelpMarks?.openTab?.('check')")
     }
 
     /// Present and the check's result, while a narrow pane keeps them out of the bar.
     private func addCrowdedOut(to menu: NSMenu) {
         let out = (view as? Bar)?.stack.detachedViews.filter { !$0.isHidden && ($0 == present || $0 == check) } ?? []
         if out.contains(present) { menu.add(present.title) { [weak self] in self?.togglePresenting() } }
-        if out.contains(check) { menu.add(check.title, submenu: checkMenu()).toolTip = check.toolTip }
+        if out.contains(check) { menu.add(check.title) { [weak self] in self?.showCheck() }.toolTip = check.toolTip }
         if !out.isEmpty { menu.addItem(.separator()) }
     }
 

@@ -129,3 +129,10 @@ private func demo() throws -> (root: URL, folder: URL) {
     bar.show(count: 1, at: 0, before: false, canBefore: false, who: nil, said: ("", ""))
     #expect(bar.label.stringValue == "The agent finished its turn")
 }
+
+/// After a turn the agent hears what doesn't fit a narrower width only while a board is shown that narrow.
+@Test func narrowFindingsGoToTheAgentOnlyWhenShownNarrow() {
+    let found = ["boards/A.html @390: content is 420px wide, the board 390", "boards/A.html: text is cut off in h1"]
+    #expect(MarkdownTab.told(found, narrow: false) == [found[1]])
+    #expect(MarkdownTab.told(found, narrow: true) == found)
+}

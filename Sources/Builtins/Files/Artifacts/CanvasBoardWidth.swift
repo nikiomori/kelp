@@ -90,6 +90,8 @@ enum CanvasBoardWidth {
               lay(f, shown === own ? 0 : shown);
               f.style.height = height;
             }
+            // Whether a board is shown narrower now: only then do these findings go to the agent after its turn.
+            window.kelpNarrowShown = K.frames.some(f => +f.dataset.w && +f.dataset.w < ownOf(f));
           });
           if (!M) return;
           const add = M.add.bind(M);
