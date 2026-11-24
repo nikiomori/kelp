@@ -32,16 +32,14 @@ import Testing
     #expect(MySQLRun.script(["SELECT 1 -- note"]).hasPrefix("SELECT 1 -- note\n;\n"))
 }
 
-/// psql in a container reads the statements on stdin, so none is in the process list or held to an argument's length;
-/// each is a quoted string psql runs as it is (`\gexec`), its own commands (`\!`) unread, as `-c` sent them.
-@Test func psqlGetsTheStatementsAsQuotedStrings() {
+/// psql in a container gets each statement as a `-c`, which it sends as it is (its own `\!` unread), so the count it
+/// keeps (`:ROW_COUNT`) is the statement's; only Kelp's own script, which reads that count, goes on stdin (`-f -`).
+@Test func psqlGetsTheStatementsAsArguments() {
+    let statement = #"UPDATE t SET a = 1 \! touch /tmp/x"#
     #expect(
-        PostgresRun.script(["BEGIN", #"SELECT 1 \! touch /tmp/x"#])
-            == "SELECT $kelp$BEGIN$kelp$ \\gexec\n\\echo \(PostgresRun.marker)\n"
-            + #"SELECT $kelp$SELECT 1 \! touch /tmp/x$kelp$ \gexec"# + "\n")
-    // A statement that holds the quote's tag, or ends where it would start one, gets another
-    #expect(PostgresRun.script(["SELECT '$kelp$'"]) == "SELECT $kelp_$SELECT '$kelp$'$kelp_$ \\gexec\n")
-    #expect(PostgresRun.script(["SELECT 1 AS a$kelp"]) == "SELECT $kelp_$SELECT 1 AS a$kelp$kelp_$ \\gexec\n")
+        PostgresRun.arguments(["BEGIN", statement], then: "\\echo x")
+            == ["-c", "BEGIN", "-c", "\\echo " + PostgresRun.marker, "-c", statement, "-f", "-"])
+    #expect(PostgresRun.arguments(["SELECT 1"], then: nil) == ["-c", "SELECT 1"])
 }
 
 /// The mysql client's rows keep a row of one empty value (an empty line), and a container that has only `mariadb`
