@@ -298,7 +298,7 @@ enum CanvasEdit {
           });
           for (const f of frames) f.addEventListener('load', draw);
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode,
-            hooks, find, inPage, describe };
+            hooks, find, inPage, describe, tool: () => tool };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });

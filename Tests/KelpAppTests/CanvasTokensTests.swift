@@ -51,7 +51,7 @@ import Testing
     context.evaluateScript(
         """
         const node = () => ({ style: {}, dataset: {}, classList: { toggle() {} }, children: [], append() {} });
-        var window = { kelpCanvas: { frames: [], el: node }, kelpProps: {} };
+        var window = { kelpCanvas: { frames: [], el: node, sheet: { addEventListener() {} } }, kelpProps: {} };
         var document = { createElement: node, body: { matches: () => false }, querySelector: () => null };
         """)
     context.evaluateScript(CanvasEditMore.source(labels: [:]))

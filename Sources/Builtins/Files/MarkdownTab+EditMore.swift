@@ -38,6 +38,10 @@ extension MarkdownTab {
             linkMenu(body)
             return true
         }
+        if kind == "objectAt" {
+            objectMessage(body)
+            return true
+        }
         guard kind == "attribute" else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String,
             let name = body["name"] as? String, ["href", "target", "alt", "data-link"].contains(name)
@@ -94,5 +98,25 @@ extension MarkdownTab {
             menu.add(b["title"] as? String ?? name) { pick(name) }.state = name == now ? .on : .off
         }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    /// Mark on a picture: the outline of the object at the point clicked (0–1 across and down), worked out off the
+    /// main thread, or none, and the page makes the mark.
+    func objectMessage(_ body: [String: Any]) {
+        let number = { (key: String) in (body[key] as? NSNumber)?.doubleValue ?? 0.5 }
+        guard let src = (body["src"] as? String).flatMap(URL.init(string:)), src.isFileURL else {
+            return runJS("window.kelpObjectMark?.(null)")
+        }
+        let point = CGPoint(x: number("x"), y: number("y"))
+        Task.detached {
+            var points: [[Double]]?
+            do {
+                points = try ObjectOutline.outline(of: src, at: point)?.map { [Double($0.x), Double($0.y)] }
+            } catch {
+                points = nil   // a picture Vision can't read is marked whole
+            }
+            let answer = points.map { MarkdownTab.js($0) } ?? "null"
+            await MainActor.run { self.runJS("window.kelpObjectMark?.(\(answer))") }
+        }
     }
 }

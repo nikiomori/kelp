@@ -163,3 +163,14 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
         #expect(count == (once ? 1 : 0), "once: \(once)")   // ImageIO reads no loop count as one play
     }
 }
+
+/// A click on the bird in a photo outlines the bird, as points across the picture; a corner of sky outlines nothing.
+@Test func anObjectInAPhotoIsOutlined() throws {
+    let file = URL(fileURLWithPath: "/Library/User Pictures/Animals/Parrot.heic")
+    try #require(FileManager.default.fileExists(atPath: file.path))
+    let outline = try #require(try ObjectOutline.outline(of: file, at: CGPoint(x: 0.5, y: 0.5)))
+    #expect(outline.count > 20 && outline.count <= 170)
+    let xs = outline.map(\.x), ys = outline.map(\.y)
+    #expect((xs.min() ?? 0) < 0.5 && (xs.max() ?? 0) > 0.5 && (ys.min() ?? 0) < 0.5 && (ys.max() ?? 0) > 0.5)
+    #expect(try ObjectOutline.outline(of: file, at: CGPoint(x: 0.02, y: 0.02)) == nil)
+}

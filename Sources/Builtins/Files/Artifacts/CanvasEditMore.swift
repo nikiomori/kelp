@@ -8,7 +8,7 @@ enum CanvasEditMore {
     static func source(labels: [String: String]) -> String {
         "(function (L) {\n" + body + "\n})(\(MarkdownTab.js(labels)));" + CanvasTokens.source(labels: labels)
             + CanvasAccess.source(labels: labels) + CanvasBoardWidth.source(labels: labels)
-            + CanvasLinks.source(labels: labels) + CanvasLanguages.source(labels: labels)
+            + CanvasLinks.source(labels: labels) + CanvasLanguages.source(labels: labels) + CanvasObjects.source
     }
 
     private static let body = """
