@@ -1,7 +1,7 @@
 import AppKit
 import Core
-import TestSupport
 import DesignKit
+import TestSupport
 import Testing
 
 @testable import BuiltinDatabases
@@ -56,7 +56,8 @@ import Testing
 @MainActor private func editableTab(_ rows: [[String?]]) -> (DatabaseTab, NSWindow) {
     let tab = DatabaseTab(uri: "db:w1/shop?table=orders", app: AppModel(builtins: []))
     tab.schema = DatabaseSchema(tables: [
-        DatabaseSchema.Table(name: "orders", columns: [.init(name: "note", type: "text", nullable: true, primary: false)])
+        DatabaseSchema.Table(
+            name: "orders", columns: [.init(name: "note", type: "text", nullable: true, primary: false)])
     ])
     tab.mode = .table("orders")
     let window = NSWindow(
@@ -145,11 +146,11 @@ import Testing
     #expect(DatabaseTab.shown(2, of: 5) == "2 of 5 rows shown" && DatabaseTab.shown(5, of: 5) == "5 rows")
     let (tab, window) = editableTab([["a"]])
     defer { withExtendedLifetime(window) {} }
-    await tab.loadTables()   // the tab's own first read (no kelpd here: it fails) is over
-    try await Task.sleep(for: .milliseconds(300))
+    // The tab's own first read is over: no kelpd here, so it failed under the rows.
+    #expect(try await waitFor { !tab.failureBar.isHidden })
     tab.startReading("orders")
     await tab.leave(to: .query)
-    try await Task.sleep(for: .seconds(1.3))
+    try await Task.sleep(for: .seconds(1.3))   // the wheel and its words come only past a second
     #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
 }
 
@@ -159,7 +160,8 @@ import Testing
     let rows = DatabasePanelRows(panel: DatabasesPanel(app: AppModel(builtins: [])))
     let said = "Its compose service db isn’t running: Start starts it."
     let row = rows.problem(
-        DatabaseInfo(name: "app_dev", engine: .postgres), DatabaseHealth(name: "app_dev", state: .stopped, reason: said))
+        DatabaseInfo(name: "app_dev", engine: .postgres),
+        DatabaseHealth(name: "app_dev", state: .stopped, reason: said))
     row.frame = NSRect(x: 0, y: 0, width: 260, height: TextSize.of(Metrics.rowTwoLine))
     row.layoutSubtreeIfNeeded()
     func fields(_ v: NSView) -> [NSTextField] { [v as? NSTextField].compactMap { $0 } + v.subviews.flatMap(fields) }
@@ -219,7 +221,8 @@ import Testing
     grid.duplicateSelected()
     #expect(grid.edits.added == [["a"]])
     func run(_ session: String?, _ state: DatabaseRun.State, changed: Int?) -> DatabaseRun {
-        DatabaseRun(id: "r", database: "shop", sql: "UPDATE t", session: session, at: Date(), state: state, changed: changed)
+        DatabaseRun(
+            id: "r", database: "shop", sql: "UPDATE t", session: session, at: Date(), state: state, changed: changed)
     }
     #expect(DatabaseTab.undoable(run("s1", .done, changed: 2)))
     for other in [run(nil, .done, changed: 2), run("s1", .failed, changed: nil), run("s1", .done, changed: 0)] {
@@ -240,7 +243,8 @@ import Testing
     let alert = DatabaseTab.question("60 statements", statements, action: "Copy", cancel: "Close")
     alert.layout()
     #expect(alert.window.frame.height < 500, "\(alert.window.frame)")
-    #expect((alert.accessoryView as? NSScrollView)?.documentView.map { ($0 as? NSTextView)?.string } == DatabaseTab.sql(statements))
+    let shown = (alert.accessoryView as? NSScrollView)?.documentView as? NSTextView
+    #expect(shown?.string == DatabaseTab.sql(statements))
 }
 
 /// The questions are sheets on the front window, so the tests that answer one take turns.
@@ -252,13 +256,13 @@ extension OneAtATime {
         defer { window.orderOut(nil) }
         tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
         tab.filters.use(columns: ["note"], engine: .sqlite)
-        tab.follow("orders", "note", "b")   // a key to a row of the same table
+        let following = Task { await tab.followed("orders", "note", "b") }   // a key to a row of the same table
         let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
         #expect(try await waitFor(10) { asking() != nil })
         if let window = asking(), let asked = window.attachedSheet {
             window.endSheet(asked, returnCode: .alertSecondButtonReturn)   // Cancel
         }
-        try await Task.sleep(for: .milliseconds(300))
+        await following.value
         #expect(tab.mode == .table("orders") && !tab.filters.isActive && tab.grid.edits.count == 1)
         #expect(asking() == nil)   // not asked again
         if let window = asking(), let asked = window.attachedSheet {
@@ -287,7 +291,8 @@ extension OneAtATime {
     @Test func deleteForgetsASavedQueryAfterAsking() async throws {
         let sidebar = DatabaseSidebar(app: AppModel(builtins: []))
         let shown = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400), styleMask: [.titled], backing: .buffered, defer: true)
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: true)
         shown.contentView = sidebar.view
         shown.orderFrontRegardless()   // a window never on screen gets no sheet
         defer { shown.orderOut(nil) }
@@ -299,7 +304,8 @@ extension OneAtATime {
         let delete = try #require(
             NSEvent.keyEvent(
                 with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: shown.windowNumber,
-                context: nil, characters: "\u{7f}", charactersIgnoringModifiers: "\u{7f}", isARepeat: false, keyCode: 51))
+                context: nil, characters: "\u{7f}", charactersIgnoringModifiers: "\u{7f}", isARepeat: false,
+                keyCode: 51))
         sidebar.list.keyDown(with: delete)
         let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
         #expect(sidebar.list.selectedRow == 1)

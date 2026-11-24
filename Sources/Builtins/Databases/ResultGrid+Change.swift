@@ -21,8 +21,8 @@ extension ResultGrid {
         table.reloadData()
     }
 
-    /// The row's number, with a mark before it of what saving does to it, so it isn't told by its colour alone: • edited,
-    /// − deleted, and + for a new row in place of a number.
+    /// The row's number, with a mark before it of what saving does to it, so it isn't told by its colour alone:
+    /// • edited, − deleted, and + for a new row in place of a number.
     func number(_ row: Int, new: Bool) -> NSAttributedString {
         let mark = edits.deleted.contains(row) ? "− " : edits.cells[row] != nil ? "• " : ""
         // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.

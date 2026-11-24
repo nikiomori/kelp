@@ -54,7 +54,9 @@ extension Builtins {
                     $0.toggleFilters()
                 },
                 tabCommand(app, "databases.save", "Save Changes", shown: { $0.save }) { $0.saveEdits() },
-                tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discardButton }) { $0.discardEdits() },
+                tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discardButton }) {
+                    $0.discardEdits()
+                },
                 tabCommand(app, "databases.saveQuery", "Save Query…", shown: { $0.saveQuery }) { $0.keepQuery() },
                 tabCommand(app, "databases.showSQL", "Show SQL", shown: { $0.showSQL }) { $0.showEdits() },
                 tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() },

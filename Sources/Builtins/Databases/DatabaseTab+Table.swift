@@ -277,7 +277,8 @@ extension DatabaseTab {
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
-        words.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
+        words.edgeInsets = NSEdgeInsets(
+            top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         let line = NSBox()
         line.boxType = .separator
         let box = NSStackView(views: [line, words])
@@ -340,11 +341,11 @@ extension DatabaseTab {
     }
 
     /// Shows `table` filtered to the row where `column` holds `value`.
-    func follow(_ table: String, _ column: String, _ value: String) {
+    func follow(_ table: String, _ column: String, _ value: String) { Task { await followed(table, column, value) } }
+
+    func followed(_ table: String, _ column: String, _ value: String) async {
         let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
-        Task {
-            guard await leave(to: .table(target)) else { return }   // Cancel keeps the table and its edits
-            filters.add(column: column, op: .equal, value: value)
-        }
+        guard await leave(to: .table(target)) else { return }   // Cancel keeps the table and its edits
+        filters.add(column: column, op: .equal, value: value)
     }
 }
