@@ -175,14 +175,7 @@ extension ResultGrid: NSMenuDelegate {
                 changed(rows: [row])
             }
         }
-        if read {
-            menu.add(String(localized: "Duplicate Row")) { [weak self] in
-                guard let self else { return }
-                // The key is left out, so the database gives the copy its own.
-                let copy = rows[row].enumerated().map { i, v in info[columns[i]]?.primary == true ? nil : v }
-                addRow(copy)
-            }
-        }
+        if read { menu.add(String(localized: "Duplicate Row")) { [weak self] in self?.duplicateSelected() } }
         menu.add(
             picked.count > 1 ? String(localized: "Delete \(picked.count) Rows") : String(localized: "Delete Row")
         ) { [weak self] in self?.deleteSelected() }

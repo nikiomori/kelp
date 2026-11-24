@@ -47,6 +47,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         view.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         any.addItems(withTitles: [String(localized: "Match All"), String(localized: "Match Any")])
         any.controlSize = .small
+        any.setAccessibilityLabel(String(localized: "Conditions to Match"))
         view.isHidden = true
     }
 
@@ -128,6 +129,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         column.addItems(withTitles: columns + [Self.raw])
         column.selectItem(withTitle: rule.column.isEmpty ? (columns.first ?? Self.raw) : rule.column)
         if rule.column.isEmpty { rules[i].column = column.titleOfSelectedItem ?? Self.raw }
+        column.setAccessibilityLabel(String(localized: "Column"))
         column.tag = i
         column.target = self
         column.action = #selector(columnPicked(_:))
@@ -135,6 +137,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         op.controlSize = .small
         op.addItems(withTitles: Condition.allCases.map(\.title))
         op.selectItem(withTitle: rule.op.title)
+        op.setAccessibilityLabel(String(localized: "Condition"))
         op.tag = i
         op.target = self
         op.action = #selector(opPicked(_:))
@@ -146,6 +149,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         value.placeholderString =
             raw ? "status = 'paid' AND total > 10" : rule.op == .isIn ? "a, b, c" : String(localized: "Value")
         value.isHidden = !raw && !rule.op.takesValue
+        value.setAccessibilityLabel(raw ? Self.raw : String(localized: "Value"))
         value.tag = i
         value.delegate = self
         let remove = IconButton(.symbol("minus"), tip: String(localized: "Remove This Condition")) { [weak self] in

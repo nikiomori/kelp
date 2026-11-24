@@ -63,6 +63,28 @@ extension ResultGrid {
         table.window?.makeFirstResponder(table)
     }
 
+    /// Set to NULL from the keys: the cell being typed in becomes NULL (in a new row, its default).
+    func setTypingToNull() {
+        guard let cell = typingCell else { return NSSound.beep() }
+        let row = table.row(for: cell.field), column = cell.field.tag
+        cell.field.abortEditing()
+        if row >= rows.count {
+            edits.setAdded(row - rows.count, column: column, to: nil)
+        } else if rows.indices.contains(row), rows[row].indices.contains(column) {
+            edits.set(row: row, column: column, to: nil, was: rows[row][column])
+        }
+        changed(rows: [row])
+    }
+
+    /// Adds a copy of each selected row read, at the end. The key is left out, so the database gives each its own.
+    func duplicateSelected() {
+        let picked = selectedRows
+        guard !picked.isEmpty else { return NSSound.beep() }
+        for row in picked {
+            addRow(rows[row].enumerated().map { i, v in info[columns[i]]?.primary == true ? nil : v })
+        }
+    }
+
     /// Drops what is typed in a cell, with the edits.
     func discardTyping() { typingCell?.field.abortEditing() }
 }

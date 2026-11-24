@@ -112,7 +112,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         let index = NSTableColumn(identifier: .init("#"))
         // As wide as the last row's number, in the numbers' own face.
         let digit = ("0" as NSString).size(withAttributes: [.font: NSFont.uiDigits(TextSize.caption)]).width
-        index.width = CGFloat(max(2, String(rows.count).count)) * digit + 18
+        index.width = CGFloat(max(2, String(rows.count).count) + 2) * digit + 18   // and a mark: • − +
         index.title = ""
         table.addTableColumn(index)
         for (i, name) in columns.enumerated() {
@@ -221,6 +221,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         guard let column = Int(id) else {   // the row's number column (an agent's mark is the row view's)
             let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
             field.attributedStringValue = number(row, new: new)
+            field.setAccessibilityLabel(rowName(row))
             field.alignment = .right
             return field
         }
@@ -315,17 +316,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
     }
 
-    private func number(_ row: Int, new: Bool) -> NSAttributedString {
-        // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.
-        NSAttributedString(
-            string: new ? "+" : String(row + 1),
-            attributes: [
-                .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor,
-                .paragraphStyle: Self.aligned(.right)
-            ])
-    }
-
-    private static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {
+    static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
         style.lineBreakMode = .byTruncatingTail

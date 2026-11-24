@@ -113,6 +113,9 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         self?.turn(1)
     }
     lazy var addRow = ClosureButton(title: String(localized: "Add Row")) { [weak self] in self?.grid.addRow() }
+    lazy var undoChange = ClosureButton(title: String(localized: "Undo This Change…")) { [weak self] in
+        self?.undoShownRun()
+    }
     lazy var columnsButton = ClosureButton(title: String(localized: "Columns")) { [weak self] in self?.columnsMenu() }
     lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Refresh")) { [weak self] in
         self?.refresh()
@@ -270,7 +273,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         part.action = #selector(partChanged)
         part.setContentHuggingPriority(.required, for: .horizontal)
         // Inside a page a worded button is the system's small bordered one, so it reads as a button before a hover.
-        for button in [addRow, columnsButton, discardButton, showSQL, ask, saveQuery, save] {
+        for button in [addRow, columnsButton, discardButton, showSQL, ask, saveQuery, save, undoChange] {
             button.bezelStyle = .push
             button.controlSize = .small
         }
@@ -290,7 +293,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         busy.isDisplayedWhenStopped = false
         let bar = Bar.foot(
             [part, addRow, busy, rowCount, status],
-            [changes, showSQL, discardButton, save, ask, saveQuery, columnsButton, previous, next])
+            [changes, showSQL, discardButton, save, ask, undoChange, saveQuery, columnsButton, previous, next])
         bar.stack.setCustomSpacing(0, after: rowCount)   // the status goes on from the count after a " · "
         // Where the edits' buttons leave too little room, Columns and Show SQL (both in the menus too) go before the
         // count is cut.

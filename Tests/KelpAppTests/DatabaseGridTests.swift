@@ -82,23 +82,6 @@ import Testing
     #expect(tab.grid.edits.value(row: 0, column: 0) == .some("z"))
 }
 
-/// A header click with unsaved edits asks first; Cancel keeps the edits and the order the rows are in. Don't Save
-/// from the quit question drops them.
-@MainActor @Test func aSortAsksBeforeItDropsTheEdits() async throws {
-    let (tab, window) = editableTab([["a"], ["b"]])
-    window.orderFrontRegardless()   // a window never on screen gets no sheet
-    defer { window.orderOut(nil) }
-    tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
-    tab.grid.orders = [("note", true)]
-    tab.sorted(was: [])
-    #expect(try await waitFor(10) { window.attachedSheet != nil })
-    if let asked = window.attachedSheet { window.endSheet(asked, returnCode: .alertSecondButtonReturn) }   // Cancel
-    #expect(try await waitFor(10) { tab.grid.orders.isEmpty })
-    #expect(tab.grid.edits.count == 1 && tab.grid.rows.count == 2)
-    #expect(await UnsavedChanges.settle([tab], .alertThirdButtonReturn))   // Don't Save
-    #expect(!tab.isEdited)
-}
-
 /// Opening the details takes their width from the rows, never from the window: a window too narrow for the foot's
 /// buttons beside them keeps its size.
 @MainActor @Test func theDetailsTakeTheirWidthFromTheRows() {
@@ -202,4 +185,97 @@ import Testing
     #expect(!tab.indexesBox.isHidden && tab.indexesText.stringValue == "orders_status (status, placed_at)")
     tab.showPart(0)
     #expect(try await waitFor { tab.indexesBox.isHidden })
+}
+
+/// A row's number says, besides its colour, what saving does to it (• edited, − deleted, + new), and VoiceOver hears
+/// that and an agent's change too.
+@MainActor @Test func aRowsNumberSaysWhatHappensToIt() {
+    let (grid, window) = editableGrid([["a"], ["b"], ["c"], ["d"]])
+    defer { withExtendedLifetime(window) {} }
+    grid.edits.set(row: 0, column: 0, to: "z", was: "a")
+    grid.edits.toggleDeleted(1)
+    grid.marked = [2]
+    grid.addRow()
+    window.display()
+    let cases: [(row: Int, shown: String, said: String)] = [
+        (0, "• 1", "Row 1, changed"), (1, "− 2", "Row 2, to be deleted"), (2, "3", "Row 3, changed by an agent"),
+        (3, "4", "Row 4"), (4, "+", "New row")
+    ]
+    for (row, shown, said) in cases {
+        let cell = grid.table.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTextField
+        #expect(cell?.stringValue == shown && cell?.accessibilityLabel() == said, "row \(row)")
+    }
+}
+
+/// What only a right click did has keys too: Set to NULL on the cell being typed in, Duplicate Row on the rows picked;
+/// Undo This Change is for an agent's finished change only. The filter's fields have names for VoiceOver.
+@MainActor @Test func rightClickItemsHaveKeys() throws {
+    let (grid, window) = editableGrid([["a"]])
+    defer { withExtendedLifetime(window) {} }
+    grid.table.editColumn(1, row: 0, with: nil, select: true)
+    grid.setTypingToNull()
+    #expect(grid.edits.value(row: 0, column: 0) == .some(nil))
+    grid.table.selectRowIndexes([0], byExtendingSelection: false)
+    grid.duplicateSelected()
+    #expect(grid.edits.added == [["a"]])
+    func run(_ session: String?, _ state: DatabaseRun.State, changed: Int?) -> DatabaseRun {
+        DatabaseRun(id: "r", database: "shop", sql: "UPDATE t", session: session, at: Date(), state: state, changed: changed)
+    }
+    #expect(DatabaseTab.undoable(run("s1", .done, changed: 2)))
+    for other in [run(nil, .done, changed: 2), run("s1", .failed, changed: nil), run("s1", .done, changed: 0)] {
+        #expect(!DatabaseTab.undoable(other))
+    }
+    let filters = DatabaseFilters()
+    filters.use(columns: ["a"], engine: .sqlite)
+    func controls(_ v: NSView) -> [NSControl] { [v as? NSControl].compactMap { $0 } + v.subviews.flatMap(controls) }
+    for control in controls(filters.view) where control is NSPopUpButton || type(of: control) == NSTextField.self {
+        #expect(control.accessibilityLabel()?.isEmpty == false, "\(control)")
+    }
+}
+
+/// The questions are sheets on the front window, so the tests that answer one take turns.
+extension OneAtATime {
+    /// A header click with unsaved edits asks first; Cancel keeps the edits and the order the rows are in. Don't Save
+    /// from the quit question drops them.
+    @Test func aSortAsksBeforeItDropsTheEdits() async throws {
+        let (tab, window) = editableTab([["a"], ["b"]])
+        window.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { window.orderOut(nil) }
+        tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
+        tab.grid.orders = [("note", true)]
+        tab.sorted(was: [])
+        #expect(try await waitFor(10) { window.attachedSheet != nil })
+        if let asked = window.attachedSheet { window.endSheet(asked, returnCode: .alertSecondButtonReturn) }   // Cancel
+        #expect(try await waitFor(10) { tab.grid.orders.isEmpty })
+        #expect(tab.grid.edits.count == 1 && tab.grid.rows.count == 2)
+        #expect(await UnsavedChanges.settle([tab], .alertThirdButtonReturn))   // Don't Save
+        #expect(!tab.isEdited)
+    }
+
+    /// ⌫ on a saved query forgets it, once asked.
+    @Test func deleteForgetsASavedQueryAfterAsking() async throws {
+        let sidebar = DatabaseSidebar(app: AppModel(builtins: []))
+        let shown = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400), styleMask: [.titled], backing: .buffered, defer: true)
+        shown.contentView = sidebar.view
+        shown.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { shown.orderOut(nil) }
+        var forgot: [DatabaseSidebar.SavedQuery] = []
+        sidebar.onForget = { forgot.append($0) }
+        sidebar.part.selectedSegment = 1   // Queries
+        sidebar.saved = [.init(name: "big", sql: "SELECT 1")]
+        sidebar.list.selectRowIndexes([1], byExtendingSelection: false)   // under New Query
+        let delete = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: shown.windowNumber,
+                context: nil, characters: "\u{7f}", charactersIgnoringModifiers: "\u{7f}", isARepeat: false, keyCode: 51))
+        sidebar.list.keyDown(with: delete)
+        let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
+        #expect(sidebar.list.selectedRow == 1)
+        #expect(try await waitFor { asking() != nil })
+        if let window = asking(), let asked = window.attachedSheet {
+            window.endSheet(asked, returnCode: .alertFirstButtonReturn)
+        }
+        #expect(try await waitFor { forgot.map(\.name) == ["big"] })
+    }
 }

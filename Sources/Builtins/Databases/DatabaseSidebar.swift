@@ -19,7 +19,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     let view = NSView()
-    private let part = CapsuleSegments(
+    let part = CapsuleSegments(
         labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")],
         name: String(localized: "Show"))
     private let search = NSSearchField()
@@ -75,6 +75,11 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         list.onReturn = { [weak self] in   // ↑ ↓ pick a row, and Return does what its click does
             guard let self else { return }
             activate(list.selectedRow)
+        }
+        list.onDelete = { [weak self] in   // ⌫ forgets a saved query, after asking
+            guard let self, rows.indices.contains(list.selectedRow), case .saved(let query) = rows[list.selectedRow]
+            else { return NSSound.beep() }
+            askToForget(query)
         }
         list.setDraggingSourceOperationMask(.copy, forLocal: false)
         schemaPicker.controlSize = .small
@@ -334,6 +339,17 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 }
 
 extension DatabaseSidebar: NSMenuDelegate {
+    func askToForget(_ query: SavedQuery) {
+        Task {
+            guard
+                await confirm(
+                    String(localized: "Forget \(query.name)?"), detail: String(localized: "This can’t be undone."),
+                    action: String(localized: "Forget"), destructive: true)
+            else { return }
+            onForget(query)
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard rows.indices.contains(list.clickedRow) else { return }
@@ -349,20 +365,10 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(query) }
             menu.add(String(localized: "Copy SQL")) { copyText(query.sql) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Forget…")) { [weak self] in
-                Task {
-                    guard
-                        await confirm(
-                            String(localized: "Forget \(query.name)?"),
-                            detail: String(localized: "This can’t be undone."),
-                            action: String(localized: "Forget"), destructive: true)
-                    else { return }
-                    self?.onForget(query)
-                }
-            }
+            menu.add(String(localized: "Forget…")) { [weak self] in self?.askToForget(query) }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
-            if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change can be put back
+            if DatabaseTab.undoable(run) {
                 menu.add(String(localized: "Undo This Change…")) { [weak self] in self?.onUndo(run) }
             }
             menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }

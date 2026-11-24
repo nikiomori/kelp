@@ -58,6 +58,13 @@ extension Builtins {
                 tabCommand(app, "databases.saveQuery", "Save Query…", shown: { $0.saveQuery }) { $0.keepQuery() },
                 tabCommand(app, "databases.showSQL", "Show SQL", shown: { $0.showSQL }) { $0.showEdits() },
                 tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() },
+                tabCommand(app, "databases.duplicateRow", "Duplicate Row", shown: { $0.addRow }) {
+                    $0.grid.duplicateSelected()
+                },
+                tabCommand(app, "databases.setNull", "Set to NULL", shown: { $0.addRow }) { $0.grid.setTypingToNull() },
+                tabCommand(app, "databases.undoChange", "Undo This Change…", shown: { $0.undoChange }) {
+                    $0.undoShownRun()
+                },
                 tabCommand(app, "databases.refresh", "Refresh Database", shown: { $0.reload }) { $0.refresh() },
                 tabCommand(app, "databases.details", "Details", shown: { $0.detailsToggle }) { $0.toggleDetails() },
                 tabCommand(app, "databases.previousRows", "Previous Rows", shown: { $0.previous }) { $0.turn(-1) },

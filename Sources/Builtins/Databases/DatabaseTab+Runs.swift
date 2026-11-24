@@ -211,6 +211,11 @@ extension DatabaseTab {
         changes.stringValue =
             edits == 0 ? "" : edits == 1 ? String(localized: "1 change") : String(localized: "\(edits) changes")
         for v in [save, discardButton, showSQL] { v.isHidden = edits == 0 }
+        if case .run(let id) = mode, let run = record(id) {
+            undoChange.isHidden = !Self.undoable(run)
+        } else {
+            undoChange.isHidden = true
+        }
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
         if let agent {   // the title stays short; the count is the selection on screen, and in the tooltip
