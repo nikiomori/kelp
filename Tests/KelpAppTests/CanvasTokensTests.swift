@@ -50,8 +50,9 @@ import Testing
     let context = try #require(JSContext())
     context.evaluateScript(
         """
-        var window = { kelpCanvas: { frames: [] }, kelpProps: {} };
-        var document = { createElement: () => ({ style: {} }), body: { matches: () => false } };
+        const node = () => ({ style: {}, dataset: {}, classList: { toggle() {} }, children: [], append() {} });
+        var window = { kelpCanvas: { frames: [], el: node }, kelpProps: {} };
+        var document = { createElement: node, body: { matches: () => false }, querySelector: () => null };
         """)
     context.evaluateScript(CanvasEditMore.source(labels: [:]))
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")

@@ -122,6 +122,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
             var m = ArtifactMark(id: 10, kind: .element, board: "boards/A.html", target: "[data-id=t]", note: "cut off")
             m.inState = "error"
             m.width = 390
+            m.language = "longer"
             return m
         }()
     ]
@@ -143,7 +144,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
             #7 motion.html area 250,168,0,0 labelled «closer» at 1.20 s: look at this
             #8 boards/A.html [data-id=hero] (you asked: «Screenshot or drawing?») (example: .kelp/artifacts/home/marks/8-ref.png): like this
             #9 boards/A.html .card (every element like it, on every board): softer
-            #10 boards/A.html [data-id=t] in state «error» at 390px wide: cut off
+            #10 boards/A.html [data-id=t] in state «error» at 390px wide with its text 40% longer: cut off
             Edited by the user since version 5, keep these:
               boards/A.html [data-id=cta] text «Start» → «Go»
               boards/A.html [data-id=sub] font-size none → small

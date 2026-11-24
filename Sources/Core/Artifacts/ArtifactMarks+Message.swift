@@ -28,6 +28,9 @@ extension ArtifactMarks {
             if let time = m.time { what.append(String(format: "at %.2f s", time)) }
             if let state = m.inState { what.append("in state «\(state)»") }
             if let width = m.width { what.append("at \(width)px wide") }
+            if let language = m.language {
+                what.append(language == "rtl" ? "laid out right to left" : "with its text 40% longer")
+            }
             if let asked = m.asked { what.append("(you asked: «\(asked)»)") }
             if let reference = m.reference { what.append("(example: \(folder)/\(reference))") }
             if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }

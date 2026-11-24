@@ -70,6 +70,7 @@ enum CanvasScript {
           let left = frames.length;
           function done() {
             const out = known.slice();
+            faults.length = 0;
             for (const f of frames) check(f, out);
             for (const more of window.kelpCheckMore || []) more(out);   // the boards' widths, their flow
             fit();
@@ -78,6 +79,7 @@ enum CanvasScript {
             dispatchEvent(new CustomEvent('kelp-check'));
             webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: issues });
           }
+          window.kelpRecheck = () => setTimeout(done, 50);   // the boards drawn differently (another language)
           if (!left) {
             fit();
             window.kelpIssues = known;

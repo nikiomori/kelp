@@ -426,6 +426,10 @@
           "kind" : {
             "$ref" : "#/components/schemas/ArtifactMark.Kind"
           },
+          "language" : {
+            "description" : "The language view it was made in: `longer` (text 40% longer) or `rtl` (right to left).",
+            "type" : "string"
+          },
           "like" : {
             "description" : "The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.",
             "type" : "string"

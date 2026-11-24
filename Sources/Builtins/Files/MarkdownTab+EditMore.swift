@@ -24,7 +24,10 @@ extension MarkdownTab {
             "mark": String(localized: "Mark It"), "asDrawn": String(localized: "As Drawn"),
             "drag": String(localized: "Drag to see it at any width"), "flow": String(localized: "Flow"),
             "goesTo": String(localized: "Goes To"), "nowhere": String(localized: "Nowhere"),
-            "toAgent": String(localized: "To the Agent"),
+            "toAgent": String(localized: "To the Agent"), "asIs": String(localized: "As Is"),
+            "longer": String(localized: "+40%"), "rtl": String(localized: "RTL"),
+            "longerTip": String(localized: "Text 40% longer, as in German or Finnish"),
+            "rtlTip": String(localized: "Right to left, as in Arabic or Hebrew"),
             "needsScreen": String(localized: "Needs a screen after this: what happens when it's pressed?")
         ]
     }

@@ -33319,6 +33319,56 @@
           }
         }
       }
+    },
+    "As Is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
+    },
+    "+40%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+40 %"
+          }
+        }
+      }
+    },
+    "RTL": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RTL"
+          }
+        }
+      }
+    },
+    "Text 40% longer, as in German or Finnish": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст на 40 % длиннее, как в немецком или финском"
+          }
+        }
+      }
+    },
+    "Right to left, as in Arabic or Hebrew": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справа налево, как в арабском или иврите"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
