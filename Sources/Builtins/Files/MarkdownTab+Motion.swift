@@ -14,6 +14,7 @@ extension MarkdownTab {
     func makeMotionStudio() -> MotionStudio {
         let made = MotionStudio { [weak self] call in self?.runJS(call) }
         made.onExport = { [weak self] options in self?.exportVideo(options) }
+        made.onSaveFrame = { [weak self] in self?.saveFrame() }
         made.onChoose = { [weak self] id in self?.chooseOnStage(id) }
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
@@ -249,7 +250,7 @@ extension MarkdownTab {
             let fps = options.rate, frames = Int(((span.upperBound - span.lowerBound) * fps).rounded(.up))
             let (w, h) = (Int(stage[4] * options.scale), Int(stage[5] * options.scale))
             let movie = options.format == .gif ? nil : try MotionMovie(to, width: w, height: h, options: options)
-            let gif = options.format == .gif ? try MotionGIF(to, frames: frames + 1, fps: fps) : nil
+            let gif = options.format == .gif ? try MotionGIF(to, frames: frames + 1, fps: fps, once: options.once) : nil
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(x: stage[0], y: stage[1], width: stage[2], height: stage[3])
             // The picture is the size asked for in pixels, however small the pane shows the stage.
@@ -259,9 +260,10 @@ extension MarkdownTab {
                 motionStudio.exporting(frame, of: frames)
                 item.progress = Double(frame) / Double(max(frames, 1))
                 let at = Double(frame) / fps
+                // The first frame is the cover's, when one is chosen.
+                let shown = frame == 0 ? options.cover ?? span.lowerBound : span.lowerBound + at
                 _ = try await web.callAsyncJavaScript(
-                    "return await window.kelpMotion.frameAt(at)", arguments: ["at": span.lowerBound + at],
-                    contentWorld: Self.world)
+                    "return await window.kelpMotion.frameAt(at)", arguments: ["at": shown], contentWorld: Self.world)
                 guard let picture = try await framePicture(config, transparent: options.format == .mov, w, h)
                 else { continue }
                 try await movie?.add(picture, at: at)

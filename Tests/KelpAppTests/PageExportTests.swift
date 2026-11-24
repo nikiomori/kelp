@@ -133,3 +133,25 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     let bars = MarkdownTab.loudness(all, rate: rate)
     #expect(bars.count == 20 && bars[0] > 0.45 && bars[19] == 0)
 }
+
+/// A GIF made to play again and again says so (a loop count of 0); one made to play once has none, which reads as
+/// one play.
+@Test func aGIFLoopsOrPlaysOnce() throws {
+    let context = try #require(
+        CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let frame = try #require(context.makeImage())
+    for once in [false, true] {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-\(UUID().uuidString).gif")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let gif = try MotionGIF(url, frames: 2, fps: 10, once: once)
+        gif.add(frame)
+        gif.add(frame)
+        try gif.finish()
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let gifInfo = (CGImageSourceCopyProperties(source, nil) as? [CFString: Any])?[kCGImagePropertyGIFDictionary]
+        let count = (gifInfo as? [CFString: Any])?[kCGImagePropertyGIFLoopCount] as? Int
+        #expect(count == (once ? 1 : 0), "once: \(once)")   // ImageIO reads no loop count as one play
+    }
+}

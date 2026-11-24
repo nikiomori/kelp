@@ -13,6 +13,9 @@ struct MotionExport: Equatable {
     var format = Format.mp4, fps = 30.0, scale = 1.0, quality = Quality.best
     /// The work area, when one is set, and whether the video is only that.
     var range: ClosedRange<Double>?, onlyRange = false
+    /// A GIF that plays once rather than again and again; the second whose frame opens the video, as its cover (what
+    /// a messenger shows before it plays), in place of its first.
+    var once = false, cover: Double?
 
     var type: UTType { format == .gif ? .gif : format == .mov ? .quickTimeMovie : .mpeg4Movie }
     /// The frames a second the file is made at.
@@ -37,7 +40,11 @@ final class MotionExportPopover: NSObject {
     private let rate = CapsuleSegments(labels: MotionExport.rates.map { "\(Int($0))" })
     private let size: CapsuleSegments
     private let onlyRange = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let loops = CapsuleSegments(labels: [String(localized: "Forever"), String(localized: "Once")])
+    private let cover = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let go: (MotionExport) -> Void
+    /// The second shown now, which Cover takes; and Save Frame as PNG…, which saves it.
+    var now = 0.0, onSaveFrame: (() -> Void)?
 
     init(
         _ options: MotionExport, stage: (width: Int, height: Int), recent: [MotionExports.Item],
@@ -59,7 +66,9 @@ final class MotionExportPopover: NSObject {
         quality.selectedSegment = MotionExport.Quality.allCases.firstIndex(of: options.quality) ?? 0
         movNote.isHidden = options.format != .mov
         quality.isEnabled = options.format == .mp4
-        for control in [format, rate, size, quality] {
+        loops.selectedSegment = options.once ? 1 : 0
+        loops.isEnabled = options.format == .gif
+        for control in [format, rate, size, quality, loops] {
             control.target = self
             control.action = #selector(changed)
         }
@@ -67,7 +76,8 @@ final class MotionExportPopover: NSObject {
         var parts: [NSView] = []
         for (name, control) in [
             (String(localized: "Format"), format), (String(localized: "Frame Rate"), rate),
-            (String(localized: "Size"), size), (String(localized: "Quality"), quality)
+            (String(localized: "Size"), size), (String(localized: "Quality"), quality),
+            (String(localized: "GIF Plays"), loops)
         ] {
             control.controlSize = .small
             let label = NSTextField.label(
@@ -80,7 +90,8 @@ final class MotionExportPopover: NSObject {
         export.controlSize = .regular
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let foot = NSStackView(views: [spacer, export])   // the main button at the trailing edge
+        let still = NSButton(title: String(localized: "Frame as PNG…"), target: self, action: #selector(saveFrame))
+        let foot = NSStackView(views: [still, spacer, export])   // the main button at the trailing edge
         if let range = options.range {
             onlyRange.title = String(
                 format: String(localized: "Only the Work Area (%.1f–%.1f s)"), range.lowerBound, range.upperBound)
@@ -89,6 +100,11 @@ final class MotionExportPopover: NSObject {
             onlyRange.action = #selector(changed)
             parts += [onlyRange]
         }
+        cover.title = String(format: String(localized: "Open with the Frame at %.2f s as Its Cover"), now)
+        cover.state = options.cover != nil ? .on : .off
+        cover.target = self
+        cover.action = #selector(changed)
+        parts += [cover]
         parts.insert(movNote, at: 2)
         let list = MotionExports.list(recent)
         let stack = NSStackView(views: parts + [foot] + list)
@@ -114,6 +130,11 @@ final class MotionExportPopover: NSObject {
     /// The popover's width, as the system's are.
     static let width: CGFloat = 300
 
+    @objc private func saveFrame() {
+        popover.performClose(nil)
+        onSaveFrame?()
+    }
+
     @objc private func go(_ sender: Any?) {
         popover.performClose(nil)
         go(options)
@@ -127,6 +148,9 @@ final class MotionExportPopover: NSObject {
         options.fps = MotionExport.rates[max(rate.selectedSegment, 0)]
         options.scale = size.selectedSegment == 1 ? 2 : 1
         options.onlyRange = onlyRange.state == .on
+        options.once = loops.selectedSegment == 1
+        loops.isEnabled = options.format == .gif
+        options.cover = cover.state == .on ? now : nil
     }
 }
 
@@ -135,13 +159,16 @@ final class MotionGIF {
     private let file: CGImageDestination
     private let delay: Double
 
-    init(_ url: URL, frames: Int, fps: Double) throws {
+    init(_ url: URL, frames: Int, fps: Double, once: Bool = false) throws {
         guard let made = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, frames, nil)
         else { throw CocoaError(.fileWriteUnknown) }
         file = made
         delay = 1 / fps
-        let loops = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]]
-        CGImageDestinationSetProperties(file, loops as CFDictionary)
+        // Again and again is a loop count of 0; once is no loop count at all.
+        if !once {
+            let loops = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]]
+            CGImageDestinationSetProperties(file, loops as CFDictionary)
+        }
     }
 
     func add(_ image: CGImage) {

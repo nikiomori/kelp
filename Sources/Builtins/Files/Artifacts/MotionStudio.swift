@@ -116,7 +116,7 @@ final class MotionStudio {
     /// The videos made from this page, newest first (`MotionExports`).
     var exports: [MotionExports.Item] = []
     private let act: (String) -> Void
-    var onExport: ((MotionExport) -> Void)?
+    var onExport: ((MotionExport) -> Void)?, onSaveFrame: (() -> Void)?
     /// A clip moved or trimmed on the timeline: as it was, as it is now, and its lane (0 for the scenes).
     var onClip: ((MotionTimeline.Clip, MotionTimeline.Clip, Int) -> Void)?
     /// The time shown, kept so the page comes back to it when it's drawn again.
@@ -275,6 +275,8 @@ final class MotionStudio {
             act("window.kelpMotion?.setFPS(\(fps))")
             onExport?(options)
         }
+        popover.now = at
+        popover.onSaveFrame = { [weak self] in self?.onSaveFrame?() }
         exportPopover = popover
         popover.show(below: export)
     }

@@ -33419,6 +33419,66 @@
           }
         }
       }
+    },
+    "Forever": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По кругу"
+          }
+        }
+      }
+    },
+    "Once": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один раз"
+          }
+        }
+      }
+    },
+    "GIF Plays": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GIF играет"
+          }
+        }
+      }
+    },
+    "Frame as PNG…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадр как PNG…"
+          }
+        }
+      }
+    },
+    "Open with the Frame at %.2f s as Its Cover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать с кадра на %.2f с как с обложки"
+          }
+        }
+      }
+    },
+    "Couldn’t save the frame: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить кадр: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
