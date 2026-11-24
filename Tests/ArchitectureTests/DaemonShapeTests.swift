@@ -5,10 +5,14 @@ import Testing
 @Test func theDaemonsAsyncFunctionsRunNoProgramOnThePool() throws {
     // Straight in an async function, a program runs on one of Swift's few pool threads (a sync handler is offloaded
     // whole). Finding a program on the login PATH, or reading that PATH (`childPath`), may run the login shell, for seconds.
+    // So does any function of GitKit's or Integrations' that runs git, gh or ssh: all of theirs but the ones that only
+    // read what they're given (`Git.isDirty(_:in:)`, a type's init).
     let blocking = try NSRegularExpression(
-        pattern: #"LoginPath\.(resolve\(|value\b)|\bchildPath\b|(?<!await )Subprocess\.run\("#)
+        pattern: #"LoginPath\.(resolve\(|value\b)|\bchildPath\b|(?<!await )Subprocess\.(run|checked|output)\("#
+            + #"|\b(?:Git|GitHub|GitLab|CIRuns|ProjectFiles|HostRepo|RepoFilters|BitbucketClient)\.(?!isDirty\([^)]*\bin:)[a-z]\w*\("#
+    )
     let off = try NSRegularExpression(
-        pattern: #"(offloads?\.run|\boffload|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\{"#)
+        pattern: #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
     let asyncFunc = try NSRegularExpression(pattern: #"\bfunc\b[^{]*?\basync\b[^{]*\{"#)
     func block(_ s: [Character], from start: Int) -> Int {   // the index past the brace that closes the one before start
         var depth = 1, i = start
@@ -72,4 +76,64 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
         end = text.index(after: end)
     }
     return end
+}
+
+/// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it
+/// runs reads KELP_HOME's folders from the environment, keeps state in a static or opts out of the isolation checks. Two
+/// daemons in one process (tests) shared those, and the one set last won. (GitKit runs git on a remote project's host
+/// only when it's given the daemon's `Remotes`: no GitKit function has a default for it, so the compiler checks that.)
+@Test func theDaemonKeepsNoProcessGlobals() throws {
+    let modules = [
+        "Sources/Daemon", "Sources/Core", "Sources/GitKit", "Sources/LSPKit", "Sources/Agents", "Sources/AgentData",
+        "Sources/Integrations"
+    ]
+    let files = sources(modules).map { (path: $0.path, code: codeOnly($0.text)) }
+    func found(_ pattern: String, in files: [(path: String, code: String)]) throws -> [(
+        path: String, code: String, at: Range<String.Index>
+    )] {
+        let re = try NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
+        return files.flatMap { f in
+            re.matches(in: f.code, range: NSRange(f.code.startIndex..., in: f.code)).compactMap { m in
+                Range(m.range, in: f.code).map { (f.path, f.code, $0) }
+            }
+        }
+    }
+    func named(_ hits: [(path: String, code: String, at: Range<String.Index>)]) -> [String] {
+        hits.map { "\($0.path):\($0.code[..<$0.at.lowerBound].filter { $0 == "\n" }.count + 1)" }
+    }
+    let unsafe = try found(#"nonisolated\(unsafe\)"#, in: files)
+    let statics = try found(#"\bstatic var \w+(?:\s*:\s*[^={\n]+)?\s*="#, in: files)
+    let home = try found(
+        #"\bPaths\.(?:root|socket|agents|extensions|agentSkills|scratch)\b(?!\(in:)|\bfunc daemonError\(in root: URL ="#,
+        in: files.filter { $0.path != "Sources/Core/System/Paths.swift" })
+    #expect(named(unsafe) == [], "nonisolated(unsafe)")
+    #expect(named(statics) == [], "state in a static var")
+    #expect(named(home) == [], "KELP_HOME's folders from the environment")
+    // A `let` that holds a lock is state too, a static's or a file's. Each says why every daemon in a process may share it.
+    let shared: [String: String] = [
+        "Sources/Integrations/HostRepo.swift: known": "a remote folder's GitHub repository, keyed by the folder's path",
+        "Sources/Integrations/HostRepo.swift: reading": "one read of a folder's origin at a time, whoever asks",
+        "Sources/GitKit/Git.swift: cache": "a repository's filter names, keyed by its config and read again when it changes",
+        "Sources/GitKit/Snapshot.swift: indexFiles": "a folder's index file, keyed by its path and asked again once gone",
+        "Sources/GitKit/LineStats.swift: lineCounts": "a file's line count, keyed by its path, size and date",
+        "Sources/GitKit/Files.swift: searching":
+            "the search box's rg in each folder, keyed by the folder: a newer search there stops it, whoever started it",
+        "Sources/Core/Extensions/ExtensionFiles.swift: digests":
+            "an extension folder's digest, keyed by its path and its files' stats",
+        "Sources/Core/Artifacts/ArtifactMarks.swift: lock":
+            "one change at a time to a page's marks file, which is one file whichever daemon writes it",
+        "Sources/Core/System/Subprocess.swift: running": "the programs this process started: a fact of the process itself",
+        "Sources/AgentData/ClaudeBuiltIns.swift: known": "the skills built into the Claude Code on this Mac, the same for all",
+        "Sources/AgentData/ClaudeContext.swift: usages": "a transcript's context usage, keyed by its path, size and date",
+        "Sources/AgentData/Usage.swift: rollouts": "a Codex rollout's limits, keyed by its path, size and date"
+    ]
+    let locks = try found(
+        #"(?:\bstatic |^(?:(?:private|fileprivate|public|package) )?)let (\w+)\s*[:=]\s*(?:OSAllocatedUnfairLock|Mutex|NSCache|NSLock|NSRecursiveLock|Atomic\w*|StatMemo)\b"#,
+        in: files)
+    let held = Set(
+        locks.map { hit in
+            "\(hit.path): \(hit.code[hit.at].firstMatch(of: /let (\w+)/).map { String($0.1) } ?? "")"
+        })
+    #expect(held.subtracting(shared.keys).sorted() == [], "a lock outside an instance: say why every daemon may share it")
+    #expect(Set(shared.keys).subtracting(held).sorted() == [], "gone: take it off the list")
 }

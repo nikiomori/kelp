@@ -206,7 +206,7 @@ private final class AttemptChip: PointerControl {
         layer?.cornerRadius = Metrics.radiusXS
         isEnabled = false
         toolTip = String(localized: "Attempt \(attempt) of this run")
-        label.font = .ui(TextSize.caption, weight: .medium)
+        label.font = .ui(TextSize.micro, weight: .medium)   // a chip's words
         label.textColor = .secondaryLabelColor
         pin(label, inset: NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4))
         setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -215,5 +215,13 @@ private final class AttemptChip: PointerControl {
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    private func show() { label.stringValue = compact ? "↻ \(attempt)" : String(localized: "attempt \(attempt)") }
+    /// Narrow, the word gives way to Re-run's symbol, drawn rather than typed as "↺".
+    private func show() {
+        if compact {
+            label.attributedStringValue = .signed(
+                "arrow.counterclockwise", attempt, size: TextSize.micro, color: .secondaryLabelColor)
+        } else {
+            label.stringValue = String(localized: "attempt \(attempt)")
+        }
+    }
 }

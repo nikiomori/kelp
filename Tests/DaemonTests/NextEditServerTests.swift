@@ -15,7 +15,7 @@ struct NextEditServerTests {
     }
 
     static func standIn(healthy: Bool) throws -> StandIn {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("next-edit-\(UUID().uuidString)")
+        let folder = tmp().appendingPathComponent("next-edit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let script = folder.appendingPathComponent("llama-server")
         let body =
@@ -39,11 +39,16 @@ struct NextEditServerTests {
         return StandIn(command: script.path, notes: folder)
     }
 
+    /// A start of the healthy stand-in that hangs ends in a failed answer the test reports, not in a silent wait till
+    /// the product's 15 minutes run out.
+    static let startLimit = Duration.seconds(10 * testSlowness)
+
     static func alive(_ pid: pid_t) -> Bool { kill(pid, 0) == 0 && !Subprocess.isZombie(pid) }
 
     @Test func itStartsAndGoesWhenUnaskedOrStopped() async throws {
         let stand = try Self.standIn(healthy: true)
-        let server = NextEditServer(command: stand.command, idleDelay: .milliseconds(300), notes: stand.notes)
+        let server = NextEditServer(
+            command: stand.command, idleDelay: .milliseconds(300), startLimit: Self.startLimit, notes: stand.notes)
         #expect(await server.start(Slots(1)) == SuggestAnswer())
         let first = try #require(stand.pid)
         try await waitFor { !Self.alive(first) }   // unasked for its idle delay: stopped
@@ -56,7 +61,7 @@ struct NextEditServerTests {
 
     @Test func aMemoryWarningStopsItAndNoAskStartsItTillMemoryIsBack() async throws {
         let stand = try Self.standIn(healthy: true)
-        let server = NextEditServer(command: stand.command, notes: stand.notes)
+        let server = NextEditServer(command: stand.command, startLimit: Self.startLimit, notes: stand.notes)
         #expect(await server.start(Slots(1)) == SuggestAnswer())
         let pid = try #require(stand.pid)
         server.memory(.warning)
@@ -68,7 +73,7 @@ struct NextEditServerTests {
 
     /// Without the start's deadline this one never ends: the limit is wide, as under Thread Sanitizer in CI a daemon
     /// test can wait minutes for a thread before it runs.
-    @Test(.timeLimit(.minutes(5))) func aStartThatTakesTooLongIsEndedAndNotTriedAgainAtOnce() async throws {
+    @Test(.timeLimit(minutes: 5)) func aStartThatTakesTooLongIsEndedAndNotTriedAgainAtOnce() async throws {
         let stand = try Self.standIn(healthy: false)
         let server = NextEditServer(
             command: stand.command, startLimit: .milliseconds(700), retryDelay: 3600, notes: stand.notes)
@@ -82,7 +87,7 @@ struct NextEditServerTests {
     }
 
     @Test func aServerLeftByAKelpdThatDiedIsEndedAtTheNextStart() async throws {
-        let notes = FileManager.default.temporaryDirectory.appendingPathComponent("next-edit-\(UUID().uuidString)")
+        let notes = tmp().appendingPathComponent("next-edit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
         let left = Process()
         left.executableURL = URL(fileURLWithPath: "/bin/sleep")

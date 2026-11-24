@@ -11,7 +11,7 @@ import WorkbenchKit
 @MainActor
 enum BrowserMarks {
     /// Returns the browser mark on an agent's row. It is lit in the agent's colour for a while after the agent acted on
-    /// a page, grey while the page is only open, and in the accent colour while the user has the page. There is no mark
+    /// a page, grey while the page is only open or the user has it, and orange while it asks the user. There is no mark
     /// without a page. A click on the mark brings the page up. The dots of the agent's subagents that acted on a page
     /// lately are lit.
     static func row(_ row: SidebarItem.Kind, _ app: AppModel) -> [RowMark] {
@@ -19,16 +19,16 @@ enum BrowserMarks {
         let pages = AgentPages.of(app), own = pages.of(session: sid)
         guard let mark = pages.mark(for: sid), let first = own.first else { return [] }
         let lit = mark.holder == .agent ? mark.color : nil, title = first.page.title
-        let tip: String
+        let tip: String, tint: NSColor
         switch mark.holder {
-        case .user: tip = String(localized: "You have its page: \(title)")
-        case .asked: tip = String(localized: "It asks you on its page: \(title)")
-        case .agent where lit == nil: tip = String(localized: "Its page: \(title)")
-        case .agent: tip = String(localized: "Working in its page: \(title)")
+        case .user: (tip, tint) = (String(localized: "You have its page: \(title)"), .secondaryLabelColor)
+        case .asked: (tip, tint) = (String(localized: "It asks you on its page: \(title)"), .textOrange)
+        case .agent where lit == nil: (tip, tint) = (String(localized: "Its page: \(title)"), .secondaryLabelColor)
+        case .agent: (tip, tint) = (String(localized: "Working in its page: \(title)"), lit ?? .secondaryLabelColor)
         }
         return [
             RowMark(
-                .button, symbol: "safari", tint: mark.holder != .agent ? .themeAccent : lit ?? .secondaryLabelColor,
+                .button, symbol: "safari", tint: tint,
                 glow: lit, tip: tip, lights: pages.litSubagents(of: sid), lightColor: first.page.color
             ) { pages.show(first.id) }
         ]

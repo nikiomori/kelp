@@ -30,7 +30,7 @@ extension PaneView {
                     terminal.perform(action: "end_search")
                     self?.focus()
                 }
-                card.float(in: self, top: terminal, inset: NSSize(width: 14, height: 8))
+                card.float(in: self, top: terminal)
                 findBar = card
                 return card
             }()
@@ -39,8 +39,13 @@ extension PaneView {
 
     func searchEvent(_ event: GhosttyTerminalView.SearchEvent) {
         switch event {
-        case .started(let needle): showFind(needle)
-        case .ended: findBar?.isHidden = true
+        // Ghostty says so from inside its own binding action (Use Selection for Find), and the card searches and
+        // takes the focus, both calls back into the surface: so it shows after that call returns, as `overLink` does.
+        case .started(let needle): Task { @MainActor [weak self] in self?.showFind(needle) }
+        case .ended:
+            guard let bar = findBar, !bar.isHidden else { return }
+            bar.crossfade()   // it fades away, as when closed from the card
+            bar.isHidden = true
         case .total(let count): findBar?.total = count
         case .selected(let count): findBar?.selected = count
         }

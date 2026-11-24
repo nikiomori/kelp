@@ -14,7 +14,15 @@ final class NotebookTab: NSViewController {
     let url: URL, path: String, worktreeId: String?
     private let web = WKWebView()
     private let links: PreviewLinks
-    private let status = NSTextField(labelWithString: "")
+    /// What the tab is doing or what the notebook holds, a sentence that wraps in a narrow pane.
+    private let status = NSTextField.sentence("", font: .ui(TextSize.caption))
+    /// What the tab says when the notebook couldn't be read or isn't one.
+    private let empty = EmptyStateView()
+    /// Says the notebook is being read, once that has taken a second.
+    private let loading = LoadingView()
+    /// The agents' working ring while Run All runs: work that goes on by itself, maybe for hours.
+    private let ring = StatusMark(size: 12)
+    private lazy var run = TextButton(String(localized: "Run All"), target: self, action: #selector(runAll))
 
     init(app: AppModel, url: URL, path: String, worktreeId: String?) {
         links = PreviewLinks(app: app)
@@ -28,31 +36,49 @@ final class NotebookTab: NSViewController {
 
     override func loadView() {
         status.textColor = .secondaryLabelColor
-        status.font = .ui(TextSize.caption)
+        status.alignment = .right
         // Worded buttons carry no symbol (the design's rule for buttons with words).
         let bar = Bar.content(
             [
-                TextButton(String(localized: "Run All"), target: self, action: #selector(runAll)),
+                run,
                 TextButton(String(localized: "Open Kernel"), target: self, action: #selector(openKernel)),
                 TextButton(String(localized: "Ask Agent"), target: self, action: #selector(askAgent))
-            ], [status])
+            ], [status, ring], stretching: status)
         web.navigationDelegate = links
         view = stacked(bar, web)
-        reload()
+        empty.place(in: view, under: bar)
+        loading.place(in: view, under: bar)
+        // Rendered again in the editor's colours when the theme or the appearance changes them.
+        track(owner: self) { [app] in
+            app.themes.editorRevision
+        } changed: { [weak self] _ in
+            self?.reload()
+        }
     }
 
     /// Reads the notebook through the daemon (off the main thread, and refused past the size limit like any file
-    /// tab's file), then renders it.
+    /// tab's file), then renders it. A read that failed says why, with Try Again; a file that isn't a notebook says so.
     func reload() {
+        loading.wait(String(localized: "Reading the notebook…"))
         Task {
-            let data = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
+            let read = await app.tryCall(FilesRead(path: path))
+            await loading.settled()
+            loading.show(nil)
+            let data = read.value.map { Data($0.text.utf8) }
             guard let data, let body = NotebookHTML.render(data) else {
-                let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
-                links.load(
-                    EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web
-                )
+                web.isHidden = true
+                if let error = read.error {
+                    let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
+                    empty.showError(String(localized: "Couldn’t Read This Notebook"), text: error, buttons: [again])
+                } else {
+                    empty.showError(
+                        String(localized: "Can’t Show This Notebook"),
+                        text: String(localized: "It isn’t valid nbformat 4 JSON."))
+                }
                 return
             }
+            web.isHidden = false
+            empty.show(nil)
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
@@ -63,7 +89,7 @@ final class NotebookTab: NSViewController {
                 baseURL: url.deletingLastPathComponent(), scripts: [MarkdownHTML.math(for: body)].compactMap { $0 },
                 world: MarkdownTab.world, in: web)
             if let summary = NotebookHTML.summary(data) {
-                status.stringValue = String(localized: "\(summary.cells) cells · \(summary.language)")
+                status.say(String(localized: "\(summary.cells) cells · \(summary.language)"))
             }
         }
     }
@@ -79,7 +105,9 @@ final class NotebookTab: NSViewController {
 
     @objc private func runAll() {
         guard let jupyter = Self.jupyter() else { return Self.noJupyter() }
-        status.stringValue = String(localized: "Running…")
+        status.say(String(localized: "Running all cells…"))
+        ring.status = .working
+        run.isEnabled = false   // a second run would execute the same file over the first
         let file = url
         Task {
             // A notebook may compute for hours, so the timeout only catches one that never ends.
@@ -87,8 +115,10 @@ final class NotebookTab: NSViewController {
                 app, [jupyter, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
                 cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
             let msg = result.stderr.split(separator: "\n").last.map(String.init) ?? ""
+            ring.status = nil
+            run.isEnabled = true
             // What was asked failed: a banner with the error's mark, not a grey line in the bar.
-            status.stringValue = result.code == 0 ? String(localized: "Ran all cells") : ""
+            status.say(result.code == 0 ? String(localized: "Ran all cells") : "")
             if result.code != 0 { Banner.show(String(localized: "Couldn’t run the notebook: \(msg)"), style: .error) }
             reload()
         }
@@ -107,7 +137,7 @@ final class NotebookTab: NSViewController {
             else { return }
             app.upsert(session)   // the session's own event may have arrived first
             // Jupyter's URL arrives as a dev-server URL and opens in a browser tab
-            status.stringValue = String(localized: "Starting Jupyter Lab… it opens in the Browser tab")
+            status.say(String(localized: "Starting Jupyter Lab… it opens in the Browser tab"))
         }
     }
 

@@ -53,7 +53,7 @@ extension StripCard {
         icon.heightAnchor.constraint(equalToConstant: Metrics.appIcon).isActive = true
         let name = NSMutableAttributedString(
             string: place,
-            attributes: [.font: NSFont.ui(TextSize.caption, weight: .medium), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.labelColor])
         name.append(
             NSAttributedString(
                 string: " · " + app.catalog.displayName(session),
@@ -114,7 +114,7 @@ extension StripCard {
         label.preferredMaxLayoutWidth = inner
         let box = NSView()
         box.wantsLayer = true
-        box.layer?.cornerRadius = Metrics.radiusSM
+        box.layer?.cornerRadius = Metrics.radiusMD   // a block
         box.layer?.cornerCurve = .continuous
         box.effectiveAppearance.performAsCurrentDrawingAppearance {
             box.layer?.backgroundColor = NSColor.fillRest.cgColor

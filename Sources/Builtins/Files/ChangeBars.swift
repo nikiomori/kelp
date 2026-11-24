@@ -80,18 +80,38 @@ final class ChangeBars {
 
     private func show(_ mark: CodeEditor.ChangeMark, at: NSRect, in view: NSView) {
         guard hunks.indices.contains(mark.hunk) else { return }
-        let shown = hunks[mark.hunk], wid = worktree.id, file = file
+        let shown = hunks[mark.hunk]
         Task { [weak self] in
-            // Stage and Revert act on changes not staged yet, as `git.hunk` finds them, so the buttons use the hunk
-            // over the same lines in the unstaged diff.
-            let unstaged = await self?.app.quiet(GitDiff(id: wid, source: .unstaged, file: file))?.first?.hunks ?? []
+            let hunk = await self?.unstaged(shown)
             guard let self else { return }
-            let hunk = Self.counterpart(of: shown, in: unstaged)
             let popover = NSPopover()
             popover.behavior = .transient
             popover.contentViewController = ChangeCard(shown: shown, actions: buttons(hunk))
             card = popover
             popover.show(relativeTo: at, of: view, preferredEdge: .maxX)
+        }
+    }
+
+    /// Stage and Revert act on changes not staged yet, as `git.hunk` finds them, so they use the hunk over the same
+    /// lines as `shown` in the unstaged diff.
+    private func unstaged(_ shown: Hunk) async -> Hunk? {
+        let unstaged = await app.quiet(GitDiff(id: worktree.id, source: .unstaged, file: file))?.first?.hunks ?? []
+        return Self.counterpart(of: shown, in: unstaged)
+    }
+
+    /// Whether the caret's line has a change that Revert and Stage can act on (not while the buffer has edits, because
+    /// the file isn't what was diffed then).
+    var changeAtCursor: Bool {
+        !isEdited() && editor.changeAtCursor.map { hunks.indices.contains($0.hunk) } == true
+    }
+
+    /// Reverts the change on the caret's line (`revert`), or stages it, as the card's buttons do.
+    func actOnChangeAtCursor(revert: Bool) {
+        guard changeAtCursor, let mark = editor.changeAtCursor else { return NSSound.beep() }
+        let shown = hunks[mark.hunk]
+        Task { [weak self] in
+            guard let hunk = await self?.unstaged(shown), let self else { return }
+            if revert { self.revert(hunk) } else { stage(hunk) }
         }
     }
 
@@ -145,7 +165,7 @@ final class ChangeBars {
 
 /// The popover that shows a change: its lines in the diff's colours, and buttons for what can be done with it.
 final class ChangeCard: NSViewController {
-    private static let mostLines = 24, width: CGFloat = 460
+    private static let mostLines = 24, width = Metrics.codeCardWidth
     private let shown: Hunk, actions: [NSView]
     init(shown: Hunk, actions: [NSView]) {
         self.shown = shown
@@ -158,7 +178,7 @@ final class ChangeCard: NSViewController {
         let text = NSTextField(labelWithAttributedString: lines())
         text.maximumNumberOfLines = 0
         text.lineBreakMode = .byTruncatingTail
-        text.preferredMaxLayoutWidth = Self.width
+        text.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // the card is 440, as the docs card
         let bar = NSStackView(views: actions)
         bar.spacing = Metrics.gap
         let stack = NSStackView(views: [text, bar])
@@ -172,8 +192,7 @@ final class ChangeCard: NSViewController {
     }
 
     private func lines() -> NSAttributedString {
-        let font = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular),
-            out = NSMutableAttributedString()
+        let font = CodeEditor.font, out = NSMutableAttributedString()   // the editor's font, as the diff uses
         let changed = shown.lines.filter { $0.kind != .context }
         for line in changed.prefix(Self.mostLines) {
             let (sign, color): (String, NSColor) = line.kind == .add ? ("+ ", .textGreen) : ("- ", .textRed)

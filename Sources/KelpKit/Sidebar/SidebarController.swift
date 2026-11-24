@@ -234,9 +234,15 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in
             Values(
                 app.repos, app.worktrees, app.missingFolders, app.arrangement.order, app.arrangement.parked,
-                app.arrangement.parkedBack, app.extensions.all.servers != nil, app.themes.chromeText,
-                app.settings[SettingKeys.sidebarOrder])
+                app.arrangement.parkedBack, app.extensions.all.servers != nil, app.settings[SettingKeys.sidebarOrder])
         } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        // A cell sets most of its fonts when it is made, so a new Text size makes the cells again.
+        track(owner: self, now: false) { [app] in
+            app.themes.chromeText
+        } changed: { [weak self] _ in
+            self?.shape = []
             self?.refresh()
         }
         followSessions()

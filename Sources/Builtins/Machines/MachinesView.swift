@@ -5,16 +5,18 @@ import KelpKit
 import SwiftUI
 
 /// The sidebar's Machines block, above the plan limits. Its heading has a + (for a new machine: Linux, macOS, Android,
-/// iOS, or from a file), and is there while the Machines extension is on and there is a machine. Under it is each
-/// machine with its state in a word and a colour, its memory and what runs in it, and the agents with a command there.
-/// A click opens its tab; a right-click starts, sleeps or stops it.
+/// iOS, or from a file), and is there while the Machines extension is on, the block isn't hidden (Settings › Machines)
+/// and there is a machine. Under it is each machine with its state in a word and a colour, its memory and what runs in
+/// it, and the agents with a command there. A click opens its tab; a right-click starts, sleeps or stops it. The
+/// chevron folds the block to its heading, where each machine stays as its mark, in colour while it runs.
 struct MachinesView: View {
     let app: AppModel
     /// The list, watched while it's shown. The daemon reads the machines every 5 s, and every second while one starts.
     @State private var watched: Watched?
-    @State private var hovered: String?
     /// What + offers, read once rather than at every redraw, because it looks for an Android SDK and Xcode on disk.
     @State private var choices: [(title: String, image: String, missing: String?)] = []
+    /// Whether the block is folded to its heading: a view preference of this Mac.
+    @AppStorage("machines.folded") private var folded = false
 
     /// Made only while Machines is on (`Contributions.sidebarSections`). When it's off, nothing of it is drawn or
     /// watched.
@@ -27,16 +29,11 @@ struct MachinesView: View {
         let machines = Machines.machineList(app)
         return VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: 0)
-            if !machines.isEmpty {
+            if !machines.isEmpty, app.settings[SettingKeys.machinesInSidebar] {
                 Divider()
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: Metrics.gap) {
-                        Text("Machines").sectionTitle()
-                        Spacer(minLength: Metrics.gap)
-                        add
-                    }
-                    .frame(height: TextSize.of(Metrics.rowSection)).padding(.leading, Metrics.gap)
-                    ForEach(machines) { row($0) }
+                    heading(machines)
+                    if !folded { ForEach(machines) { row($0) }.transition(.opacity) }
                 }
                 .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
             }
@@ -51,6 +48,65 @@ struct MachinesView: View {
         .onDisappear { watched = nil }
     }
 
+    /// The chevron and title, which fold the block; folded, each machine's mark after them; the + at the end.
+    private func heading(_ machines: [VMInfo]) -> some View {
+        HStack(spacing: Metrics.gap) {
+            Button(action: fold) {
+                HStack(spacing: Metrics.gapTight) {
+                    Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(folded ? 0 : 90))
+                    Text("Machines").sectionTitle()
+                }
+            }
+            .buttonStyle(PointerButtonStyle(flush: true))
+            .accessibilityLabel(folded ? String(localized: "Expand Machines") : String(localized: "Collapse Machines"))
+            if folded {
+                HStack(spacing: Metrics.gapTight) { ForEach(machines) { chip($0) } }.transition(.opacity)
+            }
+            Spacer(minLength: Metrics.gap)
+            add
+        }
+        // As `SectionHeading` stands it: the line 4 pt over the row's bottom, the + centred on the title.
+        .padding(.bottom, 4)
+        .frame(height: TextSize.of(Metrics.rowSection), alignment: .bottom).padding(.leading, Metrics.gap)
+        .contextMenu { headingMenu }
+    }
+
+    /// The heading's right-click: fold, hide the block (Settings › Machines brings it back) or open its settings.
+    @ViewBuilder private var headingMenu: some View {
+        Button(folded ? String(localized: "Expand") : String(localized: "Collapse"), action: fold)
+        Divider()
+        Button(String(localized: "Hide Machines")) {
+            app.settings.set(SettingKeys.machinesInSidebar, false)
+            Banner.show(String(localized: "Machines are hidden. Settings › Machines brings them back."))
+        }
+        Button(String(localized: "Machines Settings…")) {
+            app.extensions.run("workbench.openSettings", ["section": .string("machines")])
+        }
+    }
+
+    /// Folds or unfolds the block: the chevron turns and the rows come and go as a fold does.
+    private func fold() {
+        withAnimation(Motion.reduced ? nil : .timingCurve(0.25, 0.8, 0.25, 1, duration: Motion.fold)) {
+            folded.toggle()
+        }
+    }
+
+    /// A machine in the folded heading: its mark, glowing in its colour while it runs. A click opens its tab, and a
+    /// right-click is its row's menu.
+    private func chip(_ vmInfo: VMInfo) -> some View {
+        let word = Machines.machineWord(vmInfo).text
+        return Button {
+            Machines.openMachine(app, vmInfo.machine.name)
+        } label: {
+            mark(vmInfo, size: Metrics.appIcon, symbol: Metrics.iconTiny)
+        }
+        .buttonStyle(PointerButtonStyle(flush: true))
+        .contextMenu { menu(vmInfo) }
+        .help("\(vmInfo.machine.name) — \(word)")
+        .accessibilityLabel("\(vmInfo.machine.name), \(word), \(Machines.machineLine(app, vmInfo))")
+    }
+
     /// The + menu: a new machine of each kind this Mac can run. A kind the Mac lacks something for is greyed out and
     /// says why.
     private var add: some View {
@@ -61,7 +117,7 @@ struct MachinesView: View {
             }
             Divider()
             Button(String(localized: "From a File…")) { Machines.machineFromFile(app) }
-                .help(String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk"))
+                .help(String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image’s raw disk"))
         } label: {
             Image(systemName: "plus").font(.symbol(Metrics.iconSmall))
         }
@@ -72,27 +128,50 @@ struct MachinesView: View {
 
     private func row(_ vmInfo: VMInfo) -> some View {
         let word = Machines.machineWord(vmInfo)
+        return Button {
+            Machines.openMachine(app, vmInfo.machine.name)
+        } label: {
+            line(vmInfo, word: word.text, wordColor: word.color)
+        }
+        .buttonStyle(PointerButtonStyle())   // the grey fill under the pointer, and the dip when pressed
+        .contextMenu { menu(vmInfo) }
+        .help(vmInfo.state == .error ? (vmInfo.detail ?? "") : Machines.machineLine(app, vmInfo))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(vmInfo.machine.name), \(word.text), \(Machines.machineLine(app, vmInfo))")
+    }
+
+    /// A machine's mark: its kind's symbol (a Linux image's letter) on its colour, grey while it sleeps or is off. The
+    /// small one in the folded heading glows in its colour while the machine runs.
+    private func mark(_ vmInfo: VMInfo, size: CGFloat, symbol: CGFloat) -> some View {
         let mark = VMImage.named(vmInfo.machine.image)?.mark ?? ("?", .systemGray)
-        let asleep = [.sleeping, .off, .error].contains(vmInfo.state)
-        return HStack(spacing: Metrics.gapWide) {
-            Group {
-                switch vmInfo.machine.kind {
-                case .macos: Image(systemName: "apple.logo").font(.ui(TextSize.row, weight: .semibold))
-                case .android: Image(systemName: "smartphone").font(.ui(TextSize.row, weight: .semibold))
-                case .ios: Image(systemName: "iphone").font(.ui(TextSize.row, weight: .semibold))
-                case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .semibold))
-                }
+        let asleep = [.sleeping, .off, .error].contains(vmInfo.state), small = size < Metrics.iconButton
+        return Group {
+            switch vmInfo.machine.kind {
+            case .macos: Image(systemName: "apple.logo").font(.symbol(symbol))
+            case .android: Image(systemName: "smartphone").font(.symbol(symbol))
+            case .ios: Image(systemName: "iphone").font(.symbol(symbol))
+            case .linux: Text(mark.letter).font(.ui(small ? TextSize.micro : TextSize.caption, weight: .semibold))
             }
-            .foregroundStyle(.white).frame(
-                width: Metrics.iconButton, height: Metrics.iconButton
-            )
-            .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
-            .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
+        }
+        .foregroundStyle(.white).frame(width: size, height: size)
+        .background(
+            RoundedRectangle(cornerRadius: small ? Metrics.radiusXS : Metrics.radiusSM).fill(Color(nsColor: mark.color))
+        )
+        .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
+        .shadow(color: small && !asleep ? Color(nsColor: mark.color) : .clear, radius: Metrics.iconGlow / 2)
+    }
+
+    /// The row's mark, its name and state, and its line under them.
+    private func line(_ vmInfo: VMInfo, word: String, wordColor: NSColor) -> some View {
+        HStack(spacing: Metrics.gapWide) {
+            mark(vmInfo, size: Metrics.iconButton, symbol: Metrics.iconSmall)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
                     Text(vmInfo.machine.name).font(.ui(TextSize.body)).lineLimit(1)   // as every name in the sidebar
-                    if vmInfo.state == .starting || vmInfo.state == .creating { ProgressView().controlSize(.mini) }
-                    Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color)).lineLimit(1)
+                    if vmInfo.state == .starting || vmInfo.state == .creating {
+                        StatusIcon(status: .working)   // the ring of an agent at work, still with Reduce Motion
+                    }
+                    Text(word).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: wordColor)).lineLimit(1)
                     Spacer(minLength: Metrics.gap)
                     faces(vmInfo)
                 }
@@ -104,20 +183,8 @@ struct MachinesView: View {
                     .truncationMode(.tail)
             }
         }
-        .padding(.horizontal, Metrics.gap).frame(height: TextSize.of(Metrics.rowTwoLine))
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(
-                hovered == vmInfo.id ? Color(nsColor: .fillHover) : .clear)
-        )
-        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
-        .contentShape(Rectangle())
-        .onHover { hovered = $0 ? vmInfo.id : (hovered == vmInfo.id ? nil : hovered) }
-        .onTapGesture { Machines.openMachine(app, vmInfo.machine.name) }
-        .contextMenu { menu(vmInfo) }
-        .help(vmInfo.state == .error ? (vmInfo.detail ?? "") : Machines.machineLine(app, vmInfo))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(vmInfo.machine.name), \(word.text), \(Machines.machineLine(app, vmInfo))")
-        .accessibilityAddTraits(.isButton)
+        // The style pads by gapTight itself, so the mark stays a gap in from the fill's edge.
+        .padding(.horizontal, Metrics.gap - Metrics.gapTight).frame(height: TextSize.of(Metrics.rowTwoLine))
     }
 
     /// The agents with a command running in the machine: their icons, overlapping.

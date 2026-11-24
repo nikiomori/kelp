@@ -40,8 +40,9 @@ final class LimitWatch {
         for alert in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
             let name = app.catalog.name(alert.agent)
             let content = UNMutableNotificationContent()
-            content.title = String(localized: "\(name) is at \(Int(alert.percent.rounded())) %")
-            content.body = alert.resets.map { String(localized: "\(alert.kind) · resets \($0)") } ?? alert.kind
+            content.title = String(localized: "\(name) is at \(Int(alert.percent.rounded()))%")
+            let limit = UsageView.label(alert.kind)   // "5 hours", not the key "session"
+            content.body = alert.resets.map { String(localized: "\(limit) · resets \($0)") } ?? limit
             content.sound = alert.level >= 95 ? .default : nil
             Notifications.notifyUser(app, "limit-\(alert.agent)-\(alert.kind)-\(alert.level)", content)
         }
@@ -101,7 +102,8 @@ final class LimitWatch {
             guard forecastTold.insert(key).inserted else { continue }
             let name = app.catalog.name(agent)
             let content = UNMutableNotificationContent()
-            content.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
+            let limit = UsageView.label(l.kind)   // "5 hours", not the key "session"
+            content.title = String(localized: "\(name) · \(limit): full in \(LimitForecast.duration(eta))")
             content.body = String(localized: "At this pace it fills before it resets.")
             Notifications.notifyUser(app, "forecast-\(key)", content)
         }
@@ -125,8 +127,8 @@ final class LimitWatch {
         let name = app.catalog.name(agent)
         let content = UNMutableNotificationContent()
         content.title = String(
-            localized: "\(name): \(Int((100 - limit.percent).rounded())) % of the \(limit.kind) limit left")
-        content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
+            localized: "\(name) · \(UsageView.label(limit.kind)): \(Int((100 - limit.percent).rounded()))% left")
+        content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn’t used by then is lost.")
         Notifications.notifyUser(app, "unused-\(key)", content)
     }
 }

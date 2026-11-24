@@ -3,16 +3,16 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The filter over a table's rows (⇧⌘F), like TablePro's. Each rule is a row of column ▾, condition ▾ and value, with
-/// a checkbox that turns the rule on and + and − buttons; Match all or any joins the rules. Choosing Raw SQL in the
-/// column list turns that row into a WHERE clause of its own. Apply (↩) reads the rows again with the filter.
+/// The filter over a table's rows (Filters), like TablePro's. Each rule is a row of column ▾, condition ▾ and value,
+/// with a checkbox that turns the rule on and + and − buttons; Match all or any joins the rules. Choosing Raw SQL in
+/// the column list turns that row into a WHERE clause of its own. Apply (↩) reads the rows again with the filter.
 @MainActor
 final class DatabaseFilters: NSObject, NSTextFieldDelegate {
     struct Rule: Equatable {
         var on = true, column = "", op = Condition.equal, value = ""
     }
     enum Condition: String, CaseIterable {
-        case equal = "=", notEqual = "≠", contains = "contains", notContains = "doesn't contain",
+        case equal = "=", notEqual = "≠", contains = "contains", notContains = "doesn’t contain",
             startsWith = "starts with", greater = ">", less = "<", isNull = "is NULL", isNotNull = "is not NULL",
             isIn = "in"
 
@@ -21,7 +21,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         var title: String {
             switch self {
             case .contains: String(localized: "contains")
-            case .notContains: String(localized: "doesn't contain")
+            case .notContains: String(localized: "doesn’t contain")
             case .startsWith: String(localized: "starts with")
             case .isNull: String(localized: "is NULL")
             case .isNotNull: String(localized: "is not NULL")

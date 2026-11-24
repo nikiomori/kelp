@@ -9,7 +9,7 @@ import Testing
 /// A Linux or macOS machine whose window is on screen is in use: kelpd's memory budget is told so, and a sleep it asks
 /// for (`if-idle`) is refused; the user's own sleep isn't.
 @MainActor @Test func aWindowOnScreenIsUseAndTheBudgetsSleepIsRefused() async throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: folder) }
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let linux = VMMachine(name: "box", os: "linux", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")
@@ -37,7 +37,7 @@ import Testing
 /// A child an earlier kelp-vm noted (and was killed before it ended it) is ended by the next one, SIGTERM ignored or
 /// not; a note whose process has gone, or whose pid is someone else's now, ends nothing.
 @MainActor @Test func aChildLeftByAKilledKelpVMIsEndedByTheNext() async throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: folder) }
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let child = try Process.run(URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "trap '' TERM; exec sleep 60"])
@@ -50,15 +50,18 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: note.path))
     // Another process under the noted pid (a start time that isn't the note's): left alone.
     let other = try Process.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["60"])
-    defer { other.terminate() }
+    defer { if other.isRunning { kill(other.processIdentifier, SIGKILL) } }
     try "\(other.processIdentifier) 1".write(to: note, atomically: true, encoding: .utf8)
     Lifecycle.endLeftover(in: folder, "emulator")
-    #expect(other.isRunning)
+    // Ended here, it dies of this SIGKILL; had the note ended it, of its SIGTERM.
+    kill(other.processIdentifier, SIGKILL)
+    other.waitUntilExit()
+    #expect(other.terminationReason == .uncaughtSignal && other.terminationStatus == SIGKILL)
 }
 
 /// The budget's sleep is refused by an Android machine whose window the user has; the user's own goes ahead.
 extension AndroidRuntimeOnAStandIn {
-    @Test(.timeLimit(.minutes(1))) func anAndroidWindowRefusesTheBudgetsSleep() async throws {
+    @Test(.timeLimit(minutes: 1)) func anAndroidWindowRefusesTheBudgetsSleep() async throws {
         let (vm, sdk, putAway) = try androidStandIn()
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .show)) == nil)
@@ -71,7 +74,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// A start kelpd answered is use until its command's adb comes: the budget's sleep in between is refused. Past
     /// `startWindow`, idle again.
-    @Test(.timeLimit(.minutes(1))) func aStartIsUseUntilItsCommandsAdbComes() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStartIsUseUntilItsCommandsAdbComes() async throws {
         let (vm, _, putAway) = try androidStandIn()
         defer { putAway() }
         var later: TimeInterval = 0
@@ -84,10 +87,8 @@ extension AndroidRuntimeOnAStandIn {
     }
 }
 
-/// A stand-in Android machine (`standIn`), and how to put it away: its emulator ended, its SDK removed, ANDROID_HOME
-/// as it was.
+/// A stand-in Android machine (`standIn`), and how to put it away: its emulator ended and its SDK removed.
 @MainActor func androidStandIn(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL, () -> Void) {
-    let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
     let (vm, sdk) = try standIn(booting: booting, adb: adb)
     return (
         vm, sdk,
@@ -99,7 +100,6 @@ extension AndroidRuntimeOnAStandIn {
             {
                 kill(pid, SIGKILL)
             }
-            if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") }
             try? FileManager.default.removeItem(at: sdk)
         }
     )

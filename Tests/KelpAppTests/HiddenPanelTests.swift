@@ -41,7 +41,7 @@ extension AppOfItsOwn {
         let git = SourceControlController(app: rig.app)
         rig.show(git, 320, 700)
         git.followWatches()
-        #expect(try await waitFor(5) { !git.changes.isEmpty })
+        #expect(try await waitFor { !git.changes.isEmpty })
         let key = try #require(git.gitKey), read = try #require(rig.app.latest(GitEvent.self, key))
         rig.app.land(GitEvent(worktree: key, error: "fatal: index file corrupt"))
         try await settle()
@@ -60,12 +60,12 @@ extension AppOfItsOwn {
             id: 1, title: "Fix", workflow: "CI", status: "completed", conclusion: "success", event: "push", url: "",
             createdAt: "")
         rig.app.land(CIEvent(worktree: key, result: CIRunsList.Result(branch: "main", runs: [run], workflows: [])))
-        #expect(try await waitFor(5) { runs.runs.count == 1 })
+        #expect(try await waitFor { runs.runs.count == 1 })
         rig.app.land(CIEvent(worktree: key, error: "HTTP 502"))
-        #expect(try await waitFor(5) { runs.failureBar.shown == "HTTP 502" })
+        #expect(try await waitFor { runs.failureBar.shown == "HTTP 502" })
         #expect(runs.runs.count == 1)
         rig.app.land(CIEvent(worktree: key, error: GitHub.noRemote))
-        #expect(try await waitFor(5) { runs.failureBar.shown == nil })
+        #expect(try await waitFor { runs.failureBar.shown == nil })
     }
 
     @Test func artifactsOutOfTheWindowRebuildWhenBack() async throws {
@@ -98,7 +98,7 @@ extension AppOfItsOwn {
         vc.view.isHidden = true
         rig.app.watch(.git, wid)   // as the Files panel or a diff tab would
         defer { rig.app.unwatch(.git, wid) }
-        #expect(try await waitFor(5) { rig.app.latest(GitEvent.self, wid)?.changes?.isEmpty == false })
+        #expect(try await waitFor { rig.app.latest(GitEvent.self, wid)?.changes?.isEmpty == false })
         try await settle()
         #expect(vc.changes.isEmpty)
         vc.view.isHidden = false
@@ -116,7 +116,7 @@ extension AppOfItsOwn {
         let panel = FilesPanel(app: rig.app)
         rig.show(panel, 300, 500)
         rig.app.land(FilesEvent(worktree: wid, paths: ["a.txt", "b.txt"], ignored: []))
-        #expect(try await waitFor(5) { panel.outline.numberOfRows == 2 })
+        #expect(try await waitFor { panel.outline.numberOfRows == 2 })
         try await steady(panel.outline)
         // A row's git letter: a row is drawn again in the cell it had (cells are used again), so it's read, not compared.
         @MainActor func letter(_ row: Int) -> String {
@@ -125,7 +125,7 @@ extension AppOfItsOwn {
         }
         let b = cell(panel.outline, 1)
         rig.app.land(GitEvent(worktree: wid, changes: [FileChange(path: "a.txt", index: ".", worktree: "M")]))
-        #expect(try await waitFor(5) { letter(0) == "M" })
+        #expect(try await waitFor { letter(0) == "M" })
         #expect(cell(panel.outline, 1) === b && letter(1).isEmpty)   // its badge didn't change: not drawn again
 
         try await steady(panel.outline)
@@ -151,13 +151,13 @@ extension AppOfItsOwn {
             ActivityEvent(usage: [.init(session: session.id, cpu: cpu, memory: 1000, processes: 2)])
         }
         rig.app.land(measured(1.21))
-        #expect(try await waitFor(5) { table.numberOfRows == 1 })
+        #expect(try await waitFor { table.numberOfRows == 1 })
         try await steady(table)
         let row = cell(table, 0)
         rig.app.land(measured(1.23))   // still "1.2%"
         try await settle()
         #expect(cell(table, 0) === row)
         rig.app.land(measured(5))
-        #expect(try await waitFor(5) { cell(table, 0) !== row })
+        #expect(try await waitFor { cell(table, 0) !== row })
     }
 }

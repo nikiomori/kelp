@@ -35,6 +35,12 @@ final class SyncPopover: NSViewController {
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView(), files = NSStackView()
+    /// Says when the commits behind the counts couldn't be read, with Try Again, under the button.
+    lazy var failure = FailureBar { [weak self] in
+        guard let self else { return }
+        listKey = ""   // read again, though nothing moved
+        update()
+    }
     /// The folder whose git and CI the popover shows (a workspace shares its project's), the one the branch chip reads.
     var folder: String { app.gitKey(wid) }
     let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
@@ -139,18 +145,22 @@ final class SyncPopover: NSViewController {
         root.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: side, bottom: Metrics.gapWide, right: side)
         root.setViews(
             [
-                head, state, ci, status, primary, outgoing, incoming, rules.0, changeHead, files, field, nothing,
+                head, state, ci, status, primary, failure, outgoing, incoming, rules.0, changeHead, files, field,
+                nothing,
                 hint, rules.1, footer
             ], in: .top)
         // One rhythm: 12 between parts, and 4 from a part's caption (or the standing line) to its rows.
         let gaps: [(NSView, CGFloat)] = [
-            (head, Metrics.lineGap), (state, 12), (ci, 12), (status, 12), (primary, 12), (outgoing, 12),
+            (head, Metrics.lineGap), (state, 12), (ci, 12), (status, 12), (primary, 12), (failure, 12), (outgoing, 12),
             (incoming, 12), (rules.0, 12), (changeHead, 4), (files, 8), (field, 12), (hint, 12), (rules.1, 4)
         ]
         for (part, gap) in gaps {
             root.setCustomSpacing(gap, after: part)
         }
-        for part in [state, status, primary, outgoing, incoming, changeHead, files, field, nothing, hint] as [NSView] {
+        failure.edgeInsets = NSEdgeInsets()   // its words keep to the popover's edge, as every other line
+        for part in [state, status, primary, failure, outgoing, incoming, changeHead, files, field, nothing, hint]
+            as [NSView]
+        {
             part.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         }
         for part in [head, footer] as [NSView] {

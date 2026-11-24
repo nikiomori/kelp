@@ -142,7 +142,7 @@ import os
 /// A read doesn't wait for a write in progress (a status change's fsync on a busy disk): reads come from connection
 /// reader threads and the cooperative pool, and used to queue behind every write.
 @Test func aReadDoesntWaitForAWrite() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("store-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("store-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let s = try Store(path: dir.appendingPathComponent("kelp.sqlite").path)
     _ = try s.save(Repo(name: "demo", path: "/tmp/demo"))
@@ -156,7 +156,7 @@ import os
     inWrite.wait()
     let read = DispatchSemaphore(value: 0)
     Thread.detachNewThread { if (try? s.repos().count) == 1 { read.signal() } }
-    #expect(read.wait(timeout: .now() + 2) == .success)
+    #expect(read.wait(timeout: .now() + 2 * testSlowness) == .success)
     release.signal()
 }
 

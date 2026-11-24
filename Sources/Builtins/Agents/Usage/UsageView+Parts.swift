@@ -36,6 +36,10 @@ extension UsageView {
         let row: Row
         let forecast: LimitForecast
         let pace: Bool
+        /// The kinds of the limits that have a bar in the sidebar's foot.
+        let bars: [String]
+        /// Shows or hides a limit's bar in the foot.
+        let toggle: (Line) -> Void
         /// Each limit gets its own bar, so the one that's running out shows at a glance.
         var body: some View {
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
@@ -60,6 +64,7 @@ extension UsageView {
                             Spacer()
                             Text(UsageView.percent(line.used)).monospacedDigit().fontWeight(.semibold).foregroundStyle(
                                 UsageView.textTint(line.used))
+                            eye(line)
                         }
                         let even = pace ? line.pace() : nil
                         Bar(used: line.used, pace: even)
@@ -79,7 +84,7 @@ extension UsageView {
                             let eta = forecast.warning(
                                 LimitForecast.key(row.id, line.kind), resetAt: line.resetAt, window: line.window)
                         {
-                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(
+                            Text("At this pace it’s full in \(LimitForecast.duration(eta)), before it resets.").font(
                                 .ui(TextSize.caption)
                             ).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -87,7 +92,7 @@ extension UsageView {
                             LimitForecast.unusedNearReset(
                                 percent: line.used * 100, resetAt: line.resetAt, window: line.window)
                         {
-                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(TextSize.caption))
+                            Text("Over half left; what isn’t used by the reset is lost.").font(.ui(TextSize.caption))
                                 .foregroundStyle(
                                     .secondary
                                 )
@@ -99,6 +104,23 @@ extension UsageView {
             .font(.ui(TextSize.row))
             .frame(width: 276, alignment: .leading)   // 300 with its padding, as the design's popovers are
             .padding(12)
+        }
+
+        /// The eye that shows or hides the limit's bar in the sidebar's foot, struck through while hidden. The last bar
+        /// can't be hidden: Hide Plan Limits hides the foot.
+        private func eye(_ line: Line) -> some View {
+            let on = bars.contains(line.kind)
+            let verb = on ? String(localized: "Hide in Sidebar") : String(localized: "Show in Sidebar")
+            return Button {
+                toggle(line)
+            } label: {
+                Image(systemName: on ? "eye" : "eye.slash").font(.symbol())
+                    .foregroundStyle(on ? .primary : .secondary)
+            }
+            .buttonStyle(PointerButtonStyle())
+            .disabled(on && bars.count == 1)
+            .help(verb).accessibilityLabel(verb)
+            .padding(.vertical, -4)   // the row keeps the text's height
         }
     }
 }

@@ -7,7 +7,7 @@ import Testing
 /// A cancelled call stops waiting at once: it used to wait out its timeout, and one without (`files.copy`, `process.run`)
 /// waited for good. One cancelled before it was sent isn't sent.
 @Test func aCancelledCallStopsWaiting() async throws {
-    let path = NSTemporaryDirectory() + "kelp-cancel-\(getpid()).sock"
+    let path = tmp().path + "/kelp-cancel-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -35,7 +35,7 @@ import Testing
 /// A write a daemon that stopped reading never took is cut off part way: the connection closes, so the next line isn't
 /// glued to half of this one and refused (or taken for something else) for good.
 @Test func aWriteThatGivesUpClosesTheConnection() async throws {
-    let path = NSTemporaryDirectory() + "kelp-cut-\(getpid()).sock"
+    let path = tmp().path + "/kelp-cut-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -49,13 +49,12 @@ import Testing
     client.notify("big", .string(String(repeating: "x", count: 8 << 20)))
     // A partial write after the 0.2 s send timeout, another 0.2 s, then as long a poll: under a second.
     #expect(try await waitFor(10) { closed.value })
-    #expect(closed.value)
 }
 
 /// A listener whose queue is full (a burst of clients while a new kelpd takes over) is tried again for a moment, not
 /// taken for nobody answering at once.
 @Test func aFullQueueIsTriedAgain() throws {
-    let path = NSTemporaryDirectory() + "kelp-q-\(getpid()).sock"
+    let path = tmp().path + "/kelp-q-\(getpid()).sock"
     unlink(path)
     let fd = socket(AF_UNIX, SOCK_STREAM, 0)
     var a = sockaddr_un()

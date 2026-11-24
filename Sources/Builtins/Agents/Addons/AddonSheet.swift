@@ -21,7 +21,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         backing: .buffered, defer: true)
     let field = NSTextField()
     let name = NSTextField()
-    let scope = CapsuleSegments()
+    let scope = CapsuleSegments(labels: [], name: String(localized: "Where It Works"))
     /// The boxes that show what Kelp read and who gets it, rebuilt as the field changes.
     let read = NSStackView()
     private let add = NSButton()
@@ -125,8 +125,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         read.setViews(now.map { AddonSheetParts.read($0, in: self) } ?? [], in: .top)
         read.isHidden = now == nil
         add.isEnabled = now != nil
-        window.setContentSize(
-            NSSize(width: Metrics.sheetWidth, height: window.contentView?.fittingSize.height ?? 0))
+        SheetForm.fit(window)   // grows or shrinks smoothly from its top edge, as every sheet that grows does
     }
 
     @objc private func scopeChanged() { show() }

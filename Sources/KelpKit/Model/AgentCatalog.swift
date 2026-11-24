@@ -34,11 +34,12 @@ package struct AgentCatalog {
         let base = app.agents
         return base + app.extensions.all.agents.filter { a in !base.contains { $0.id == a.id } }
     }
-    /// The agent that "New Agent" starts: the one in the setting if it's installed, else the first installed one.
+    /// The agent that "New Agent" starts: the one in the setting if it's installed, else the first installed one. A
+    /// terminal is always there, so a setting that names it holds even before the first check of what's installed.
     package var defaultAgent: String {
         let installed = self.installed
         let agentId = app.settings[SettingKeys.defaultAgent]
-        if installed.contains(where: { $0.id == agentId }) { return agentId }
+        if agentId == Session.shellAgent || installed.contains(where: { $0.id == agentId }) { return agentId }
         return installed.first?.id ?? SettingKeys.defaultAgent.fallback
     }
     /// Whether to offer tmux sessions in a workspace. That is when tmux is on this Mac, or the project is on a host,

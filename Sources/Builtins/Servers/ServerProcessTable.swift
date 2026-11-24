@@ -315,7 +315,7 @@ final class PartCell: NSTableCellView {
         NSLayoutConstraint.activate([
             symbol.leadingAnchor.constraint(equalTo: leadingAnchor),
             symbol.widthAnchor.constraint(equalToConstant: Metrics.appIcon),
-            label.leadingAnchor.constraint(equalTo: symbol.trailingAnchor, constant: Metrics.lineGap * 2),
+            label.leadingAnchor.constraint(equalTo: symbol.trailingAnchor, constant: Metrics.gap),
             label.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }
@@ -338,7 +338,7 @@ final class PartCell: NSTableCellView {
         } else if process.session != nil {
             label.stringValue = String(localized: "Kelp")
         } else if let place = ServerReading.place(process) {
-            symbol.image = .symbol(place.symbol)
+            symbol.image = .symbol(place.symbol, size: Metrics.iconSmall)
             label.stringValue = place.name
             label.lineBreakMode = .byTruncatingMiddle
             toolTip = process.container.map { String(localized: "Container \($0)") } ?? process.unit

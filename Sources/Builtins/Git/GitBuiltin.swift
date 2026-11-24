@@ -63,13 +63,21 @@ extension Builtins {
                 CommandSpec(id: "git.fetch", title: "Git: Fetch", key: "opt+cmd+f") { _ in
                     remote(app, panel, .fetch, String(localized: "Fetched")) { $0.fetchPressed() }
                 },
+                // The panel's ⋯ menu's stash actions.
+                CommandSpec(id: "git.stash", title: "Git: Stash Changes") { _ in stash(app, panel, pop: false) },
+                CommandSpec(id: "git.popStash", title: "Git: Pop Stash") { _ in stash(app, panel, pop: true) },
+                // The diff's steps between its changes and its comments, as the arrows on its bar step.
+                step(app, "git.nextChange", "Git: Next Change", "opt+down", 1),
+                step(app, "git.previousChange", "Git: Previous Change", "opt+up", -1),
+                step(app, "git.nextComment", "Git: Next Comment", "shift+opt+down", 1),
+                step(app, "git.previousComment", "Git: Previous Comment", "shift+opt+up", -1),
                 // What the branch chip's menu copies, for the keyboard.
                 CommandSpec(
                     id: "git.copyBranchName", title: "Git: Copy Branch Name", enabled: { branchName(app) != nil }
                 ) { _ in
                     if let name = branchName(app) { copyText(name) }
                 }
-            ],
+            ] + commitCommands(panel),
             settings: [
                 SettingsSection(
                     id: "git", title: "Source Control", icon: "arrow.triangle.branch",
@@ -79,9 +87,9 @@ extension Builtins {
                             placeholder: "you/"),
                         s(
                             SettingKeys.worktreesFolder, "Folder for worktrees", .string,
-                            "Empty: inside Kelp's own folder.",
+                            "Empty: inside Kelp’s own folder.",
                             help:
-                                "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
+                                "Each project’s branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp’s own folder.",
                             placeholder: "~/worktrees"),
                         // Where a branch's CI shows. RowMarks keeps it, and gh / glab are asked only for what one of
                         // these places shows.
@@ -89,7 +97,7 @@ extension Builtins {
                             SettingKeys.ciBranchChip, "CI on the branch chip", .enum,
                             "A ring while it runs, a red dot when it fails.",
                             help:
-                                "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
+                                "A ring while it runs, a red dot when it fails, an orange ring while a deploy waits for approval, a grey check for a minute after it passes.",
                             options: ["icon", "end", "off"],
                             labels: [
                                 "icon": String(localized: "In Place of the Branch Icon"),
@@ -99,7 +107,7 @@ extension Builtins {
                             SettingKeys.ciSidebar, "CI beside folders", .boolean,
                             "In the sidebar and the ⌃Tab switcher.",
                             help:
-                                "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.",
+                                "In the sidebar and the ⌃Tab switcher; a grey check until you open the folder. Off also stops checking CI for the others.",
                             group: "CI"),
                         s(
                             SettingKeys.ciPopover, "CI in the branch popover", .boolean,
@@ -173,6 +181,54 @@ private func remote(
         } else {
             Banner.show(done)
         }
+    }
+}
+
+/// The graph's commit menu as commands, for the commit selected there.
+@MainActor
+private func commitCommands(_ panel: LivePanel) -> [CommandSpec] {
+    CommitAction.allCases.map { action in
+        CommandSpec(
+            id: "git.commit.\(action.rawValue)", title: action.command,
+            enabled: { panel.controller?.canAct(action) == true }
+        ) { _ in
+            guard let controller = panel.controller, let commit = controller.selectedCommit, controller.canAct(action)
+            else { return }
+            controller.act(action, on: commit)
+        }
+    }
+}
+
+/// Stashes the changes of the workspace on screen, or pops its newest stash: through the panel when it shows that
+/// workspace (for its progress), else straight to git.
+@MainActor
+private func stash(_ app: AppModel, _ panel: LivePanel, pop: Bool) {
+    guard let workspace = app.workbench.workspaceId else { return }
+    let done = pop ? nil : String(localized: "Changes stashed")
+    let method = { (id: String) in GitStash(id: id, pop: pop ? true : nil) }
+    if let controller = panel.controller, controller.worktreeId == workspace {
+        return controller.run(done: done, method)
+    }
+    Task {
+        if await app.call(method(workspace)) != nil, let done { Banner.show(done) }
+    }
+}
+
+/// A step between the changes or the comments of the diff in front. It is off elsewhere, and while a comment or a line
+/// is being typed in the diff, so the key goes on to the editor or the field.
+@MainActor
+private func step(
+    _ app: AppModel, _ id: String, _ title: String, _ key: String, _ dir: Int
+) -> CommandSpec {
+    let comments = id.hasSuffix("Comment")
+    func diff() -> DiffTab? {
+        guard let tab = app.workbench.focusedContent as? DiffTab, !(tab.view.window?.firstResponder is NSText) else {
+            return nil
+        }
+        return tab
+    }
+    return CommandSpec(id: id, title: title, key: key, enabled: { diff() != nil }) { _ in
+        diff()?.jump(dir, comments: comments)
     }
 }
 

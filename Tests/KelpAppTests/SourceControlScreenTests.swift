@@ -47,7 +47,7 @@ extension AppOfItsOwn {
                 (outline.view(atColumn: 0, row: $0, makeIfNecessary: true)).map(texts) ?? []
             }
         }
-        #expect(try await waitFor(5) { rows().contains("staged.txt") })
+        #expect(try await waitFor { rows().contains("staged.txt") })
         let shown = rows()
         #expect(shown.contains("staged.txt") && shown.contains("kept.txt") && shown.contains("gone.txt"), "\(shown)")
         #expect(shown.contains { $0.localizedCaseInsensitiveContains("Staged") })   // its section header
@@ -96,7 +96,7 @@ extension AppOfItsOwn {
                 (outline.view(atColumn: 0, row: $0, makeIfNecessary: true) as? FileCell)?.path == path
             }
         }
-        #expect(try await waitFor(5) { !(row("kept.txt") == nil || graph.numberOfRows < 1) })
+        #expect(try await waitFor { !(row("kept.txt") == nil || graph.numberOfRows < 1) })
         let kept = try #require(row("kept.txt"))
         let node = outline.item(atRow: kept) as AnyObject?,
             cell = outline.view(atColumn: 0, row: kept, makeIfNecessary: false)
@@ -106,7 +106,7 @@ extension AppOfItsOwn {
         #expect(graph.view(atColumn: 0, row: 0, makeIfNecessary: false) === commit)
         try rig.write("new.txt", "n\n")
         vc.reloadAll()
-        #expect(try await waitFor(5) { !(row("new.txt") == nil) })
+        #expect(try await waitFor { !(row("new.txt") == nil) })
         #expect(outline.item(atRow: try #require(row("kept.txt"))) as AnyObject? === node)
     }
 
@@ -119,7 +119,7 @@ extension AppOfItsOwn {
         rig.show(vc, 320, 500)
         vc.followWatches()
         let graph = try #require(outlines(in: vc.view).last)
-        #expect(try await waitFor(5) { !(graph.numberOfRows < 1) })   // the project's one commit: the graph is up
+        #expect(try await waitFor { !(graph.numberOfRows < 1) })   // the project's one commit: the graph is up
         let hashes = (0...60).map { String(format: "%040x", $0) }   // 61 commits in a line, newest first
         vc.commits = hashes.indices.map { i in
             GraphCommit(
@@ -153,7 +153,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app)
         rig.show(vc, 320, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        #expect(try await waitFor { !vc.commits.isEmpty })
         let button = try #require(vc.commitButton)
         let cases: [(ahead: Int, behind: Int, signs: [String], counts: [Int], heard: String?)] = [
             (4, 3, ["arrow.down", "arrow.up"], [3, 4], "Sync Changes, 3 to pull, 4 to push"),
@@ -182,7 +182,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        #expect(try await waitFor { !vc.commits.isEmpty })
         vc.bind("another")
         #expect(vc.commits.isEmpty)
         vc.bind(here)
@@ -241,26 +241,29 @@ extension AppOfItsOwn {
         #expect(r.committed && !r.pushed)
     }
 
-    /// A few changes take their rows' height and the graph follows right under them, not half the panel down.
-    @Test func theGraphFollowsAShortListOfChanges() async throws {
+    /// Less room for the lists (a shorter window, or a CI strip coming in above them) never grows the window: the
+    /// graph's dragged height gives way first. It was held over the window's own size, so a panel in its floater set
+    /// the window's content past the window's top, and the bar and the panels' tops went with it.
+    @Test func lessRoomShrinksTheGraphNotTheWindow() async throws {
         let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
-        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }   // the process's: put back
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }
         for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
-        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        UserDefaults.standard.set(400, forKey: "scm.graphHeight")
+        let names = (0..<12).map { "f\($0).txt" }
+        let rig = try await AppRig(files: Dictionary(uniqueKeysWithValues: names.map { ($0, "a\n") }))
         defer { rig.done() }
-        try rig.write("kept.txt", "b\n")
+        for name in names { try rig.write(name, "b\n") }
         let vc = SourceControlController(app: rig.app)
         rig.show(vc, 320, 800)
         vc.followWatches()
         let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
-        #expect(try await waitFor(5) { !(outline.numberOfRows < 2 || graph.numberOfRows < 1) })
-        vc.view.window?.setContentSize(NSSize(width: 320, height: 800))   // the window took the panel's fitting size
+        #expect(try await waitFor(5) { !(outline.numberOfRows < 13 || graph.numberOfRows < 1) })
+        let window = try #require(vc.view.window)
+        window.setContentSize(NSSize(width: 320, height: 800))
         vc.view.layoutSubtreeIfNeeded()
-        let changes = try #require(outline.enclosingScrollView),
-            rows = outline.rect(ofRow: outline.numberOfRows - 1).maxY
-        #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
-        let below = try #require(graph.enclosingScrollView).frame
-        #expect(below.height > vc.view.bounds.height / 2, "\(below) in \(vc.view.bounds), changes \(changes.frame)")   // the room left
+        window.setContentSize(NSSize(width: 320, height: 600))
+        vc.view.layoutSubtreeIfNeeded()
+        #expect(vc.view.bounds.height == 600, "the window stayed \(vc.view.bounds.height) tall")
     }
 
     /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
@@ -272,9 +275,63 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app)
         rig.show(vc, 260, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
+        #expect(try await waitFor { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
         vc.view.layoutSubtreeIfNeeded()
         #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
+    }
+}
+
+extension OneAtATime {
+    /// A few changes take their rows' height and the graph follows right under them, not half the panel down; also
+    /// once the graph was dragged to a height of its own (200), which it keeps as its least.
+    @Test(arguments: [nil, 200] as [CGFloat?]) func theGraphFollowsAShortListOfChanges(dragged: CGFloat?) async throws {
+        let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }   // the process's: put back
+        for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
+        if let dragged { UserDefaults.standard.set(dragged, forKey: "scm.graphHeight") }
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        try rig.write("kept.txt", "b\n")
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 800)
+        vc.followWatches()
+        let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
+        #expect(try await waitFor { !(outline.numberOfRows < 2 || graph.numberOfRows < 1) })
+        vc.view.window?.setContentSize(NSSize(width: 320, height: 800))   // the window took the panel's fitting size
+        vc.view.layoutSubtreeIfNeeded()
+        let changes = try #require(outline.enclosingScrollView),
+            rows = outline.rect(ofRow: outline.numberOfRows - 1).maxY
+        #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
+        let below = try #require(graph.enclosingScrollView).frame
+        #expect(below.height > vc.view.bounds.height / 2, "\(below) in \(vc.view.bounds), changes \(changes.frame)")   // the room left
+    }
+
+    /// When many changes become a few, the list shrinks to them in the window as it is: the window keeps its parts'
+    /// sizes over weaker wishes, so a list that only asked for its rows' height stayed tall over two changes.
+    @Test func aListThatShrinksGivesItsRoomToTheGraph() async throws {
+        let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }
+        for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
+        let names = (0..<12).map { "f\($0).txt" }
+        let rig = try await AppRig(files: Dictionary(uniqueKeysWithValues: names.map { ($0, "a\n") }))
+        defer { rig.done() }
+        for name in names { try rig.write(name, "b\n") }
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 800)
+        vc.followWatches()
+        let outline = try #require(outlines(in: vc.view).first)
+        #expect(try await waitFor(5) { !(outline.numberOfRows < 13) })
+        vc.view.layoutSubtreeIfNeeded()
+        // What the window does: it keeps a part's size at windowSizeStayPut, which beat the list's own wish (495).
+        let changesView = try #require(outline.enclosingScrollView)
+        let stays = changesView.heightAnchor.constraint(equalToConstant: changesView.frame.height)
+        stays.priority = .windowSizeStayPut
+        stays.isActive = true
+        for name in names.dropFirst(2) { try rig.write(name, "a\n") }   // back as committed: two changes are left
+        #expect(try await waitFor(5) { outline.numberOfRows == 3 })
+        vc.view.layoutSubtreeIfNeeded()
+        let changes = try #require(outline.enclosingScrollView), rows = outline.rect(ofRow: 2).maxY
+        #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
     }
 }
 

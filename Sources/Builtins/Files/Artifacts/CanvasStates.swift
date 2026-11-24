@@ -9,7 +9,7 @@ enum CanvasStates {
     static func empty(writer: String?) -> String {
         let line =
             writer.map {
-                String(localized: "\($0) is writing the first one into boards/. Each board shows as it's saved.")
+                String(localized: "\($0) is writing the first one into boards/. Each board shows as it’s saved.")
             }
             ?? String(localized: "Ask the agent for boards: each goes in boards/, and canvas.json lists it.")
         return block(symbol: grid, title: String(localized: "No Boards Yet"), line: line, detail: nil, actions: "")
@@ -25,7 +25,7 @@ enum CanvasStates {
             <button class="kelp-prominent" data-kelp="fixCanvas" data-why="\(quoted)">\(ask)</button></span>
             """
         return block(
-            symbol: warning, title: String(localized: "Canvas.json Doesn't Read"), line: why, detail: file,
+            symbol: warning, title: String(localized: "Canvas.json Doesn’t Read"), line: why, detail: file,
             actions: actions)
     }
 

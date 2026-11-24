@@ -137,7 +137,7 @@ package final class SettingsStore {
             // If it wasn't saved, say so and show what settings.json really holds, instead of a value that reverts
             // later.
             if let error {
-                Banner.show(String(localized: "Couldn't change “\(key)”: \(error)"), style: .error)
+                Banner.show(String(localized: "Couldn’t change “\(key)”: \(error)"), style: .error)
                 await load()
             }
         }

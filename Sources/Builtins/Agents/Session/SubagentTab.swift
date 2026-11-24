@@ -61,6 +61,11 @@ struct SubagentJournalView: View {
             if let journal = model.journal {
                 header(journal)
                 Divider()
+                // A read that fails over steps already shown leaves them there, with one line saying so.
+                if let failed = model.failed {
+                    FailureLine(failed) { Task { await load() } }.padding(.horizontal, Metrics.inset)
+                        .frame(minHeight: TextSize.of(Metrics.row))
+                }
                 steps(journal)
             } else if let failed = model.failed {
                 EmptyState(String(localized: "Can’t Read This Subagent"), symbol: "exclamationmark.triangle") {
@@ -92,8 +97,9 @@ struct SubagentJournalView: View {
         let (value, error) = await app.tryCall(SessionSubagentJournal(id: model.session, subagent: model.id))
         wait?.cancel()
         slow = false
-        model.journal = value ?? nil
-        model.failed = error
+        // A failed read again keeps the steps it showed: the error block is only for a first read.
+        if error == nil || model.journal == nil { model.journal = value ?? nil }
+        withAnimation(.easeOut(duration: Motion.duration(Motion.fast))) { model.failed = error }
         model.loaded = true
     }
 
@@ -130,14 +136,14 @@ struct SubagentJournalView: View {
                             .foregroundStyle(
                                 .secondary
                             )
-                            .frame(width: 48, alignment: .trailing)
+                            .frame(width: TextSize.of(48), alignment: .trailing)
                         Text(step.tool).font(.ui(TextSize.row)).foregroundStyle(.secondary).frame(
-                            width: 72, alignment: .leading
+                            width: TextSize.of(88), alignment: .leading
                         )
                         .lineLimit(1)
                         Text(step.detail).font(.uiMono(TextSize.caption)).lineLimit(1).truncationMode(.middle)
                     }
-                    .frame(minHeight: Metrics.row, alignment: .leading)
+                    .frame(minHeight: TextSize.of(Metrics.row), alignment: .leading)
                 }
                 if let report = journal.report, !working { Report(text: report).padding(.top, Metrics.inset) }
             }

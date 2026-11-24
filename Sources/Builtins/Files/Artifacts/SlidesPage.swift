@@ -39,6 +39,10 @@ enum SlidesPage {
         .kelp-thumb{display:flex;gap:6px;align-items:flex-start;border:0;background:none;padding:0;color:var(--muted);
           font:10px/1.2 -apple-system,sans-serif;font-variant-numeric:tabular-nums;cursor:default}
         .kelp-thumb span{width:10px;flex:none;text-align:right}
+        .kelp-thumb .slide{transition:box-shadow .12s ease-out}
+        .kelp-thumb:hover:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-hover,rgba(127,127,127,.25))}
+        .kelp-thumb:active:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-sel,rgba(127,127,127,.35));transition:none}
+        @media (prefers-reduced-motion:reduce){.kelp-thumb .slide{transition:none}}
         .kelp-thumb .slide{width:112px !important;border-radius:4px;pointer-events:none;display:block;text-align:left}
         .kelp-thumb.on .slide{box-shadow:0 0 0 2.5px var(--k-accent,#007aff)}
         .kelp-stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -136,8 +140,8 @@ enum SlidesPage {
             thumbs.append(t);
           });
           window.kelpSlides = slides;
-          const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib',
-            '›');
+          const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
+          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
           const at2 = el('span', 'kelp-where');
           back.onclick = () => go(at - 1, true); next.onclick = () => go(at + 1, true);
           strip.append(back, at2, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));

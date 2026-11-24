@@ -16,6 +16,8 @@ final class QuickOpenCell: PaletteCell {
     let detail = NSTextField(labelWithString: "")
     let key = NSTextField(labelWithString: "")
     let kind = NSTextField(labelWithString: "")
+    /// After a setting's value: its choices open from the row. A drawn chevron, as everywhere else, not a typed "›".
+    let chevron = NSImageView(image: .symbol("chevron.right"))
     let tick = NSImageView(image: .symbol("checkmark", String(localized: "Current")))
     private let stack = NSStackView()
     private var accessory: NSView?
@@ -32,7 +34,9 @@ final class QuickOpenCell: PaletteCell {
         kind.font = .ui(TextSize.caption)
         kind.textColor = .secondaryLabelColor
         tick.contentTintColor = .themeAccent
-        key.font = .ui(TextSize.row)
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
+        chevron.contentTintColor = .secondaryLabelColor
+        key.font = .ui(TextSize.caption)   // a key hint (README: caption)
         key.textColor = .secondaryLabelColor
         key.setContentCompressionResistancePriority(.required, for: .horizontal)
         key.setContentHuggingPriority(.required, for: .horizontal)
@@ -41,18 +45,19 @@ final class QuickOpenCell: PaletteCell {
         title.setContentHuggingPriority(.required, for: .horizontal)
         detail.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
-        for v in [image, markBox, title, detail, key, kind, tick] { stack.addArrangedSubview(v) }
+        for v in [image, markBox, title, detail, key, kind, chevron, tick] { stack.addArrangedSubview(v) }
         stack.detachesHiddenViews = true
         stack.spacing = Metrics.gapWide
         stack.distribution = .fill
         // Puts the icon at the palette's one left edge, and the shortcut as far from the right (QuickOpen's layout).
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gapWide, bottom: 0, right: Metrics.gapWide)
-        for v in [kind, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
+        for v in [kind, chevron, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
+        let slot = TextSize.of(Metrics.iconMenu)   // the icon of a big menu row, as the palette's rows are
         NSLayoutConstraint.activate([
-            image.widthAnchor.constraint(equalToConstant: 18), markBox.widthAnchor.constraint(equalToConstant: 18),
+            image.widthAnchor.constraint(equalToConstant: slot), markBox.widthAnchor.constraint(equalToConstant: slot),
             mark.centerXAnchor.constraint(equalTo: markBox.centerXAnchor),
             mark.centerYAnchor.constraint(equalTo: markBox.centerYAnchor),
-            markBox.heightAnchor.constraint(equalToConstant: 18)
+            markBox.heightAnchor.constraint(equalToConstant: slot)
         ])
         pin(stack)
     }

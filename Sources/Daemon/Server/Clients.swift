@@ -18,6 +18,7 @@ final class Clients: Sendable {
         var muted = Set<Int>()   // asked for no broadcasts (client.events): kelp attach's control connection
         var uiState = ShownUI()   // what the app last published; cleared when no app is connected
         var replies: [String: Waiting] = [:]   // ui.browser requests the app hasn't answered
+        var window: String?   // the program `requireApp` lets in, when a test names another than `appExecutable`
     }
     /// A request waiting for the app: the windows it went to (a window that hangs up can't answer it), and its timeout.
     private struct Waiting {
@@ -159,11 +160,15 @@ extension Clients {
     /// who was refused, so a second install or a stale app (whose path isn't the one beside this daemon) can be told
     /// apart.
     func requireApp(_ conn: Int, _ refusal: String) throws {
-        let peer = peer(conn)
-        guard peer != Self.appExecutable else { return }
+        let peer = peer(conn), app = state.withLock { $0.window } ?? Self.appExecutable
+        guard peer != app else { return }
         Log.rpc.notice(
-            "refused \(refusal, privacy: .public): \(peer ?? "an unknown program", privacy: .public) isn't \(Self.appExecutable, privacy: .public)"
+            "refused \(refusal, privacy: .public): \(peer ?? "an unknown program", privacy: .public) isn't \(app, privacy: .public)"
         )
         throw RPCError.refused(refusal)
     }
+
+    /// For a test: this daemon takes `path` for Kelp's window, so the test's own calls are refused as another copy of
+    /// Kelp's would be (setting KELP_APP_EXECUTABLE would refuse every test's at once).
+    func standIn(window path: String) { state.withLock { $0.window = path } }
 }

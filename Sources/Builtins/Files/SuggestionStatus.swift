@@ -38,10 +38,10 @@ struct SuggestionStatus: Equatable {
         if let pause = s.pause { return SuggestionStatus(text: pause.title) }
         let server = s.model?.server ?? "Ollama"
         switch s.problem {
-        case .noServer: return warning(String(localized: "\(server) Isn't Running"))
+        case .noServer: return warning(String(localized: "\(server) Isn’t Running"))
         case .noModel: return warning(String(localized: "No Code Model"))
         case .modelMissing: return warning(String(localized: "Model Not Found"))
-        case .notAnswering: return warning(String(localized: "\(server) Isn't Answering"))
+        case .notAnswering: return warning(String(localized: "\(server) Isn’t Answering"))
         case .failed, .keyMissing, .keyRejected: return warning(String(localized: "\(server) Failed"))
         case nil: break
         }
@@ -53,7 +53,7 @@ struct SuggestionStatus: Equatable {
         if hasKey == false || s.problem == .keyMissing { return warning(String(localized: "Cloud: No Key")) }
         switch s.problem {
         case .keyRejected: return warning(String(localized: "\(name): Key Rejected"))
-        case .notAnswering, .noServer: return warning(String(localized: "\(name) Isn't Answering"))
+        case .notAnswering, .noServer: return warning(String(localized: "\(name) Isn’t Answering"))
         case .failed, .noModel, .modelMissing: return warning(String(localized: "\(name) Failed"))
         case .keyMissing, nil: return named(String(localized: "Cloud · \(name)"), loading: s.loading)
         }

@@ -8,6 +8,7 @@ extension SyncPopover {
     // MARK: state
 
     func update() {
+        let was = view.window == nil ? nil : root.fittingSize
         let info = app.latest(GitEvent.self, folder)?.branches, running = GitSync.state(app).running[wid]?.title
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
@@ -30,6 +31,9 @@ extension SyncPopover {
         showLists(ahead: ahead, behind: behind, published: published)
         showCI()
         showChanges()
+        // Once it's on screen, what comes or goes (the commits read after it opened, CI) dissolves in place, rather
+        // than in one frame.
+        if let was, root.fittingSize != was { root.crossfade() }
         fit()
     }
 
@@ -122,7 +126,7 @@ extension SyncPopover {
         } else {
             busy.stopAnimation(nil)
             note.stringValue = result?.text ?? ""
-            note.textColor = result?.failed == true ? .textRed : .textGreen
+            note.textColor = result?.failed == true ? .textRed : .secondaryLabelColor   // no green for done
         }
         note.isHidden = note.stringValue.isEmpty
         status.isHidden = note.isHidden
@@ -136,16 +140,18 @@ extension SyncPopover {
         guard key != listKey else { return }
         listKey = key
         Task {
-            let lists = await app.quiet(GitUnsynced(id: wid, limit: Self.shown))
+            let (lists, error) = await app.tryCall(GitUnsynced(id: wid, limit: Self.shown))
             guard key == listKey else { return }
-            unsynced = lists
+            if let lists { unsynced = lists }   // a failed read keeps what was read before, under the bar
+            failure.show(lists == nil ? error : nil)
             update()
         }
     }
 
     private func showLists(ahead: Int, behind: Int, published: Bool) {
         let out = unsynced?.outgoing ?? [], inc = unsynced?.incoming ?? []
-        outgoing.isHidden = ahead == 0
+        // Until the commits are read (or if the read fails) there is no "and N more": nothing above it to be more than.
+        let read = unsynced != nil
         incoming.isHidden = behind == 0
 
         // The button above says what the commits are, so there is a caption only where two lists, or a first push,
@@ -155,7 +161,8 @@ extension SyncPopover {
         let mine = cut(out, of: ahead)
         outgoing.setViews(
             (named ? [caption(title, ahead)] : []) + mine.map { row($0, trailing: when($0)) }
-                + more(ahead - mine.count), in: .top)
+                + (read ? more(ahead - mine.count) : []), in: .top)
+        outgoing.isHidden = ahead == 0 || outgoing.arrangedSubviews.isEmpty
         if named, let head = outgoing.arrangedSubviews.first { outgoing.setCustomSpacing(4, after: head) }
 
         let toggle = PointerButton(title: "") { [weak self] in
@@ -171,7 +178,8 @@ extension SyncPopover {
         toggle.imagePosition = .imageLeading
         toggle.contentTintColor = .secondaryLabelColor
         let theirs = cut(inc, of: behind)
-        let rows = showIncoming ? theirs.map { row($0, trailing: $0.author) } + more(behind - theirs.count) : []
+        let rows =
+            showIncoming ? theirs.map { row($0, trailing: $0.author) } + (read ? more(behind - theirs.count) : []) : []
         incoming.setViews([toggle] + rows, in: .top)
     }
 
@@ -203,7 +211,8 @@ extension SyncPopover {
                 RowMarks.of(app).openCI(folder)
                 popover?.performClose(nil)
             }
-            line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
+            line.toolTip = [run.title, String(localized: "Click to open CI Runs"), CIRunLook.clickTip(run.url)]
+                .joined(separator: "\n")
             line.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
             return line as NSView
         }
@@ -244,9 +253,11 @@ extension SyncPopover {
         let shown = list.prefix(list.count > 3 ? 2 : 3).map { file -> NSView in
             let code = file.letter(inWorktree: file.unstaged || file.untracked)
             let letter = NSTextField(labelWithString: code)
-            letter.font = .uiMono(TextSize.caption, weight: .semibold)
+            letter.font = .ui(TextSize.micro, weight: .bold)   // a git letter as Source Control and Files draw it
             letter.textColor = .gitLetter(code)
-            letter.widthAnchor.constraint(equalToConstant: 10).isActive = true
+            letter.alignment = .center
+            letter.widthAnchor.constraint(equalToConstant: 12).isActive = true
+            letter.setAccessibilityLabel(gitLetterWord(code))   // VoiceOver reads a bare "M" as a letter
             let name = NSTextField(labelWithString: "")
             let folder = (file.path as NSString).deletingLastPathComponent
             let text = NSMutableAttributedString(

@@ -20,8 +20,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// own scripts don't run (`PreviewLinks`).
     static let world = WKContentWorld.world(name: "kelp")
     private let mode = CapsuleSegments(
-        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")], target: nil,
-        action: nil)
+        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
+        name: String(localized: "Mode"))
     let split = NSSplitView()
     var renderTask: Task<Void, Never>?
     /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).
@@ -191,12 +191,15 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             [
                 heading, gap(), tool("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
                 tool("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
-                tool("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+                tool(
+                    "chevron.left.forwardslash.chevron.right", keyed(String(localized: "Code"), "markdown.code"),
+                    #selector(code)),
                 tool("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link)), gap(),
-                tool("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
-                tool("list.number", String(localized: "Numbered list"), #selector(numbered)),
-                tool("checklist", String(localized: "Task list"), #selector(tasks)),
-                tool("tablecells", String(localized: "Table"), #selector(table))
+                tool("list.bullet", keyed(String(localized: "Bulleted List"), "markdown.bullets"), #selector(bullets)),
+                tool(
+                    "list.number", keyed(String(localized: "Numbered List"), "markdown.numbered"), #selector(numbered)),
+                tool("checklist", keyed(String(localized: "Task List"), "markdown.tasks"), #selector(tasks)),
+                tool("tablecells", keyed(String(localized: "Table"), "markdown.table"), #selector(table))
             ], in: .leading)
         formatting.spacing = Metrics.iconGap
         let bar = Bar.content([formatting])
@@ -256,7 +259,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         items: [
             ("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
             ("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
-            ("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+            (
+                "chevron.left.forwardslash.chevron.right", keyed(String(localized: "Code"), "markdown.code"),
+                #selector(code)
+            ),
             ("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link))
         ])
     /// A formatting button's tooltip, with its command's key as it stands.
@@ -369,31 +375,5 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.adjustSubviews()
         if segment == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }
         if dirty, !web.isHidden { rerender() }
-    }
-
-    private func edit(_ format: (String, NSRange) -> (text: String, selection: NSRange)) {
-        let result = format(editor.text, editor.selectedRange)
-        editor.apply(text: result.text, selection: result.selection)
-        editor.focus()
-    }
-    @objc func bold() { edit(MarkdownFormat.toggleBold) }
-    @objc func italic() { edit(MarkdownFormat.toggleItalic) }
-    @objc func code() { edit(MarkdownFormat.toggleCode) }
-    @objc func bullets() { edit(MarkdownFormat.toggleBullet) }
-    @objc func numbered() { edit(MarkdownFormat.toggleNumbered) }
-    @objc func tasks() { edit(MarkdownFormat.toggleTask) }
-    @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
-    @objc private func headingPicked(_ popUp: NSPopUpButton) {
-        let level = popUp.indexOfSelectedItem - 1   // skips the button's face: 0 is Text, then Heading 1…3
-        guard level >= 0 else { return }
-        edit { MarkdownFormat.heading($0, $1, level: level) }
-    }
-    @objc func link() {
-        Task {
-            guard let address = await prompt(String(localized: "Insert link"), "URL", initial: "https://") else {
-                return
-            }
-            edit { MarkdownFormat.makeLink($0, $1, url: address) }
-        }
     }
 }

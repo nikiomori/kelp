@@ -27,11 +27,13 @@ import Testing
     #expect(tint("failure") == .systemRed)
 }
 
-/// When two folders change the same files, the changes dot is doubled, not coloured: it's a state, not a call.
+/// When two folders change the same files, the changes dot is doubled, not coloured: it's a state, not a call. The dots
+/// are drawn symbols, not a typed "•" whose size and weight followed the look's typeface.
 @MainActor @Test func sharedChangesAreADoubleGreyDot() {
-    for (shared, text) in [(false, "•"), (true, "••")] {
+    for (shared, count) in [(false, 1), (true, 2)] {
         let dot = SidebarCell.dot(shared: shared)
-        #expect(dot.string == text)
+        #expect(dot.string == String(repeating: "\u{FFFC}", count: count))   // an attachment each
+        #expect(dot.attribute(.attachment, at: 0, effectiveRange: nil) is NSTextAttachment)
         #expect(dot.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .secondaryLabelColor)
     }
 }

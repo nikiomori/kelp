@@ -95,8 +95,16 @@ enum AgentSkills {
         {
             writeIfChanged(plugin.appendingPathComponent(".claude-plugin/plugin.json"), json)
         }
-        let front = "---\nname: \(name)\ndescription: \(description)\n---\n\n"
-        writeIfChanged(plugin.appendingPathComponent("skills/\(name)/SKILL.md"), front + body)
+        writeIfChanged(plugin.appendingPathComponent("skills/\(name)/SKILL.md"), frontMatter(name, description) + body)
+    }
+
+    /// The description is quoted: a ": " in a plain YAML value is an error to strict parsers (Pi skips the skill).
+    nonisolated static func frontMatter(_ name: String, _ description: String) -> String {
+        let quoted =
+            "\""
+            + description.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        return "---\nname: \(name)\ndescription: \(quoted)\n---\n\n"
     }
 
     private nonisolated static func writeIfChanged(_ url: URL, _ text: String) {

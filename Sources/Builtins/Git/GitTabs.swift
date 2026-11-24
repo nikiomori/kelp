@@ -43,9 +43,10 @@ final class DiffTab: TabContent {
         file = item("file")
         source = item("source").flatMap(GitDiff.Source.init(rawValue:)).flatMap(DiffSource.init(wire:))
         commit = item("commit")
+        let turn = item("session").map { (session: $0, id: item("turn")) }
         _ = controller.view
         if let file {
-            controller.showFile(file, source: source ?? .unstaged, commit: commit)
+            controller.showFile(file, source: source ?? .unstaged, commit: commit, turn: turn)
         } else if let commit {
             controller.showCommit(commit)
         } else if source == .turn {
@@ -72,6 +73,8 @@ final class DiffTab: TabContent {
     private let gitWatch: Watched
 
     func focus() { controller.view.window?.makeFirstResponder(controller.view) }
+    /// Steps to the next or previous change or comment (Git's commands for the diff in front).
+    func jump(_ dir: Int, comments: Bool) { controller.jump(dir, comments: comments) }
 
     static func uri(
         _ worktree: String, file: String? = nil, source: DiffSource? = nil, commit: String? = nil
@@ -181,11 +184,12 @@ final class CommitMessageTab: TabContent {
         let staged = changes.filter { $0.staged && !$0.conflicted }
         let files = staged.isEmpty ? changes.filter { !$0.conflicted } : staged
         var lines = [message, ""]
+        let what = staged.isEmpty ? String(localized: "All changes") : String(localized: "Staged changes")
         lines.append(
-            files.isEmpty
-                ? "# No changes to commit."
-                : (staged.isEmpty ? "# All changes" : "# Staged changes")
-                    + (branch.map { String(localized: " on “\($0)”") } ?? "") + ":")
+            "# "
+                + (files.isEmpty
+                    ? String(localized: "No changes to commit.")
+                    : what + (branch.map { String(localized: " on “\($0)”") } ?? "") + ":"))
         lines += files.map {
             "#\t" + SourceControlController.letter($0, staged.isEmpty ? .changes : .staged).0 + "  " + $0.path
         }

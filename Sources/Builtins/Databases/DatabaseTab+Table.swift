@@ -26,17 +26,17 @@ extension DatabaseTab {
                 .joined(separator: ", ")
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
-        startReading()
+        startReading(name)
         let asked = page
-        let result = await query(sql, limit: Self.pageSize)
+        let result = await query(sql, limit: Self.pageSize, reading: name)
+        await rowsWait.settled()
         // When another page, table or filter was asked for meanwhile, this answer is for the older ask. It is checked
         // after each wait.
         let still = { [weak self] in
             self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
         }
         guard still() else { return }
-        reading?.cancel()
-        busy.stopAnimation(nil)
+        readingEnded()
         guard let result else { return }
         grid.editable = current?.kind != "view"   // a table without a key too: its rows are found by their values
         grid.source = (name, engine)
@@ -56,14 +56,27 @@ extension DatabaseTab {
         await mark(name, primary: primary, still: still)
     }
 
-    /// Shows "Reading…" in the foot only once a second has gone, so a quick read changes nothing (`whileSlow`'s rule).
-    func startReading() {
+    /// Shows "Reading orders…" in the foot only once a second has gone, so a quick read changes nothing
+    /// (`whileSlow`'s rule). A database elsewhere takes more than a moment, so with no rows on show yet its wait shows
+    /// at once, over the grid. With no `table`, it is the user's statement that runs.
+    func startReading(_ table: String? = nil) {
         reading?.cancel()
+        let words = table.map { String(localized: "Reading \($0)…") } ?? String(localized: "Running the statement…")
+        if grid.columns.isEmpty, elsewhere {
+            empty.show(nil)
+            rowsWait.show(words)
+        }
         reading = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
-            self?.status.stringValue = String(localized: "Reading…")
+            self?.status.stringValue = words
             self?.busy.startAnimation(nil)
         }
+    }
+
+    func readingEnded() {
+        reading?.cancel()
+        busy.stopAnimation(nil)
+        rowsWait.show(nil)
     }
 
     /// Counts how many rows the filter leaves. The server stops a count that takes too long.
@@ -134,6 +147,17 @@ extension DatabaseTab {
         }
     }
 
+    func toggleDetails() {
+        details.view.isHidden.toggle()
+        detailsClosed = details.view.isHidden
+    }
+
+    /// Shows the table's data (0) or its structure (1), as the foot's Data / Structure does.
+    func showPart(_ index: Int) {
+        part.selectedSegment = index
+        partChanged()
+    }
+
     @objc func partChanged() {
         guard let name = mode.table else { return }
         Task { await showTable(name) }
@@ -175,7 +199,7 @@ extension DatabaseTab {
         guard !grid.marked.isEmpty else { return }
         grid.changed()
         let who = last.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "an agent")
-        status.stringValue += " · ▍" + String(localized: "\(grid.marked.count) changed by \(who) \(shortAgo(last.at))")
+        status.stringValue += " · " + String(localized: "\(grid.marked.count) changed by \(who) \(shortAgo(last.at))")
     }
 
     /// The latest change to `table` (`runs` is newest first), when an agent made it. When the user made a change
@@ -329,68 +353,6 @@ extension DatabaseTab {
                 Banner.show(
                     String(localized: "Couldn’t save \(url.lastPathComponent): \(error.localizedDescription)"),
                     style: .error)
-            }
-        }
-    }
-
-    // MARK: Edits
-
-    @objc func discardEdits() { grid.discard() }
-
-    /// Shows what saving would run, before it runs.
-    @objc func showEdits() {
-        guard let statements = pending() else { return }
-        let text = statements.joined(separator: ";\n") + ";"
-        Task {
-            if await confirm(
-                String(localized: "\(statements.count) statements, in one transaction"), detail: text,
-                action: String(localized: "Copy"), cancel: String(localized: "Close"))
-            {
-                copyText(text)
-            }
-        }
-    }
-
-    private func pending() -> [String]? {
-        guard let name = mode.table, let table = current else { return nil }
-        return grid.edits.statements(
-            table: name, engine: engine, columns: grid.columns, primary: table.columns.filter(\.primary).map(\.name),
-            rows: grid.rows)
-    }
-
-    /// Saves all the edits in one transaction (`db.apply`). A production database asks first, in words.
-    @objc func saveEdits() {
-        guard let name = mode.table, let statements = pending(), !statements.isEmpty else { return }
-        Task {
-            if database?.production == true {
-                let alert = NSAlert()
-                alert.messageText = String(localized: "Change \(address.name)? You marked it Production.")
-                alert.informativeText = statements.joined(separator: ";\n") + ";"
-                let change = alert.addButton(withTitle: String(localized: "Change Production"))
-                change.hasDestructiveAction = true
-                change.keyEquivalent = ""   // Return cancels, so a change to production takes a click
-                alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\r"
-                guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            }
-            let (done, error) = await app.tryCall(
-                DatabaseApply(worktreeId: address.worktree, database: address.name, statements: statements))
-            guard let done else {
-                Banner.show(String(localized: "Nothing saved: \(error ?? "")"), style: .error)
-                return
-            }
-            grid.edits.clear()
-            await showTable(name)
-            let saved = done.changed ?? 0, number = saved.formatted()
-            status.stringValue +=
-                " · " + (saved == 1 ? String(localized: "1 row saved") : String(localized: "\(number) rows saved"))
-            // Each statement changes one row, so fewer changes mean a row wasn't where it was read (it changed
-            // meanwhile).
-            if let changed = done.changed, changed < statements.count {
-                Banner.show(
-                    String(
-                        localized:
-                            "\(statements.count - changed) of the rows weren’t found as they were read: someone changed them meanwhile. Reloaded."
-                    ))
             }
         }
     }

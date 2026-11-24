@@ -22,6 +22,8 @@ final class PageSet {
     /// Who drives the page on show: one of `pages`, or nil for the tab's own page.
     private(set) var shown: String?
     @ObservationIgnored private let row = NSStackView()
+    /// The fill under the pill of the page on show: one, moving from pill to pill as a segmented control's does.
+    @ObservationIgnored private let chosen = FillStack()
     /// One pill for each page, by who drives the page. The pill of the tab's own page is under its `owner`, which no
     /// other page has.
     @ObservationIgnored private(set) var pills: [String: PointerButton] = [:]
@@ -34,7 +36,12 @@ final class PageSet {
         row.edgeInsets = NSEdgeInsets(
             top: Metrics.lineGap, left: Metrics.gap, bottom: Metrics.lineGap, right: Metrics.gap)
         row.alignment = .centerY
-        host.switchSlot.pin(row)
+        host.switchSlot.pinBottom(row)
+        chosen.fill = .fillSelected
+        chosen.layer?.cornerRadius = Metrics.radiusSM
+        chosen.layer?.cornerCurve = .continuous
+        chosen.isHidden = true
+        row.addSubview(chosen, positioned: .below, relativeTo: nil)   // not arranged: it sits under the pills
     }
 
     /// Returns the page that `args` is for when it isn't the tab's own page. That is a subagent's page, made for the
@@ -92,26 +99,51 @@ final class PageSet {
         let gone = pages.filter { ended($0.who) }
         guard !gone.isEmpty else { return }
         pages.removeAll { ended($0.who) }
+        // A pill that goes fades where it stood, and the pills after it move up to its place rather than jump there.
+        let places = row.arrangedSubviews.map { ($0, $0.placeInWindow) }
         for (who, page) in gone {
             page.view.removeFromSuperview()
-            pills.removeValue(forKey: who)?.removeFromSuperview()
+            let pill = pills.removeValue(forKey: who)
+            pill?.leaveGhost(in: row, duration: Motion.fast)   // it goes in two thirds of the time it came in
+            pill?.removeFromSuperview()
             Task { _ = await page.close() }
         }
+        row.layoutSubtreeIfNeeded()
+        for (pill, place) in places where pill.superview != nil { pill.slide(from: place, duration: Motion.base) }
         show(pages.contains { $0.who == shown } ? shown : nil)
     }
 
     /// Updates the row: a pill for each page that says who drives it and what it did last, with the pill of the page on
-    /// show filled.
+    /// show on the one chosen fill, which moves to it (`moveChosen`). The row slides in over the page with
+    /// the first subagent's page and out with the last; a new pill fades in.
     private func showRow() {
-        host.switchHeight.isActive = pages.isEmpty
+        defer { host.switchSlot.reveal(host.switchHeight, open: !pages.isEmpty) }
         // When a subagent drove the tab first, the agent's own page ("") is among `pages`. Because pages are keyed by
         // who drives them, the pill of the tab's own page then isn't the agent's.
         let all = [(owner ?? "", host, true)] + pages.map { ($0.who, $0.tab, false) }
         for (index, (who, page, own)) in all.enumerated() {
             let pill = pills[who] ?? makePill(who, own: own)
-            if pill.superview == nil { row.insertArrangedSubview(pill, at: min(index, row.arrangedSubviews.count)) }
+            if pill.superview == nil {
+                row.insertArrangedSubview(pill, at: min(index, row.arrangedSubviews.count))
+                pill.fadeIn(Motion.base)
+            }
             pill.title = name(who, page)
-            pill.restFill = (own ? nil : who) == shown ? .fillSelected : .fillRest
+            pill.toolTip = pill.title   // the whole of it, when the pill ends in "…"
+            pill.restFill = (own ? nil : who) == shown ? nil : .fillRest   // the chosen one is on `chosen`
+        }
+        moveChosen()
+    }
+
+    /// Puts `chosen` under the pill of the page on show, moving there over `Motion.base` (at once the first time).
+    private func moveChosen() {
+        row.layoutSubtreeIfNeeded()
+        guard let pill = pills[shown ?? owner ?? ""], pill.superview === row else { return chosen.isHidden = true }
+        let first = chosen.isHidden
+        chosen.isHidden = false
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = first || row.window == nil ? 0 : Motion.duration(Motion.base)
+            ctx.timingFunction = Motion.soft
+            chosen.animator().frame = pill.frame
         }
     }
 
@@ -119,7 +151,9 @@ final class PageSet {
         let pill = PointerButton(title: "") { [weak self] in self?.show(own ? nil : who) }
         pill.padding = Metrics.gap
         pill.font = .ui(TextSize.caption)
-        pill.lineBreakMode = .byTruncatingTail
+        pill.lineBreakMode = .byTruncatingTail   // a long task or step ends in "…", at a word's edge or not
+        pill.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pill.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.popoverWidth).isActive = true
         pills[who] = pill
         return pill
     }
@@ -129,6 +163,35 @@ final class PageSet {
     private func name(_ who: String, _ page: BrowserTab) -> String {
         let whose = page.driverName(who)
         let step = page.drive?.lastStep
-        return [String(whose.prefix(28)), step.map { String($0.prefix(28)) }].compactMap { $0 }.joined(separator: " · ")
+        return [whose, step].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+extension NSView {
+    /// Puts `view` in this slot by its bottom edge, clipped, so as the slot opens (`reveal`) the view comes down out of
+    /// the slot's top edge rather than growing.
+    func pinBottom(_ view: NSView) {
+        clipsToBounds = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view)
+        NSLayoutConstraint.activate([
+            view.bottomAnchor.constraint(equalTo: bottomAnchor),
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+    }
+
+    /// Opens the slot (`height`) to its view's height, or closes it, so what is under it moves rather than jumps. It
+    /// comes over `base` easing out, and goes in about two thirds of that, easing in.
+    func reveal(_ height: NSLayoutConstraint, open: Bool) {
+        let tall = open ? subviews.first?.fittingSize.height ?? 0 : 0
+        guard tall != height.constant else { return }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = window == nil ? 0 : Motion.duration(open ? Motion.base : Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: open ? .easeOut : .easeIn)
+            ctx.allowsImplicitAnimation = true
+            height.animator().constant = tall
+            superview?.layoutSubtreeIfNeeded()
+        }
     }
 }

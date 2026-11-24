@@ -43,7 +43,7 @@ enum Answer {
 @MainActor func aTurnLater() async { await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } } }
 
 extension AndroidRuntimeOnAStandIn {
-    @Test(.timeLimit(.minutes(4))) func androidAnswersEveryRequestFromEachState() async throws {
+    @Test(.timeLimit(minutes: 4)) func androidAnswersEveryRequestFromEachState() async throws {
         enum From { case off, running, paused, sleeping }
         let inUse = "in use again", noFolders = "shares no folders", notMine = "kelpd's to drive"
         let rows: [(From, Asked, Answer, VMState, exits: Bool)] = [
@@ -104,7 +104,7 @@ extension AndroidRuntimeOnAStandIn {
 
 extension IOSRuntimeOnAStandIn {
     /// Show is left out: it opens the Mac's own Simulator app.
-    @Test(.timeLimit(.minutes(3))) func iOSAnswersEveryRequestFromEachState() async throws {
+    @Test(.timeLimit(minutes: 3)) func iOSAnswersEveryRequestFromEachState() async throws {
         enum From { case off, starting, running }
         let rows: [(From, Asked, Answer, VMState, exits: Bool)] = [
             (.off, .status, .done, .off, false), (.off, .start, .done, .running, false),
@@ -187,7 +187,7 @@ extension IOSRuntimeOnAStandIn {
         (.error, .quitIfDown, .done, .error, true)
     ]
     for (from, asked, answer, state, exits) in rows {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+        let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let linux = VMMachine(name: "box", os: "linux", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")

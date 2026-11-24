@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GitKit
 import Testing
+import os
 
 @testable import Daemon
 
@@ -20,7 +21,7 @@ import Testing
     // The turn is listed before its snapshot's ref is written (git, off the turn's queue): waited for, not assumed
     #expect(try await waitFor(10) { try !refs().isEmpty })
     try Git.run(["worktree", "lock", wt.path], cwd: w.repo.path, remotes: .none)
-    await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: wt.id)) }
+    await expectRefusal(says: "is locked") { try await w.c.call(WorktreeRemove(id: wt.id)) }
     #expect(try !refs().isEmpty)
     try Git.run(["worktree", "unlock", wt.path], cwd: w.repo.path, remotes: .none)
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
@@ -42,7 +43,9 @@ import Testing
     let own = try await workspace(w, "own-commit")
     try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path, remotes: .none)
     try FileManager.default.moveItem(atPath: own.path, toPath: tmp().path + "/trashed")
-    await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: own.id)) }
+    await expectRefusal(says: "commit that aren't on any other branch") {
+        try await w.c.call(WorktreeRemove(id: own.id))
+    }
     #expect(try Git.branchExists(w.repo.path, "own-commit", remotes: .none) && w.d.store.worktree(own.id) != nil)
     _ = try await w.c.call(WorktreeRemove(id: own.id, dropCommits: true))
     #expect(
@@ -61,16 +64,22 @@ import Testing
     try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there, remotes: .none)
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
     let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
-    let flag = shim.appendingPathComponent("slow-host").path, asked = shim.appendingPathComponent("slow-asked").path
+    let flag = shim.appendingPathComponent("slow-host").path,
+        asked = shim.appendingPathComponent("slow-host-asked").path
     try? FileManager.default.removeItem(atPath: asked)
     FileManager.default.createFile(atPath: flag, contents: nil)
     defer { try? FileManager.default.removeItem(atPath: flag) }
     let workspaces = d.workspaces
     let creating = Task.detached { try workspaces.createWorkspace(in: repo) }
-    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: asked) })   // its branch is being read on the host, for 3 s
-    let start = Date()
-    try workspaces.syncMainWorkspaces()
-    #expect(Date().timeIntervalSince(start) < 2.5)   // not behind that read
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: asked) })   // its branch is being read on the host
+    let synced = OSAllocatedUnfairLock(initialState: false)
+    let syncing = Task.detached {
+        try workspaces.syncMainWorkspaces()
+        synced.withLock { $0 = true }
+    }
+    #expect(try await waitFor { synced.withLock { $0 } })   // not behind that read, which the host still holds
+    try FileManager.default.removeItem(atPath: flag)   // the host answers
+    try await syncing.value
     _ = try await creating.value
 }
 
@@ -103,7 +112,8 @@ import Testing
     for (p, b) in [(clean, "clean"), (paused, "paused")] {
         try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo, remotes: .none)
     }
-    try "SECRET=1\n".write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
+    let secret = "SECRET=\(UUID())\n"   // this test's own, among every test's in the Trash
+    try secret.write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
     var s = Session(cwd: paused, command: "agent")
     s.status = .paused
     try w.d.store.save(s)
@@ -111,11 +121,7 @@ import Testing
     let res = try await w.c.call(RepoRemoveWorktrees(id: w.repo.id, paths: listed))
     #expect(res.removed.count == 1 && res.kept.count == 1 && res.kept.values.first?.contains("agent") == true, "\(res)")
     #expect(FileManager.default.fileExists(atPath: paused) && !FileManager.default.fileExists(atPath: clean))
-    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-    let trashed = (FileManager.default.enumerator(atPath: trash)?.allObjects as? [String] ?? []).filter {
-        $0.hasSuffix("clean/.env")
-    }
-    #expect(!trashed.isEmpty)
+    #expect(inTheTrash("clean/.env", holding: secret))
 }
 
 /// What a discard throws away is kept for its Undo first: when it can't be (a full disk; here, a file where its folder
@@ -126,7 +132,9 @@ import Testing
     let wt = try await workspace(w, "keep")
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try Data().write(to: w.d.sourceControl.discards)
-    await #expect(throws: RPCError.self) { try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"])) }
+    await expectRefusal(says: "its Undo couldn't be kept") {
+        try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"]))
+    }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
 }
 

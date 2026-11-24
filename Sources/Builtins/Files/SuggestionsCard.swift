@@ -22,14 +22,14 @@ struct SuggestionsCard: View {
         VStack(alignment: .leading, spacing: Metrics.inset) {
             if listing {
                 title(String(localized: "Code Suggestions"))
-                SuggestionsList(suggestions: suggestions)
-                buttons(String(localized: "Done")) { listing = false }
+                SuggestionsList(suggestions: suggestions, size: TextSize.row)
+                buttons(String(localized: "Done")) { show(list: false) }
             } else if let pull = suggestions.pull {
                 pullCard(pull)
             } else if let setup = suggestions.needsOllama {
                 ollamaCard(setup)
             } else if let error = suggestions.setupError {
-                title(String(localized: "Couldn't Get the Model"))
+                title(String(localized: "Couldn’t Get the Model"))
                 Text(error).foregroundStyle(.secondary)
                 otherModels()
                 buttons(String(localized: "Try Again")) { Task { await suggestions.turnOn() } }
@@ -60,8 +60,8 @@ struct SuggestionsCard: View {
             }
         }
         .font(.ui(TextSize.row))
+        .frame(width: Metrics.popoverWidth, alignment: .leading)   // the text column, as HelpMark's
         .padding(Metrics.inset)
-        .frame(width: 320, alignment: .leading)
         .task { await suggestions.refresh() }
     }
 
@@ -113,12 +113,17 @@ struct SuggestionsCard: View {
         Button(String(localized: "Turn Off in \(LanguageName.of(language)) Files")) {
             suggestions.set(on: false, in: language)
         }
-        .buttonStyle(.link)
+        .buttonStyle(BarButtonStyle())
     }
 
     /// Every model to pick from, the cloud's too.
     private func otherModels() -> some View {
-        Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(.link)
+        Button(String(localized: "Other Models…")) { show(list: true) }.buttonStyle(BarButtonStyle())
+    }
+
+    /// The list and the card dissolve into each other, in place.
+    private func show(list: Bool) {
+        withAnimation(.easeOut(duration: Motion.duration(Motion.fast))) { listing = list }
     }
 
     @ViewBuilder private func cloudCard(_ cloud: SuggestCloud, named: String) -> some View {
@@ -131,7 +136,7 @@ struct SuggestionsCard: View {
         } else {
             title(name)
             facts(String(localized: "Cloud · \(Self.company(cloud, app.settings[SettingKeys.suggestionURL]))"))
-            Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(.link)
+            Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(BarButtonStyle())
             offHere()
             buttons(String(localized: "Turn Off"), prominent: false) {
                 suggestions.turnOff()
@@ -176,13 +181,13 @@ struct SuggestionsCard: View {
                 Text(
                     cloud == .codestral
                         ? String(
-                            localized: "Mistral didn't take the key. A free key works only at codestral.mistral.ai.")
-                        : String(localized: "\(company) didn't take the key.")
+                            localized: "Mistral didn’t take the key. A free key works only at codestral.mistral.ai.")
+                        : String(localized: "\(company) didn’t take the key.")
                 ).foregroundStyle(.secondary)
                 buttons(String(localized: "Change Key…")) { addKey(cloud) }
             }
         case .notAnswering:
-            Text("No answer came in 8 seconds, or there's no connection.").foregroundStyle(.secondary)
+            Text("No answer came in 8 seconds, or there’s no connection.").foregroundStyle(.secondary)
             retry()
         case .failed, .keyMissing:
             Text("The server answered with an error.").foregroundStyle(.secondary)

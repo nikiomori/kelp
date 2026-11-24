@@ -155,7 +155,7 @@ struct PRWork {
         switch pull.mergeState {
         case "DIRTY": String(localized: "It conflicts with the base branch: resolve the conflicts first.")
         case "BEHIND": String(localized: "The base branch moved on: update this branch first.")
-        case "DRAFT": String(localized: "It's a draft: mark it ready for review first.")
+        case "DRAFT": String(localized: "It’s a draft: mark it ready for review first.")
         case "UNSTABLE": String(localized: "Some checks failed, though GitHub lets it merge.")
         case "BLOCKED": blocked(pull)
         default: nil
@@ -168,7 +168,19 @@ struct PRWork {
         if pull.reviewDecision == "REVIEW_REQUIRED" { return String(localized: "It needs an approving review.") }
         if pull.checks.failed > 0 { return String(localized: "Required checks failed.") }
         if pull.checks.pending > 0 { return String(localized: "Required checks are still running.") }
-        return String(localized: "The repository's rules block it.")
+        return String(localized: "The repository’s rules block it.")
+    }
+
+    /// The colour of `mergeBlock`'s words on the PR's page: orange for a conflict or requested changes, which wait for
+    /// you, red for failed checks, and grey for the rest (a draft, a base that moved on, checks still running).
+    static func mergeTone(_ pull: GitHub.PullRequest) -> String {
+        switch pull.mergeState {
+        case "DIRTY": "ask"
+        case "UNSTABLE": "fail"
+        case "BLOCKED" where pull.reviewDecision == "CHANGES_REQUESTED": "ask"
+        case "BLOCKED" where pull.reviewDecision != "REVIEW_REQUIRED" && pull.checks.failed > 0: "fail"
+        default: "quiet"
+        }
     }
 
     /// The one thing to do next, by what stands in the PR's way and whose PR it is.

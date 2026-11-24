@@ -21,7 +21,7 @@ public enum Metrics {
     // Spacing
     public static let inset: CGFloat = 12   // a panel's edge to its content
     public static let insetTrailing: CGFloat = 8   // a bar's edge to its last icon
-    public static let indentStep: CGFloat = 12   // one outline level: the sidebar, the file tree, a group's rows
+    public static let indentStep: CGFloat = 12   // one outline level: the file tree, a group's rows (sidebar: 12)
     public static let gap: CGFloat = 6   // between a bar's controls; icon to label in a row
     public static let gapWide: CGFloat = 8   // between separate controls in a tab's bar, a banner, or a sheet's buttons
     public static let lineGap: CGFloat = 2   // between a row's two lines
@@ -61,6 +61,17 @@ public enum Metrics {
     public static let iconGap: CGFloat = 2   // between two icon buttons side by side
     public static let iconGlow: CGFloat = 7   // the blur of a project's colour around its icon
     public static let paneDim: CGFloat = 0.5   // how far a pane without focus fades toward the background
+    public static let unlit: CGFloat = 0.25   // what is off the pointer's path in a drawn map
+    public static let stroke: CGFloat = 1.4   // a drawn ring or curve: a map's nodes, a list's lanes
+    public static let hairline: CGFloat = 1   // the thinnest drawn line: hatching
+    public static let strokeBold: CGFloat = 2   // a drawn line that stands out: a lit path, a selection ring
+    public static let markRadius: CGFloat = 2   // the corners of a small drawn square: an edited file's mark
+    public static let dotRadius: CGFloat = 3   // a small drawn dot: where the agent is now
+    public static let cardWidth: CGFloat = 300   // the widest a card under the pointer grows
+    public static let zoom: ClosedRange<CGFloat> = 0.3...2   // how far a drawn map zooms out and in
+    public static let zoomReadable: CGFloat = 0.6   // the smallest a fitted map shrinks to, its words still read
+    public static let zoomStep: CGFloat = 1.25   // one press of Zoom In (Zoom Out divides by it)
+    public static let dash: [CGFloat] = [2, 1.5]   // a dashed ring: a place outside, a question
     public static let tabDim: CGFloat = 0.7   // the opacity a dimmed tab strip's tabs keep
 
     // Segments: one icon of a segmented capsule (the inspector's panels), `iconGap` apart from each other and from the
@@ -72,6 +83,8 @@ public enum Metrics {
 
     // Sheets
     public static let sheetWidth: CGFloat = 480
+    public static let popoverWidth: CGFloat = 300   // a popover's text column (commit and sync take 320)
+    public static let codeCardWidth: CGFloat = 440   // a popover of code (docs, a change): lines read better wide
     public static let alertAccessory: CGFloat = 400   // the width of the fields a question sheet holds
     public static let formLabel: CGFloat = 96   // a field's name beside it, right-aligned
     public static let switcherWidth: CGFloat = 440   // the ⌃Tab switcher's card
@@ -87,8 +100,8 @@ extension NSImage.SymbolConfiguration {
 /// How long things move, and nothing under Reduce Motion.
 @MainActor
 public enum Motion {
-    // The 120 / 180 / 240 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300). Things come in on it, and
-    // what leaves goes in about two thirds of that, because nobody waits to watch it go.
+    // The 120 / 180 / 240 / 320 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300; 320 is `fold`). Things
+    // come in on it, and what leaves goes in about two thirds of that, because nobody waits to watch it go.
     public static let fast: TimeInterval = 0.12   // hover, icons moving, the picture of what went fading
     public static let base: TimeInterval = 0.18   // a panel sliding, Quick Open opening
     public static let slow: TimeInterval = 0.17   // a banner fading: two thirds of what it took to come in
@@ -109,6 +122,20 @@ public enum Motion {
     /// click.
     public static var soft: CAMediaTimingFunction { CAMediaTimingFunction(controlPoints: 0.25, 0.8, 0.25, 1) }
 
+    // A hidden panel at the window's edge, as Arc's sidebar does it (measured from a 120 fps recording): the pointer
+    // rests at the edge this long before the panel comes, so brushing past it brings nothing. Arc's 0.3 read as lag.
+    public static let edgeRest: TimeInterval = 0.1
+    /// The panel coming in: in place in about 85 ms, some 5 % past it (13 pt for a sidebar) at 110 ms, and back by
+    /// 200 ms. Its damping is 0.7 of critical, so it goes past once and doesn't wobble. Arc's 1 % (0.8) read as no
+    /// spring.
+    public static func slideIn(_ keyPath: String) -> CASpringAnimation {
+        let spring = CASpringAnimation(keyPath: keyPath)
+        spring.stiffness = 1500
+        spring.damping = 54
+        spring.duration = spring.settlingDuration
+        return spring
+    }
+
     // What goes on while a state lasts, one way (a breath takes this long there and this long back).
     public static let spin: TimeInterval = 1   // the ring's turn while the agent works
     public static let wait: TimeInterval = 3   // the turn of the ring of dots while it waits for its command
@@ -121,6 +148,9 @@ public enum Motion {
     public static let hoverOpen: TimeInterval = 0.5
     public static let hoverOpenWarm: TimeInterval = 0.12
     public static let hoverClose: TimeInterval = 0.2
+    // How long after a card went the next still opens at `hoverOpenWarm`, so the pointer moving on to the next row
+    // isn't made to wait again.
+    public static let hoverWarm: TimeInterval = 0.8
 
     /// Whether to reduce motion, as the Mac says unless `pinned`.
     public static var reduced: Bool { pinned ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }

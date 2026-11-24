@@ -32,7 +32,8 @@ import Testing
     rig.app.extensions.reload()   // "#" is the Issues built-in's
     rig.app.workbench.workspaceId = rig.workspace.id
     let fix = GitHub.PullRequest(
-        number: 7, title: "Fix login", url: "", author: "amy", headRefName: "fix", isDraft: false, state: "OPEN", checks: .init())
+        number: 7, title: "Fix login", url: "", author: "amy", headRefName: "fix", isDraft: false, state: "OPEN",
+        checks: .init())
     // The watch's own first reading (this folder has no GitHub remote) lands before the one the test stands in for.
     #expect(try await waitFor(10) { rig.app.latest(PRsEvent.self, rig.workspace.repoId) != nil })
     rig.app.land(PRsEvent(repo: rig.workspace.repoId, prs: [fix]))

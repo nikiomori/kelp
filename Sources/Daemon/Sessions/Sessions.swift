@@ -145,6 +145,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         var startedBy: String?   // the agent whose line shows this command
         var origin: String?   // the old session's origin on a restart; else the caller's session (`Sessions.asker`)
         var role: SessionRole?   // the job it's started for (a reviewer); a restart keeps the old one's
+        var env: [String: String]?   // on top of the agent's own (`Session.env`); a restart keeps the old one's
 
         init() {}
 
@@ -224,6 +225,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         rec.startedBy = launch.startedBy
         rec.origin = launch.origin ?? Self.asker
         rec.role = launch.role
+        rec.env = launch.env
         // A remote agent runs in its own tmux on the host, so a dropped connection or a daemon restart doesn't stop it.
         if !local, launch.onHostInTmux || Session.isAgent(manifest.id) {
             rec.tmux = launch.tmux ?? Tmux.own()

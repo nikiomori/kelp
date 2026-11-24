@@ -19,7 +19,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         checkboxWithTitle: String(localized: "Search inside conversations"), target: nil, action: nil)
     private let status = NSTextField(labelWithString: "")
     private let resumeB = NSButton(), copyB = NSButton()
-    private let empty = EmptyStateView(), loading = LoadingView(rows: true)
+    private let empty = EmptyStateView(), loading = LoadingView(rows: true, rowHeight: Metrics.row)
     private var rows: [AgentSessionInfo] = []
     /// The app whose conversations it lists and resumes.
     private let app: AppModel
@@ -86,7 +86,13 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         window.toolbar = toolbar
         window.toolbarStyle = .unifiedCompact
         window.titleVisibility = .hidden   // the search needs the room; the title stays in the Window menu
-        let content = stacked(sv)
+        // A failed read over rows already listed keeps them, with a line over them saying so.
+        let content = NSStackView(views: [failure, sv])
+        content.orientation = .vertical
+        content.distribution = .fill
+        content.spacing = 0
+        failure.setHuggingPriority(.defaultHigh, for: .vertical)
+        for view in [failure, sv] { view.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true }
         window.contentView = content
         empty.place(in: content)
         loading.place(in: content)
@@ -127,19 +133,26 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         pending.after(0.25) { [weak self] in self?.load() }
     }
 
+    private lazy var failure = FailureBar { [weak self] in self?.load() }
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.load() }
+
     private func load() {
+        // Only an empty list waits in view; rows already listed stay while the next read runs.
         let slow = whileSlow { [weak self] in
-            self?.empty.show(nil)
-            self?.loading.show(String(localized: "Reading the history…"))
+            guard let self, self.rows.isEmpty else { return }
+            self.empty.show(nil)
+            self.loading.show(String(localized: "Reading the history…"))
         }
         Task {
             defer {
                 slow.cancel()
                 loading.show(nil)
             }
-            rows =
-                await app.call(HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil))
-                ?? []
+            let (read, error) = await app.tryCall(
+                HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil))
+            if let error, read == nil { return failed(error) }
+            failure.show(nil)
+            rows = read ?? []
             let query = search.stringValue.trimmingCharacters(in: .whitespaces)
             showCount()
             if !rows.isEmpty {
@@ -157,6 +170,12 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             table.reloadData()
             selectionChanged()
         }
+    }
+
+    /// A read that failed: over rows already listed, a line saying so; with none, the error in the list's place.
+    private func failed(_ error: String) {
+        guard rows.isEmpty else { return failure.show(error) }
+        empty.showError(String(localized: "Couldn’t Read the History"), text: error, buttons: [tryAgain])
     }
 
     /// Shows the count in the toolbar, or nothing when the list is empty, because an empty list says so in its middle.

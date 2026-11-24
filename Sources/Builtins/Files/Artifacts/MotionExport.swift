@@ -29,18 +29,21 @@ final class MotionExportPopover: NSObject {
     private let popover = NSPopover()
     private var options: MotionExport
     private let stage: (width: Int, height: Int)
-    private let format = CapsuleSegments(labels: ["MP4", "GIF", "MOV"])
+    private let format = CapsuleSegments(labels: ["MP4", "GIF", "MOV"], name: String(localized: "Format"))
     private let quality = CapsuleSegments(
-        labels: [String(localized: "Best"), String(localized: "Good"), String(localized: "Small")])
+        labels: [String(localized: "Best"), String(localized: "Good"), String(localized: "Small")],
+        name: String(localized: "Quality"))
     private let movNote = NSTextField.label(
         String(localized: "ProRes 4444 · transparent background"), font: .ui(TextSize.caption),
         color: .secondaryLabelColor)
     /// The exports made from this page, newest first, shown under the options.
     private let recent: [MotionExports.Item]
-    private let rate = CapsuleSegments(labels: MotionExport.rates.map { "\(Int($0))" })
+    private let rate = CapsuleSegments(
+        labels: MotionExport.rates.map { "\(Int($0))" }, name: String(localized: "Frame Rate"))
     private let size: CapsuleSegments
     private let onlyRange = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    private let loops = CapsuleSegments(labels: [String(localized: "Forever"), String(localized: "Once")])
+    private let loops = CapsuleSegments(
+        labels: [String(localized: "Forever"), String(localized: "Once")], name: String(localized: "GIF Plays"))
     private let cover = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let go: (MotionExport) -> Void
     /// The second shown now, which Cover takes; and Save Frame as PNG…, which saves it.
@@ -55,7 +58,7 @@ final class MotionExportPopover: NSObject {
         self.stage = stage
         self.go = go
         size = CapsuleSegments(
-            labels: [1, 2].map { "\(stage.width * $0) × \(stage.height * $0)" })
+            labels: [1, 2].map { "\(stage.width * $0) × \(stage.height * $0)" }, name: String(localized: "Size"))
         super.init()
     }
 

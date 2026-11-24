@@ -25,7 +25,7 @@ extension Builtins {
                 ], group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)=cloud"),
             s(
                 SettingKeys.suggestionURL, "Server address", .string,
-                "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.",
+                "Empty: the provider’s own. Codestral’s free key works at https://codestral.mistral.ai.",
                 group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)=cloud",
                 placeholder: "https://api.example.com"),
             s(
@@ -58,11 +58,11 @@ extension Builtins {
                     group: "Display", perLanguage: true),
                 s(
                     SettingKeys.wordWrapColumn, "Wrap at column", .number,
-                    "Wrapping stops here on a wide screen. 0: at the window's edge.",
+                    "Wrapping stops here on a wide screen. 0: at the window’s edge.",
                     group: "Display", requires: SettingKeys.wordWrap.key, perLanguage: true),
                 s(
                     SettingKeys.wrappingIndent, "Wrapped lines continue", .enum,
-                    "At the left edge, at their line's indentation, or one level past it.",
+                    "At the left edge, at their line’s indentation, or one level past it.",
                     options: ["none", "same", "indent"], group: "Display", requires: SettingKeys.wordWrap.key),
                 s(
                     SettingKeys.rulers, "Rulers at columns", .string, "Thin lines at these columns.",
@@ -77,19 +77,19 @@ extension Builtins {
                     group: "Display", perLanguage: true),
                 s(
                     SettingKeys.indentGuides, "Indent guides", .boolean,
-                    "Faint lines at each level; the block around the cursor's is brighter.",
+                    "Faint lines at each level; the block around the cursor’s is brighter.",
                     group: "Display", perLanguage: true),
                 s(
                     SettingKeys.breadcrumbs, "Breadcrumbs", .boolean,
-                    "The file's folders and the scopes around the cursor, in a thin bar over the editor.",
+                    "The file’s folders and the scopes around the cursor, in a thin bar over the editor.",
                     group: "Display", perLanguage: true),
                 s(
                     SettingKeys.stickyScroll, "Keep the enclosing scopes at the top", .boolean,
-                    "The lines that open the class and function you're in stay pinned as you scroll.",
+                    "The lines that open the class and function you’re in stay pinned as you scroll.",
                     group: "Display", perLanguage: true),
                 s(
                     SettingKeys.tabSize, "Tab size", .number,
-                    "Spaces to a level. A file's own indentation and its .editorconfig come first.",
+                    "Spaces to a level. A file’s own indentation and its .editorconfig come first.",
                     group: "Indentation", perLanguage: true),
                 s(
                     SettingKeys.insertSpaces, "Indent with spaces", .boolean, group: "Indentation",
@@ -118,7 +118,7 @@ extension Builtins {
                     group: "Language servers"),
                 s(
                     SettingKeys.hover, "Show what the language server knows on hover", .boolean,
-                    "A symbol's signature and documentation, and the arguments of a call as you type it.",
+                    "A symbol’s signature and documentation, and the arguments of a call as you type it.",
                     group: "Language servers",
                     requires: SettingKeys.lsp.key)
             ] + suggestionRows + [

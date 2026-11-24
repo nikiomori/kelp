@@ -18,14 +18,14 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     let app: AppModel
     let table = KeyTable()
     let empty = EmptyStateView()
-    let loadingView = LoadingView(rows: true)
+    let loadingView = LoadingView(rows: true, rowHeight: Metrics.row)
     let face = AddonFace()
     private let chatTitle = NSTextField(labelWithString: "")
     let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     private let filter = NSSearchField()
     private lazy var filterBar = NSStackView(views: [filter])
-    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
+    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) { [weak self] in
         self?.showMore()
     }
     lazy var add = IconButton(.symbol("plus"), tip: String(localized: "Add")) { [weak self] in self?.showAdd() }
@@ -66,14 +66,16 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         table.delegate = self
         table.target = self
         table.action = #selector(clicked)
-        table.doubleAction = #selector(openClicked)
-        table.onReturn = { [weak self] in self.map { $0.open(row: $0.table.selectedRow) } }
+        table.onReturn = { [weak self] in   // as a click: a group folds, an item opens
+            guard let self, !self.fold(row: self.table.selectedRow) else { return }
+            self.open(row: self.table.selectedRow)
+        }
         table.menu = NSMenu()
         table.menu?.delegate = self
         // The inspector's own title already names the panel, so this bar names the chat, the way the bar of Source
         // Control names the branch.
         let header = Bar.panel([face, chatTitle], [add, more])
-        chatTitle.font = .ui(TextSize.row, weight: .medium)
+        chatTitle.font = .ui(TextSize.row)   // as Source Control's bar names its branch
         chatTitle.lineBreakMode = .byTruncatingTail
         chatTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         filter.placeholderString = String(localized: "Filter")
@@ -189,7 +191,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 
     /// Shows the answer for `key`. When reading the same list again fails, the old list stays under a line that says
-    /// so. Another chat's list crossfades in, and a new answer for the same chat lights up what changed.
+    /// so. Another chat's list crossfades in, and in a new answer for the same chat a few rows that came or went move
+    /// the others.
     private func show(_ value: Addons?, error: String?, chat: Session?, key: String?) {
         endBusy()
         pending = [:]
@@ -200,14 +203,14 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         }
         failureBar.show(nil)
         if !same, addons != nil { table.enclosingScrollView?.crossfade(Motion.appear) }
-        let before = same ? lines : nil
+        let places = same ? table.rowPlaces(lineKey) : [:]
         shownKey = key
         addons = value
         if let error {
-            empty.showError(String(localized: "Couldn’t read the skills and servers"), text: error)
+            empty.showError(String(localized: "Couldn’t Read the Skills and Servers"), text: error)
         } else {
             empty.show(
-                (value?.items ?? []).isEmpty ? String(localized: "Nothing here yet") : nil, symbol: "powerplug",
+                (value?.items ?? []).isEmpty ? String(localized: "Nothing Here Yet") : nil, symbol: "powerplug",
                 text: String(localized: "What agents get besides the prompt: skills, MCP servers, instruction files."))
         }
         let items = value?.items ?? [], known = value?.chat == true
@@ -228,24 +231,30 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         foot.isHidden = shownChat == nil || (gone.isEmpty && !behind && !items.contains(where: AddonGroups.waits))
         footNote.stringValue = AddonGroups.footNote(gone: gone)
         footNote.toolTip = gone.isEmpty ? nil : gone.joined(separator: "\n")
-        relist()
-        if let before { glow(changedFrom: before) }
+        relist(settling: places)
     }
 
-    /// Rebuilds the lines, and keeps the selected line selected while it is still there.
-    private func relist() {
+    /// Rebuilds the lines, and keeps the selected line selected while it is still there. With `places` (where the
+    /// rows stood before), a few rows that came or went move the others instead of jumping them.
+    private func relist(settling places: [String: NSPoint] = [:]) {
         let selected = lines.indices.contains(table.selectedRow) ? lines[table.selectedRow] : nil
-        let filtering = !display.filter.isEmpty
+        let filtering = !display.filter.isEmpty, old = Set(lines.map(\.key))
         lines = AddonGroups.lines(
             addons?.items ?? [], toggled: filtering ? toggledFiltering : toggled, view: display,
             tidied: addons?.tidied, agent: listAgent)
-        table.reloadData()
-        if let selected, let row = lines.firstIndex(of: selected) {
-            table.selectRowIndexes([row], byExtendingSelection: false)
-        } else {
-            table.deselectAll(nil)
+        let now = Set(lines.map(\.key))
+        table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), lineKey) {
+            table.reloadData()
+            if let selected, let row = lines.firstIndex(of: selected) {
+                table.selectRowIndexes([row], byExtendingSelection: false)
+            } else {
+                table.deselectAll(nil)
+            }
         }
     }
+
+    /// A line's name across a reload, for `relist(settling:)`.
+    func lineKey(_ row: Int) -> String? { lines.indices.contains(row) ? lines[row].key : nil }
 
     func controlTextDidChange(_ note: Notification) {
         toggledFiltering = []
@@ -276,23 +285,37 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         .fill(menu, lines[table.clickedRow])
     }
 
+    /// A click folds a group and opens an item's file, as Return does.
     @objc private func clicked() {
-        guard lines.indices.contains(table.clickedRow), case .group(let g, let count, _, _) = lines[table.clickedRow],
-            count > 0
-        else { return }
-        let filtering = !display.filter.isEmpty
-        if filtering {
+        if !fold(row: table.clickedRow) { open(row: table.clickedRow) }
+    }
+
+    /// Folds or unfolds the group on `row`: the rows under it come or go, moving the others, and its chevron turns.
+    /// Returns false when the row is no group that folds.
+    @discardableResult
+    private func fold(row: Int) -> Bool {
+        guard lines.indices.contains(row), case .group(let g, let count, _, _) = lines[row], count > 0 else {
+            return false
+        }
+        let key = lines[row].key, selected = table.selectedRow == row
+        if !display.filter.isEmpty {
             if toggledFiltering.remove(g) == nil { toggledFiltering.insert(g) }
         } else if toggled.remove(g) == nil {
             toggled.insert(g)
         }
-        relist()
+        relist(settling: table.rowPlaces(lineKey))
+        guard let now = lines.firstIndex(where: { $0.key == key }), case .group(_, _, _, let open) = lines[now] else {
+            return true
+        }
+        if selected { table.selectRowIndexes([now], byExtendingSelection: false) }   // its line changed, it didn't
+        // The new line's chevron turns from what the old one showed, once it has a size (as SectionList's).
+        table.layoutSubtreeIfNeeded()
+        (table.view(atColumn: 0, row: now, makeIfNecessary: false) as? AddonCell)?.arrangedSubviews.first?
+            .turn(from: open ? .pi / 2 : -.pi / 2)
+        return true
     }
 
-    /// A double click opens the row's file in a tab.
-    @objc private func openClicked() { open(row: table.clickedRow) }
-
-    /// Opens the row's file in a tab, on Return or a double click.
+    /// Opens the row's file in a tab, on a click or Return.
     private func open(row: Int) {
         guard lines.indices.contains(row) else { return }
         switch lines[row] {
@@ -314,8 +337,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch lines[row] {
-        case .item, .problem: true
-        case .section, .group, .unsigned, .instructions: false
+        case .item, .problem, .group: true   // ↑ ↓ reach a group, and Return folds it
+        case .section, .unsigned, .instructions: false
         }
     }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
@@ -331,7 +354,6 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         var rows = AddonRows(app: app) { [weak self] key, on in self?.flip([key], on: on) }
         rows.agent = listAgent
         rows.pending = pending
-        rows.onOpen = { [weak self] path in self?.open(path) }
         rows.onOff = { [weak self] keys in self?.flip(keys, on: false) }
         let items = addons?.items ?? []
         let workspace = app.workbench.workspaceId ?? ""

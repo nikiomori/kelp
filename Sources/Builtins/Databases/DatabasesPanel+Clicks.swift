@@ -28,6 +28,7 @@ extension DatabasesPanel {
         case .use: return showUseMenu(at: index)
         case .problem, .project: return
         }
+        turning = rows[index].key
         table.crossfade(Motion.base)   // a fold's rows fade out or in, because there are too many to move one by one
         reload()
     }

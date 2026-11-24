@@ -80,7 +80,7 @@ final class DaemonLink {
         if client === connection { watchLife(connection) }
     }
 
-    static let noService = String(localized: "Kelp's background service isn't running.")
+    static let noService = String(localized: "Kelp’s background service isn’t running.")
     /// Returns what the banner says when kelpd doesn't answer. That is why kelpd didn't start (from `kelpd.err`, which
     /// kelpd leaves for this) and the command that fixes it when one is known. Without a reason, it says only that the
     /// service isn't running.
@@ -102,7 +102,7 @@ final class DaemonLink {
 
     private func sayNotAnswering() {
         Banner.show(
-            String(localized: "Kelp's background service isn't answering."), style: .error,
+            String(localized: "Kelp’s background service isn’t answering."), style: .error,
             action: (String(localized: "Restart It"), { Task { await self.restart() } }))
     }
 

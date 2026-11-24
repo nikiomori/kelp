@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import Testing
+import WorkbenchKit
 
 @testable import BuiltinGit
 @testable import BuiltinIssues
@@ -63,7 +64,8 @@ import Testing
     }
 }
 
-/// Each of GitHub's ways to merge asks before it merges, so its menu item ends in "…".
+/// Each of GitHub's three ways to merge asks before it merges, so its menu item ends in "…". (The question is a sheet,
+/// which a test can't answer: only the mark is checked.)
 @MainActor @Test func theWaysToMergeEndInAnEllipsis() {
     let menu = PRWork(app: AppModel(builtins: []), repoId: "r", pr: pullRequest(.init())).mergeMenu {}
     #expect(menu.items.count == 3)
@@ -82,4 +84,53 @@ import Testing
     vc.diffs = [FileDiff(path: "f.swift", header: "", hunks: [], binary: false)]
     vc.showState(error: nil)
     #expect(!vc.empty.showing && !vc.status.stringValue.isEmpty)
+}
+
+/// A commit's menu, as right-click and the card's ⋯ show it: open, share, change the branch, copy, in that order, with
+/// the keys Return and ⌘C. Cherry-Pick names the current branch and is left out for a commit the branch already has.
+@MainActor
+@Test(arguments: [
+    (
+        "side",
+        "Open Changes ↩|Open in Browser|Send to Agent|-|Check Out…|Create Branch Here…|Cherry-Pick into main…|"
+            + "Revert…|-|Copy Hash ⌘c|Copy Message"
+    ),
+    (
+        "base",
+        "Open Changes ↩|Open in Browser|Send to Agent|-|Check Out…|Create Branch Here…|Revert…|-|Copy Hash ⌘c|"
+            + "Copy Message"
+    )
+])
+func aCommitsMenuListsItsActionsInOrder(commit: String, items: String) throws {
+    let vc = SourceControlController(app: AppModel(builtins: Builtins.all))
+    func c(_ hash: String, _ parents: [String]) -> GraphCommit {
+        GraphCommit(
+            hash: hash, parents: parents, author: "", date: 0, subject: hash, refs: [], lane: 0, top: [], bottom: [])
+    }
+    vc.commits = [c("head", ["base"]), c("side", ["base"]), c("base", [])]
+    vc.info = BranchInfo(current: "main", head: "head", local: ["main"], remote: [], merging: false)
+    let menu = NSMenu()
+    vc.addCommitItems(try #require(vc.commits.first { $0.hash == commit }), to: menu)
+    let shown = menu.items.map { item in
+        guard !item.isSeparatorItem else { return "-" }
+        let key = item.keyEquivalent == "\r" ? "↩" : item.keyEquivalent.isEmpty ? "" : "⌘" + item.keyEquivalent
+        return key.isEmpty ? item.title : item.title + " " + key
+    }
+    #expect(shown.joined(separator: "|") == items)
+}
+
+/// A file's turn diff opened for one turn (the Work panel's earlier turn) asks for that turn's changes, not the last
+/// turn's; the tab's address carries the turn.
+@MainActor @Test func aFilesTurnDiffAsksForTheTurnItNames() {
+    let uri = TabURI.diff("w", file: "a.swift", source: .turn, session: "s1", turn: "m1")
+    let items = URLComponents(string: uri)?.queryItems ?? []
+    #expect(items.first { $0.name == "turn" }?.value == "m1" && items.first { $0.name == "session" }?.value == "s1")
+    let vc = DiffViewController(app: AppModel(builtins: Builtins.all))
+    _ = vc.view
+    vc.showFile("a.swift", source: .turn, commit: nil, turn: (session: "s1", id: "m1"))
+    let asked = vc.diffRequest()
+    #expect(asked.source == .turn && asked.file == "a.swift" && asked.session == "s1" && asked.turn == "m1")
+    // The last turn: its agent named, no turn id (git.diff can't tell whose turn otherwise).
+    vc.showFile("a.swift", source: .turn, commit: nil, turn: (session: "s1", id: nil))
+    #expect(vc.diffRequest().session == "s1" && vc.diffRequest().turn == nil)
 }

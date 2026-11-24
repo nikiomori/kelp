@@ -12,6 +12,10 @@ struct ContextParts: View {
     let parts: SessionContextParts.Parts, window: Int
     /// The Compact Now action, offered once the ring turns orange, while the agent waits for input.
     let compact: (() -> Void)?
+    /// True when the parts just arrived after a wait: the bar fills from empty as they come in. Shown again from the
+    /// card's memory, they stand at once.
+    var grow = false
+    @State private var filled = false
 
     struct Row: Identifiable { let id: String, label: String, tokens: Int, detail: String, color: Color? }
 
@@ -44,9 +48,12 @@ struct ContextParts: View {
         let rows = self.rows, used = rows.reduce(0) { $0 + $1.tokens }, buffer = parts.setup?.buffer ?? 0
         let biggest = rows.filter { $0.id != "base" }.max { $0.tokens < $1.tokens }?.id
         let reserve = Color(nsColor: .quaternaryLabelColor)
+        let full = !grow || filled
         VStack(alignment: .leading, spacing: Metrics.gap) {
             PartsBar(
-                rows.map { PartsBar.Part(id: $0.id, value: Double($0.tokens), color: $0.color ?? .clear) },
+                rows.map {
+                    PartsBar.Part(id: $0.id, value: full ? Double($0.tokens) : 0, color: $0.color ?? .clear)
+                },
                 total: Double(window),
                 end: buffer > 0 ? PartsBar.Part(id: "buffer", value: Double(buffer), color: reserve) : nil)
             Grid(alignment: .leading, horizontalSpacing: Metrics.gap, verticalSpacing: Metrics.lineGap) {
@@ -67,6 +74,10 @@ struct ContextParts: View {
                     horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
+        }
+        .onAppear {
+            guard grow, !filled else { return }
+            withAnimation(.easeOut(duration: Motion.duration(Motion.fold))) { filled = true }
         }
     }
 
@@ -158,7 +169,7 @@ struct ContextParts: View {
                 case (.conversation, "thinking"): String(localized: "its thinking")
                 case (.conversation, "messages") where item.count == 1: String(localized: "your message")
                 case (.conversation, "messages"): String(localized: "your \(item.count) messages")
-                case (.conversation, "notes"): String(localized: "Claude Code's notes")
+                case (.conversation, "notes"): String(localized: "Claude Code’s notes")
                 default: item.count > 1 ? "\(item.label) ×\(item.count)" : item.label
                 }
             return "\(name) \(shortTokens(item.tokens))"
@@ -184,5 +195,68 @@ struct ContextParts: View {
     /// 146_200 of 1M → "14.6%".
     static func share(_ tokens: Int, of window: Int) -> String {
         (Double(tokens) / Double(max(window, 1))).formatted(.percent.precision(.fractionLength(1)))
+    }
+}
+
+/// What the parts will look like while they're read: the bar's track and four legend rows' outlines, a name and its
+/// line under it, with a light passing over them as over a list's loading rows (`SkeletonRows`): on the clock's beat,
+/// so it keeps step with them, and still under Reduce Motion, which is read live.
+struct ContextPartsOutline: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let widths: [CGFloat] = [0.62, 0.45, 0.54, 0.38]
+
+    var body: some View {
+        let still = reduceMotion || Motion.reduced
+        let period = Motion.breathe, start = Motion.beat(Motion.breathe)
+        shapes(Color(nsColor: .quaternaryLabelColor))
+            .overlay {
+                if !still {
+                    TimelineView(.animation) { _ in light(at: (CACurrentMediaTime() - start) / period) }
+                        .mask(shapes(.black))
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel(String(localized: "Reading the conversation…"))
+    }
+
+    /// A band two fifths as wide as the rows, `phase` (0…1 each pass) of its way from wholly left of them to wholly right.
+    private func light(at phase: Double) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let eased = UnitCurve.easeInOut.value(at: phase - phase.rounded(.down))
+            LinearGradient(
+                colors: [.clear, Color(nsColor: .quaternaryLabelColor), .clear], startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: width * 0.4)
+            .offset(x: width * (1.4 * eased - 0.4))
+        }
+    }
+
+    private func shapes(_ shade: Color) -> some View {
+        let line = TextSize.of(TextSize.caption) + Metrics.lineGap * 2
+        return VStack(alignment: .leading, spacing: Metrics.gap) {
+            RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(shade).frame(height: PartsBar.height)
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                ForEach(Self.widths.indices, id: \.self) { index in
+                    GeometryReader { geometry in
+                        let text = geometry.size.width - PartsBar.height - Metrics.gap
+                        // The line under the name stands a line and a gap below it, as the legend's does.
+                        let under = line + Metrics.lineGap - (PartsBar.height + Metrics.gap) / 2
+                        VStack(alignment: .leading, spacing: under) {
+                            HStack(spacing: Metrics.gap) {
+                                RoundedRectangle(cornerRadius: Metrics.radiusXS / 2).fill(shade).frame(
+                                    width: PartsBar.height, height: PartsBar.height)
+                                Capsule().fill(shade).frame(width: text * Self.widths[index], height: Metrics.gap)
+                            }
+                            Capsule().fill(shade).frame(width: text * Self.widths[index] * 0.6, height: Metrics.gap)
+                                .padding(.leading, PartsBar.height + Metrics.gap)
+                        }
+                        .padding(.top, (line - PartsBar.height) / 2)
+                    }
+                    .frame(height: line * 2 + Metrics.lineGap)
+                }
+            }
+        }
     }
 }

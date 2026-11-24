@@ -15,7 +15,7 @@ struct ServerSection: View {
             Divider()
             HStack(spacing: Metrics.gap) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
-                Text(host).font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
+                Text(host).sectionTitle().lineLimit(1)   // a card's part is headed as a popover's section is
                 if let word = ServerActions.serverWord(app, host) {
                     Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
                 }
@@ -31,6 +31,7 @@ struct ServerSection: View {
                     close()
                     ServerActions.openHtop(app, host)
                 }
+                .buttonStyle(BarButtonStyle())   // one system button in a card; the second is a word on the grey plate
             }
             .controlSize(.small)
         }
@@ -39,7 +40,7 @@ struct ServerSection: View {
 
 /// "Ubuntu 24.04.5 LTS · 2 cores · up 3 d 10 h", or why there's nothing to say.
 func serverLine(_ stats: HostStats?) -> String {
-    guard let stats else { return String(localized: "Reading…") }
+    guard let stats else { return String(localized: "Reading the server…") }
     guard stats.connected else {
         return stats.error.map { String(localized: "Can’t reach: \($0)") }
             ?? String(localized: "Not connected. Opening it connects.")

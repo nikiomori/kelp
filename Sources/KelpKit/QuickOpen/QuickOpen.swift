@@ -64,7 +64,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     /// A list that replaces the palette's own, such as tmux sessions (`showTmux`) or a built-in's list (`showList`). It
     /// gives the rows for what is typed, and is nil while the palette shows its own list.
     var own: (@MainActor (String) async -> [Item])?
-    var tmuxLoad: Task<Void, Never>?
+    var tmuxLoad: Task<[Tmux.Session], Never>?
 
     /// Shows the palette. `text` is what the field starts with (":" for Go to Line).
     func show(commandsOnly: Bool, text: String = "") {
@@ -231,6 +231,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         table.intercellSpacing.width = 0   // a cell starts at the list's edge, so the one left edge comes out even
         table.backgroundColor = .clear
         table.target = self
+        table.action = #selector(clicked)   // ⇧-click: beside
         table.doubleAction = #selector(activate)
         let sv = NSScrollView()
         sv.documentView = table
@@ -294,7 +295,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     }
 
     func filter() {
-        scoring?.cancel()
+        for task in [scoring, symbolLoad, prefixedLoad] { task?.cancel() }   // what was asked for before is dropped
         let typed = field.stringValue
         if let own {
             scoring = Task { [weak self] in

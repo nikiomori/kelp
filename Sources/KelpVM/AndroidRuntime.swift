@@ -29,6 +29,8 @@ final class AndroidRuntime: MachineRuntime {
     var exitProcess: () -> Void = { exit(0) }
     /// What time it is. It is the clock by default, and a test sets its own, moved past the idle limits.
     var now: () -> Date = { Date() }
+    /// Where the Android SDK is. It is found (`AndroidSDK.root`) by default, and a test gives its stand-in's.
+    var sdk: () -> URL? = { AndroidSDK.root }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// `saving` is a sleep under way, and `afterSave` holds the wakes to run once it's done, because a wake meanwhile
@@ -165,7 +167,7 @@ final class AndroidRuntime: MachineRuntime {
     }
 
     private func boot() {
-        guard let exe = AndroidSDK.emulator else {
+        guard let root = sdk() else {
             nextBootShown = false   // so a Show that hears of this failure doesn't ask a later boot for a window
             return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME."))
         }
@@ -176,7 +178,7 @@ final class AndroidRuntime: MachineRuntime {
         close(portClaim)
         (port, portClaim) = Lifecycle.claimPort(from: 5600, in: folder.deletingLastPathComponent())
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: exe)
+        process.executableURL = URL(fileURLWithPath: AndroidSDK.emulator(in: root))
         process.arguments =
             [
                 "-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
@@ -184,7 +186,7 @@ final class AndroidRuntime: MachineRuntime {
             ] + (nextBootShown ? [] : ["-no-window"])
         var env = ProcessInfo.processInfo.environment
         env["ANDROID_AVD_HOME"] = avd.path
-        if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
+        env["ANDROID_SDK_ROOT"] = root.path
         process.environment = env
         let out = folder.appendingPathComponent("emulator.log")
         FileManager.default.createFile(atPath: out.path, contents: nil)
@@ -383,9 +385,10 @@ final class AndroidRuntime: MachineRuntime {
     }
 
     private func adb(_ args: [String]) async throws -> String {
-        guard let adb = AndroidSDK.adb else { throw VMError("No adb: the Android SDK's platform-tools.") }
+        guard let root = sdk() else { throw VMError("No adb: the Android SDK's platform-tools.") }
         let out = try await Subprocess.run(
-            [adb, "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 30)
+            [AndroidSDK.adb(in: root), "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment,
+            timeLimit: 30)
         guard out.status == 0 else { throw VMError(String(decoding: out.stderr, as: UTF8.self)) }
         return String(decoding: out.stdout, as: UTF8.self)
     }

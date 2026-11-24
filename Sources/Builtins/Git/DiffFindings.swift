@@ -9,7 +9,7 @@ import KelpKit
 extension DiffViewController {
     func commentRow(_ diffComment: DiffComment) -> NSView {
         let who = diffComment.author.map { "\($0): " } ?? ""
-        let text = NSTextField.label("\(who)\(diffComment.text)", font: .ui(TextSize.caption, weight: .medium))
+        let text = NSTextField.label("\(who)\(diffComment.text)", font: .ui(TextSize.caption))
         let bubble = NSImageView(image: .symbol("text.bubble", String(localized: "Comment")))
         bubble.symbolConfiguration = .chrome(Metrics.iconSmall)
         bubble.contentTintColor = .secondaryLabelColor
@@ -39,7 +39,7 @@ extension DiffViewController {
         let row = FillStack(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
-        row.fill = .fillSelected
+        row.fill = .fillRest
         return row
     }
 

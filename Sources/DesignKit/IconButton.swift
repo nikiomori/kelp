@@ -30,6 +30,8 @@ public final class IconButton: PointerButton {
     /// An icon alone sits in the middle of its square; with a count ("↑ 56") the icon leads it. When it led with no
     /// count, the "+" of a sidebar row stood 4 pt left of its hover square's centre.
     override public var title: String { didSet { imagePosition = title.isEmpty ? .imageOnly : .imageLeading } }
+    /// VoiceOver says the tip, so a button that changes what it does (Reload → Stop) is heard by its new name.
+    override public var toolTip: String? { didSet { setAccessibilityLabel(toolTip) } }
 
     /// True while the button is at work (Refresh while it reads). A spinner stands where the symbol was, and the
     /// symbol comes back after.

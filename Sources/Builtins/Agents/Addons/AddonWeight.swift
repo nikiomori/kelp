@@ -13,12 +13,20 @@ struct AddonWeight: View {
 
     private static let shades: [NSColor] = [.emphasis, .secondaryLabelColor, .tertiaryLabelColor, .quaternaryLabelColor]
 
+    private func top(_ when: String?) -> some View {
+        HStack(spacing: Metrics.gap) {
+            Text(headline).foregroundStyle(shares.isEmpty ? .secondary : .primary).lineLimit(1)
+            Spacer(minLength: 0)
+            if let when { Text(when).monospacedDigit().foregroundStyle(.secondary).lineLimit(1).fixedSize() }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.gap) {
-            HStack(spacing: Metrics.gap) {
-                Text(headline).foregroundStyle(shares.isEmpty ? .secondary : .primary).lineLimit(1)
-                Spacer(minLength: 0)
-                if let when { Text(when).monospacedDigit().foregroundStyle(.secondary).lineLimit(1).fixedSize() }
+            // In a narrow inspector `when` goes first, so the headline is never cut while it keeps its room.
+            ViewThatFits(in: .horizontal) {
+                top(when)
+                top(nil)
             }
             .font(.ui(TextSize.caption))
             if !shares.isEmpty {

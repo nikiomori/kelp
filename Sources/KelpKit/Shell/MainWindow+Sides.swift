@@ -6,12 +6,13 @@ import TerminalKit
 
 /// The window's side columns: auto-hide, a peek from the edge, a pin, and the slide that opens and closes them.
 extension MainWindowController {
-    /// Fades a window bar's button out or in with the panels moving beside it, instead of in a single frame.
+    /// Fades a window bar's button out or in with the panels moving beside it, instead of in a single frame. It goes
+    /// as the floater it rides on does: in about two thirds of the time it took to come.
     func fade(_ button: NSView, hidden: Bool) {
         if !hidden { button.isHidden = false }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.duration(Motion.base)
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = Motion.duration(hidden ? Motion.fast : Motion.base)
+            ctx.timingFunction = CAMediaTimingFunction(name: hidden ? .easeIn : .easeOut)
             button.animator().alphaValue = hidden ? 0 : 1
         } completionHandler: {
             MainActor.assumeIsolated { if button.alphaValue == 0 { button.isHidden = true } }   // AppKit calls on main
@@ -22,6 +23,7 @@ extension MainWindowController {
         guard on != side.autoHide else { return }   // so the first read, before loading, keeps the saved layout
         side.autoHide = on
         side.pinned = false
+        followLights()   // the lights and the toggle move with the column, from its first frame
         if inFocusMode { side.closedBefore = on }
         if peeking === side { stopPeek() }
         guard !inFocusMode else { return place() }
@@ -55,9 +57,11 @@ extension MainWindowController {
         // The side that stays is the one whose panel isn't moving. With both moving, what's shown travels with the
         // left.
         editors.holdWidth(trailing: !moves.contains { $0.side === right })
+        // Columns that only close leave as panels do: sooner, speeding away.
+        let leaving = moves.allSatisfy(\.collapsed)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.base
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = leaving ? Motion.fast : Motion.base
+            ctx.timingFunction = CAMediaTimingFunction(name: leaving ? .easeIn : .easeOut)
             moves.forEach { $0.side.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
@@ -99,6 +103,31 @@ extension MainWindowController {
         // the floater that edge is the floater's border, so a margin goes inside it, as wide as the cards stand from
         // the left (8), and the scroller's knob runs in it.
         sidebar.gutter = hides(left) ? Metrics.gapWide : 0
+        followLights()
+    }
+
+    /// A sidebar put away takes the traffic lights with it, as Dia's does (decision 109): they come back on it while
+    /// it slides in at the edge, and with it in its column. Its toggle stays, at the window's edge where the lights
+    /// stood; the toggle and the workspace's name move with the column (`toggleFloor`), never while it slides in.
+    func followLights() {
+        let away = hides(left)
+        let floor = away ? lightsStart : lightsEnd + 12
+        if toggleFloor?.constant != floor {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.duration(away ? Motion.fast : Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: away ? .easeIn : .easeOut)
+                toggleFloor?.animator().constant = floor
+                pillFloor?.animator().constant = floor
+            }
+        }
+        let shown = !away || peeking === left
+        for view in lights where view.isHidden == shown && !Floater.carries(view) {
+            fade(view, hidden: !shown)
+        }
+    }
+    /// The traffic lights. A peeking sidebar carries them in and out at its top, as Arc's does.
+    var lights: [NSView] {
+        [.closeButton, .miniaturizeButton, .zoomButton].compactMap { window?.standardWindowButton($0) }
     }
 
     func peek(_ side: Side) {
@@ -107,7 +136,8 @@ extension MainWindowController {
         peeking = side
         peekedAt = Date()
         peekReached = false
-        side.floater.slide(in: true)
+        side.floater.slide(in: true, carrying: side === left ? lights : [])
+        followLights()
         window?.acceptsMouseMovedEvents = true
         peekMoves = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.pointerMoved(event)
@@ -117,7 +147,12 @@ extension MainWindowController {
     func pointerMoved(_ event: NSEvent) {
         guard let side = peeking, event.window === window, let root = window?.contentView else { return }
         let point = root.convert(event.locationInWindow, from: nil)
-        if Self.overPeek(point, panel: side.floater.frame, edge: side.edge.frame) {
+        // A card the panel opened (a commit's, an agent's) hangs beside it in a window of its own: the way to it and
+        // the card itself count as the panel, or the panel went, and the card with it, as the pointer set off for it.
+        let cards = (window?.childWindows ?? []).filter(\.isVisible).compactMap { child in
+            window.map { root.convert($0.convertFromScreen(child.frame), from: nil) }
+        }
+        if Self.overPeek(point, panel: side.floater.frame, edge: side.edge.frame, cards: cards) {
             peekReached = true
             return
         }
@@ -127,7 +162,11 @@ extension MainWindowController {
     /// Whether `point` is over a peeking panel, which counts anywhere from the window's edge through the panel. The
     /// panel stands 6 pt in from the edge, past the 4 pt strip, and a slow move across that gap closed it under the
     /// pointer.
-    static func overPeek(_ point: NSPoint, panel: NSRect, edge: NSRect) -> Bool { panel.union(edge).contains(point) }
+    /// A card beside the panel counts too, with a margin for the step between them.
+    static func overPeek(_ point: NSPoint, panel: NSRect, edge: NSRect, cards: [NSRect] = []) -> Bool {
+        panel.union(edge).contains(point)
+            || cards.contains { $0.insetBy(dx: -2 * Metrics.gapWide, dy: -2 * Metrics.gapWide).contains(point) }
+    }
     func endPeek(animated: Bool = true) {
         if let monitor = peekMoves {
             NSEvent.removeMonitor(monitor)
@@ -135,7 +174,8 @@ extension MainWindowController {
         }
         guard let side = peeking else { return }
         peeking = nil
-        side.floater.slide(in: false, animated: animated)
+        side.floater.slide(in: false, animated: animated, carrying: side === left && hides(left) ? lights : [])
+        followLights()
     }
     /// Called when the panels change for good (focus mode, auto-hide switched, pinned), so the peeking panel goes at
     /// once.

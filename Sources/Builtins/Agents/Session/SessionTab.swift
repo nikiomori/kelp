@@ -85,14 +85,14 @@ final class SessionTab: TabContent {
             guard
                 await confirm(
                     String(localized: "Stop \(app.catalog.displayName(session))?"), detail: detail,
-                    action: String(localized: "Stop Agent"))
+                    action: String(localized: "Stop Agent"), destructive: true)
             else { return false }
         } else if session?.isTerminal == true, let program = await busy(app, sid) {
             guard
                 await confirm(
                     String(localized: "Stop “\(program)”?"),
                     detail: String(localized: "It is still running in this terminal. Closing the tab stops it."),
-                    action: String(localized: "Stop and Close"))
+                    action: String(localized: "Stop and Close"), destructive: true)
             else { return false }
         }
         Task { await app.call(SessionKill(id: sid)) }

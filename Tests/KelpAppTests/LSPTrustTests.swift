@@ -11,6 +11,7 @@ import os
 @testable import BuiltinFiles
 @testable import BuiltinGit
 @testable import BuiltinIssues
+@testable import Daemon
 @testable import KelpApp
 @testable import KelpKit
 
@@ -32,9 +33,6 @@ extension OneAtATime {
         // A language whose only server is optional (JSON's) doesn't make its files ask.
         let json = LanguageSpec(id: "json", extensions: ["json"], server: .init(command: "x", optional: true))
         #expect(!lsp.asks(root, json))
-        // Kelp's own languages: no id twice, no file extension claimed by two.
-        let all = Languages.all, extensions = all.flatMap(\.extensions)
-        #expect(Set(all.map(\.id)).count == all.count && Set(extensions).count == extensions.count)
         lsp.notNow(root)
         #expect(!lsp.asks(root, rust) && lsp.restricts(root, rust))   // put off: "Restricted" alone says it
         #expect(!lsp.askTrust(root, again: true) {})   // Format asks again
@@ -49,6 +47,13 @@ extension OneAtATime {
         #expect(started == 2 && lsp.trusted(root))
         #expect(followed.withLock { $0 } && !lsp.asks(root, rust))   // the bar that asked goes: it stayed, as if nothing was done
         #expect(lsp.summary(root, rust) == nil)   // no server asked for yet: the status bar names none
+        // A server the daemon says stopped is named, as stopped (red), until the daemon says it runs again.
+        app.land(LSPServerEvent(root: root, command: "rust-analyzer", failed: true))
+        #expect(
+            lsp.summary(root, rust) == ServerSummary(title: "rust-analyzer", missing: false, stopped: ["rust-analyzer"])
+        )
+        app.land(LSPServerEvent(root: root, command: "rust-analyzer", failed: false))
+        #expect(lsp.summary(root, rust) == nil)
         #expect(lsp.whenTrusted(root) { started += 1 } && started == 2)   // trusted from now on: no waiting
         #expect(!lsp.trusted(Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }
@@ -59,6 +64,9 @@ extension OneAtATime {
         _ = NSApplication.shared
         let rig = try await AppRig()
         defer { rig.done() }
+        // Kelp's own languages: no id twice, no file extension claimed by two.
+        let all = Languages.all, extensions = all.flatMap(\.extensions)
+        #expect(Set(all.map(\.id)).count == all.count && Set(extensions).count == extensions.count)
         let rows = LanguageRows.rows(Languages.all)
         let c = try #require(rows.first { $0.languages.contains("c") })
         #expect(c.name == "C, C++, Objective-C, Objective-C++" && c.files.hasPrefix(".c, .h, .cpp"))
@@ -95,9 +103,7 @@ extension OneAtATime {
         _ = NSApplication.shared
         let rig = try await AppRig()
         defer { rig.done() }
-        let me = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"]   // this test runner stands in for the app…
-        setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)   // …not now: another copy of Kelp is asking
-        defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
+        rig.daemon.clients.standIn(window: "/nowhere/KelpApp")   // this test runner isn't the app now: another copy is
         let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = LSPManager.of(app)
         var started = 0
         _ = lsp.whenTrusted(root) { started += 1 }

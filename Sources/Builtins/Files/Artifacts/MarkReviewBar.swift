@@ -34,7 +34,8 @@ final class MarkReviewBar {
     }()
     private let label = NSTextField.label("", font: .ui(TextSize.row))
     private let position = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
-    private let before = CapsuleSegments(labels: [String(localized: "Before"), String(localized: "After")])
+    private let before = CapsuleSegments(
+        labels: [String(localized: "Before"), String(localized: "After")], name: String(localized: "Version"))
     private let act: (String) -> Void
 
     /// `act` runs a call on the page's marks (`window.kelpMarks`).

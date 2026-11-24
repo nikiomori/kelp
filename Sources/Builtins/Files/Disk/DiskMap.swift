@@ -81,17 +81,28 @@ struct DiskMap: View {
             .padding(.horizontal, Metrics.gapWide).padding(.vertical, Metrics.gap)
             .frame(width: max(rect.width, 0), height: max(rect.height, 0), alignment: .topLeading)
             .background(DiskFill(group: DiskGroup(item)))
-            .overlay(
+            .overlay(TileHover())
+            .overlay(   // a page's card is a fill with no edge: only the chosen one has the accent's
                 RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
                     .strokeBorder(Color.accentColor, lineWidth: on ? 2 : 0)
             )
             .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerCardStyle())
         .help("\(name) · \(size)")
         .accessibilityLabel(Text(verbatim: "\(name), \(size)"))
         .accessibilityAddTraits(on ? .isSelected : [])
         .offset(x: rect.minX, y: rect.minY)
+    }
+}
+
+/// A tile's answer to the pointer: the hover grey fades in over its fill (a page's card has no edge to brighten).
+private struct TileHover: View {
+    @State private var hovering = false
+    var body: some View {
+        Color(nsColor: .fillHover).opacity(hovering ? 1 : 0)
+            .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
+            .onHover { hovering = $0 }
     }
 }

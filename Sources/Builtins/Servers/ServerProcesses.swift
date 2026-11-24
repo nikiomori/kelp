@@ -68,8 +68,11 @@ struct ServerProcesses: View {
                     .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 if hasKelp {
-                    Segments(labels: [String(localized: "All"), String(localized: "Kelp")], selection: $kelpOnly)
-                        .controlSize(.small).accessibilityLabel(Text("Processes shown"))
+                    Segments(
+                        labels: [String(localized: "All"), String(localized: "Kelp")],
+                        name: String(localized: "Processes shown"), selection: $kelpOnly
+                    )
+                    .controlSize(.small)
                 }
             }
             ProcessTable(

@@ -19,13 +19,15 @@ extension Workbench {
         if inOwnWindow(id) { returnToMain(id) } else { moveToOwnWindow(id) }
     }
 
-    /// Adds the window items to a group heading's menu, and to a project row's menu (for the project's own screen):
-    /// "Open in Own Window" (ticked while the group is in its own window), and keeping its layout as a template.
-    func addWindowItems(to menu: NSMenu, workspace id: String?) {
+    /// Adds the window items to a group heading's menu, to a project row's menu (for the project's own screen) and to
+    /// a chat's (for its group): "Open in Own Window" (ticked while the group is in its own window, with `tip` under
+    /// it), and keeping its layout as a template.
+    func addWindowItems(to menu: NSMenu, workspace id: String?, tip: String? = nil) {
         guard let id else { return }
         let app = self.app
-        menu.add(String(localized: "Open in Own Window")) { app.workbench.toggleOwnWindow(id) }.state =
-            inOwnWindow(id) ? .on : .off
+        let own = menu.add(String(localized: "Open in Own Window")) { app.workbench.toggleOwnWindow(id) }
+        own.state = inOwnWindow(id) ? .on : .off
+        own.toolTip = tip
         menu.add(String(localized: "Save Layout as Template…")) {
             Task { await LayoutTemplates(app: app).save(from: id) }
         }

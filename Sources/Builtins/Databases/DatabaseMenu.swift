@@ -47,7 +47,7 @@ enum DatabaseMenu {
                         guard let copy = await app.call(DatabaseCopy(worktreeId: worktreeId, database: db.name)) else {
                             return
                         }
-                        Banner.show(String(localized: "\(copy.name) is \(branch)'s copy of \(db.name)."))
+                        Banner.show(String(localized: "\(copy.name) is \(branch)’s copy of \(db.name)."))
                         app.workbench.open(DatabaseURI(worktree: worktreeId, name: copy.name).uri)
                     }
                 }
@@ -90,7 +90,8 @@ enum DatabaseMenu {
         let action = leaves ? String(localized: "Remove") : String(localized: "Forget")
         menu.add(title) {
             Task {
-                guard await confirm(question, detail: detail, action: action) else { return }
+                // Forgetting takes the address and password out of Kelp, so it is red; Remove keeps them.
+                guard await confirm(question, detail: detail, action: action, destructive: !leaves) else { return }
                 await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library))
             }
         }

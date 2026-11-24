@@ -21,6 +21,7 @@ struct MachineView: View {
     let app: AppModel, name: String
     private var info: VMInfo? { Machines.machineList(app).first { $0.machine.name == name } }
     private var detail: VMDetail? { app.latest(MachineEvent.self, name)?.detail }
+    /// The list hasn't come for over a second, so the tab says it reads it (`whileSlow`'s rule).
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +33,7 @@ struct MachineView: View {
 
     private var header: some View {
         ContentBar {
-            Text(name).font(.ui(TextSize.body, weight: .semibold))
+            Text(name).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             if let info {
                 let word = Machines.machineWord(info)
                 Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
@@ -59,14 +60,14 @@ struct MachineView: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().pointerMenu()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }
 
     /// Whether there's nothing to run in, because the machine is being made or making it failed. A machine whose start
     /// failed boots again on a command.
-    private var unusable: Bool { info.map { $0.state == .creating || $0.notMade == true } ?? true }
+    private var unusable: Bool { !(info.map { Machines.usable($0) } ?? false) }
 
     /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · 3.1 GB on disk", with sizes as its sidebar row says them.
     private func summary(_ info: VMInfo) -> String {
@@ -100,14 +101,18 @@ struct MachineView: View {
             case .sleeping, .off:
                 // What the machine is stays in view: its files, and its size to change while it's shut down.
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         asleep(info).frame(maxWidth: .infinity).padding(.vertical, 24)
-                        machine(info)
+                        // At the running view's edge, so the facts don't move when the machine sleeps.
+                        machine(info).padding(.horizontal, Metrics.pageInset - Metrics.inset)
+                            .padding(.bottom, Metrics.pageTop)
                     }
                 }
             }
+        } else if app.latest(MachinesEvent.self) == nil {   // not "no such machine" before the list has come
+            LoadingPage(String(localized: "Reading the machines…"))
         } else {
-            EmptyState(String(localized: "No machine called \(name)"), symbol: "shippingbox") {
+            EmptyState(String(localized: "No Machine Called \(name)"), symbol: "shippingbox") {
                 Text("`kelp vm list` shows the machines.")
             }
         }
@@ -118,7 +123,7 @@ struct MachineView: View {
     private func failed(_ info: VMInfo) -> some View {
         let notMade = info.notMade == true
         return EmptyState(
-            notMade ? String(localized: "\(name) wasn't made") : String(localized: "\(name) didn't start"),
+            notMade ? String(localized: "\(name) Wasn’t Made") : String(localized: "\(name) Didn’t Start"),
             symbol: "exclamationmark.triangle"
         ) {
             Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
@@ -140,14 +145,14 @@ struct MachineView: View {
     private func asleep(_ info: VMInfo) -> some View {
         EmptyState(
             info.state == .sleeping
-                ? String(localized: "\(name) is asleep") : String(localized: "\(name) is shut down"),
+                ? String(localized: "\(name) Is Asleep") : String(localized: "\(name) Is Shut Down"),
             symbol: info.state == .sleeping ? "moon" : "power", lifted: false
         ) {
             Text(
                 info.state == .sleeping
                     ? String(
                         localized:
-                            "It holds none of this Mac's memory. The next command wakes it in under a second, with all it ran."
+                            "It holds none of this Mac’s memory. The next command wakes it in under a second, with all it ran."
                     )
                     : String(localized: "The next command boots it in a few seconds."))
         } actions: {
@@ -222,7 +227,7 @@ struct MachineView: View {
                 Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
                     .help(
                         String(
-                            localized: "Types this machine's password into the field that asks for it, in its window."))
+                            localized: "Types this machine’s password into the field that asks for it, in its window."))
             }
             .controlSize(.small)
         }
@@ -345,7 +350,7 @@ struct MachineView: View {
     private func memory(_ info: VMInfo) -> String {
         let given = bytes(info.machine.memoryMiB << 20)
         guard let now = info.memoryMiB else { return given }
-        return String(localized: "\(bytes(now << 20)) of the Mac's (\(given) given)")
+        return String(localized: "\(bytes(now << 20)) of the Mac’s (\(given) given)")
     }
 
     /// What a disk of `gib` may grow to: the next few of the usual sizes, up to the 2 TB a machine may have.
@@ -356,10 +361,10 @@ struct MachineView: View {
         Task {
             guard
                 await confirm(
-                    String(localized: "Grow \(name)'s disk to \(bytes(gib << 30))?"),
+                    String(localized: "Grow \(name)’s disk to \(bytes(gib << 30))?"),
                     detail: String(
                         localized:
-                            "A disk can't be made smaller again. It takes room on this Mac only as it fills."),
+                            "A disk can’t be made smaller again. It takes room on this Mac only as it fills."),
                     action: String(localized: "Grow"))
             else { return }
             resize(disk: gib)

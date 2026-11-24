@@ -13,6 +13,8 @@ final class CommitCell: NSTableCellView, Hoverable {
     private let bang = NSTextField(labelWithString: "!"), mark = NSImageView()
     private let scope = NSTextField(labelWithString: ""), date = NSTextField(labelWithString: "")
     private let row = NSStackView()
+    /// The commit's branches and tags, on a line of their own under its words, so the words keep the row's room.
+    private let refsRow = NSStackView()
     private var badges: [NSView] = [], refs: [String]?
     private var graphWidth: NSLayoutConstraint?
     /// Counts the calls to `show`, so a landing or arrival timed for the commit shown before doesn't play on the next.
@@ -21,8 +23,11 @@ final class CommitCell: NSTableCellView, Hoverable {
     var onHover: ((Bool) -> Void)?
     func setHover(_ on: Bool) { onHover?(on) }
 
-    /// The height of the commit's line. Its branch or tag leads the line, right after its dot.
+    /// The height of the commit's line. A commit with a branch or tag has them on a second line under it.
     static var lineHeight: CGFloat { TextSize.of(Metrics.row) }
+    static func height(_ refs: [String]) -> CGFloat {
+        labels(refs).isEmpty ? lineHeight : TextSize.of(Metrics.rowTwoLine)
+    }
 
     /// The scope, shown while the row can spare the room. In a narrow panel the subject keeps it.
     private var scopeLabel: NSTextField?
@@ -42,7 +47,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         bang.font = .ui(TextSize.row, weight: .semibold)
-        bang.textColor = .textRed
+        bang.textColor = .secondaryLabelColor   // a kind of commit, not a failure: grey, its weight keeps it apart
         bang.setAccessibilityLabel(String(localized: "Breaking change"))
         // The mark has one colour in the list, so the subjects lead; the card under the pointer shows the type's own.
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -66,6 +71,9 @@ final class CommitCell: NSTableCellView, Hoverable {
         row.setCustomSpacing(2, after: bang)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+        refsRow.spacing = 4
+        refsRow.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(refsRow)
         let width = graph.widthAnchor.constraint(equalToConstant: 0)
         graphWidth = width
         NSLayoutConstraint.activate([
@@ -73,8 +81,11 @@ final class CommitCell: NSTableCellView, Hoverable {
             graph.topAnchor.constraint(equalTo: topAnchor),
             graph.bottomAnchor.constraint(equalTo: bottomAnchor), width,
             row.leadingAnchor.constraint(equalTo: graph.trailingAnchor, constant: 2),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.inset),
+            row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight),
+            refsRow.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            refsRow.trailingAnchor.constraint(lessThanOrEqualTo: row.trailingAnchor),
+            refsRow.topAnchor.constraint(equalTo: row.bottomAnchor, constant: -Metrics.lineGap)
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -103,7 +114,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         subject.font = .ui(TextSize.row, weight: isHead ? .medium : .regular)   // 600 is kept for news
         bang.isHidden = !parsedSubject.breaking
         let typeMark = Self.mark(parsedSubject, merge: commit.parents.count > 1)
-        mark.image = typeMark.map { .symbol($0.symbol, parsedSubject.type ?? String(localized: "Merge commit")) }
+        mark.image = typeMark.map { .symbol($0, parsedSubject.type ?? String(localized: "Merge commit")) }
         mark.isHidden = typeMark == nil
         scope.stringValue = parsedSubject.scope ?? ""
         date.stringValue = Self.relative(commit.date)
@@ -131,17 +142,17 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.alphaValue = 1
     }
 
-    /// A row with a branch or tag leaves out the scope, because the badge says where the commit is and the words keep
-    /// their room.
+    /// The branches and tags go on the second line, so the commit's own line is the same with or without them.
     private func showBadges(_ refs: [String]) {
         if refs != self.refs {
             self.refs = refs
             badges.forEach { $0.removeFromSuperview() }
             badges = Self.badges(refs)
-            for (index, badge) in badges.enumerated() { row.insertArrangedSubview(badge, at: index) }
+            for badge in badges { refsRow.addArrangedSubview(badge) }
         }
-        scopeLabel = badges.isEmpty ? scope : nil
-        scope.isHidden = !badges.isEmpty || bounds.width < TextSize.of(340)
+        refsRow.isHidden = badges.isEmpty
+        scopeLabel = scope
+        scope.isHidden = bounds.width < TextSize.of(340)
     }
 
     /// A commit new in the graph comes in from above its place, which is where new commits come from.
@@ -178,21 +189,21 @@ final class CommitCell: NSTableCellView, Hoverable {
         up.alphaValue = 0
     }
 
-    /// The commit's type as an SF Symbol. The colour repeats the shape and never stands alone. A merge without a type
-    /// gets git's merge mark, and any other subject gets none.
-    static func mark(_ commitSubject: CommitSubject, merge: Bool) -> (symbol: String, color: NSColor)? {
+    /// The commit's type as an SF Symbol, drawn in the secondary label colour: the shape names the type, and colour
+    /// stays for state. A merge without a type gets git's merge mark, and any other subject gets none.
+    static func mark(_ commitSubject: CommitSubject, merge: Bool) -> String? {
         switch commitSubject.type {
-        case "feat": ("sparkle", .systemGreen)
-        case "fix": ("ladybug", .systemOrange)
-        case "refactor": ("arrow.triangle.2.circlepath", .systemPurple)
-        case "perf": ("bolt", .systemYellow)
-        case "docs": ("doc.text", .systemCyan)
-        case "test": ("flask", .systemIndigo)
-        case "build", "ci": ("hammer", .secondaryLabelColor)
-        case "chore": ("wrench.adjustable", .secondaryLabelColor)
-        case "style": ("paintbrush", .systemPink)
-        case "revert": ("arrow.uturn.backward", .systemRed)
-        default: merge ? ("arrow.triangle.merge", .secondaryLabelColor) : nil
+        case "feat": "sparkle"
+        case "fix": "ladybug"
+        case "refactor": "arrow.triangle.2.circlepath"
+        case "perf": "bolt"
+        case "docs": "doc.text"
+        case "test": "flask"
+        case "build", "ci": "hammer"
+        case "chore": "wrench.adjustable"
+        case "style": "paintbrush"
+        case "revert": "arrow.uturn.backward"
+        default: merge ? "arrow.triangle.merge" : nil
         }
     }
 
@@ -202,8 +213,8 @@ final class CommitCell: NSTableCellView, Hoverable {
         let out = labels(refs)
         var views: [NSView] = out.prefix(1).map {
             let badge = Badge(text: $0.0, color: $0.1, strong: $0.2)
-            // A long name ends in "…", so the subject keeps its room.
-            badge.widthAnchor.constraint(lessThanOrEqualToConstant: 60).isActive = true
+            // On its own line the name has the row's width; only a name longer than that ends in "…".
+            badge.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             return badge
         }
         if out.count > 1 {
@@ -263,11 +274,13 @@ final class Badge: NSView {
     private let color: NSColor
     init(text: String, color: NSColor, strong: Bool) {
         self.color = color
+        let middle = NSMutableParagraphStyle()
+        middle.lineBreakMode = .byTruncatingMiddle   // a branch is cut in the middle, as Finder cuts a name
         self.text = NSAttributedString(
             string: text,
             attributes: [
                 .font: NSFont.ui(TextSize.micro, weight: strong ? .semibold : .medium),
-                .foregroundColor: color
+                .foregroundColor: color, .paragraphStyle: middle
             ])
         super.init(frame: .zero)
         setContentCompressionResistancePriority(.init(300), for: .horizontal)
@@ -321,7 +334,7 @@ final class GraphView: NSView {
             return
         }
         guard let commit else { return }
-        let mid = bounds.height / 2
+        let mid = min(bounds.height, CommitCell.lineHeight) / 2   // on the commit's words, above its branch line
         func segment(_ lanes: [Int], from y0: CGFloat, to y1: CGFloat, color: NSColor) {
             guard lanes.count == 2 else { return }
             let x0 = Self.x(lanes[0]), x1 = Self.x(lanes[1]), path = NSBezierPath()

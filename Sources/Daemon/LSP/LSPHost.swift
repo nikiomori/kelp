@@ -56,6 +56,8 @@ final class LSPHost: Sendable {
     let models: LocalModels
     /// The llama-server it starts for the next edit (`editor.nextEdit`), noted in the daemon's home.
     let nextEdit: NextEditServer
+    /// Who hears that a server stopped or runs again (`LSPServerEvent`).
+    let clients: Clients
 
     /// `retryDelay` sets when a broken server restarts, and `idleDelay` when an idle one stops. Tests shorten both.
     init(
@@ -65,6 +67,7 @@ final class LSPHost: Sendable {
         models = LocalModels(clients: clients)
         nextEdit = NextEditServer(notes: home)
         self.store = store
+        self.clients = clients
         self.remotes = remotes
         self.offloads = offloads
         self.retryDelay = retryDelay
@@ -302,6 +305,7 @@ final class LSPHost: Sendable {
             }
             var up = made.withLock { $0 }
             if let started = up {
+                started.onExit = { [weak self, weak started] in if let started { self?.exited(key, started) } }
                 do { try await started.initialize() } catch {
                     Log.session.error(
                         "language server \(key.argv.joined(separator: " "), privacy: .public) didn't start: \(error)")
@@ -310,17 +314,19 @@ final class LSPHost: Sendable {
                 }
             }
             let client = up
-            let live = state.withLock { state -> LSPClient? in
-                guard case .starting(let pending, _)? = state.servers[key] else { return nil }   // stopped meanwhile
+            // `settled` is false for a server stopped meanwhile: no one is told of it.
+            let (live, settled) = state.withLock { state -> (LSPClient?, Bool) in
+                guard case .starting(let pending, _)? = state.servers[key] else { return (nil, false) }
                 guard let client else {
                     state.servers[key] = .failed
-                    return nil
+                    return (nil, true)
                 }
                 pending.forEach { Self.apply($0, to: client) }
                 state.servers[key] = .running(client)
-                return client
+                return (client, true)
             }
             if live == nil { client?.terminate() }
+            if settled { tell(key, failed: live == nil) }
             stopLater(key)   // the server may have started only to close a file
             return live
         }
@@ -329,6 +335,18 @@ final class LSPHost: Sendable {
                 state.servers[key] = .starting(pending: pending, ready: ready)
             }
         }
+    }
+
+    /// Tells the clients that a server ended on its own: one the host still ran, not one it stopped or replaced.
+    private func exited(_ key: Key, _ client: LSPClient) {
+        let own = state.withLock { state in
+            if case .running(let current)? = state.servers[key] { current === client } else { false }
+        }
+        if own { tell(key, failed: true) }
+    }
+
+    private func tell(_ key: Key, failed: Bool) {
+        clients.notify(LSPServerEvent(root: key.root, command: key.argv.first ?? "", failed: failed))
     }
 
     private static func send(_ op: DocOp, to key: Key, in state: inout State) {

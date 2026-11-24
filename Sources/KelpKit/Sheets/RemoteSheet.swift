@@ -26,6 +26,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private let grid: NSGridView
     private let spinner = NSProgressIndicator()
     private lazy var go = NSButton(title: "", target: self, action: #selector(goPressed))
+    /// Once connected, the button is as wide as "Initialize Git and Open", so Cancel holds still as the selection
+    /// moves between repositories and plain folders.
+    private lazy var openWidth = go.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.width(of: go))
     private lazy var cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(close))
     private var rows: [RemoteListFolders.Folder] = []
     /// The host and folder listed, and whether the folder is in a repository. It is nil until connected, and again once
@@ -104,6 +107,8 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let on = listed != nil
         grid.row(at: 1).isHidden = !on
         scroll.isHidden = !on
+        SheetForm.fit(window)   // the folder and its list come and go smoothly
+        openWidth.isActive = on
         go.title =
             !on
             ? String(localized: "Connect")
@@ -190,7 +195,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                 String(localized: "Trust \(hostName)?"),
                 detail: String(
                     localized:
-                        "Kelp hasn't connected to it before. Its key is \(key.fingerprint) (\(key.kind)): trust it only if that's the key you expect."
+                        "Kelp hasn’t connected to it before. Its key is \(key.fingerprint) (\(key.kind)): trust it only if that’s the key you expect."
                 ),
                 action: String(localized: "Trust"))
         else { return false }
@@ -213,6 +218,14 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                 app.workbench.show(workspace: workspace.id)
             }
         }
+    }
+
+    private static func width(of button: NSButton) -> CGFloat {
+        let titles = [String(localized: "Open"), String(localized: "Initialize Git and Open")]
+        return titles.map { title in
+            button.title = title
+            return button.fittingSize.width
+        }.max() ?? 0
     }
 
     private static func join(_ dir: String, _ name: String) -> String {

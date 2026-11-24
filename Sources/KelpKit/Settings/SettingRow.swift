@@ -45,8 +45,10 @@ struct SettingRow: View {
             Text(loc(spec.title))
             if let help = spec.help ?? spec.description { HelpMark(text: loc(help)) }
             if changed {
-                Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel(
-                    "Changed")
+                // Grey, as StateDot is: in Settings the shape tells the state, and accent isn't for marks. It grows
+                // with the title beside it.
+                Circle().fill(.secondary).frame(width: TextSize.of(Metrics.gap), height: TextSize.of(Metrics.gap))
+                    .accessibilityLabel("Changed")
             }
         }
     }
@@ -120,6 +122,7 @@ struct SettingRow: View {
             LabeledContent {
                 Segments(
                     labels: options.map { Self.label(spec.key, $0, app) },
+                    name: loc(spec.title),
                     selection: Binding(
                         get: { options.firstIndex(of: string() ?? "") ?? -1 },
                         set: { if options.indices.contains($0) { put(.string(options[$0])) } }))

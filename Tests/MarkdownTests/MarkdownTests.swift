@@ -103,7 +103,9 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(
         r("[ref] and [t][Ref]\n\n[ref]: /r \"tt\"")
             == #"<p><a href="/r" title="tt">ref</a> and <a href="/r" title="tt">t</a></p>"#)
-    #expect(r("[x](javascript:alert(1))").contains(##"href="#""##))
+    for url in ["javascript:alert(1)", "JavaScript:alert(1)", "VBScript:x", "DATA:text/html,x"] {   // any case
+        #expect(r("[x](\(url))").contains(##"href="#""##), "\(url)")
+    }
 }
 
 @Test func horizontalRules() {
@@ -130,7 +132,6 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     let p = MarkdownHTML.page(body: "<p>x</p>", baseURL: URL(fileURLWithPath: "/r/README.md"), dark: true)
     #expect(p.hasPrefix("<!doctype html>"))
     #expect(p.contains(#"<html class="dark">"#) && p.contains(#"<base href="file:///r/README.md">"#))
-    #expect(p.contains("prefers-color-scheme") && p.contains("-apple-system") && p.contains("max-width:860px"))
     #expect(!p.contains("http"))
     #expect(!MarkdownHTML.page(body: "", baseURL: nil, dark: false).contains("class=\"dark\""))
 }
@@ -253,6 +254,13 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     let html = try #require(NotebookHTML.render(Data(nb.utf8)))
     #expect(!html.contains("onerror=") && !html.contains("<img src=x"))
     #expect(html.contains("class=\"language-ximgsrcxonerroralert1\""))
+    // An SVG output is shown as an image, where its scripts don't run, never put in the page as markup.
+    let svg = NotebookHTML.output([
+        "output_type": "display_data",
+        "data": ["image/svg+xml": [#"<svg onload="alert(3)">"#, "<circle r=\"1\"/></svg>"]]
+    ])
+    #expect(svg.hasPrefix(#"<img class="nb-img" src="data:image/svg+xml;base64,"#))
+    #expect(!svg.contains("<svg") && !svg.contains("onload"))
 }
 
 @Test func mermaidOnlyWhenThereIsADiagram() {

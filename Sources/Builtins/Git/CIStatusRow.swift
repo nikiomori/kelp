@@ -38,10 +38,9 @@ final class CIStatusRow: PointerControl {
         guard
             let run = latest.first(where: \.failed) ?? latest.first(where: { $0.status != "completed" }) ?? latest.first
         else {
-            isHidden = true
+            showLine(false)
             return
         }
-        isHidden = false
         let failing = run.failed
         let name =
             latest.count > 1 && !failing && run.status == "completed"
@@ -67,8 +66,25 @@ final class CIStatusRow: PointerControl {
         toolTip =
             latest.map { "\($0.workflow): \(CIRunLook.words($0.status, $0.conclusion)) · \(CIRunLook.ago($0.began))" }
             .joined(separator: "\n") + (place.isEmpty ? "" : "\n" + place)
-            + String(localized: "\n\nClick to open CI Runs")
+            + String(localized: "\n\nClick to open CI Runs") + "\n" + CIRunLook.clickTip(run.url)
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
+        showLine(true)
+    }
+
+    /// The line comes in and goes as `FailureBar` does: the changes under it slide down to make room and back up (in
+    /// two thirds of the time), instead of jumping a line when gh answers.
+    private func showLine(_ on: Bool) {
+        guard isHidden == on else { return }
+        crossfade()
+        let host = window?.contentView
+        host?.layoutSubtreeIfNeeded()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = host == nil ? 0 : Motion.duration(on ? Motion.base : Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
+            ctx.allowsImplicitAnimation = true
+            isHidden = !on
+            host?.layoutSubtreeIfNeeded()
+        }
     }
 
     // The row is one click target, labels included.

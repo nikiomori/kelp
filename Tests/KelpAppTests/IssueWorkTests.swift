@@ -10,9 +10,7 @@ import Testing
 extension AppOfItsOwn {
     /// An issue started on a branch of its own gets the project's .kelp.yaml setup as New Group on Branch… does: not
     /// yet trusted, it's asked about there, rather than an agent left in a folder with nothing installed.
-    /// Limit: not on CI, whose runner shows the question on no window this test can find (no front window there).
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil))
-    func anIssuesBranchAsksAboutItsSetup() async throws {
+    @Test func anIssuesBranchAsksAboutItsSetup() async throws {
         let rig = try await AppRig(files: [".kelp.yaml": "setup: echo installed\n"])
         defer { rig.done() }
         rig.app.extensions.reload()

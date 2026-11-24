@@ -89,8 +89,8 @@ package struct FolderCI {
     /// CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
     /// The pull request of the folder's branch, shown beside the folder: "#12" in the colour of its state, its tooltip,
-    /// and the tab a click opens.
-    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String)?
+    /// the tab a click opens, and its page on the forge, which a ⌘-click opens in the browser.
+    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String, page: URL?)?
     /// Makes a CI mark in the built-in's look (12 pt) for a row, the branch chip or a tile. It returns the view and a
     /// function that shows a state in it. `spelled` means the row is under the pointer, and the function returns how
     /// much wider than 12 pt the mark then is.
@@ -107,7 +107,7 @@ package struct FolderCI {
         line: @escaping @MainActor (String) -> String?,
         open: @escaping @MainActor (String) -> Void,
         menu: @escaping @MainActor (NSMenu, String?) -> Void,
-        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, uri: String)?,
+        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, uri: String, page: URL?)?,
         mark: @escaping @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat),
         card: @escaping @MainActor (String) -> AnyView?,
         carded: @escaping @MainActor (String?) -> Void
@@ -170,14 +170,22 @@ package struct RowMark: Equatable {
 }
 
 /// A block a built-in adds to the sidebar under the projects (Machines). Its view is made when the sidebar is made.
-/// `foot` puts the block at the very bottom, under every other block (the plan limits).
+/// `foot` puts the block at the very bottom, under every other block (the plan limits). A block with a `title` and a
+/// `shown` setting has a check mark under View › Sidebar Blocks that shows or hides it.
 package struct SidebarSection {
     let id: String
     let foot: Bool
+    let title: String?
+    let shown: Setting<Bool>?
     let make: @MainActor () -> NSView
-    package init(id: String, foot: Bool = false, make: @escaping @MainActor () -> NSView) {
+    package init(
+        id: String, foot: Bool = false, title: String? = nil, shown: Setting<Bool>? = nil,
+        make: @escaping @MainActor () -> NSView
+    ) {
         self.id = id
         self.foot = foot
+        self.title = title
+        self.shown = shown
         self.make = make
     }
 }

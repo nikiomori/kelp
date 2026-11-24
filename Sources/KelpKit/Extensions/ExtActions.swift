@@ -101,18 +101,38 @@ struct ExtActions {
         }
     }
 
-    func perform(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)? = nil) {
+    /// Whether a row offers the action: always, or, with `if`, while that field of the row is true or has text. A
+    /// toolbar's or a command's action has no row and is always there.
+    static func offered(_ spec: ExtManifest.ActionDef, on item: JSONValue?) -> Bool {
+        guard let field = spec.when, let item else { return true }
+        let value = item[field].map(text) ?? ""
+        return !["", "false", "0"].contains(value)
+    }
+
+    /// Does what the action says. `busy` hears when a `run` command has gone on for a second (true) and when it ends
+    /// (false, also when its question is answered Cancel), for the button or row that ran it to show the wait.
+    func perform(
+        _ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, busy: (@MainActor (Bool) -> Void)? = nil,
+        after: (() -> Void)? = nil
+    ) {
         guard let question = spec.confirm else {
-            act(spec, item: item, folder: folder, after: after)
+            act(spec, item: item, folder: folder, busy: busy, after: after)
             return
         }
         let text = expand(question, item: item, quote: false)
         Task {
-            if await confirm(text, action: spec.title) { act(spec, item: item, folder: folder, after: after) }
+            guard await confirm(text, action: spec.title) else {
+                busy?(false)
+                return
+            }
+            act(spec, item: item, folder: folder, busy: busy, after: after)
         }
     }
 
-    private func act(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
+    private func act(
+        _ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, busy: (@MainActor (Bool) -> Void)?,
+        after: (() -> Void)?
+    ) {
         if let command = spec.terminal {
             app.workbench.starterForNewTab?.run(
                 command: expand(command, item: item, quote: true), title: spec.title)
@@ -140,12 +160,21 @@ struct ExtActions {
         // someone else's words.
         else if let prompt = spec.agent {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
+        } else if let session = spec.session {
+            // Each value is one word of the agent's command line or one variable, never shell text.
+            let fill = { (text: String) in self.expand(text, item: item, quote: false) }
+            app.workbench.starterForNewTab?.newAgent(
+                fill(session.agent), model: session.model.map(fill), env: session.env?.mapValues(fill),
+                args: session.args?.map(fill))
         } else if let script = spec.run {
             let cmd = expand(script, item: item, quote: true)
+            let slow = whileSlow { busy?(true) }
             Task {
                 let res = await Shell.run(
                     app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path,
                     extension: folder.lastPathComponent)
+                slow.cancel()
+                busy?(false)
                 if res.code != 0 {
                     let output = String((res.stderr.isEmpty ? res.stdout : res.stderr).suffix(400))
                     Banner.show(String(localized: "\(spec.title) failed: \(output)"), style: .error)

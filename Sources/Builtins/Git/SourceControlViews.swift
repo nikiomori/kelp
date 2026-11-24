@@ -151,8 +151,10 @@ final class CommitTextView: NSTextView {
     func fittingHeight(maxLines: Int) -> CGFloat? {
         guard let lm = layoutManager, let tc = textContainer else { return nil }
         lm.ensureLayout(for: tc)
-        let lines = lm.usedRect(for: tc).height + textContainerInset.height * 2
-        return min(max(30, ceil(lines)), CGFloat(maxLines) * 17 + 12)
+        let edges = textContainerInset.height * 2, lines = lm.usedRect(for: tc).height + edges
+        // The cap from the font's own line, so the last line is whole at a larger Text size too.
+        let line = font.map { lm.defaultLineHeight(for: $0) } ?? 17
+        return min(max(TextSize.of(30), ceil(lines)), ceil(CGFloat(maxLines) * line + edges))
     }
     var onChange: (() -> Void)?
     private func isCommitKey(_ event: NSEvent) -> Bool {

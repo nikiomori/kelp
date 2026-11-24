@@ -30,6 +30,10 @@ final class EditorStatusBar: NSView {
     private let problems = PointerButton()
     /// The message of the problem under the cursor.
     private let problem = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    /// Says a definition is being looked for, once the lookup has taken over a second (`whileSlow`).
+    private let finding = NSTextField.label(
+        String(localized: "Finding the definition…"), font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private var findingSince: Date?
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
     /// The Wrap chip's tooltip, with Word Wrap's key. The file's tab sets it, because the tab has the app to ask.
@@ -68,6 +72,7 @@ final class EditorStatusBar: NSView {
             label.textColor = .secondaryLabelColor
             label.lineBreakMode = .byTruncatingTail
         }
+        place.font = .uiDigits(TextSize.caption)   // the line and column change as the caret moves: the row stays still
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
         wrap.isHidden = true
@@ -75,7 +80,7 @@ final class EditorStatusBar: NSView {
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true
         restricted.toolTip = String(
-            localized: "Language servers and formatters don't run in this project until you trust it")
+            localized: "Language servers and formatters don’t run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
         servers.isHidden = true
         servers.onClick = { [weak self] in self.map { $0.onServers?($0.servers) } }
@@ -84,11 +89,17 @@ final class EditorStatusBar: NSView {
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
+        finding.lineBreakMode = .byTruncatingTail
+        finding.isHidden = true
         row.setViews(
-            [kind, place, problems, problem, NSView(), restricted, servers, suggestions, wrap, indentButton],
+            [kind, place, problems, problem, finding, NSView(), restricted, servers, suggestions, wrap, indentButton],
             in: .leading)
-        row.spacing = Metrics.gapWide
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        // The buttons' words have `padding` round them for the hover fill, so the gaps and the right edge take it off:
+        // a button's word stands 8 pt from a label, as labels from each other, and the last word 12 pt from the edge.
+        row.spacing = Metrics.gapWide - Metrics.gap
+        row.setCustomSpacing(Metrics.gapWide, after: kind)
+        row.setCustomSpacing(Metrics.gap, after: problem)   // with the row's spacing round an empty problem: 8 pt
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset - Metrics.gap)
         let line = NSBox()
         line.boxType = .separator
         pin(row)
@@ -113,7 +124,15 @@ final class EditorStatusBar: NSView {
         servers.isHidden = summary == nil
         servers.title = summary?.title ?? ""
         // Grey: "No Language Server" offers an install, and nothing waits on it (orange is for what waits on you).
-        servers.contentTintColor = summary?.missing == true ? .secondaryLabelColor : nil
+        // Red when a server stopped, which the click's list restarts.
+        let stopped = summary?.stopped ?? []
+        servers.contentTintColor =
+            !stopped.isEmpty ? .textRed : summary?.missing == true ? .secondaryLabelColor : nil
+        servers.toolTip =
+            stopped.isEmpty
+            ? nil
+            : String(
+                localized: "\(stopped.joined(separator: ", ")) stopped. Click to see the servers, then Restart.")
     }
     func show(suggestions status: SuggestionStatus?) {
         suggestions.isHidden = status == nil
@@ -125,6 +144,8 @@ final class EditorStatusBar: NSView {
         modes.controlSize = .mini
         modes.font = .ui(TextSize.caption)   // the bar's own text size, like "Markdown" beside it
         row.addArrangedSubview(modes)
+        row.edgeInsets.right = Metrics.inset   // it has no padding of its own
+
     }
 
     private func offerTrust() {
@@ -173,6 +194,36 @@ final class EditorStatusBar: NSView {
     }
 
     func show(problem text: String?) { problem.stringValue = text ?? "" }
+
+    /// Shows "Finding the definition…" (`whileSlow` calls it past a second).
+    func showFinding() {
+        findingSince = .now
+        finding.fadeIn()
+    }
+
+    /// The definition's lookup is over: the line goes, once it has been up `LoadingView.held`.
+    func found() async {
+        guard let since = findingSince else { return }
+        findingSince = nil
+        let left = LoadingView.held - Date.now.timeIntervalSince(since)
+        if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
+        if findingSince == nil { leaveFinding() }   // not when another lookup began meanwhile
+    }
+
+    /// The line fades out in two thirds of the time it took to come.
+    private func leaveFinding() {
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = Motion.duration(Motion.fast * 2 / 3)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                finding.animator().alphaValue = 0
+            },
+            completionHandler: {
+                MainActor.assumeIsolated {   // AppKit ends the group on the main thread
+                    if self.findingSince == nil { self.finding.isHidden = true }
+                }
+            })
+    }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""

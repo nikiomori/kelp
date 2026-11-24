@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// What a language server says is wrong: underlined in the text, told apart in the line numbers, with a tooltip on
-/// each.
+/// What a language server says is wrong: underlined in the text, told apart in the line numbers, and said in the hover
+/// card (CodeEditor+Hover).
 extension CodeEditor {
     /// Core's, as the daemon sends it.
     public typealias Problem = CodeProblem
@@ -24,7 +24,6 @@ extension CodeEditor {
         }
         textView.needsDisplay = true
         gutter?.needsDisplay = true
-        showProblemTips()
         refreshScrollMarks()
     }
 
@@ -56,35 +55,11 @@ extension CodeEditor {
         textView.scrollRangeToVisible(next.range)
         focus()
     }
-
-    /// Sets tooltips on what's on screen, made again as it scrolls, because a view takes them per rectangle.
-    func showProblemTips() {
-        let tv = textView
-        tv.removeAllToolTips()
-        guard !tv.problemMarks.isEmpty, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
-        let shown = tv.characters(in: tv.visibleRect)
-        for (index, mark) in tv.problemMarks.enumerated() where NSIntersectionRange(mark.range, shown).length > 0 {
-            lm.enumerateEnclosingRects(
-                forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
-                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
-            ) { glyphRect, _ in
-                let rect = glyphRect.offsetBy(dx: tv.textContainerOrigin.x, dy: tv.textContainerOrigin.y)
-                tv.addToolTip(rect, owner: tv, userData: UnsafeMutableRawPointer(bitPattern: index + 1))
-            }
-        }
-    }
 }
 
-extension EditorTextView: NSViewToolTipOwner {
+extension EditorTextView {
     public struct ProblemMark: Equatable {
         let range: NSRange, isError: Bool, message: String
-    }
-
-    public func view(
-        _ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?
-    ) -> String {
-        let index = Int(bitPattern: data) - 1
-        return problemMarks.indices.contains(index) ? problemMarks[index].message : ""
     }
 
     /// Draws a wavy line under each mark in what's drawn, because a font's underline has no such style.

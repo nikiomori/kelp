@@ -17,14 +17,14 @@ final class TabStrip: NSView {
     var low = false { didSet { if low != oldValue { resize() } } }
     private lazy var tall = heightAnchor.constraint(equalToConstant: 0)
     private lazy var addHeights = [add, newAgent].map { $0.heightAnchor.constraint(equalToConstant: 0) }
-    private lazy var sideWidths = [add, newAgent, overflow].map { $0.widthAnchor.constraint(equalToConstant: 0) }
+    private lazy var sideWidths = [add, newAgent].map { $0.widthAnchor.constraint(equalToConstant: 0) }
     /// Sizes the strip, its tabs and the buttons beside them for the tab height and the text size as they stand. "+"
     /// and the new agent are a tab's height less their capsule's 2 pt edges, and as wide as that at the regular height.
     private func resize() {
         tall.constant = Self.height(compact: low)
         let side = TabButton.height(compact: false) - 4
         addHeights.forEach { $0.constant = TabButton.height(compact: low) - 4 }
-        zip(sideWidths, [side, side, TextSize.of(18)]).forEach { $0.constant = $1 }   // the chevron is narrower
+        sideWidths.forEach { $0.constant = side }
         buttons.forEach { $0.low = low }
         measured = nil
         needsLayout = true
@@ -32,6 +32,8 @@ final class TabStrip: NSView {
 
     var onSelect: ((String) -> Void)?
     var onClose: ((String) -> Void)?
+    /// Closes the other tabs of this strip's pane (⌥-click on a tab's ✕).
+    var onCloseOthers: ((String) -> Void)?
     var onMenu: ((String) -> NSMenu?)?
     var onDropTab: ((String, Int) -> Void)?   // tab id, index in this strip
     var addMenu: (() -> NSMenu)?
@@ -49,7 +51,9 @@ final class TabStrip: NSView {
             measured = nil
         }
     }
-    private let unzoom = PointerButton(frame: .zero)
+    private let unzoom = IconButton(
+        .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes")),
+        tip: String(localized: "Show All Panes"), target: nil, action: nil)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     /// Whether this is a pane without focus among several. Its tabs then fade with its content, except those with news
     /// (`TabButton.news`).
@@ -57,6 +61,7 @@ final class TabStrip: NSView {
         didSet {
             guard dimmed != oldValue else { return }
             buttons.forEach { $0.stripDimmed = dimmed }
+            newGroup.strength = dimmed ? Metrics.tabDim : 1
             NSAnimationContext.runAnimationGroup { ctx in   // new agent and "+" fade with the pane's tabs
                 ctx.duration = Motion.duration(Motion.fast)
                 adds.animator().alphaValue = dimmed ? Metrics.tabDim : 1
@@ -71,10 +76,14 @@ final class TabStrip: NSView {
         gradient.endPoint = CGPoint(x: 1, y: 0.5)
         return gradient
     }()
-    private let overflow = PointerButton(frame: .zero)
+    private let overflow = IconButton(
+        .symbol("chevron.down", String(localized: "All Tabs")), tip: String(localized: "All tabs in this group"),
+        target: nil, action: nil)
     private let add = CapsuleSegment()
     /// The default agent, one click away beside "+" (no list to pick from); the two share one capsule.
     private let newAgent = CapsuleSegment()
+    /// In the agent's icon corner while the pointer is on the button and ⌘ is held: a click starts it in a new group.
+    private let newGroup = NewGroupBadge(size: Metrics.iconTiny)
     private let adds = CapsuleStack()
     private var items: [Item] = []
     private var selectedId: String?
@@ -107,21 +116,13 @@ final class TabStrip: NSView {
         stack.spacing = Metrics.iconGap
         stack.distribution = .fill
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 6)
-        insertion.wantsLayer = true
-        insertion.layer?.backgroundColor = NSColor.themeAccent.cgColor
+        insertion.wantsLayer = true   // coloured as it shows (`showInsertion`)
         insertion.isHidden = true
         // Too many tabs to fit: the strip scrolls (trackpad / wheel) and the chevron lists them all, like Safari.
-        overflow.image = .symbol("chevron.down", String(localized: "All Tabs"))
-        overflow.isBordered = false
-        overflow.contentTintColor = .secondaryLabelColor
         overflow.symbolConfiguration = .chrome(Metrics.iconTiny)
-        overflow.toolTip = String(localized: "All tabs in this group")
         overflow.target = self
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true
-        unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes"))
-        unzoom.isBordered = false
-        unzoom.contentTintColor = .themeAccent
         unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)
@@ -137,12 +138,13 @@ final class TabStrip: NSView {
         newAgent.target = self
         newAgent.action = #selector(newAgentTapped)
         newAgent.isHidden = true
+        newAgent.onHover = { [weak self] in self?.newGroup.pointed = $0 }
         adds.setViews([newAgent, add], in: .leading)
         adds.spacing = 0
         adds.detachesHiddenViews = true
         adds.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
         let trailing = NSStackView(views: [unzoom, overflow])
-        trailing.spacing = 6
+        trailing.spacing = Metrics.iconGap
         trailing.detachesHiddenViews = true
         scroll.documentView = stack
         scroll.wantsLayer = true
@@ -267,7 +269,9 @@ final class TabStrip: NSView {
     private func newButton() -> TabButton {
         let button = TabButton()
         button.strip = self
-        button.closeTip = tip(String(localized: "Close Tab"), "editor.closeTab")
+        button.closeTip =
+            tip(String(localized: "Close Tab"), "editor.closeTab") + "\n"
+            + String(localized: "⌥-click: close the others")
         button.compact = compact
         button.low = low
         return button
@@ -293,13 +297,15 @@ final class TabStrip: NSView {
     }
 
     override func layout() {
+        // In the strip, not the button, which cut it off. No gap is cut in the button: its hover fill would break.
+        newGroup.pin(to: newAgent, side: Metrics.appIcon, in: self, cut: false)
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // This runs before super.layout(), because when set after it the constant only took effect on the next pass,
         // so a tab whose title grew (a page finishing loading) stayed clipped until something else laid the strip out.
         var sizes = measured ?? measure()
         var room = bounds.width - 6 - sizes.others - 2
         // The chevron's room counts as the tabs' room, so showing the chevron mustn't turn the tabs back to regular.
-        let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + 6)
+        let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + Metrics.iconGap)
         let compact = tabWidth == "compact" || tabWidth == "auto" && squeezed
         if compact != self.compact {
             self.compact = compact

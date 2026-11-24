@@ -23,7 +23,7 @@ extension CanvasEdit {
           box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-issue { align-items: flex-start; }
         .kelp-mark-warn { width: 14px; height: 14px; border-radius: 4px; color: var(--k-text-orange);
-          font: 700 10px/14px -apple-system, sans-serif; text-align: center;
+          display: flex; align-items: center; justify-content: center;
           box-shadow: 0 0 0 1px var(--k-orange); margin-top: 1px; }
         .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 999px; padding: 1px 8px; font: inherit;
           font-weight: 500; background: var(--k-rest); color: inherit; opacity: 0; }

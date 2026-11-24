@@ -32,7 +32,9 @@ private final class RowActions: NSStackView {
 }
 
 @MainActor @discardableResult
-private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailing: CGFloat = 10) -> NSLayoutConstraint {
+private func pinRow(
+    _ cell: NSView, _ views: [NSView], leading: CGFloat, onBottom: Bool = false
+) -> NSLayoutConstraint {
     let row = NSStackView(views: views)
     row.spacing = Metrics.gap
     row.alignment = .centerY
@@ -40,14 +42,21 @@ private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailin
     cell.addSubview(row)
     let lead = row.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: leading)
     NSLayoutConstraint.activate([
-        lead, row.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -trailing),
-        row.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+        lead, row.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -Metrics.inset)
     ])
+    // A section title stands 4 pt over its row's bottom, as `SectionHeading` sets it (decision 122); rows centre.
+    if onBottom {
+        row.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4).isActive = true
+        row.topAnchor.constraint(greaterThanOrEqualTo: cell.topAnchor).isActive = true
+    } else {
+        row.centerYAnchor.constraint(equalTo: cell.centerYAnchor).isActive = true
+    }
     return lead
 }
 
-/// A section's header row. Its views are made once, and `show` sets everything it shows, because the outline hands a
-/// row it set aside to another section.
+/// A section's header row, drawn as `SectionHeading` draws one (the title on the row's bottom, its count after it),
+/// with hover actions and a turning chevron. Its views are made once, and `show` sets everything it shows, because the
+/// outline hands a row it set aside to another section.
 final class SectionCell: NSTableCellView, Hoverable {
     static let id = NSUserInterfaceItemIdentifier("scm.section")
     /// Where the section's rows start past the inset: under its title, after the chevron.
@@ -87,8 +96,12 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
+        // In a narrow panel the line counts give way before the section's name.
+        detailField.lineBreakMode = .byTruncatingTail
+        detailField.setContentCompressionResistancePriority(.init(240), for: .horizontal)
         // The row starts at the panel's edge, as the header's branch does.
-        pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)
+        let line: [NSView] = [chevron, titleField, capsule, NSView(), actions, detailField]
+        pinRow(self, line, leading: Metrics.inset, onBottom: true)
         showChevron()
     }
     convenience init(title: String, count: Int?, expanded: Bool, actions rowActions: [RowAction]) {
@@ -153,7 +166,7 @@ final class FileCell: NSTableCellView, Hoverable {
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
         name.font = .ui(TextSize.row)
-        name.lineBreakMode = .byTruncatingTail
+        name.lineBreakMode = .byTruncatingMiddle   // as Finder cuts a name, so its extension stays
         dir.font = .ui(TextSize.caption)
         dir.textColor = .secondaryLabelColor
         dir.lineBreakMode = .byTruncatingHead

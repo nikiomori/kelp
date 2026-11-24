@@ -21,7 +21,7 @@ import Testing
         RunDetect.self, ScriptsList.self, SessionBusy.self, SessionCommands.self, SessionContext.self,
         SessionContextParts.self, SessionContextWindow.self, SessionLastReply.self, SessionList.self,
         SessionRead.self, SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self,
-        SessionTurns.self, SessionUsage.self, SessionWhy.self, SettingsGet.self, SkillsBrowser.self,
+        SessionTurns.self, SessionUsage.self, SessionWhy.self, SessionWork.self, SettingsGet.self, SkillsBrowser.self,
         StateGet.self, TmuxList.self, UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self,
         VMList.self, WatchStart.self, WatchStop.self, WorktreeDirty.self, WorktreeList.self,
         WorktreeUnmerged.self

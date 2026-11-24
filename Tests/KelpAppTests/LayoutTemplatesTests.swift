@@ -52,7 +52,7 @@ extension AppOfItsOwn {
         #expect(runs.state.active[first]?.choice == "kelp:run")
         rig.app.workbench.layouts[wid] = WorkspaceLayout()   // the group emptied, the template used again
         await LayoutTemplates(app: rig.app).use(dev, in: wid)
-        #expect(try await waitFor(5) { runs.running(in: wid).count == 1 && runs.running(in: wid) != [first] })
+        #expect(try await waitFor { runs.running(in: wid).count == 1 && runs.running(in: wid) != [first] })
     }
 
     /// Run switched off, a template's project command still runs (its trust is the shell's to ask, `KelpFile`), as a
@@ -62,7 +62,7 @@ extension AppOfItsOwn {
         defer { rig.done() }
         rig.app.extensions.reload()
         rig.app.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.run"])])
-        #expect(try await waitFor(5) { rig.app.extensions.all.runs == nil })
+        #expect(try await waitFor { rig.app.extensions.all.runs == nil })
         let wid = rig.workspace.id
         try rig.write(".kelp.yaml", "run: sleep 32\nlayout.dev: run\n")
         let dev = try #require(await LayoutTemplates(app: rig.app).fromFile(rig.workspace).first)

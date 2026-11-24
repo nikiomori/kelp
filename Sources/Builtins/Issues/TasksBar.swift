@@ -2,8 +2,8 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// The panel's bar: what it lists (source and filter as title words) and Refresh, with the last action's word under
-/// it.
+/// The panel's bar: what it lists (source and filter as title words) and ⋯ with Refresh, with the last action's word
+/// under it.
 extension TasksViewController {
     func makeBar() -> NSView {
         status.textColor = .secondaryLabelColor
@@ -19,9 +19,9 @@ extension TasksViewController {
             c.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         filter.font = .ui(TextSize.row)
-        // An inspector panel: its bar (what it lists, ↻), the last action's word under it, and the list over the
+        // An inspector panel: its bar (what it lists, ⋯), the last action's word under it, and the list over the
         // details.
-        let controls = Bar.panel([source, filter], [refresh])
+        let controls = Bar.panel([source, filter], [more])
         status.isHidden = true
         let bar = NSStackView(views: [controls, status, failureBar])
         bar.orientation = .vertical
@@ -33,6 +33,12 @@ extension TasksViewController {
         // As tall as its views, over the split's holding, or the list gets no height.
         bar.setHuggingPriority(.defaultHigh, for: .vertical)
         return bar
+    }
+
+    func showMore() {
+        let menu = NSMenu()
+        menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + 4), in: more)
     }
 }
 
@@ -65,15 +71,17 @@ extension TasksViewController {
         status.stringValue = ""
         // The source stays, because Linear and Jira need no remote.
         filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
+        showList(false)
+        let failed = String(localized: "Couldn’t Load the List")
         if src.needsRemote {
-            showList(false)
             setup = emptyView.showForge(
-                message, failed: String(localized: "Couldn't load the list"), hint: src.connectHint,
-                setupButton: setupButton, checkAgain: checkAgain)
+                message, failed: failed, hint: src.connectHint, setupButton: setupButton, checkAgain: checkAgain)
         } else {
+            // Linear and Jira are only listed once connected, so a failed read is the network or the token: its own
+            // words, and Try Again.
             setup = nil
             setupButton.isHidden = true
-            showEmpty(src.connectHint ?? message, symbol: "link")
+            emptyView.showError(failed, text: message, buttons: [checkAgain])
         }
         table.reloadData()
         showDetail(nil)
@@ -93,7 +101,7 @@ extension TasksViewController {
         let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
         status.stringValue = ""
         let chosen = filter.titleOfSelectedItem ?? ""
-        let why = narrowed ? String(localized: "None in “\(chosen)”.") : src.none ?? String(localized: "Nothing here")
+        let why = narrowed ? String(localized: "Nothing in “\(chosen)”") : src.none ?? String(localized: "Nothing Here")
         showAll.isHidden = !narrowed
         setupButton.isHidden = true
         showEmpty(rows.isEmpty ? why : nil)

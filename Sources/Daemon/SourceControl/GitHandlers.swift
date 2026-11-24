@@ -168,6 +168,13 @@ extension GitSwitch: Handled {
     }
 }
 
+extension GitCommitAct: Handled {
+    func handle(_ scm: SourceControl) throws -> Done {
+        try Git.act(op, on: clientRef(commit) ?? "", branch: branch, in: scm.folder(worktreeId), remotes: scm.remotes)
+        return Done()
+    }
+}
+
 extension GitGraph: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
@@ -305,7 +312,8 @@ extension Methods {
     static let gitMethods: [any Answered.Type] = [
         GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self, GitUnsynced.self,
         GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self, GitGraph.self,
-        GitCommitFiles.self, GitCommitDetails.self, GitLineOrigin.self, GitDiscard.self, GitDiscardHunk.self,
+        GitCommitFiles.self, GitCommitDetails.self, GitCommitAct.self, GitLineOrigin.self, GitDiscard.self,
+        GitDiscardHunk.self,
         GitUndoDiscard.self,
         GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self, FilesIgnored.self,
         FilesSearch.self

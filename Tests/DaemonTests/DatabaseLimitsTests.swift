@@ -43,7 +43,7 @@ import os
 /// A change to a SQLite file stops at its time as a read does, and is undone: the tab isn't told it failed while it
 /// lands later.
 @Test func aSQLiteChangeStopsAtItsTimeAndIsUndone() throws {
-    let path = NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString).sqlite"
+    let path = tmp().path + "/kelp-slow-\(UUID().uuidString).sqlite"
     let queue = try SQLiteRun.open(path, readOnly: false)
     #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
         try SQLiteRun.stopped(queue, after: 0.3) {

@@ -271,7 +271,7 @@ extension OneAtATime {
             [.init(label: "name", insert: "name()"), .init(label: "other", insert: "other")]
         }
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
+        #expect(try await waitFor { e.completion.list?.isOpen == true })
         #expect(e.completion.list?.items.count == 2)
         tv.insertText("n", replacementRange: NSRange(location: NSNotFound, length: 0))
         #expect(e.completion.list?.items.map(\.label) == ["name"])
@@ -289,7 +289,7 @@ extension OneAtATime {
             return [.init(label: "print", insert: "print"), .init(label: "private", insert: "private")]
         }
         for key in ["p", "r"] { tv.insertText(key, replacementRange: NSRange(location: NSNotFound, length: 0)) }
-        #expect(try await waitFor(5) { e.completion.list?.isOpen == true })
+        #expect(try await waitFor { e.completion.list?.isOpen == true })
         tv.insertText("in", replacementRange: NSRange(location: NSNotFound, length: 0))
         #expect(e.completion.list?.items.map(\.label) == ["print"])
         #expect(asked.withLock { $0 } == 1)
@@ -303,11 +303,11 @@ extension OneAtATime {
         let (e, tv) = editor("a.b", selecting: [NSRange(location: 2, length: 0)])
         e.completionProvider = { _, _ in [.init(label: "b", insert: "b")] }
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
+        #expect(try await waitFor { e.completion.list?.isOpen == true })
         tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
         #expect(e.completion.list?.isOpen == false)
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
+        #expect(try await waitFor { e.completion.list?.isOpen == true })
         tv.setCursors([NSRange(location: 0, length: 0)])
         #expect(e.completion.list?.isOpen == false)
     }

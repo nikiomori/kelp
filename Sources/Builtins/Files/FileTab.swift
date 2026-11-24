@@ -121,27 +121,44 @@ final class FileTab: SavableTab {
         // local file.
         let box = EditorBox()
         view = box
-        let wait = host.map { Self.message(String(localized: "Reading it from \($0)…"), failed: false) }
-        if let wait { box.pin(wait) }
+        loading = read(into: box)
+    }
+
+    /// Reads the file into `box`. A wait says so: at once while a host sends it, after a second here (the latency
+    /// rule). A read that fails says why, with Try Again, unless reading again can't help (a device, a binary file).
+    private func read(into box: EditorBox) -> Task<Void, Never> {
+        box.subviews.forEach { $0.removeFromSuperview() }   // what a failed read showed
+        let app = app, filePath = path, host = RemoteHost.containing(path)?.remote.host
+        let wait = LoadingView()
+        wait.place(in: box)
+        if let host {
+            wait.show(String(localized: "Reading it from \(host)…"))
+        } else {
+            wait.wait(String(localized: "Reading the file…"))
+        }
         let copied = remote && Preview.canPreview(url)
-        loading = Task { [weak self] in
-            let read: Result<FilesRead.Result, Error>
+        return Task { [weak self] in
+            let result: Result<FilesRead.Result, Error>
             do {
                 if copied {
                     let copy = URL(fileURLWithPath: try await app.get(FilesFetch(path: filePath)))
                     guard let self else { return }
-                    wait?.removeFromSuperview()
+                    await wait.settled()
+                    wait.show(nil)
+                    wait.removeFromSuperview()
                     let previewView = await Preview.view(for: copy, app: app)
                     preview = previewView
                     box.pin(previewView)
                     if focusWhenLoaded { focus() }
                     return
                 }
-                read = .success(try await app.get(FilesRead(path: filePath)))
-            } catch { read = .failure(error) }
+                result = .success(try await app.get(FilesRead(path: filePath)))
+            } catch { result = .failure(error) }
             guard let self else { return }
-            wait?.removeFromSuperview()
-            switch read {
+            await wait.settled()
+            wait.show(nil)
+            wait.removeFromSuperview()
+            switch result {
             case .success(let file): loaded(file, in: box)
             // The file was moved or deleted (often by an agent) after the tab opened. Say so, rather than show an empty
             // buffer that ⌘S would write.
@@ -149,7 +166,15 @@ final class FileTab: SavableTab {
             where error.code == RPCError.invalidParams("").code && Unopenable(error) == nil:
                 box.pin(missing())
             case .failure(let error):
-                box.pin(Self.message(Unopenable(error).map(Self.reason) ?? AppModel.message(error)))
+                if let unopenable = Unopenable(error) {
+                    box.pin(Self.message(Self.reason(unopenable)))
+                } else {
+                    // Read again once the click is over, because reading removes the button that was clicked.
+                    let again = ClosureButton(title: String(localized: "Try Again")) { [weak self, weak box] in
+                        Task { if let self, let box { self.loading = self.read(into: box) } }
+                    }
+                    box.pin(Self.message(AppModel.message(error), buttons: [again]))
+                }
             }
         }
     }
@@ -165,7 +190,7 @@ final class FileTab: SavableTab {
         let editable = CodeEditor.canEdit(text)
         if !editable {
             Banner.show(
-                String(localized: "\(title) opens read only: it's too large, or its lines too long, to edit here."))
+                String(localized: "\(title) opens read only: it’s too large, or its lines too long, to edit here."))
         }
         let codeEditor = CodeEditor(text: text, url: url, editable: editable)
         codeEditor.view.clipsToBounds = true
@@ -244,12 +269,7 @@ final class FileTab: SavableTab {
             self?.diskChanged()
         }
         guard !remote else { return }   // a remote file gets no language server here
-        bar.onTrust = { [weak self] in
-            Task { [weak self] in
-                guard let self else { return }
-                await LSPManager.of(app).trust(root)
-            }
-        }
+        bar.onTrust = { [weak self] in self?.trustProject() }
         track(owner: self) { [weak self] in
             self.map { LSPManager.of(app).restricts($0.root, $0.language) } ?? false
         } changed: { [weak bar] in
@@ -338,13 +358,11 @@ final class FileTab: SavableTab {
             copies: [(String(localized: "Web Link"), { @MainActor in copyWebLink(app, path) })])
     }
 
-    /// Returns the view the tab shows instead of the file: an empty state while the file is fetched, or a warning when
-    /// the file couldn't be opened.
-
-    private static func message(_ text: String, failed: Bool = true) -> NSView {
+    /// Returns the view the tab shows instead of the file when it couldn't be opened.
+    private static func message(_ text: String, buttons: [NSButton] = []) -> NSView {
         let container = NSView(), empty = EmptyStateView()
         empty.place(in: container)
-        if failed { empty.showError(text, text: nil) } else { empty.show(text, symbol: "icloud.and.arrow.down") }
+        empty.showError(text, text: nil, buttons: buttons)
         return container
     }
 

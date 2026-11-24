@@ -21,7 +21,7 @@ struct LibrarySection: View {
             if let error {
                 // The same error block every panel shows: the triangle, what failed, why, and Try Again.
                 EmptyState(
-                    String(localized: "Couldn’t load the library"), symbol: "exclamationmark.triangle", lifted: false
+                    String(localized: "Couldn’t Load the Library"), symbol: "exclamationmark.triangle", lifted: false
                 ) {
                     Text(error).textSelection(.enabled)
                 } actions: {
@@ -39,7 +39,7 @@ struct LibrarySection: View {
                     let (reviewed, found) = Self.split(shown)
                     if shown.isEmpty {
                         EmptyState(
-                            String(localized: "No extension matches “\(query)”"), symbol: "magnifyingglass",
+                            String(localized: "No Extension Matches “\(query)”"), symbol: "magnifyingglass",
                             lifted: false)
                     }
                     ForEach(reviewed, id: \.id) { row($0) }
@@ -51,12 +51,12 @@ struct LibrarySection: View {
         } footer: {
             HStack {
                 Text(
-                    "Extensions people shared, each reviewed before it's added. Or any repository: kelp ext install owner/repo"
+                    "Extensions people shared, each reviewed before it’s added. Or any repository: `kelp ext install owner/repo`"
                 )
                 .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer()
                 if let url = URL(string: "https://github.com/\(ExtensionFiles.libraryRepo)") {
-                    Link("Share Yours on GitHub", destination: url).font(.ui(TextSize.caption))
+                    Link("Share Yours on GitHub", destination: url).font(.ui(TextSize.caption)).buttonStyle(.kelpLink)
                 }
             }
         }
@@ -135,7 +135,7 @@ struct LibrarySection: View {
             ).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Metrics.gap) {
-                    Text(entry.name).fontWeight(.medium)
+                    Text(entry.name)
                     Text(entry.version).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     if let stars = entry.stars { popularity(stars, weekly: entry.weekly ?? 0) }
                 }
@@ -156,7 +156,10 @@ struct LibrarySection: View {
                 // always offered for one found by its topic, whose branch may have moved
                 Button(entry.reviewed == false ? "Update…" : "Update") { install(entry) }
             } else {
-                Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                HStack(spacing: Metrics.gap) {
+                    StateDot(on: true)
+                    Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.vertical, 2)

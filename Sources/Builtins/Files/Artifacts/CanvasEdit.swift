@@ -179,7 +179,9 @@ enum CanvasEdit {
             if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
             const rows = issues.map(t => {
               const r = el('div', 'kelp-row kelp-issue');
-              r.append(el('span', 'kelp-mark-warn', '!'), el('span', 'kelp-grow', t)); window.kelpIssueFix?.(t, r);
+              const mark = el('span', 'kelp-mark-warn');
+              mark.innerHTML = \(CanvasChrome.Glyph.warning.js);
+              r.append(mark, el('span', 'kelp-grow', t)); window.kelpIssueFix?.(t, r);
               return r;
             });
             const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');
@@ -341,7 +343,8 @@ enum CanvasEdit {
           let at = -1, quiet = null;
           // A strip at the foot while presenting: where you are, ‹ ›, and how to end; it fades when the pointer rests.
           const strip = el('div', 'kelp-strip');
-          const back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib', '›');
+          const back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
+          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
           const where = el('span', 'kelp-where');
           back.onclick = () => { at = Math.max(at - 1, 0); present(); };
           next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); };

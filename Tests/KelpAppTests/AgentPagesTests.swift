@@ -65,7 +65,11 @@ import WorkbenchKit
     #expect(BrowserMarks.driven("w", app)["t1"]?.glow == .systemOrange)
     pages.change("p1") { $0.holder = .user }
     mark = BrowserMarks.row(.agent("s1"), app).first
-    #expect(mark?.tint == .themeAccent && mark?.glow == nil && mark?.tip == "You have its page: Checkout")
+    // Holding the page is grey (nothing waits); a question on it is the one orange: it waits for you.
+    #expect(mark?.tint == .secondaryLabelColor && mark?.glow == nil && mark?.tip == "You have its page: Checkout")
+    pages.change("p1") { $0.holder = .asked("Pay?") }
+    mark = BrowserMarks.row(.agent("s1"), app).first
+    #expect(mark?.tint == .textOrange && mark?.tip == "It asks you on its page: Checkout")
     #expect(BrowserMarks.row(.workspace("w"), app).isEmpty)
 }
 

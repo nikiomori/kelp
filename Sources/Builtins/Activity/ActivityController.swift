@@ -21,7 +21,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         /// Two rows are equal when they print the same figures. A new measure every two seconds mostly moves a digit
         /// no one sees, so such a row is not drawn again.
         static func == (lhs: Row, rhs: Row) -> Bool {
-            lhs.session == rhs.session && lhs.processes == rhs.processes && (lhs.cpu > 80) == (rhs.cpu > 80)
+            lhs.session == rhs.session && lhs.processes == rhs.processes
                 && ActivityController.percent(lhs.cpu) == ActivityController.percent(rhs.cpu)
                 && bytes(lhs.memory) == bytes(rhs.memory)
         }
@@ -30,7 +30,9 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private let total = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
     /// Stands in the rows' place until the daemon's first measure comes, once that has taken a second.
-    private let loading = LoadingView()
+    private let loading = LoadingView(rows: true)
+    /// Says a measure failed over the rows the last one read, which stay under it.
+    private lazy var failureBar = FailureBar { [weak self] in self?.app.watchAgain(.activity) }
     private var rows: [Row] = []
 
     override func loadView() {
@@ -42,7 +44,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.doubleAction = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        let header = Bar.panel([total])
+        let header = failureBar.under(Bar.panel([total]))
         let root = stacked(header, scroll)
         empty.place(in: root, under: header)
         loading.place(in: root, under: header)
@@ -80,18 +82,23 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         guard let event else { return }
         loading.show(nil)
         let model = app
-        // When the daemon couldn't measure, the empty state says why, in the place of "No sessions running.", rather
-        // than claiming nothing runs.
-        let was = rows
-        rows = (event.usage ?? []).compactMap { usage in
-            guard let session = model.session(usage.session) else { return nil }
-            return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
+        // A measure that failed keeps the rows the last one read, under a line that says why. With none to keep, the
+        // empty state says why, in the place of "No sessions running.", rather than claiming nothing runs.
+        let was = rows, places = table.rowPlaces(rowKey)
+        let kept = event.error != nil && !was.isEmpty
+        failureBar.show(kept ? event.error : nil)
+        if !kept {
+            let read: [Row] = (event.usage ?? []).compactMap { usage in
+                guard let session = model.session(usage.session) else { return nil }
+                return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
+            }
+            rows = Self.holdingOrder(read, was: was)
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue =
             rows.isEmpty
             ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(bytes(mem))")
-        if let error = event.error {
+        if let error = event.error, rows.isEmpty {
             empty.showError(String(localized: "Couldn’t Measure the Sessions"), text: error)
         } else {
             empty.show(
@@ -99,9 +106,27 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
                 symbol: "gauge.with.dots.needle.33percent")
         }
         // When the sessions and their order are unchanged, only the rows whose figures moved are drawn again.
-        guard was.map(\.session.id) == rows.map(\.session.id) else { return table.reloadData() }
+        // Otherwise a session that came or went fades, and the rest travel to their new lines.
+        guard was.map(\.session.id) == rows.map(\.session.id) else {
+            let old = Set(was.map(\.session.id)), now = Set(rows.map(\.session.id))
+            return table.reloadSettling(
+                from: places, came: now.subtracting(old), gone: old.subtracting(now), rowKey
+            ) { table.reloadData() }
+        }
         let moved = IndexSet(rows.indices.filter { rows[$0] != was[$0] })
         table.reloadData(forRowIndexes: moved, columnIndexes: [0])
+    }
+    private func rowKey(_ row: Int) -> String? { rows.indices.contains(row) ? rows[row].session.id : nil }
+
+    /// The daemon's order, busiest first, except that rows showing the same CPU keep the order they had: two sessions
+    /// near the same load would otherwise trade lines on every measure, under the pointer aiming at a Stop.
+    private static func holdingOrder(_ rows: [Row], was: [Row]) -> [Row] {
+        let before = Dictionary(was.enumerated().map { ($1.session.id, $0) }, uniquingKeysWith: { first, _ in first })
+        func key(_ index: Int) -> (Double, Int, Int) {
+            let cpu = rows[index].cpu, shown = cpu < 10 ? (cpu * 10).rounded() / 10 : cpu.rounded()   // as `percent`
+            return (-shown, before[rows[index].session.id] ?? .max, index)
+        }
+        return rows.indices.sorted { key($0) < key($1) }.map { rows[$0] }
     }
 
     nonisolated static func percent(_ cpu: Double) -> String {
@@ -117,11 +142,12 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let icon = NSImageView(
             image: (session.isTerminal ? NSImage.symbol("terminal") : app.catalog.icon(session.agent))
                 ?? NSImage())
+        if session.isTerminal { icon.symbolConfiguration = .chrome() }   // the symbols' one weight, beside the logos
         let name = NSTextField(
             labelWithString: session.isTerminal
                 ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)
                 : app.catalog.displayName(session))
-        name.font = .ui(TextSize.row, weight: .medium)
+        name.font = .ui(TextSize.row)
         name.lineBreakMode = .byTruncatingTail
         let place = NSTextField(
             labelWithString: [
@@ -138,7 +164,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(bytes(entry.memory))")
         cost.font = .uiDigits(TextSize.caption)
         cost.alignment = .right
-        cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor
+        cost.textColor = .secondaryLabelColor   // grey even when busy: orange is for what waits for you; the number says it
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
         let stop = IconButton(.symbol("stop.fill"), tip: tip) { AgentActions(app).stop([session.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
@@ -177,5 +203,9 @@ private final class ActivityCell: NSStackView, Hoverable {
             stop?.isHidden = true
         }
     }
-    func setHover(_ on: Bool) { stop?.isHidden = !on }
+    func setHover(_ on: Bool) {
+        guard let stop, stop.isHidden == on else { return }
+        if window != nil { crossfade() }   // as a row's actions fade; a cell made again under the pointer just shows
+        stop.isHidden = !on
+    }
 }

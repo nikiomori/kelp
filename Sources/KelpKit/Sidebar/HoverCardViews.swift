@@ -48,12 +48,12 @@ struct CardView: View {
                         .foregroundStyle(.secondary)
                     }
                     if !agent.summary.isEmpty {
-                        Text(Self.linked(agent.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                        Text(Self.linked(agent.summary)).font(.ui(TextSize.row)).foregroundStyle(.secondary)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let goal = agent.goal {
-                        Text("Goal: \(goal)").font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(3)
+                        Text("Goal: \(goal)").font(.ui(TextSize.row)).foregroundStyle(.secondary).lineLimit(3)
                     }
                     if let quietSince = agent.quietSince, agent.status == .working {
                         Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(
@@ -63,7 +63,7 @@ struct CardView: View {
                             .secondary)
                     }
                     if agent.guessed == true, [.working, .done].contains(agent.status) {
-                        Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(
+                        Text("Read off the screen: a guess, so Kelp won’t call it done or notify").font(
                             .ui(TextSize.caption)
                         )
                         .foregroundStyle(.secondary)
@@ -92,9 +92,7 @@ struct CardView: View {
                 HStack(spacing: Metrics.gapWide) {
                     ForEach(model.pages, id: \.port) { page in
                         Button(page.address) { runs.open(page, model.workspaceId) }
-                            .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit())
-                            .foregroundStyle(
-                                Color.accentColor)
+                            .buttonStyle(.kelpLink).font(.ui(TextSize.caption).monospacedDigit())
                     }
                 }
             }
@@ -165,12 +163,19 @@ struct WorktreeSizes: View {
 struct ContextBlock: View {
     let model: CardModel, used: Int, window: Int
     @AppStorage("sidebar.card.contextOpen") private var opened = false
+    /// Parts not read yet show as their outline at once, held 0.4 s so a quick read doesn't blink; then the outline
+    /// fades into the parts and the bar fills (`grow`). Parts the card already has stand at once.
+    @State private var waiting = false
+    @State private var arrived = false
 
     var body: some View {
         let open = opened || model.compact != nil
         VStack(alignment: .leading, spacing: Metrics.gap) {
             Button {
-                opened.toggle()
+                // The chevron turns and the parts come and go as a fold does (`soft`).
+                withAnimation(Motion.reduced ? nil : .timingCurve(0.25, 0.8, 0.25, 1, duration: Motion.fold)) {
+                    opened.toggle()
+                }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
@@ -180,29 +185,57 @@ struct ContextBlock: View {
             }
             .buttonStyle(PointerButtonStyle(flush: true))
             if let cold = model.coldCache { Text(cold).font(.ui(TextSize.caption)).foregroundStyle(.secondary) }
-            if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
+            if open, !waiting, let parts = model.parts {
+                ContextParts(parts: parts, window: window, compact: model.compact, grow: arrived)
+                    .transition(.opacity)
+            } else if open, waiting {
+                ContextPartsOutline().transition(.opacity)
+            }
         }
-        .task(id: open) { if open { await model.loadParts() } }
+        .task(id: open) { if open { await load() } }
+    }
+
+    private func load() async {
+        guard model.parts == nil else { return }
+        waiting = true
+        let began = Date.now
+        await model.loadParts()
+        let left = LoadingView.held - Date.now.timeIntervalSince(began)
+        if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
+        withAnimation(.easeOut(duration: Motion.duration(Motion.appear))) {
+            waiting = false
+            arrived = true
+        }
     }
 }
 
-/// How full the agent's conversation is. It turns orange and red at the tab's pie's levels (`ContextMeter.level`),
-/// so the two never disagree; the ring takes the system's colour, the words the text shade of it.
+/// How full the agent's conversation is: the tab's own pie (`ContextMeter`), so the two never disagree in shape or
+/// colour; the words take the text shade of its colour.
 struct ContextLine: View {
     let used: Int, window: Int
     var body: some View {
         let share = min(1, Double(used) / Double(max(1, window)))
         let level = ContextMeter.level(.init(used: used, window: window))
-        let ring = Color(nsColor: ContextMeter.color(level))
         HStack(spacing: Metrics.gap) {
-            ZStack {
-                Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 2)
-                Circle().trim(from: 0, to: share).stroke(ring, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }.frame(width: 11, height: 11)
+            ContextPie(usage: .init(used: used, window: window)).frame(width: 12, height: 12)
             Text("Context \(Int(share * 100))% · \(used / 1000)k of \(window / 1000)k tokens").font(
                 .ui(TextSize.caption).monospacedDigit()
             ).foregroundStyle(Color(nsColor: ContextMeter.textColor(level)))
         }
+    }
+}
+
+/// The tab's pie in the card. The card shows it at every level, where the tab waits for the first; the words beside
+/// it say the level, so VoiceOver reads them, not the pie.
+private struct ContextPie: NSViewRepresentable {
+    let usage: SessionContextWindow.Usage
+    func makeNSView(context: Context) -> ContextMeter {
+        let pie = ContextMeter()
+        pie.setAccessibilityElement(false)
+        return pie
+    }
+    func updateNSView(_ pie: ContextMeter, context: Context) {
+        pie.usage = usage
+        pie.isHidden = false
     }
 }

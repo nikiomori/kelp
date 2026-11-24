@@ -313,7 +313,6 @@ public final class CodeEditor: NSObject {
             coloring = false
             gutter?.fit(lines: lineCount)
             colorVisible()
-            showProblemTips()
             fitWrapColumn()
             let edit = editedFrom
             editedFrom = nil

@@ -9,7 +9,8 @@ extension FilesPanel {
         let plus = IconButton(
             .symbol("plus"), tip: String(localized: "New File"), target: self, action: #selector(newFile))
         let more = IconButton(
-            .symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
+            .symbol("ellipsis.circle"), tip: String(localized: "More Actions"), target: self,
+            action: #selector(showMore(_:)))
         showSearchOptions()
         return Bar.panel([search], [caseToggle, wordToggle, regexToggle, plus, more], stretching: search)
     }
@@ -28,5 +29,5 @@ extension FilesPanel {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
-    @objc private func collapseAll() { outline.collapseItem(nil, collapseChildren: true) }
+    @objc func collapseAll() { outline.collapseItem(nil, collapseChildren: true) }
 }

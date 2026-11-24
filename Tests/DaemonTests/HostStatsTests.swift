@@ -186,8 +186,9 @@ import Testing
 }
 
 /// A host's stats and its disconnect go to ssh only for a host: what isn't one (empty, an option, words) is refused first.
-/// (Whether it reads as connected is the ssh stand-in's to say: another test may have set KELP_SSH for the process.)
+/// The ssh is the stand-in (`localSSH`), which reaches any host: this Mac.
 @Test func onlyAHostIsAskedForItsStats() async throws {
+    _ = localSSH
     let (d, c, _) = try daemon()
     defer { d.stop() }
     #expect(try await c.call(HostStatsRead(host: " nowhere.invalid ")).host == "nowhere.invalid")
@@ -195,7 +196,7 @@ import Testing
     #expect(try await c.call(HostHistoryRead(host: "nowhere.invalid")).count <= 1)
     _ = try await c.call(HostDisconnect(host: "nowhere.invalid"))
     for bad in ["", "-oProxyCommand=x", "a b"] {
-        await #expect(throws: (any Error).self) { _ = try await c.call(HostStatsRead(host: bad)) }
-        await #expect(throws: (any Error).self) { _ = try await c.call(HostDisconnect(host: bad)) }
+        await expectRefusal(says: "Enter the host") { _ = try await c.call(HostStatsRead(host: bad)) }
+        await expectRefusal(says: "Enter the host") { _ = try await c.call(HostDisconnect(host: bad)) }
     }
 }

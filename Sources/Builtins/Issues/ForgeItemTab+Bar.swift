@@ -111,6 +111,12 @@ extension ForgeItemTab {
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }   // the word every panel uses
     }
 
+    /// Has an agent review the pull request in this tab against its base, as the bar's and ⋯'s Review with Agent.
+    func reviewWithAgent() {
+        guard let view = prView else { return }
+        PRWork(app: app, repoId: repoId, pr: view.pr).review(base: view.baseRefName)
+    }
+
     /// Starts a group on a branch of its own named after the issue, and gives its agent the issue to read before
     /// sending. The PR from that branch says it fixes the issue.
     func startOnBranch() {

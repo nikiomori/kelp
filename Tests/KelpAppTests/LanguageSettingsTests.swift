@@ -85,7 +85,7 @@ extension AppOfItsOwn {
         let tab = FileTab(uri: TabURI.file(rig.workspace.path + "/a.txt"), app: rig.app)
         await tab.loading?.value
         let e = try #require(tab.editor)
-        #expect(try await waitFor(5) { !(e.tabWidth != 8) })
+        #expect(try await waitFor { e.tabWidth == 8 })
         #expect(e.tabWidth == 8)
     }
 }
@@ -122,9 +122,9 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
             status {
                 $0.editOffered = true
                 $0.problem = .noServer
-            }, "Ollama Isn't Running", true
+            }, "Ollama Isn’t Running", true
         ),   // what needs you comes first
-        (status { $0.problem = .noServer }, "Ollama Isn't Running", true),
+        (status { $0.problem = .noServer }, "Ollama Isn’t Running", true),
         (status { $0.problem = .noModel }, "No Code Model", true),
         (status { $0.model = nil }, "No Code Model", true),
         (
@@ -177,7 +177,7 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
                 $0.cloud = ("Codestral", true)
                 $0.problem = .notAnswering
             },
-            "Codestral Isn't Answering", true
+            "Codestral Isn’t Answering", true
         )
     ]
     for (got, text, needsYou) in cases {

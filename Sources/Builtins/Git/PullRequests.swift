@@ -12,11 +12,11 @@ enum PullRequests {
     /// mark, and the tooltip counts them. Returns nil while Settings › Appearance › Changes and pull requests is off.
     /// A click opens the PR's own tab.
     @MainActor static func mark(_ folder: String, _ app: AppModel) -> (
-        title: NSAttributedString, tip: String, uri: String
+        title: NSAttributedString, tip: String, uri: String, page: URL?
     )? {
         guard app.settings[SettingKeys.gitBadges], let pr = app.latest(PREvent.self, folder)?.pr else { return nil }
         let (title, tip) = badge(pr)
-        return (title, tip, uri(folder, number: pr.number, page: pr.url, app))
+        return (title, tip, uri(folder, number: pr.number, page: pr.url, app), URL(string: pr.url))
     }
 
     /// The PR's own tab (Issues'), as the Issues panel opens it, or the PR's page while the folder's project isn't
@@ -32,7 +32,7 @@ enum PullRequests {
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         let label = NSAttributedString(
             string: "#\(number)",
-            attributes: [.font: NSFont.uiDigits(TextSize.caption, weight: .medium), .foregroundColor: color])
+            attributes: [.font: NSFont.uiDigits(TextSize.micro, weight: .medium), .foregroundColor: color])
         let checks =
             failed > 0
             ? String(localized: "\(failed) checks failing")
@@ -61,18 +61,29 @@ enum PullRequests {
     }
 }
 
-/// "#123 Fix login · Open · ✓ 5 checks": a PR in GitHub's own colours (open green, draft grey, merged purple,
-/// closed red).
+/// "#123 Fix login · Open · checks passed": a PR in `NSColor.pullRequest`'s colours (open green, merged purple, draft
+/// and closed grey), with Issues & PRs' symbols (`ForgeRows.symbol`), so a closed PR's shape tells it from a draft.
 struct PRLine: View {
     let pr: GitHub.PullRequest
     var body: some View {
-        let state = pr.isDraft ? String(localized: "Draft") : pr.state.capitalized
+        let state =
+            switch pr.isDraft ? "DRAFT" : pr.state {
+            case "DRAFT": String(localized: "Draft")
+            case "MERGED": String(localized: "Merged")
+            case "CLOSED": String(localized: "Closed")
+            default: String(localized: "Open (state)", defaultValue: "Open")
+            }
         let color = Color(nsColor: .pullRequest(state: pr.state, draft: pr.isDraft))
+        let symbol =
+            switch pr.isDraft ? "DRAFT" : pr.state {
+            case "MERGED": "arrow.triangle.merge"
+            case "CLOSED": "xmark.circle"
+            default: "arrow.triangle.pull"
+            }
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                SymbolIcon(state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull", size: Metrics.iconSmall)
-                    .foregroundStyle(color)
+                SymbolIcon(symbol, size: Metrics.iconSmall).foregroundStyle(color)
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
                 Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }
@@ -81,7 +92,8 @@ struct PRLine: View {
                 // Only a failure has a colour: running checks go by themselves (the agents' ring, grey) and passed ones
                 // are a quiet filled ✓, as the sidebar's CI mark draws them.
                 if failed > 0 {
-                    Text("✕ \(failed) failing").foregroundStyle(Color.textRed)
+                    SymbolIcon("xmark.circle.fill", size: Metrics.iconSmall).foregroundStyle(Color(nsColor: .systemRed))
+                    Text("\(failed) failing").foregroundStyle(Color.textRed)
                 } else if pending > 0 {
                     StatusIcon(status: .working)
                     Text("\(pending) running").foregroundStyle(.secondary)

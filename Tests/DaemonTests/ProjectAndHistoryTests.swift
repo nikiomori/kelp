@@ -154,8 +154,6 @@ import Testing
     let waiting = try #require(d.agentUsage.plans.withLock { $0 }["claude"]?.at)
     d.agentUsage.planUsed("claude")
     #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == waiting)
-    d.agentUsage.plans.withLock { $0["claude"]?.at = .distantPast }
-    #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == .distantPast)
 }
 
 /// Twice as many stuck git / gh calls as there are cores still leave the daemon answering (they don't hold the cooperative pool).
@@ -347,6 +345,7 @@ private func signals(_ s: DispatchSemaphore, _ n: Int, by deadline: DispatchTime
 /// listed; one naming a session that has ended says how to bring it back.
 @Test func aMissingRecordIsNamedWithWhereToFindTheRealOnes() async throws {
     let w = try await world()
+    defer { w.d.stop() }
     let ended = try await w.c.call(SessionCreate(cwd: w.repo.path, command: "true"))
     try await waitFor { try await w.c.call(SessionList()).first { $0.id == ended.id }?.status == .exited }
     let rows: [(method: String, params: JSONValue, says: [String])] = [

@@ -16,7 +16,7 @@ final class NewChatSheet: NSObject {
         labels: [
             String(localized: "New Branch"), String(localized: "Existing Branch"),
             String(localized: "Pull Request")
-        ], target: nil, action: nil)
+        ], name: String(localized: "Start From"))
     let name = NSTextField(), from = NSPopUpButton(), branch = NSPopUpButton(), pr = NSPopUpButton(),
         agent = NSPopUpButton()
     private var rows: [Mode: [NSView]] = [:]

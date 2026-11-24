@@ -25,34 +25,36 @@ final class ArtifactBar: NSObject {
     /// The page's kind: not a path, so it isn't quiet like one. It truncates before the buttons do.
     private let kind = NSTextField.label("", font: .ui(TextSize.row, weight: .medium))
     let status = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
-    private let ring = NSProgressIndicator()
-    private lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
+    /// The agents' working ring while its agent writes the page (still under Reduce Motion).
+    private let ring = StatusMark(size: 12)
+    lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
     }
-    private lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
+    lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
         [weak self] in self?.step(1)
     }
-    let count = PointerButton()
-    private let latest = TextButton(String(localized: "Show Latest"))
-    private let restore = TextButton(String(localized: "Restore"))
+    let count = TextButton("")   // "2 of 5", a button on the bar's plate as its neighbours
+    let latest = TextButton(String(localized: "Show Latest"))
+    let restore = TextButton(String(localized: "Restore"))
     private let author = TextButton("")
     /// On a canvas, the result of Kelp's check of the drawn boards: what it found wrong (`CanvasScript`).
     private let check = TextButton("")
-    /// What the chat that made the page spent on it, in calls and dollars, as quiet text (Claude Code chats only).
-    private let spent = NSTextField(labelWithString: "")
+    /// What the chat that made the page spent on it, in calls and dollars, as quiet text (Claude Code chats only). It
+    /// and `fresh` give way in a narrow pane before `status` does, which says what state the page is in.
+    private let spent = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private var spentAt: Double?
     /// The View / Mark / Edit control. On a canvas it sets what a click on a board does: nothing, a mark for the agent,
     /// or a change by hand.
     private let modes = CapsuleSegments(
-        labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")], target: nil,
-        action: nil)
+        labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
+        name: String(localized: "Mode"))
     /// The Present button. It shows a canvas's boards one at a time, each as large as the pane, like slides in a deck.
-    private let present = TextButton(String(localized: "Present"))
+    let present = TextButton(String(localized: "Present"))
     /// The button that counts the changes the agent's last turn made to a doc. A click goes to the next change.
     private let changes = TextButton("")
     /// On a dashboard, the time its figures were drawn, and an Update button that asks the agent to run them again.
-    private let fresh = NSTextField(labelWithString: "")
-    private let refresh = TextButton(String(localized: "Update"))
+    private let fresh = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
+    let refresh = TextButton(String(localized: "Update"))
     /// The kept version a doc's changes are counted from.
     var baselineN: Int?
     private var issues: [String] = []
@@ -60,8 +62,8 @@ final class ArtifactBar: NSObject {
     private var marks: ArtifactMarkCounts?
     /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
-    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
-        self?.showMore()
+    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
+        [weak self] in self?.showMore()
     }
     var item: ArtifactItem?
     /// The page's own record, read from artifact.json when the artifacts list doesn't have the page. `pageKind` comes
@@ -76,10 +78,7 @@ final class ArtifactBar: NSObject {
     var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
-        ring.style = .spinning
-        ring.controlSize = .small
         count.font = .uiDigits(TextSize.row)
-        count.padding = Metrics.gap
         count.onClick = { [weak self] in self?.showVersions() }
         latest.onClick = { [weak self] in self?.show(nil) }
         restore.onClick = { [weak self] in self?.restoreShown() }
@@ -87,8 +86,7 @@ final class ArtifactBar: NSObject {
         author.onClick = { [weak self] in self?.goToChat() }
         check.isHidden = true
         check.onClick = { [weak self] in self?.showCheck() }
-        spent.font = .uiDigits(TextSize.row)
-        spent.textColor = .secondaryLabelColor
+        for quiet in [spent, fresh] { quiet.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal) }
         spent.isHidden = true
         modes.controlSize = .small
         modes.font = .ui(TextSize.row)
@@ -110,25 +108,23 @@ final class ArtifactBar: NSObject {
             modes.setToolTip(String(localized: "Its Markdown beside the page"), forSegment: 2)
         }
         markdown.onPageMode = { [weak self] in self?.modes.selectedSegment = $0.rawValue }
-        present.toolTip = String(localized: "One at a time, as large as the pane: ← → step, Esc ends")
+        present.toolTip = String(localized: "One at a time, as large as the pane: ← → step, esc ends")
         present.isHidden = markdown.page != .canvas && markdown.page != .slides
         changes.isHidden = true
         changes.toolTip = String(
-            localized: "What its agent's last turn changed, marked beside the text: click for the next")
+            localized: "What its agent’s last turn changed, marked beside the text: click for the next")
         changes.onClick = { [weak self] in self?.markdown.runJS("kelpChange(1)") }
         markdown.onChanges = { [weak self] count in
             self?.changes.isHidden = count == 0
             self?.changes.title = String(localized: "\(count) Changes")
         }
-        fresh.font = .uiDigits(TextSize.row)
-        fresh.textColor = .secondaryLabelColor
         fresh.isHidden = true
         refresh.isHidden = true
         refresh.toolTip = String(localized: "Run its sources again, or ask its agent to")
         refresh.onClick = { [weak self] in self?.markdown.askUpdate() }
         present.onClick = { [weak self] in self?.togglePresenting() }
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
-        return Bar.content(
+        let bar = Bar.content(
             [kind, ring, status],
             [
                 spent, latest, restore, fresh, refresh, changes, devices(), modes, present, check, back, count, forward,
@@ -136,6 +132,13 @@ final class ArtifactBar: NSObject {
             ],
             stretching: status
         )
+        // In a narrow pane Present goes into ⋯ first, then the check's result, as Xcode's narrow bars do. The words
+        // are cut before either goes; `showMore` lists what is out. A stack detaches only when its clipping resistance
+        // is below its views' (required, by default, squeezes them instead); the words' 250 stays under it.
+        bar.stack.setClippingResistancePriority(.defaultHigh - 1, for: .horizontal)
+        bar.stack.setVisibilityPriority(.init(rawValue: 300), for: present)
+        bar.stack.setVisibilityPriority(.init(rawValue: 400), for: check)
+        return bar
     }()
 
     init(app: AppModel, path: String, markdown: MarkdownTab) {
@@ -164,55 +167,6 @@ final class ArtifactBar: NSObject {
         } changed: { [weak self] _ in
             self?.update()
         }
-    }
-
-    /// Returns the page's kind from its file name, for use before its record is read. canvas.json counts as a design
-    /// until the record says it's a dashboard.
-    static func kind(ofFile path: String) -> Artifacts.Kind? {
-        guard isPage(path) else { return nil }
-        return Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }
-    }
-
-    /// The tab's icon for a kind of page.
-    static func icon(_ kind: Artifacts.Kind) -> NSImage? {
-        let (symbol, name) = look(kind)
-        return .symbol(symbol, name)
-    }
-
-    /// A kind of page's symbol and name, as its tab and its bar show them.
-    private static func look(_ kind: Artifacts.Kind) -> (symbol: String, name: String) {
-        switch kind {
-        case .doc: ("doc.text", String(localized: "Doc"))
-        case .review: ("checklist", String(localized: "Review"))
-        case .slides: ("play.rectangle", String(localized: "Slides"))
-        case .design: ("square.grid.2x2", String(localized: "Design"))
-        case .dashboard: ("chart.bar", String(localized: "Dashboard"))
-        case .proof: ("checkmark.seal", String(localized: "Proof"))
-        case .motion: ("film", String(localized: "Motion"))
-        }
-    }
-
-    /// Returns a page's title and kind from the workspace's artifacts list. A tab that isn't built yet takes its name
-    /// from this.
-    static func listed(_ path: String, in app: AppModel) -> (title: String, kind: Artifacts.Kind)? {
-        guard isPage(path) else { return nil }
-        let real = Paths.real(path) ?? path
-        guard let workspace = app.worktree(holding: real)?.id,
-            let item = app.latest(ArtifactsEvent.self, workspace)?.items.first(where: {
-                (Paths.real($0.target) ?? $0.target) == real
-            }),
-            !item.title.isEmpty, let kind = Artifacts.Kind(rawValue: item.type) ?? kind(ofFile: path)
-        else { return nil }
-        return (item.title, kind)
-    }
-
-    /// Whether `path` is a page Kelp made (`.kelp/artifacts/<name>/<kind>.md`), not one of its kept versions.
-    static func isPage(_ path: String) -> Bool {
-        guard let range = path.range(of: "/\(Artifacts.folder)/") else { return false }
-        let rest = path[range.upperBound...].split(separator: "/")
-        return rest.count == 2
-            && (Artifacts.Kind.allCases.contains { $0.file == rest[1] }
-                || Artifacts.olderFiles.contains(String(rest[1])))
     }
 
     func update() {
@@ -268,8 +222,7 @@ final class ArtifactBar: NSObject {
         } else {
             status.stringValue = writing ? String(localized: "\(app.catalog.name(session?.agent)) is writing") : ""
         }
-        ring.isHidden = !writing || shown != nil
-        if ring.isHidden { ring.stopAnimation(nil) } else { ring.startAnimation(nil) }
+        ring.status = writing && shown == nil ? .working : nil   // hides itself without one
         let index = shown ?? entries.count - 1
         count.title = String(localized: "\(index + 1) of \(entries.count)")
         for control in [back, forward, count] as [NSView] { control.isHidden = entries.count < 2 }
@@ -353,6 +306,11 @@ final class ArtifactBar: NSObject {
     }
 
     private func showCheck() {
+        checkMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
+    }
+
+    /// What the check found, and asking the agent to fix it or checking again.
+    private func checkMenu() -> NSMenu {
         let menu = NSMenu(), md = markdown
         for issue in issues.prefix(20) {
             menu.addItem(
@@ -366,11 +324,20 @@ final class ArtifactBar: NSObject {
             menu.add(String(localized: "Ask \(who) to Fix")) { md.sendCheck() }
         }
         menu.add(String(localized: "Check Again")) { md.rerender() }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
+        return menu
+    }
+
+    /// Present and the check's result, while a narrow pane keeps them out of the bar.
+    private func addCrowdedOut(to menu: NSMenu) {
+        let out = (view as? Bar)?.stack.detachedViews.filter { !$0.isHidden && ($0 == present || $0 == check) } ?? []
+        if out.contains(present) { menu.add(present.title) { [weak self] in self?.togglePresenting() } }
+        if out.contains(check) { menu.add(check.title, submenu: checkMenu()).toolTip = check.toolTip }
+        if !out.isEmpty { menu.addItem(.separator()) }
     }
 
     private func showMore() {
         let menu = NSMenu(), app = self.app, path = self.path, md = markdown
+        addCrowdedOut(to: menu)
         if modes.isHidden {   // a review: these show its Markdown beside or instead of the page (others use `modes`)
             for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
                 .enumerated()
@@ -384,10 +351,9 @@ final class ArtifactBar: NSObject {
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
         exportItems(menu)
         menu.addItem(.separator())
-        menu.add(String(localized: "Show in Finder")) {
-            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
-        }
-        menu.add(String(localized: "Copy Path")) { copyText(Artifacts.projectPath(path)) }
+        WorkspaceActions.addLocate(
+            to: menu, path: path,
+            copies: [(String(localized: "Relative Path"), { @MainActor in copyText(Artifacts.projectPath(path)) })])
         if let id = item?.session, app.session(id)?.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
         }

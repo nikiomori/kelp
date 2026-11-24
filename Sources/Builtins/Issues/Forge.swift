@@ -29,7 +29,7 @@ enum Forge {
         return (
             String(localized: "No GitHub Remote"),
             String(
-                localized: "Pull requests, issues and CI runs show here once this project's git has a remote on GitHub."
+                localized: "Pull requests, issues and CI runs show here once this project’s git has a remote on GitHub."
             )
         )
     }
@@ -46,7 +46,7 @@ enum Forge {
     static func signIn(_ cli: String) -> Setup {
         let site = cli == "glab" ? "GitLab" : "GitHub"
         return (
-            String(localized: "Sign In to \(site)"), String(localized: "The \(site) CLI (\(cli)) isn't signed in."),
+            String(localized: "Sign In to \(site)"), String(localized: "The \(site) CLI (\(cli)) isn’t signed in."),
             "\(cli) auth login", String(localized: "\(site) CLI Isn’t Signed In")
         )
     }
@@ -84,7 +84,7 @@ enum Forge {
             guard let pages = await app.call(GitWebPages(worktreeId: worktree)) else { return }
             guard let pages else {
                 Banner.show(
-                    String(localized: "This project's origin isn't on GitHub, GitLab or Bitbucket."), style: .error)
+                    String(localized: "This project’s origin isn’t on GitHub, GitLab or Bitbucket."), style: .error)
                 return
             }
             open(pages[keyPath: page])

@@ -257,6 +257,13 @@ public final class GhosttyRuntime {
                 view.window?.invalidateCursorRects(for: view)
             }
             return true
+        case GHOSTTY_ACTION_MOUSE_OVER_LINK:
+            let link = action.action.mouse_over_link
+            view?.overLink(
+                link.url.flatMap {
+                    String(bytes: UnsafeRawBufferPointer(start: $0, count: Int(link.len)), encoding: .utf8)
+                } ?? "")
+            return true
         case GHOSTTY_ACTION_CELL_SIZE:
             view?.cellSize = NSSize(
                 width: Double(action.action.cell_size.width), height: Double(action.action.cell_size.height))

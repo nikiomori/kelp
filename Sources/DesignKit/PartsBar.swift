@@ -45,9 +45,10 @@ public struct PartsBar: View {
                 while x < size.width {
                     path.move(to: CGPoint(x: x, y: size.height))
                     path.addLine(to: CGPoint(x: x + size.height, y: 0))
-                    x += 4
+                    x += Hatching.step
                 }
-                context.stroke(path, with: .color(.secondary.opacity(0.35)), lineWidth: 1)
+                // The same lines `Hatching` draws in AppKit.
+                context.stroke(path, with: .color(Color(nsColor: Hatching.color)), lineWidth: Metrics.hairline)
             }
             .background(Color(nsColor: .fillRest))
         }

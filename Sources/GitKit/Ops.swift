@@ -70,6 +70,41 @@ extension Git {
         try run(["reset", "-q", "--soft", "HEAD~\(count)"], cwd: path, remotes: remotes)
     }
 
+    /// What the graph's commit menu does to `commit` (`GitCommitAct.Kind`). Check out and branch leave the changes on
+    /// disk as git does, and git refuses when they would be lost. A cherry-pick of a commit the branch already has is
+    /// refused. A merge commit is picked or reverted against its first parent. When a cherry-pick or revert stops on
+    /// conflicts, it stays under way, so its files show as Merge Changes, and the error names them.
+    public static func act(
+        _ op: GitCommitAct.Kind, on commit: String, branch: String?, in path: String, remotes: Remotes
+    ) throws {
+        let commit = try rev(commit)
+        switch op {
+        case .checkout: try run(["switch", "-q", "--detach", commit], cwd: path, remotes: remotes)
+        case .branch:
+            guard let branch, !branch.isEmpty, !branch.hasPrefix("-") else {
+                throw GitError.refused("“\(branch ?? "")” isn't a branch name.")
+            }
+            try run(["switch", "-q", "-c", branch, commit], cwd: path, remotes: remotes)
+        case .cherryPick, .revert:
+            let has = { succeeds(["merge-base", "--is-ancestor", commit, "HEAD"], cwd: path, remotes: remotes) }
+            if op == .cherryPick, has() {
+                throw GitError.refused("The current branch already has this commit.")
+            }
+            let parents =
+                try line(["rev-list", "--parents", "-n", "1", commit], cwd: path, remotes: remotes)
+                .split(separator: " ").count - 1
+            let args = op == .revert ? ["revert", "--no-edit"] : ["cherry-pick"]
+            do {
+                try run(args + (parents > 1 ? ["-m", "1"] : []) + [commit], cwd: path, remotes: remotes)
+            } catch {
+                let conflicts = try status(path, remotes: remotes).filter(\.conflicted).map(\.path)
+                if conflicts.isEmpty { throw error }
+                throw GitError.refused(
+                    "Conflicts in \(conflicts.joined(separator: ", ")): resolve them under Merge Changes, then commit.")
+            }
+        }
+    }
+
     public struct MergeResult: Sendable, Equatable {
         public var merged: Bool
         public var conflicts: [String]

@@ -9,7 +9,7 @@ import os
 
 /// What Kelp's machines read as from their folders alone: no kelp-vm runs in these.
 @Suite struct VMServiceTests {
-    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+    let home = tmp().appendingPathComponent(
         "kvms-\(UUID().uuidString.prefix(6))")
     var vms: VMService { VMService(home: home, helper: "/nonexistent/kelp-vm") }
     let m = VMMachine(name: "deb", image: "debian-13", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "niko")
@@ -31,26 +31,24 @@ import os
 
     /// A machine the user deletes goes to the Trash, its disk with it (`KELP_TRASH` in tests).
     @Test func aDeletedMachineGoesToTheTrash() throws {
-        try folder(["disk.img": "work"])
+        let work = "work \(UUID())"   // this test's own, among every test's in the Trash
+        try folder(["disk.img": work])
         try vms.discard("deb", trash: true)
         #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb").path))
-        let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-        let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("deb/disk.img") }
-        #expect(!kept.isEmpty)
+        #expect(inTheTrash("deb/disk.img", holding: work))
     }
 
     /// One deleted while it's being made (Stop Making) is gone for good, not to the Trash: half a machine is nobody's
     /// work. Its making then sees it gone at its next step, and its download stops there.
     @Test func oneStoppedWhileMadeIsGoneAndItsStepsSaySo() throws {
         defer { try? FileManager.default.removeItem(at: home) }
-        try folder(["creating": String(decoding: VMMaking(step: .downloading).data, as: UTF8.self), "disk.img": "half"])
+        let half = "half \(UUID())"
+        try folder(["creating": String(decoding: VMMaking(step: .downloading).data, as: UTF8.self), "disk.img": half])
         #expect(vms.step(m, .downloading, progress: 0.5))
         _ = try vms.control("deb", .delete)
         #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb").path))
         #expect(!vms.step(m, .downloading, progress: 0.6))
-        let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-        let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("deb/disk.img") }
-        #expect(!kept.contains { FileManager.default.contents(atPath: trash + "/" + $0) == Data("half".utf8) })
+        #expect(!inTheTrash("deb/disk.img", holding: half))
     }
 
     /// Deleted while it's made and made again under its name: the first making's next step finds another machine there
@@ -305,9 +303,8 @@ import os
         try script(
             sdk.appendingPathComponent("platform-tools/adb"),
             "echo \"$*\" >> '\(asked)'; case \"$*\" in *uiautomator*) echo '\(screen)' ;; esac")
-        let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
-        setenv("ANDROID_HOME", sdk.path, 1)
-        defer { if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") } }
+        var vms = vms
+        vms.androidSDK = { sdk }
         let server = try Unix.listen(f.control.path)
         let lock = open(f.lock.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)   // as a kelp-vm holds it while it runs
@@ -338,14 +335,14 @@ import os
 
     /// A kelp-vm runs while it holds its machine's lock, answering or not: a busy one isn't taken for gone (a delete
     /// would take the folder from under it).
-    @Test func aKelpVMIsAliveByItsLockNotItsAnswer() throws {
+    @Test func aKelpVMIsAliveByItsLockNotItsAnswer() async throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
         #expect(!vms.alive("deb"))
         let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)
         #expect(vms.alive("deb"))
-        #expect(throws: RPCError.self) { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
+        await expectRefusal(says: "didn't stop") { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
         #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/machine.json").path))
         close(lock)
         #expect(!vms.alive("deb"))
@@ -395,9 +392,9 @@ import os
         #expect(vms.list().map(\.state) == [.sleeping])
     }
 
-    @Test func namesAndImagesAreChecked() {
-        #expect(throws: RPCError.self) { try vms.create(VMCreate(name: "Bad Name")) }
-        #expect(throws: RPCError.self) { try vms.create(VMCreate(name: "ok", image: "windows")) }
+    @Test func namesAndImagesAreChecked() async {
+        await expectRefusal(says: "A machine's name") { try vms.create(VMCreate(name: "Bad Name")) }
+        await expectRefusal(says: "No image windows") { try vms.create(VMCreate(name: "ok", image: "windows")) }
         #expect(throws: RPCError.self) { try vms.machine("nope") }
     }
 
@@ -427,8 +424,8 @@ import os
 }
 
 /// A file to make a machine from is looked at first: what can't run is refused, saying what to do.
-@Test func aMachinesFileIsCheckedFirst() throws {
-    let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kvmf-\(UUID().uuidString.prefix(6))")
+@Test func aMachinesFileIsCheckedFirst() async throws {
+    let dir = tmp().appendingPathComponent("kvmf-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let linux = try #require(VMImage.named("linux")), mac = try #require(VMImage.named("macos")),
@@ -440,11 +437,11 @@ import os
     isoBytes.replaceSubrange(0x8001..<0x8006, with: Data("CD001".utf8))
     try isoBytes.write(to: iso)
     try Data(count: 4096).write(to: raw)
-    #expect(throws: RPCError.self) { try VMService.check(qcow, for: linux) }
-    #expect(throws: RPCError.self) { try VMService.check(iso, for: linux) }
-    #expect(throws: RPCError.self) { try VMService.check(raw, for: mac) }   // not an .ipsw
-    #expect(throws: RPCError.self) { try VMService.check(raw, for: android) }
-    #expect(throws: RPCError.self) { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
+    await expectRefusal(says: "qcow2 image") { try VMService.check(qcow, for: linux) }
+    await expectRefusal(says: "installer ISO") { try VMService.check(iso, for: linux) }
+    await expectRefusal(says: "restore image (.ipsw)") { try VMService.check(raw, for: mac) }   // not an .ipsw
+    await expectRefusal(says: "Android machines come from your SDK") { try VMService.check(raw, for: android) }
+    await expectRefusal(says: "No file") { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
     try VMService.check(raw, for: linux)
 }
 
@@ -497,10 +494,11 @@ import os
     let denied = ask("deb")
     #expect(try await waitFor { try summary() == "Allow making a machine, deb (Debian 13: about 0.2 GB to download)?" })
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary())))
-    await #expect(throws: RPCError.self) { try await denied.value }
+    await expectRefusal(says: "didn't allow making deb") { try await denied.value }
     #expect(VMService(home: w.d.root, helper: "").list().isEmpty)
-    await #expect(throws: RPCError.self) { try await ask("Not_A_Name").value }
-    #expect(try summary().isEmpty)
+    await expectRefusal(says: "A machine's name") { try await ask("Not_A_Name").value }
+    // The row lets go of the denied question on the session's status queue, after the refusal is thrown.
+    #expect(try await waitFor { try summary().isEmpty })
     let allowed = ask("box", image: "nope")
     #expect(try await waitFor { try summary().hasPrefix("Allow making a machine, box") })
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: try summary())))

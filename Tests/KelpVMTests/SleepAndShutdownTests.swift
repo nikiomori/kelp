@@ -8,7 +8,7 @@ import Testing
 /// An Android sleep that didn't save says so, and leaves the machine where the next request goes on from.
 extension AndroidRuntimeOnAStandIn {
     /// adb can't reach the emulator: the sleep fails, the emulator is still up and running, and a start finds it so.
-    @Test(.timeLimit(.minutes(1))) func aSleepAdbCouldntAskFailsAndLeavesItUp() async throws {
+    @Test(.timeLimit(minutes: 1)) func aSleepAdbCouldntAskFailsAndLeavesItUp() async throws {
         let (vm, sdk, putAway) = try androidStandIn(adb: #"*"emu kill"*) exit 1 ;;"#)
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .start)) == nil)
@@ -20,8 +20,9 @@ extension AndroidRuntimeOnAStandIn {
     }
 
     /// The emulator quits but writes no snapshot: the sleep fails, the machine is off, and the next start boots it.
-    @Test(.timeLimit(.minutes(1))) func aSleepThatSavedNothingFailsAndTheNextStartBoots() async throws {
-        let quit = #"*"emu kill"*) kill "$(cat "$ANDROID_HOME/emulator.pid")"; rm -f "$ANDROID_HOME/emulator.pid" ;;"#
+    @Test(.timeLimit(minutes: 1)) func aSleepThatSavedNothingFailsAndTheNextStartBoots() async throws {
+        let pid = #""$(dirname "$0")/../emulator.pid""#   // adb is the SDK's platform-tools/adb
+        let quit = #"*"emu kill"*) kill "$(cat \#(pid))"; rm -f \#(pid) ;;"#
         let (vm, sdk, putAway) = try androidStandIn(adb: quit)
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .start)) == nil)
@@ -33,7 +34,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// An emulator that ignores both `emu kill` and SIGTERM is killed once its 30 s are up: the sleep says its state
     /// isn't saved, and nothing is left holding the AVD.
-    @Test(.timeLimit(.minutes(1))) func anEmulatorThatWontQuitIsKilledAndTheSleepSaysSo() async throws {
+    @Test(.timeLimit(minutes: 1)) func anEmulatorThatWontQuitIsKilledAndTheSleepSaysSo() async throws {
         let (vm, sdk, putAway) = try androidStandIn(booting: "trap '' TERM", adb: #"*"emu kill"*) ;;"#)
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .start)) == nil)
@@ -54,7 +55,7 @@ extension AndroidRuntimeOnAStandIn {
 extension IOSRuntimeOnAStandIn {
     /// Idle, it's shut down (here a slow `simctl shutdown`): a start meanwhile isn't told it runs, it boots again once
     /// the shutdown is through, and ticks meanwhile ask for no second shutdown.
-    @Test(.timeLimit(.minutes(1))) func aStartDuringAnIdleShutdownBootsAgain() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStartDuringAnIdleShutdownBootsAgain() async throws {
         let (vm, folder) = try iOS(simctl: #"case "$2" in shutdown) sleep 1 ;; esac"#)
         defer { putAway(folder) }
         vm.exitProcess = {}
@@ -76,13 +77,13 @@ extension IOSRuntimeOnAStandIn {
 
     /// The memory budget's sleep while it boots (here a slow `bootstatus`) leaves it booting: the start that waits on it
     /// is answered, and kelp-vm stays.
-    @Test(.timeLimit(.minutes(1))) func theBudgetsSleepLeavesABootingOneBooting() async throws {
+    @Test(.timeLimit(minutes: 1)) func theBudgetsSleepLeavesABootingOneBooting() async throws {
         let (vm, folder) = try iOS(simctl: #"case "$2" in bootstatus) sleep 1 ;; esac"#)
         defer { putAway(folder) }
         var ended = false
         vm.exitProcess = { ended = true }
         let start = Task { await askIOS(vm, .start) }
-        #expect(try await waitFor(5) { vm.state == .starting })
+        #expect(try await waitFor { vm.state == .starting })
         #expect(await withCheckedContinuation { c in vm.handle(.sleepIfIdle) { c.resume(returning: $0) } } == nil)
         #expect(await start.value == nil)
         #expect(vm.state == .running && !ended)
@@ -91,11 +92,11 @@ extension IOSRuntimeOnAStandIn {
     }
 
     /// A boot that fails (here its runner isn't built) shuts down the simulator it booted.
-    @Test(.timeLimit(.minutes(1))) func aFailedBootShutsTheSimulatorDown() async throws {
+    @Test(.timeLimit(minutes: 1)) func aFailedBootShutsTheSimulatorDown() async throws {
         let (vm, folder) = try iOS(built: false)
         defer { putAway(folder) }
         #expect(await askIOS(vm, .start)?.contains("isn't built") == true)
-        #expect(try await waitFor(5) { try xcrunCalls(folder).contains { $0.hasPrefix("simctl shutdown") } })
+        #expect(try await waitFor { try xcrunCalls(folder).contains { $0.hasPrefix("simctl shutdown") } })
     }
 }
 

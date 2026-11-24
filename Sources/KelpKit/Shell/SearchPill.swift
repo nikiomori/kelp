@@ -28,9 +28,12 @@ final class SearchPill: PointerControl {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Open Quickly"))
+        let height = heightAnchor.constraint(equalToConstant: TextSize.barCapsule)
+        height.isActive = true
         track(owner: self) {
             app.themes.chromeText
         } changed: { [weak self] _ in
+            height.constant = TextSize.barCapsule   // the capsule grows with its text
             self?.label.font = .ui(TextSize.row)
             self?.key.font = .ui(TextSize.caption)
             self?.needsLayout = true

@@ -18,9 +18,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let ssh = NSComboBox(), ssl = NSPopUpButton()
     private let sshRow = NSStackView(), sslRow = NSStackView()
     private let sshOn = NSButton(), sslOn = NSButton()
-    private let place = CapsuleSegments(), agents = CapsuleSegments()
+    private let place = CapsuleSegments(labels: [], name: String(localized: "Where It’s Listed"))
+    private let agents = CapsuleSegments(labels: [], name: String(localized: "Agents"))
     private let stage = CapsuleSegments(
-        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), target: nil, action: nil)
+        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), name: String(localized: "Database Stage"))
     private let why = DatabaseSheet.small("")
     /// Says what agents may do with the database as the form stands. Under Production agents only read, whatever the
     /// choice says.
@@ -296,7 +297,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         checking = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(delay)) } catch { return }   // typed on, so a newer check runs
             guard let self, !Task.isCancelled else { return }
-            self.status.stringValue = String(localized: "Connecting…")
+            self.status.stringValue = String(localized: "Connecting to \(db.host ?? db.name)…")
             self.status.textColor = .secondaryLabelColor
             let answer = await self.sheet.app.tryCall(
                 DatabaseCheck(worktreeId: self.sheet.worktreeId, database: db, password: secret))
@@ -304,7 +305,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             if let found = answer.value {
                 let through = db.ssh.map { String(localized: "through \($0) · ") } ?? ""
                 self.status.stringValue =
-                    "● " + through + "\(found.version) · "
+                    through + "\(found.version) · "
                     + String(localized: "\(found.tables) tables") + " · \(found.ms) ms"
                 self.status.textColor = .secondaryLabelColor   // it answers: nothing to do, so no colour
                 if !found.databases.isEmpty {
@@ -312,7 +313,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                     self.database.addItems(withObjectValues: found.databases)
                 }
             } else {
-                self.status.stringValue = "● " + (answer.error ?? String(localized: "It doesn’t answer."))
+                self.status.stringValue = answer.error ?? String(localized: "It doesn’t answer.")
                 self.status.textColor = .textRed
             }
             self.sheet.fit()
@@ -346,7 +347,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             if answer.value != nil {
                 sheet.end()
             } else {
-                status.stringValue = "● " + (answer.error ?? "")
+                status.stringValue = answer.error ?? ""
                 status.textColor = .textRed
                 add.isEnabled = true
                 sheet.fit()

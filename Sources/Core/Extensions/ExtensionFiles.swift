@@ -196,7 +196,7 @@ public enum ExtensionFiles {
         guard isPlainName(name) else { throw RPCError.invalidParams("“\(name)” can't be an extension's folder name.") }
         let fm = FileManager.default, dest = dir.appendingPathComponent(name)
         try Paths.ensure(dir)
-        if fm.fileExists(atPath: dest.path) { try fm.trashItem(at: dest, resultingItemURL: nil) }
+        if fm.fileExists(atPath: dest.path) { try Trash.move(dest) }
         if move { try fm.moveItem(at: folder, to: dest) } else { try fm.copyItem(at: folder, to: dest) }
         return dest
     }
@@ -289,6 +289,17 @@ public enum ExtensionFiles {
             if let array = value.array { array.forEach(walk) }
             guard case .object(let fields) = value else { return }
             for (key, child) in fields.sorted(by: { $0.key < $1.key }) {
+                // An agent started with variables of the extension's (a server for Claude Code to talk to).
+                if key == "session", let agent = child["agent"]?.string {
+                    var env: [String] = []
+                    if case .object(let vars)? = child["env"] {
+                        env = vars.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value.string ?? "")" }
+                    }
+                    let words = env + [agent] + (child["args"]?.array?.compactMap(\.string) ?? [])
+                    let line = words.joined(separator: " ")
+                    if !commands.contains(line) { commands.append(line) }
+                    continue
+                }
                 guard let text = child.string else {
                     walk(child)
                     continue

@@ -76,7 +76,7 @@ final class TabButton: NSControl, NSDraggingSource {
         close.imagePosition = .imageOnly
         close.radius = nil   // a round 16 pt fill (the slot's size) under the pointer
         close.target = self
-        close.action = #selector(closeTapped)
+        close.action = #selector(closeClicked)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
         editedDot.image = .symbol("circle.fill", String(localized: "Edited"))
         editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
@@ -94,7 +94,7 @@ final class TabButton: NSControl, NSDraggingSource {
         NSLayoutConstraint.activate([
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
-        full.font = .uiDigits(TextSize.micro, weight: .semibold)
+        full.font = .uiDigits(TextSize.micro, weight: .medium)
         for part in [slot, title, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
         applyWidth()
         pin(row)
@@ -211,10 +211,10 @@ final class TabButton: NSControl, NSDraggingSource {
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         // A tab finished and not looked at is marked by the weight of its title alone, as unread mail is.
-        title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
+        title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active ? .medium : .regular)
         titleMin.constant = Self.minTitle(
             title.stringValue, font: title.font ?? .ui(TextSize.row), letters: compact ? 6 : 12)
-        icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
+        icon.contentTintColor = active ? .labelColor : .secondaryLabelColor   // no accent: it is not a focus ring
         // The window has one plate, on the tab you're in; another pane's chosen tab stands out by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
         fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them
@@ -325,6 +325,12 @@ final class TabButton: NSControl, NSDraggingSource {
         return item.flatMap { strip?.onMenu?($0.id) }
     }
     @objc private func closeTapped() { if let id = item?.id { strip?.onClose?(id) } }
+    /// A click on ✕ closes the tab; with ⌥ held it closes the pane's other tabs instead, as in Safari.
+    @objc private func closeClicked() { clickClose(with: NSApp.currentEvent?.modifierFlags ?? []) }
+    func clickClose(with flags: NSEvent.ModifierFlags) {
+        guard flags.contains(.option), let id = item?.id else { return closeTapped() }
+        strip?.onCloseOthers?(id)
+    }
 
     override func mouseDragged(with event: NSEvent) {
         guard let id = item?.id else { return }

@@ -1,6 +1,8 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
+import os
 
 @testable import GitKit
 
@@ -20,14 +22,18 @@ import Testing
 /// it still runs (each went on to the end, one rg per key on a big repo); a search nothing replaces (an agent's) runs on.
 @Test func aNewerSearchBoxSearchStopsTheOneBefore() async throws {
     let folder = "/tmp/search-\(UUID().uuidString.prefix(6))"
+    let running = OSAllocatedUnfairLock(initialState: 0)
     func sleeper(_ seconds: String, in place: String?) throws -> Subprocess.Output {
         try ProjectFiles.replacingSearch(in: place) { started in
-            try Subprocess.checked(["/bin/sleep", seconds], cwd: "/tmp", started: started)
+            try Subprocess.checked(["/bin/sleep", seconds], cwd: "/tmp") { pid in
+                started?(pid)
+                running.withLock { $0 += 1 }
+            }
         }
     }
     let first = Task.detached { try? sleeper("30", in: folder) }
     let agents = Task.detached { try? sleeper("1", in: nil) }
-    try await Task.sleep(for: .milliseconds(500))   // both running
+    try await waitFor { running.withLock { $0 } == 2 }   // both running
     let t0 = Date()
     _ = try sleeper("0", in: folder)
     #expect(await first.value == nil)   // stopped

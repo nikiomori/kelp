@@ -43,7 +43,7 @@ extension BrowserTab {
     /// Reloads the page when WebKit's page process quits (a crash, memory pressure), because the pane stays white until
     /// something loads again.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        if drive != nil { noteLog("[page] the page's process ended; loaded again") }
+        if drive != nil { noteLog("[page] the page’s process ended; loaded again") }
         reloadPage()
     }
     func showError(_ error: Error) {
@@ -67,7 +67,7 @@ extension BrowserTab {
             + (local
                 ? String(localized: "Is the dev server running? The page opens once it starts here; ⌘R tries now.")
                 : String(localized: "Reload (⌘R) tries again."))
-        web.loadHTMLString(EmptyStateView.html(String(localized: "Can’t open this page"), text: text), baseURL: nil)
+        web.loadHTMLString(EmptyStateView.html(String(localized: "Can’t Open This Page"), text: text), baseURL: nil)
     }
 
     /// Completes the address as it's typed from the pages visited (`BrowserHistory`), with the completed part selected,

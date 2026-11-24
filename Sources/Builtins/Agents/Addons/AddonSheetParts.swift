@@ -11,12 +11,13 @@ enum AddonSheetParts {
         NSTextField.label(string, font: font, color: color, truncation: .byTruncatingMiddle)
     }
 
-    /// A title with a line about it underneath.
+    /// A title with a line about it underneath. The title, a name, is cut in its middle; the line about it is a
+    /// sentence, so it takes a second line instead of being cut.
     static func words(_ title: String, _ about: String, mono: Bool = false) -> NSStackView {
-        let column = NSStackView(views: [
-            text(title, mono ? .uiMono(TextSize.row) : .ui(TextSize.body)),
-            text(about, .ui(TextSize.caption), .secondaryLabelColor)
-        ])
+        let line = text(about, .ui(TextSize.caption), .secondaryLabelColor)
+        line.lineBreakMode = .byWordWrapping
+        line.maximumNumberOfLines = 2
+        let column = NSStackView(views: [text(title, mono ? .uiMono(TextSize.row) : .ui(TextSize.body)), line])
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.lineGap
@@ -99,15 +100,15 @@ enum AddonSheetParts {
                 rows.append(secret("header:\(key)", key, entry.headers?[key], sheet))
             }
         case .folder(let path):
-            rows.append(row([symbol("doc.text"), words(String(localized: "Skill Folder"), path), NSView()]))
+            let folder = words(String(localized: "Skill Folder"), path)
+            (folder.views.last as? NSTextField)?.lineBreakMode = .byTruncatingMiddle   // a path: its end matters
+            (folder.views.last as? NSTextField)?.maximumNumberOfLines = 1
+            rows.append(row([symbol("doc.text"), folder, NSView()]))
         case .repository:
             let about = String(
                 localized:
                     "Fetched once with git. Its files can hold scripts the agent may run: only add one you trust.")
-            let note = words(String(localized: "Skills from a Repository"), about)
-            (note.views.last as? NSTextField)?.lineBreakMode = .byWordWrapping
-            (note.views.last as? NSTextField)?.maximumNumberOfLines = 2
-            rows.append(row([symbol("doc.text"), note]))
+            rows.append(row([symbol("doc.text"), words(String(localized: "Skills from a Repository"), about)]))
         }
         rows.append(
             row([words(String(localized: "Use in"), place(paste, shared: shared, sheet)), NSView(), sheet.scope]))

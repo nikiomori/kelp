@@ -12,7 +12,7 @@ private func digits(in view: NSView) -> [NSTextField] {
 @MainActor @Test func aPanelsCountRollsOverItsCapsule() {
     let badge = CountBadge()
     let window = onScreen(badge)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     badge.badge = PanelBadge("3")
     badge.layoutSubtreeIfNeeded()
     badge.badge = PanelBadge("4")
@@ -24,7 +24,7 @@ private func digits(in view: NSView) -> [NSTextField] {
 @MainActor @Test func aChipsCountRolls() {
     let chip = Chip()
     let window = onScreen(chip)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     chip.show("terminal", count: 2)
     chip.layoutSubtreeIfNeeded()
     let count = digits(in: chip).first
@@ -33,13 +33,15 @@ private func digits(in view: NSView) -> [NSTextField] {
     #expect(count?.layer?.animation(forKey: "roll") != nil)
 }
 
-/// A count keeps its width when its digits change, in a look's own typeface too (a serif "1" is narrower than its "0").
-@MainActor @Test func digitsAreOneWidthInALooksTypeface() {
-    defer { TextSize.apply(design: nil) }
-    for design in ["serif", "rounded", "mono", nil] {
-        TextSize.apply(design: design)
-        let font = NSFont.uiDigits(TextSize.caption)
-        func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
-        #expect(width("111") == width("000"), "\(design ?? "system")")
+extension OneAtATime {
+    /// A count keeps its width when its digits change, in a look's own typeface too (a serif "1" is narrower than its "0").
+    @Test func digitsAreOneWidthInALooksTypeface() {
+        defer { TextSize.apply(design: nil) }
+        for design in ["serif", "rounded", "mono", nil] {
+            TextSize.apply(design: design)
+            let font = NSFont.uiDigits(TextSize.caption)
+            func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+            #expect(width("111") == width("000"), "\(design ?? "system")")
+        }
     }
 }

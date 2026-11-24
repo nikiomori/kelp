@@ -9,7 +9,7 @@ extension Builtins {
     /// A project's databases, as its agents reach them (`kelp db`). It adds the Databases panel (what is there, what
     /// agents ran, who is asking) and a `db:` tab with a database's tables, a run's rows, and the user's own query.
     package static let databases = Builtin(
-        "kelp.databases", "Databases", "The project's databases: what agents ran on them, and their tables.",
+        "kelp.databases", "Databases", "The project’s databases: what agents ran on them, and their tables.",
         icon: DatabaseLook.symbol
     ) { app in
         return Contributions(
@@ -44,7 +44,31 @@ extension Builtins {
                         return
                     }
                     Task { await DatabaseSheet.run(app, worktreeId: workspace, editing: nil) }
-                }
+                },
+                // What the database tab in front does, each while its button shows. Save's ⌘S stays the button's own
+                // key, not the command's default, which would take Save's key from the whole window. Filters has no
+                // key: ⇧⌘F is Find in Project everywhere, and ⌥⌘F is Git: Fetch.
+                tabCommand(app, "databases.run", "Run Statement", "cmd+return", shown: { $0.run }) { $0.runQuery() },
+                tabCommand(app, "databases.explain", "Explain", shown: { $0.explain }) { $0.explainQuery() },
+                tabCommand(app, "databases.filters", "Filters", shown: { $0.filterToggle }) {
+                    $0.toggleFilters()
+                },
+                tabCommand(app, "databases.save", "Save Changes", shown: { $0.save }) { $0.saveEdits() },
+                tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discard }) { $0.discardEdits() },
+                tabCommand(app, "databases.saveQuery", "Save Query…", shown: { $0.saveQuery }) { $0.keepQuery() },
+                tabCommand(app, "databases.showSQL", "Show SQL", shown: { $0.showSQL }) { $0.showEdits() },
+                tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() },
+                tabCommand(app, "databases.refresh", "Refresh Database", shown: { $0.reload }) { $0.refresh() },
+                tabCommand(app, "databases.details", "Details", shown: { $0.detailsToggle }) { $0.toggleDetails() },
+                tabCommand(app, "databases.previousRows", "Previous Rows", shown: { $0.previous }) { $0.turn(-1) },
+                tabCommand(app, "databases.nextRows", "Next Rows", shown: { $0.next }) { $0.turn(1) },
+                tabCommand(app, "databases.columns", "Columns", shown: { $0.columnsButton }) { $0.columnsMenu() },
+                tabCommand(app, "databases.copyRows", "Copy or Export Rows", shown: { $0.copyAs }) { $0.copyMenu() },
+                tabCommand(app, "databases.newQuery", "New Query", shown: { $0.view }) { tab in
+                    Task { await tab.leave(to: .query) }
+                },
+                tabCommand(app, "databases.showData", "Show Data", shown: { $0.part }) { $0.showPart(0) },
+                tabCommand(app, "databases.showStructure", "Show Structure", shown: { $0.part }) { $0.showPart(1) }
             ],
             settings: [
                 SettingsSection(
@@ -58,11 +82,11 @@ extension Builtins {
                             labels: ["read": "Read", "ask": "Read, Ask to Change", "free": "Read and Change"]),
                         s(
                             SettingKeys.databaseRows, "Rows an agent gets", .number,
-                            "A statement's rows an agent reads unless it asks for more; the tab shows up to 1000.",
+                            "A statement’s rows an agent reads unless it asks for more; the tab shows up to 1000.",
                             range: [10, 1000]),
                         s(
                             SettingKeys.databaseDensity, "Table rows", .enum,
-                            "How tall a table's rows are: Compact fits the most, as TablePlus does.",
+                            "How tall a table’s rows are: Compact fits the most, as TablePlus does.",
                             options: ["compact", "normal", "comfortable"],
                             labels: ["compact": "Compact", "normal": "Normal", "comfortable": "Comfortable"]),
                         s(
@@ -83,6 +107,28 @@ extension Builtins {
             launched: [{ DatabaseFollow.start(app) }],
             skills: [databasesSkill]
         )
+    }
+}
+
+extension Builtins {
+    /// A command for the database tab in front, enabled while its button (`shown`) shows there and can be pressed;
+    /// elsewhere it beeps.
+    fileprivate static func tabCommand(
+        _ app: AppModel, _ id: String, _ title: String, _ key: String? = nil,
+        shown: @escaping @MainActor (DatabaseTab) -> NSView, _ run: @escaping @MainActor (DatabaseTab) -> Void
+    ) -> CommandSpec {
+        CommandSpec(
+            id: id, title: title, key: key,
+            enabled: {
+                (app.workbench.focusedContent as? DatabaseTab).map {
+                    let button = shown($0)
+                    return !button.isHiddenOrHasHiddenAncestor && (button as? NSControl)?.isEnabled != false
+                } ?? false
+            }
+        ) { _ in
+            guard let tab = app.workbench.focusedContent as? DatabaseTab else { return NSSound.beep() }
+            run(tab)
+        }
     }
 }
 

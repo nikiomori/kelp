@@ -70,10 +70,10 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
         readAgain()
     }
 
-    /// Reads the log: a wait once it takes a second, then the log, or what went wrong with Try Again.
+    /// Reads the log: a wait at once, then the log, or what went wrong with Try Again.
     private func read(_ app: AppModel, worktree: String, job: Int) {
         empty.show(nil)
-        loading.wait(String(localized: "Loading the log…"))
+        loading.show(String(localized: "Loading the log…"))   // at once: the log comes from the forge's server
         Task { [weak self] in
             let result = await app.tryCall(CIFullLog(worktreeId: worktree, job: job))
             guard let self else { return }

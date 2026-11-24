@@ -16,13 +16,13 @@ import Testing
     let card = LimitCardHover()
     card.hover("claude", true)
     #expect(card.shown == nil)   // the pointer only touched the row
-    #expect(try await waitFor(5) { card.shown == "claude" })   // it rested there
+    #expect(try await waitFor { card.shown == "claude" })   // it rested there
     card.close()
     #expect(card.shown == nil)
     card.show("codex")   // a click
     #expect(card.shown == "codex")
     card.hover("codex", false)
-    #expect(try await waitFor(5) { card.shown == nil })   // the pointer left
+    #expect(try await waitFor { card.shown == nil })   // the pointer left
 }
 
 extension AppOfItsOwn {
@@ -38,7 +38,7 @@ extension AppOfItsOwn {
         rig.show(vc, 300, 400)
         let table = try #require(Self.tables(in: vc.view).first)
         rig.app.land(ActivityEvent(usage: [.init(session: session.id, cpu: 1, memory: 1000, processes: 2)]))
-        #expect(try await waitFor(5) { table.numberOfRows == 1 })
+        #expect(try await waitFor { table.numberOfRows == 1 })
         let cell = try #require(table.view(atColumn: 0, row: 0, makeIfNecessary: true))
         let stop = try #require(Self.buttons(in: cell).first)
         #expect(stop.isHidden)

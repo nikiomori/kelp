@@ -74,7 +74,8 @@ enum CanvasData {
             if (file && count()) {
               const seg = K.el('span', 'kelp-iseg');
               const step = d => { at = Math.max(1, Math.min(count(), at + d)); apply(); props.redraw(); };
-              const back = K.el('button', '', '‹'), next = K.el('button', '', '›');
+              const back = K.el('button'), next = K.el('button');
+              back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
               back.onclick = () => step(-1); next.onclick = () => step(1);
               seg.append(back, K.el('button', 'on', at + ' / ' + count()), next);
               row(L.row, seg);

@@ -117,7 +117,7 @@ extension BrowserTab: WKDownloadDelegate {
         Banner.show(
             String(localized: "Downloaded \(to.lastPathComponent)"),
             action: (
-                String(localized: "Show in Finder"),
+                String(localized: "Reveal in Finder"),
                 {
                     NSWorkspace.shared.activateFileViewerSelecting([to])
                 }

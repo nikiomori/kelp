@@ -25,6 +25,7 @@ final class Header: PointerControl {
             b.padding = Metrics.gap
             b.restFill = .fillHover
             b.isHidden = true
+            b.alphaValue = 0
         }
         let stack = NSStackView(views: [row, stop, toTab, chevron])
         stack.spacing = Metrics.gap
@@ -42,8 +43,15 @@ final class Header: PointerControl {
     }
     override func showPointer(hovering: Bool, pressed: Bool) {
         super.showPointer(hovering: hovering, pressed: pressed)
-        toTab.isHidden = run == nil || !(hovering || always)
+        // While there is a run the buttons keep their room, so the time doesn't move when the pointer comes; only
+        // their opacity follows it.
+        toTab.isHidden = run == nil
         stop.isHidden = toTab.isHidden || run?.status == .exited
+        let shown: CGFloat = hovering || always ? 1 : 0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(shown == 1 ? Motion.fast : Motion.fast * 2 / 3)
+            for button in [stop, toTab] { button.animator().alphaValue = shown }
+        }
     }
 }
 

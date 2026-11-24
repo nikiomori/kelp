@@ -58,7 +58,7 @@ enum CanvasScript {
               if (!fr.width) continue;   // a board not shown (a dashboard's other view)
               const k = fr.width / m.f.offsetWidth;
               const b = document.createElement('div');
-              b.className = 'kelp-fault'; b.textContent = '!'; b.title = m.text;
+              b.className = 'kelp-fault'; b.innerHTML = \(CanvasChrome.Glyph.warning.js); b.title = m.text;
               b.style.left = (fr.left + scrollX + (r.left + r.width) * k - 8) + 'px';
               b.style.top = (fr.top + scrollY + r.top * k - 8) + 'px';
               markers.append(b);
@@ -161,7 +161,7 @@ enum CanvasScript {
               }
               if (bare) say(bare + ' buttons, links, fields or headings without a data-id');
               access(doc, win, say);
-              system(f, doc, win, say);
+              systemFaults(f, doc, win, say);
             }
             // What VoiceOver would miss (Webflow's Audit): a picture without words, a button or a link without a name,
             // a heading level skipped, and an order CSS shows differently from how it is read.
@@ -215,7 +215,7 @@ enum CanvasScript {
               const sizes = px('size', 'fontSize'), radii = px('radius', 'borderTopLeftRadius');
               return { colours, fonts, first, sizes, radii };
             }
-            function system(f, doc, win, say) {
+            function systemFaults(f, doc, win, say) {
               for (const img of doc.body.querySelectorAll('img[src^="http"], video[src^="http"]'))
                 say('picture from the web in ' + named(img) + ': it breaks an export and offline viewing; '
                   + 'copy it beside the page', img);

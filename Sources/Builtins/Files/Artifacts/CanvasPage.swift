@@ -166,7 +166,7 @@ enum CanvasPage {
         do { _ = try JSONSerialization.jsonObject(with: Data(json.utf8)) } catch {
             return ((error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String) ?? error.localizedDescription
         }
-        return String(localized: "It isn't {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
+        return String(localized: "It isn’t {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
     /// Kelp's page around the boards. A dashboard and a motion page (`MotionPage`) get their own looks.

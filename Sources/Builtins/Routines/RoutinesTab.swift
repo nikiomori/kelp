@@ -17,8 +17,15 @@ func routinesTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not Sw
 
 struct RoutinesView: View {
     let app: AppModel, repoId: String
-    @State private var chosen: String?   // the chosen routine's id
+    private var pick: RoutinePick { app.part { RoutinePick() } }   // shared with the commands
+    /// The chosen routine's id.
+    private var chosen: Binding<String?> {
+        Binding(get: { pick.chosen[repoId] }, set: { pick.chosen[repoId] = $0 })
+    }
     @State private var picked: String?   // the picked run's id
+
+    /// Whether the daemon has said what routines there are: until then, none isn't "No Routines".
+    private var read: Bool { app.latest(RoutinesEvent.self) != nil }
 
     var routines: [Routine] { app.latest(RoutinesEvent.self)?.routines.filter { $0.repoId == repoId } ?? [] }
     var runs: [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
@@ -29,7 +36,9 @@ struct RoutinesView: View {
             VStack(spacing: 0) {
                 header(week, list)
                 Divider()
-                if list.isEmpty {
+                if !read {
+                    LoadingPage(String(localized: "Reading the routines…"))
+                } else if list.isEmpty {
                     EmptyState(String(localized: "No Routines"), symbol: "clock.arrow.circlepath") {
                         Text("An agent on a schedule: triage new issues every morning, run the tests every night.")
                     } actions: {
@@ -38,9 +47,9 @@ struct RoutinesView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            WeekGrid(week: week, routines: list, runs: runs, chosen: $chosen, picked: $picked, app: app)
+                            WeekGrid(week: week, routines: list, runs: runs, chosen: chosen, picked: $picked, app: app)
                             Divider()
-                            if let routine = list.first(where: { $0.id == chosen }) ?? list.first {
+                            if let routine = list.first(where: { $0.id == chosen.wrappedValue }) ?? list.first {
                                 RoutineDetail(
                                     app: app, routine: routine, runs: runs.filter { $0.routineId == routine.id },
                                     picked: picked,
@@ -50,6 +59,7 @@ struct RoutinesView: View {
                     }
                 }
             }
+            .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: read)   // the list fades in once read
         }
     }
 
@@ -59,9 +69,13 @@ struct RoutinesView: View {
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             // A tab kept after its project went has no name to show: the line stands alone.
-            if let project = app.repo(repoId)?.name { Text(project).font(.ui(TextSize.body, weight: .semibold)) }
-            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
-                .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            if let project = app.repo(repoId)?.name {
+                Text(project).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
+            }
+            if read {   // no count before the list has come
+                Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
+                    .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            }
             Spacer()
             // With no routines, the button is under No Routines instead.
             if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }
@@ -69,12 +83,12 @@ struct RoutinesView: View {
     }
 
     private func newRoutine() {
-        let app = self.app, repo = repoId
+        let app = self.app, repo = repoId, pick = self.pick
         Task {
             guard let routine = await RoutineSheet.run(app, repoId: repo),
                 let saved = await app.call(RoutineSet(routine: routine))
             else { return }
-            chosen = saved.id
+            pick.chosen[repo] = saved.id
         }
     }
 }
@@ -86,17 +100,17 @@ struct WeekGrid: View {
     @Binding var picked: String?
     let app: AppModel
     @State private var hovered: String?   // the routine whose row is under the pointer
+    private static let nameWidth: CGFloat = 220   // the names' column at normal text size
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
             GridRow {
-                Color.clear.frame(width: 220, height: 1)
+                Color.clear.frame(width: TextSize.of(Self.nameWidth), height: 1)
                 ForEach(week.days, id: \.self) { day in
                     let today = week.isToday(day)
+                    // Today is in the text colour over the column's shade: no accent, no weight.
                     Text(day.formatted(.dateTime.weekday(.abbreviated).day()))
-                        .font(.ui(TextSize.caption, weight: today ? .semibold : .regular)).foregroundStyle(
-                            today ? Color.accentColor : .secondary
-                        )
+                        .font(.ui(TextSize.caption)).foregroundStyle(today ? .primary : .secondary)
                         .frame(maxWidth: .infinity, minHeight: TextSize.of(Metrics.rowSection))
                         .background(today ? Color(nsColor: .fillRest) : .clear)
                 }
@@ -125,7 +139,7 @@ struct WeekGrid: View {
     private func piece(_ content: some View, of routine: Routine, _ edge: HorizontalEdge? = nil) -> some View {
         let on = (chosen ?? routines.first?.id) == routine.id
         let lead = edge == .leading ? Metrics.radiusSM : 0, trail = edge == .trailing ? Metrics.radiusSM : 0
-        return content.frame(minHeight: 44).background(
+        return content.frame(minHeight: TextSize.of(Metrics.rowTwoLine)).background(
             UnevenRoundedRectangle(
                 topLeadingRadius: lead, bottomLeadingRadius: lead, bottomTrailingRadius: trail, topTrailingRadius: trail
             )
@@ -158,12 +172,12 @@ struct WeekGrid: View {
             )
             .toggleStyle(.switch).controlSize(.small).labelsHidden()
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(routine.name).font(.ui(TextSize.row, weight: .medium)).lineLimit(1)
+                Text(routine.name).font(.ui(TextSize.row)).lineLimit(1)
                 Text(RoutineWeek.schedule(routine)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .padding(.horizontal, Metrics.inset)
-        .frame(width: 220, alignment: .leading)
+        .frame(width: TextSize.of(Self.nameWidth), alignment: .leading)
         .opacity(routine.enabled ? 1 : 0.55)
         .contextMenu {
             // The same word as the row's button: a run that is open is stopped, not run again.
@@ -193,35 +207,29 @@ struct WeekGrid: View {
                 Text("+\(marks.count - 2)").font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(maxWidth: .infinity, minHeight: TextSize.of(Metrics.rowTwoLine))
         .background(week.isToday(day) ? Color(nsColor: .fillRest) : .clear)
     }
 
     private func run(_ routine: Routine) {
-        let app = self.app
-        if let open = runs.first(where: { $0.routineId == routine.id && $0.isOpen }),
-            let sessionId = open.sessionId
-        {
-            Task { await app.call(SessionKill(id: sessionId)) }
-        } else {
-            Task {
-                if let run = await app.call(RoutineRun(id: routine.id)) {
-                    picked = run.id
-                    chosen = routine.id
-                }
+        let actions = RoutineActions(app: app), runs = self.runs
+        Task {
+            if let run = await actions.runOrStop(routine, runs: runs) {
+                picked = run.id
+                chosen = routine.id
             }
         }
     }
 }
 
 /// One run, or a time a run is due: ✓ done, ● asked, ! failed, the working ring running, dashed missed. Ahead, it is a ring
-/// (the next one in the accent colour). The time sits under it.
+/// (the next one in the text colour, the later ones grey). The time sits under it.
 struct RunMark: View {
     let mark: RoutineWeek.Mark, picked: Bool
 
     var body: some View {
-        VStack(spacing: 1) {
-            symbol.frame(height: 16)
+        VStack(spacing: Metrics.lineGap) {
+            symbol.font(.symbol(Metrics.iconSmall)).frame(height: 16)   // the medium weight; fixed at any Text size
             Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(TextSize.caption).monospacedDigit())
                 .foregroundStyle(
                     .secondary
@@ -257,9 +265,9 @@ struct RunMark: View {
         case .run(.done): Image(systemName: "checkmark.circle.fill").foregroundStyle(.secondary)
         case .run(.asked): Image(systemName: "questionmark.circle.fill").foregroundStyle(Color.textOrange)
         case .run(.failed): Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.textRed)
-        case .run(.missed): Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
-        case .next: Image(systemName: "circle").foregroundStyle(Color.accentColor)
-        case .planned: Image(systemName: "circle").foregroundStyle(.quaternary)
+        case .run(.missed): Image(systemName: "circle.dashed").foregroundStyle(.secondary)
+        case .next: Image(systemName: "circle").foregroundStyle(.primary)
+        case .planned: Image(systemName: "circle").foregroundStyle(.secondary)
         }
     }
 }

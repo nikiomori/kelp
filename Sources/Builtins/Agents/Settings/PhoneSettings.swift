@@ -69,7 +69,7 @@ struct PhoneSettings: View {
             }
         }
         if isOn, let state, state.via != nil {
-            Section("Pair a Phone") {
+            TitledSection("Pair a Phone") {
                 reached(state)
                 if let link = state.link {
                     code(link, until: state.linkUntil)
@@ -77,13 +77,13 @@ struct PhoneSettings: View {
                     Button("Show Pairing Code") { Task { await pair() } }.disabled(state.address == nil)
                 }
             }
-            Section("Paired Phones") {
+            TitledSection("Paired Phones") {
                 if state.phones.isEmpty {
-                    EmptyState(String(localized: "No phone is paired yet."), symbol: "iphone", lifted: false)
+                    EmptyState(String(localized: "No Phone Paired Yet"), symbol: "iphone", lifted: false)
                 }
                 ForEach(state.phones) { phone in
                     HStack(spacing: Metrics.gap) {
-                        Image(systemName: "iphone").foregroundStyle(.secondary)
+                        Image(systemName: "iphone").font(.symbol()).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: Metrics.lineGap) {
                             Text(phone.name)
                             Text(
@@ -176,7 +176,7 @@ struct PhoneSettings: View {
         -> some View
     {
         HStack(spacing: Metrics.gap) {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+            Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.symbol())
                 .foregroundStyle(.secondary)   // done is the filled mark: the shape says it, not a colour
             Text(title).foregroundStyle(done || next ? .primary : .secondary)
             Spacer(minLength: Metrics.gap)
@@ -185,16 +185,14 @@ struct PhoneSettings: View {
     }
 
     private func link(_ title: String, _ address: String) -> some View {
-        URL(string: address).map { Link(title, destination: $0) }
+        URL(string: address).map { Link(title, destination: $0).buttonStyle(.kelpLink) }
     }
 
     private func reached(_ state: PhoneState) -> some View {
         let host = (state.address ?? state.relay).flatMap { URL(string: $0)?.host } ?? ""
         return HStack(spacing: Metrics.gap) {
-            // Reached is a filled dot and not reached a ring, as an integration's is.
-            Circle().strokeBorder(Color.secondary, lineWidth: 1.5)
-                .background(Circle().fill(state.connected && state.address != nil ? Color.secondary : .clear))
-                .frame(width: 8, height: 8)
+            // Reached is a filled dot and not reached a ring, as an integration's is; red when it failed.
+            StateDot(state.error != nil ? .broken : state.connected && state.address != nil ? .on : .off)
             if let steps = state.tailscale, !steps.serving {
                 Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // the steps say what's missing
             } else if let error = state.error {

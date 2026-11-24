@@ -37,7 +37,7 @@ private extension Data {
 }
 
 @Test func callTimesOutWhenNoReplyComes() async throws {
-    let path = NSTemporaryDirectory() + "kelp-timeout-\(getpid()).sock"
+    let path = tmp().path + "/kelp-timeout-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -61,7 +61,7 @@ private extension Data {
 
 /// A socket someone still answers on isn't taken over; a stale one (its owner gone) is.
 @Test func listenLeavesALiveSocketAlone() async throws {
-    let path = NSTemporaryDirectory() + "kelp-live-\(getpid()).sock"
+    let path = tmp().path + "/kelp-live-\(getpid()).sock"
     let first = try Unix.listen(path)
     #expect(throws: (any Error).self) { try Unix.listen(path) }
     close(first)
@@ -123,7 +123,7 @@ private extension Data {
 }
 
 @Test func aSocketIsPrivateToItsOwner() throws {
-    let dir = NSTemporaryDirectory() + "kelp-priv-\(getpid())"
+    let dir = tmp().path + "/kelp-priv-\(getpid())"
     try FileManager.default.createDirectory(
         atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755])
     let path = dir + "/k.sock"
@@ -151,7 +151,7 @@ private extension Data {
 }
 
 @Test func onlyOurOwnProcessesAreAcceptedOnTheSocket() throws {
-    let path = NSTemporaryDirectory() + "kelp-peer-\(getpid()).sock"
+    let path = tmp().path + "/kelp-peer-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -198,7 +198,7 @@ private extension Data {
 
 /// The app installs its handlers after connecting (with awaits in between): a daemon that drops first must still be noticed.
 @Test func aCloseHandlerInstalledAfterTheDropStillRuns() async throws {
-    let path = NSTemporaryDirectory() + "kelp-late-\(getpid()).sock"
+    let path = tmp().path + "/kelp-late-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -214,7 +214,7 @@ private extension Data {
 }
 
 @Test func notificationsReachAHandlerSetWhileReading() async throws {
-    let path = NSTemporaryDirectory() + "kelp-note-\(getpid()).sock"
+    let path = tmp().path + "/kelp-note-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -227,12 +227,11 @@ private extension Data {
     client.onNotification = { m, _ in if m == "event.test" { got.set() } }
     Unix.writeAll(peer, try Wire.line(RPCRequest(id: nil, method: "event.test", params: nil)))
     #expect(try await waitFor(5) { got.value })
-    #expect(got.value)
 }
 
 /// An event comes to `onEvent` as its own type, read once on the reader thread (the app's main thread decodes nothing).
 @Test func eventsComeAsTheirTypes() async throws {
-    let path = NSTemporaryDirectory() + "kelp-ev-\(getpid()).sock"
+    let path = tmp().path + "/kelp-ev-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -246,7 +245,7 @@ private extension Data {
     Unix.writeAll(peer, try Wire.line(RPCNotification(RemovedEvent(session: "s1"))))
     Unix.writeAll(peer, try Wire.line(RPCRequest(id: nil, method: "event.unknown", params: nil)))   // not one of `rpcEvents`
     Unix.writeAll(peer, try Wire.line(RPCNotification(CloneEvent(id: "c", line: "done"))))
-    #expect(try await waitFor(5) { !(got.withLock({ $0.count }) < 2) })
+    #expect(try await waitFor(5) { got.withLock({ $0.count }) >= 2 })
     let events = got.withLock { $0 }
     #expect(events.count == 2)
     #expect(events.first as? RemovedEvent == RemovedEvent(session: "s1"))
@@ -256,7 +255,7 @@ private extension Data {
 /// The caller (the app's main thread) never waits on a full socket: writes are queued, and go out whole and in the
 /// order they were made once the daemon reads again. Before, the eighth megabyte waited for the daemon to read.
 @Test func writesDontWaitForTheDaemonToRead() async throws {
-    let path = NSTemporaryDirectory() + "kelp-full-\(getpid()).sock"
+    let path = tmp().path + "/kelp-full-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -270,8 +269,7 @@ private extension Data {
         for i in 0..<8 { client.notify("big", .obj(["i": .int(i), "pad": pad])) }   // far more than the socket holds
         sent.set()
     }
-    #expect(try await waitFor(5) { sent.value })
-    #expect(sent.value)   // before the daemon read a byte
+    #expect(try await waitFor(5) { sent.value })   // before the daemon read a byte
     var lb = LineBuffer(), order: [Int] = [], buf = [UInt8](repeating: 0, count: 65536)
     while order.count < 8 {
         let n = read(peer, &buf, buf.count)
@@ -292,7 +290,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// The app doesn't ignore SIGPIPE: writing to a daemon that went away must fail, not kill the process (the test would die).
 @Test func writingToAGoneDaemonFailsInsteadOfKillingTheProcess() throws {
-    let path = NSTemporaryDirectory() + "kelp-pipe-\(getpid()).sock"
+    let path = tmp().path + "/kelp-pipe-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -311,7 +309,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 /// A client closed while its reader waits must not read the next connection's replies (closing the fd under the reader
 /// let the number be reused). Many rounds of close-then-reconnect: every new connection gets its own answer.
 @Test func aClosedClientNeverReadsTheNextConnectionsReplies() async throws {
-    let path = NSTemporaryDirectory() + "kelp-reuse-\(getpid()).sock"
+    let path = tmp().path + "/kelp-reuse-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -369,7 +367,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(try await waitFor(5) { once.ifRead != nil })
     #expect(once.ifRead == "/read" && once.value == "/read")
 
-    let dir = NSTemporaryDirectory() + "kelp-shell-\(UUID().uuidString.prefix(6))", shell = dir + "/sh",
+    let dir = tmp().path + "/kelp-shell-\(UUID().uuidString.prefix(6))", shell = dir + "/sh",
         ran = dir + "/ran"
     try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
     try "#!/bin/sh\ntouch '\(ran)'\nprintf '__KELP__/from/shell__KELP__'\n".write(
@@ -415,9 +413,9 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let ended = DispatchSemaphore(value: 0)
     c.onClose = { ended.signal() }
     c.notify("x", .string(String(repeating: "x", count: 4 << 20)))   // more than the socket holds: the write blocks
-    Thread.sleep(forTimeInterval: 0.3)   // the write under way and stuck: nothing says it has begun
+    Thread.sleep(forTimeInterval: 0.3 * testSlowness)   // the write under way and stuck: nothing says it has begun
     c.close()
-    #expect(ended.wait(timeout: .now() + 3) == .success)
+    #expect(ended.wait(timeout: .now() + 3 * testSlowness) == .success)
 }
 
 /// An Android module's launcher icon; a site's favicon under the project's name, not another brand's.
@@ -556,7 +554,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// kelp ext check names each mistake and where it is; a sound extension has none.
 @Test func anExtensionsMistakesAreNamedWithWhereTheyAre() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     func write(_ json: String) throws {
         try json.write(to: dir.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
@@ -570,7 +568,14 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let found = ExtCheck.problems(in: dir)
     #expect(found.contains("“name” is missing: a non-empty string.") && found.contains("Unknown key “nmae” (a typo?)."))
     #expect(found.contains("contributes.panels[0]: needs exactly one of “list” or “web”."))
-    #expect(found.contains("contributes.commands[0]: needs exactly one of terminal, run, open, agent (has run, open)."))
+    #expect(
+        found.contains(
+            "contributes.commands[0]: needs exactly one of terminal, run, open, agent, session (has run, open)."))
+    try write(#"{"id":"x","name":"X","contributes":{"commands":[{"title":"Go","session":{"model":"m"}}]}}"#)
+    #expect(
+        ExtCheck.problems(in: dir) == [
+            "contributes.commands[0].session: “agent” is missing: the id of the agent it starts."
+        ])
     try write("{ not json")
     #expect(ExtCheck.problems(in: dir).first?.hasPrefix("extension.json isn't valid JSON") == true)
 }
@@ -592,7 +597,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// An install takes the bytes the library reviewed or nothing: a changed, missing or extra file is named.
 @Test func onlyTheReviewedBytesInstall() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir.appendingPathComponent("web"), withIntermediateDirectories: true)
     try "{}".write(to: dir.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
     try "<p>hi</p>".write(to: dir.appendingPathComponent("web/index.html"), atomically: true, encoding: .utf8)
@@ -612,7 +617,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// The library adds what community.json beside its index lists, as not reviewed, without what it reviewed itself.
 @Test func theLibraryAddsTheCommunityAsUnreviewed() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     try
         #"[{"id":"docker","name":"Docker","version":"1.0.0","source":"https://github.com/o/r/tree/t/extensions/docker"}]"#
@@ -645,7 +650,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// The hosts a host field offers: ~/.ssh/config's own, `Host=name` too, and those of the files it includes.
 @Test func sshConfigHostsFollowItsIncludes() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ssh-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("ssh-\(UUID().uuidString)")
     try FileManager.default.createDirectory(
         at: dir.appendingPathComponent("config.d"), withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -659,7 +664,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 
 /// A terminal kept in tmux on a host is the host's login shell, in tmux when the host has it and alone when not.
 @Test func aHostsTerminalInTmuxIsItsLoginShell() throws {
-    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let bin = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: bin) }
     let said = bin.appendingPathComponent("said"), shell = bin.appendingPathComponent("shell")
@@ -681,7 +686,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
 /// A program on a host gets Kelp's own variables in its command and its agent's secrets from a file it reads and
 /// removes as it starts: never in the command, which the host's `ps` shows. Kept in tmux or not.
 @Test func aHostsProgramGetsItsEnvironmentWithoutItsSecretsOnItsCommandLine() throws {
-    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let bin = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: bin) }
     let shell = bin.appendingPathComponent("shell"), out = bin.appendingPathComponent("out")

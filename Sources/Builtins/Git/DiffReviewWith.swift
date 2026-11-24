@@ -85,7 +85,7 @@ extension DiffViewController {
         case .branch:
             let base = app.worktree(wid)?.base ?? "main"
             return (
-                String(localized: "this branch's changes since \(base)"),
+                String(localized: "this branch’s changes since \(base)"),
                 "git diff " + ShellQuote.word(base + "...HEAD")
             )
         case .commit:
@@ -94,7 +94,7 @@ extension DiffViewController {
         case .turn:   // since the turn began: the turn's snapshot against the files now, new files listed too
             let tree = (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.tree ?? "HEAD"
             return (
-                String(localized: "the agent's turn: the files changed since it began"),
+                String(localized: "the agent’s turn: the files changed since it began"),
                 "git diff " + ShellQuote.word(tree) + "; git status --short"
             )
         case .uncommitted, .tidy:   // Tidy Up's diff offers no reviewer (`reviewItems`)

@@ -62,10 +62,13 @@ final class Conversations: Sendable {
         .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    /// The host a session's project is on, or nil for this Mac: where its conversation is read.
+    func host(of session: Session) -> RemoteHost? { remotes.of(session.cwd) }
+
     /// What the session's last turn ended with, if the agent keeps that somewhere Kelp can read.
     func lastReply(of ls: LiveSession) -> String? {
         let session = ls.snapshot
-        if let remote = remotes.of(session.cwd) {
+        if let remote = host(of: session) {
             return remoteTail(of: session, on: remote).flatMap(ClaudeHistory.lastReply(tail:))
         }
         guard session.agent == Session.codexAgent else {
@@ -83,7 +86,7 @@ final class Conversations: Sendable {
     /// the caller's thread.
     func turns(of session: Session, live: LiveSession?) -> [ConversationTurns.Turn] {
         guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return [] }
-        if let remote = remotes.of(session.cwd) {
+        if let remote = host(of: session) {
             return remoteTail(of: session, on: remote).map { ConversationTurns.last(inTail: $0) } ?? []
         }
         return conversationFile(of: session, live: live).map { ConversationTurns.last(in: $0) } ?? []
@@ -122,7 +125,7 @@ final class Conversations: Sendable {
     /// here that transcript readers can read, the newest for each session. Returns nil without a connection or a
     /// conversation there.
     func hostTail(of session: Session, bytes: Int) -> URL? {
-        guard let remote = remotes.of(session.cwd),
+        guard let remote = host(of: session),
             let tail = remoteConversation(of: session, on: remote, read: "tail -c \(bytes)")
         else { return nil }
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-host-transcripts")
@@ -148,14 +151,19 @@ final class Conversations: Sendable {
     static func remoteTailScript(
         path: String, id: String?, claude: String, read: String = "tail -c \(remoteTailBytes)"
     ) -> String {
+        let print = #"[ -n "$f" ] && [ -f "$f" ] && <"$f" "# + read
+        return [remoteFileScript(path: path, id: id, claude: claude), print, "exit 0"].joined(separator: "\n")
+    }
+
+    /// The start of a script for sh on the host that sets `f` to the conversation's file (which may not exist).
+    static func remoteFileScript(path: String, id: String?, claude: String) -> String {
         let named = id.flatMap { $0.wholeMatch(of: /[A-Za-z0-9-]+/) == nil ? nil : $0 }
         let file =
             named.map { #"f="$d/"# + $0 + #".jsonl""# }
             ?? #"f=$(ls -t "$d"/*.jsonl 2>/dev/null | head -n 1)"#
         return [
             "cd \(RemoteHost.cdArg(path)) || exit 0",
-            "d=\(claude)/projects/\"$(pwd -P | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')\"",
-            file, #"[ -n "$f" ] && [ -f "$f" ] && <"$f" "# + read, "exit 0"
+            "d=\(claude)/projects/\"$(pwd -P | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')\"", file
         ].joined(separator: "\n")
     }
 

@@ -1,9 +1,7 @@
-// The inspector's parts: its view, the icon row's capsule, a panel's icon with its count, and the host of a SwiftUI
-// panel.
+// The inspector's parts: its view, the icon row's capsule, and a panel's icon with its count.
 import AppKit
 import Core
 import DesignKit
-import SwiftUI
 
 /// The inspector's view; a right-click on the band of the icon row opens the row's menu.
 final class InspectorView: NSView {
@@ -126,7 +124,7 @@ final class PanelIcon: NSButton {
 
     convenience init(_ symbol: String, _ label: String) {
         self.init(frame: .zero)
-        image = .symbol(symbol, label)
+        image = .symbol(symbol, label, size: Metrics.segmentPoint)
         imagePosition = .imageOnly
         title = ""
         toolTip = label
@@ -245,7 +243,8 @@ final class PanelIcon: NSButton {
     }
 }
 
-/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot, and red for a failure. A new
+/// A panel's mark on its icon (`PanelBadge`): the number on a capsule drawn as `CountCapsule` is (the chosen fill,
+/// label-coloured digits), or a dot, and red for a failure. White digits on a system grey were under 4.5:1. A new
 /// number rolls in (`roll`) while the capsule stays in place.
 final class CountBadge: NSView {
     private let digits = NSTextField(labelWithString: "")
@@ -254,11 +253,24 @@ final class CountBadge: NSView {
             guard badge != oldValue else { return }
             let old = Self.number(oldValue), new = Self.number(badge)
             if let old, let new, old != new, !isHidden { digits.roll(up: new > old) }
-            if oldValue == nil { fadeIn() } else if badge == nil { isHidden = true }
+            if oldValue == nil { fadeIn() } else if badge == nil { return fadeOut() }   // the old mark fades as it was
             digits.stringValue = new.map { $0 > 99 ? "99+" : "\($0)" } ?? ""
             digits.isHidden = new == nil
+            digits.textColor = badge?.alert == true ? .textRed : .labelColor
             invalidateIntrinsicContentSize()
             needsDisplay = true
+        }
+    }
+    /// Goes in about two thirds of the time a new mark takes to come in.
+    private func fadeOut() {
+        guard window != nil, !Motion.reduced else { return isHidden = true }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.fast * 2 / 3
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit ends the animation group on the main thread
+                if self?.alphaValue == 0 { self?.isHidden = true }
+            }
         }
     }
     private static func number(_ badge: PanelBadge?) -> Int? { badge.flatMap { $0.count > 0 ? $0.count : nil } }
@@ -266,7 +278,7 @@ final class CountBadge: NSView {
         super.init(frame: .zero)
         isHidden = true
         digits.font = .uiDigits(TextSize.micro, weight: .semibold)
-        digits.textColor = .white
+        digits.textColor = .labelColor
         digits.alignment = .center
         digits.translatesAutoresizingMaskIntoConstraints = false
         addSubview(digits)
@@ -288,21 +300,19 @@ final class CountBadge: NSView {
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
     override func draw(_ dirtyRect: NSRect) {
-        (badge?.alert == true ? NSColor.systemRed : NSColor.systemGray).setFill()
-        guard Self.number(badge) != nil else {
+        let alert = badge?.alert == true
+        guard Self.number(badge) != nil else {   // a dot is a glyph, so it keeps the system colours
+            (alert ? NSColor.systemRed : NSColor.systemGray).setFill()
             let dot = Self.height / 2
             return NSBezierPath(ovalIn: NSRect(x: 0, y: (bounds.height - dot) / 2, width: dot, height: dot)).fill()
         }
-        NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+        let plate = NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2)
+        // The grey goes on a solid base, because a wide count (or one at a larger Text size) sits on the glyph, and
+        // through the see-through grey the glyph's strokes showed behind the digits.
+        NSColor.windowBackgroundColor.setFill()
+        plate.fill()
+        // Read while drawing, because `fillTint` is fixed to the appearance it is read in.
+        (alert ? NSColor.fillTint(.systemRed) : NSColor.fillSelected).setFill()
+        plate.fill()
     }
-}
-
-/// Hosts a SwiftUI panel in an AppKit view controller.
-@MainActor
-func hosting<V: View>(_ view: V) -> NSViewController {
-    // The view fills the panel from the top, because content shorter than the panel would otherwise float in its
-    // middle.
-    let host = NSHostingController(rootView: view.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top))
-    host.sizingOptions = []   // a panel fills the space it's given; it must never resize the window to its ideal size
-    return host
 }

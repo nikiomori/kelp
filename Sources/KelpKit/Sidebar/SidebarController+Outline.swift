@@ -179,6 +179,13 @@ extension SidebarController {
         switch node.kind {
         case .workspace(let id): app.workbench.show(workspace: id)
         case .agent(let id):
+            // ⌥-click: another action of the same row, so the chat's group goes into a window of its own (as its row's
+            // Open in Own Window). ⌘ and ⇧ stay for picking several rows.
+            if NSApp.currentEvent?.isClick(with: .option) == true, let group = app.session(id)?.worktreeId,
+                !app.workbench.inOwnWindow(group)
+            {
+                app.workbench.moveToOwnWindow(group)
+            }
             app.workbench.focus(session: id)
             app.arrangement.parkedBack[id] = nil   // once opened, its "Back:" line has been read
         case .project:

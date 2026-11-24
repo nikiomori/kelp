@@ -25,6 +25,8 @@ public final class EditorTextView: NSTextView {
     /// an arrow there, because it's a button.
     var hoveredFold: NSRange? { didSet { if hoveredFold != oldValue { showFoldHover() } } }
     let foldPlate = FoldPlate()
+    /// ⌘ over a word: a link to its definition (DefinitionLink).
+    let link = DefinitionLink()
     /// Told of every edit before it's made, while the old text is there (CodeEditor updates the parse tree and the line
     /// count).
     var willReplace: (([NSRange], [String]) -> Void)?
@@ -283,9 +285,11 @@ public final class EditorTextView: NSTextView {
         let at = convert(event.locationInWindow, from: nil)
         hoveredFold = folds.isEmpty ? nil : folds.hidden.first { capsule(for: $0).contains(at) }
         if hoveredFold != nil { NSCursor.arrow.set() } else { super.mouseMoved(with: event) }
+        link.update(self, at: hoveredFold == nil ? at : nil, event.modifierFlags)
     }
     public override func mouseExited(with event: NSEvent) {
         hoveredFold = nil
+        link.update(self, at: nil, [])
         onPointer?(nil)
         super.mouseExited(with: event)
     }
@@ -295,6 +299,10 @@ public final class EditorTextView: NSTextView {
         let at = convert(event.locationInWindow, from: nil)
         // A click on a fold's ⋯ opens the fold.
         if let fold = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(fold, false) }
+        if DefinitionLink.beside(event.modifierFlags) != nil {   // ⌘-click: the definition, or else a plain click
+            if !link.open(self, at: at, event) { super.mouseDown(with: DefinitionLink.plain(event)) }
+            return
+        }
         let mods = event.modifierFlags.intersection([.command, .option, .shift, .control])
         guard event.clickCount == 1, isEditable, mods == .option || mods == [.control, .shift] else {
             return super.mouseDown(with: event)

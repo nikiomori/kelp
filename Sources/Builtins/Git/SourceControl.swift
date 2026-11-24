@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 
 /// Source Control, modeled on VS Code's: branch and sync up top, the commit message, the merge, staged and unstaged
@@ -48,13 +49,17 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var graphInfo: BranchInfo?
 
     let outline = NSOutlineView()
-    let graphOutline = NSOutlineView()
+    let graphOutline = GraphOutline()
     let graphBar = GraphBar()
     var graphHeight: NSLayoutConstraint?, graphClosed: NSLayoutConstraint?, barHeight: NSLayoutConstraint?
     /// Until the user drags the divider, the changes are as tall as their rows, up to half the panel, and the open
     /// graph follows right under them, because a gap there looked like something still loading. The changes keep at
     /// least their rows' height, up to 80 pt.
     var changesHug: NSLayoutConstraint?, changesCap: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
+    /// How tall the changes' rows are, for `fitChanges`.
+    var changesRows: CGFloat = 0
+    /// How many of `fitChanges`'s moves are under way: each step of one lays the panel out again.
+    var changesMoving = 0
     let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip does
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
@@ -69,7 +74,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
     let empty = EmptyStateView()
-    let loading = LoadingView(rows: true)
+    let loading = LoadingView(rows: true, rowHeight: Metrics.row)
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.reloadAll() }
     var headerBar: NSView?
 
@@ -126,6 +131,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             else { return nil }
             return NSImage(data: data)
         }
+        commitCard.onAction = { [weak self] in self?.cardAction($0, $1) }
+        commitCard.menu = { [weak self] commit in
+            let menu = NSMenu()
+            self?.addCommitItems(commit, to: menu)
+            return menu
+        }
         return commitCard
     }()
     var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
@@ -147,6 +158,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     // MARK: view
 
+    /// The lists' room changes with the window and the commit box: the changes fit it again.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        fitChanges()
+    }
+
     override func loadView() {
         let app = self.app
         branchButton.target = self
@@ -161,6 +178,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let box = commitBox()
         commitArea = box
         let scroll = list(outline), graphScroll = list(graphOutline)
+        followGraphKeys()
         graphBar.onToggle = { [weak self] in self?.toggle(.graph) }
         graphBar.onResize = { [weak self] in self?.resizeGraph(by: $0) }
         graphBar.onRefresh = { [weak self] in Task { await self?.refreshGraph() } }
@@ -173,12 +191,17 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             part.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(part)
         }
-        // When open, the graph is the height it was dragged to. Under windowSizeStayPut it never stretches the window.
-        let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
-        gh.priority = .init(495)
+        // When open, the graph is at least the height it was dragged to, and takes what the changes leave: a short list
+        // of changes is followed by the graph, not by empty room. It gives way to the changes and, under
+        // windowSizeStayPut, to the window's size: held above it, less room for the lists (a CI strip coming in) grew a
+        // floating inspector past the window's top, and the window bar and the panels' tops went with it.
+        let gh = graphScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 260)
+        gh.priority = .init(490)
         graphHeight = gh
+        // Set in numbers (`fitChanges`), above windowSizeStayPut: a wish weaker than the window's keeping its parts'
+        // sizes lost to it, and the list kept an old, tall height over two changes.
         changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
-        changesHug?.priority = .init(495)
+        changesHug?.priority = .init(750)
         changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: root.heightAnchor, multiplier: 0.5)
         changesCap?.priority = .init(750)   // weaker than the 80 pt the changes keep
         graphClosed = graphScroll.heightAnchor.constraint(equalToConstant: 0)
@@ -277,7 +300,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     /// The message field (it grows to six lines) and Commit with its split menu.
     private func commitBox() -> NSView {
-        message.plain(font: .ui(TextSize.body), inset: NSSize(width: 4, height: 6))
+        // A commit message is written in the editor's font, at its size, as in the Commit Message tab.
+        message.plain(font: CodeEditor.font, inset: NSSize(width: 4, height: 6))
         message.drawsBackground = false
         message.isVerticallyResizable = true
         message.autoresizingMask = .width
@@ -289,7 +313,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         messageScroll.drawsBackground = false
         messageScroll.hasVerticalScroller = false
         placeholder.textColor = .placeholderTextColor
-        placeholder.font = .ui(TextSize.body)
+        placeholder.font = CodeEditor.font
         placeholder.lineBreakMode = .byTruncatingTail
         // A long branch name truncates rather than widening the panel.
         placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

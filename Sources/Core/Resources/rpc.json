@@ -275,6 +275,244 @@
         ],
         "type" : "string"
       },
+      "AgentWork" : {
+        "description" : "Where an agent worked: the files it read and edited in its project, the places outside the project it reached (sites, hosts, MCP servers, other folders), and its steps, for one turn or for the whole session. It is read from the agent's conversation (Claude Code's transcript and its subagents', Codex's rollout), and from the agents it started. The inspector's Work panel and the Map tab draw it.",
+        "properties" : {
+          "agents" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AgentWork.Agent"
+            },
+            "type" : "array"
+          },
+          "now" : {
+            "description" : "Where the agent is now (an index into `places`), while it works.",
+            "type" : "integer"
+          },
+          "places" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AgentWork.Place"
+            },
+            "type" : "array"
+          },
+          "root" : {
+            "description" : "The project's root as the agent saw it, so a view can tell its paths from others.",
+            "type" : "string"
+          },
+          "steps" : {
+            "description" : "The turn's steps, oldest first. Empty for the whole session.",
+            "items" : {
+              "$ref" : "#/components/schemas/AgentWork.Step"
+            },
+            "type" : "array"
+          },
+          "turn" : {
+            "description" : "The turn the places and steps are of (an index into `turns`), or nil for the whole session.",
+            "type" : "integer"
+          },
+          "turns" : {
+            "description" : "Every turn of the session, oldest first.",
+            "items" : {
+              "$ref" : "#/components/schemas/AgentWork.Turn"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "agents",
+          "places",
+          "steps",
+          "turns"
+        ],
+        "type" : "object"
+      },
+      "AgentWork.Agent" : {
+        "description" : "One agent that worked in the turn: the session's own agent first, then its subagents and the agents it started.",
+        "properties" : {
+          "agent" : {
+            "description" : "The agent's catalog id for its logo (`claude`, `codex`); a subagent has its parent's.",
+            "type" : "string"
+          },
+          "id" : {
+            "description" : "The subagent's id, or the started agent's session id.",
+            "type" : "string"
+          },
+          "name" : {
+            "description" : "What to call it: the agent's name, or a subagent's kind (\"Explore\").",
+            "type" : "string"
+          },
+          "role" : {
+            "$ref" : "#/components/schemas/AgentWork.Agent.Role"
+          },
+          "task" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "agent",
+          "name",
+          "role"
+        ],
+        "type" : "object"
+      },
+      "AgentWork.Agent.Role" : {
+        "enum" : [
+          "main",
+          "subagent",
+          "child"
+        ],
+        "type" : "string"
+      },
+      "AgentWork.Kind" : {
+        "description" : "What kind of thing a place is.",
+        "enum" : [
+          "file",
+          "folder",
+          "web",
+          "machine",
+          "tool",
+          "packages",
+          "outside",
+          "own"
+        ],
+        "type" : "string"
+      },
+      "AgentWork.Place" : {
+        "properties" : {
+          "added" : {
+            "description" : "Lines added and removed by edits, as the agent's own edits reported them.",
+            "type" : "integer"
+          },
+          "agents" : {
+            "description" : "Who touched it: indexes into `agents`.",
+            "items" : {
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "byCommand" : {
+            "description" : "Changed by a command (the turn's snapshot shows it) with no edit of the agent's own.",
+            "type" : "boolean"
+          },
+          "detail" : {
+            "description" : "What was done there, as a short phrase: \"curl ×6\", \"brew install\".",
+            "type" : "string"
+          },
+          "edits" : {
+            "type" : "integer"
+          },
+          "first" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/AgentWork.Kind"
+          },
+          "last" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "reads" : {
+            "type" : "integer"
+          },
+          "removed" : {
+            "type" : "integer"
+          },
+          "worktree" : {
+            "description" : "The git worktree under the project (`.claude/worktrees/<name>`) the agent touched it in: such a path is folded onto the project's own.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "added",
+          "agents",
+          "byCommand",
+          "edits",
+          "kind",
+          "name",
+          "reads",
+          "removed"
+        ],
+        "type" : "object"
+      },
+      "AgentWork.Step" : {
+        "description" : "One step, for the Steps view.",
+        "properties" : {
+          "added" : {
+            "type" : "integer"
+          },
+          "agent" : {
+            "type" : "integer"
+          },
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "detail" : {
+            "description" : "The path, command, host or question, one line.",
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/AgentWork.Step.Kind"
+          },
+          "other" : {
+            "description" : "For `spawn` and `report`, the agent started or reporting back: an index into `agents`.",
+            "type" : "integer"
+          },
+          "removed" : {
+            "type" : "integer"
+          },
+          "tool" : {
+            "description" : "The tool's name (\"Read\", \"Bash\", \"WebFetch\").",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "added",
+          "agent",
+          "at",
+          "detail",
+          "kind",
+          "removed",
+          "tool"
+        ],
+        "type" : "object"
+      },
+      "AgentWork.Step.Kind" : {
+        "enum" : [
+          "read",
+          "search",
+          "edit",
+          "command",
+          "failed",
+          "web",
+          "tool",
+          "ask",
+          "spawn",
+          "report",
+          "other"
+        ],
+        "type" : "string"
+      },
+      "AgentWork.Turn" : {
+        "description" : "One turn: what was asked, and when.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "prompt" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "prompt"
+        ],
+        "type" : "object"
+      },
       "AgentsVersions.Item" : {
         "properties" : {
           "id" : {
@@ -1400,6 +1638,13 @@
           "files" : {
             "type" : "integer"
           },
+          "lines" : {
+            "description" : "Each file's lines added and removed, by its path after the commit (a binary file counts none).",
+            "items" : {
+              "$ref" : "#/components/schemas/FileLines"
+            },
+            "type" : "array"
+          },
           "removed" : {
             "type" : "integer"
           }
@@ -2080,6 +2325,26 @@
         ],
         "type" : "object"
       },
+      "FileLines" : {
+        "description" : "How many lines a commit added to and removed from one file.",
+        "properties" : {
+          "added" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "removed" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "added",
+          "path",
+          "removed"
+        ],
+        "type" : "object"
+      },
       "FileMove" : {
         "description" : "One move, from `from` to `to`.",
         "properties" : {
@@ -2203,6 +2468,15 @@
 
         ],
         "type" : "object"
+      },
+      "GitCommitAct.Kind" : {
+        "enum" : [
+          "checkout",
+          "branch",
+          "cherryPick",
+          "revert"
+        ],
+        "type" : "string"
       },
       "GitDiff.Source" : {
         "description" : "What the diff is taken against. A name the daemon doesn't know is refused rather than read as `all`.",
@@ -3360,6 +3634,26 @@
           "id",
           "name",
           "toCategory"
+        ],
+        "type" : "object"
+      },
+      "LSPServerEvent" : {
+        "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "boolean"
+          },
+          "root" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "command",
+          "failed",
+          "root"
         ],
         "type" : "object"
       },
@@ -4617,6 +4911,13 @@
           },
           "cwd" : {
             "type" : "string"
+          },
+          "env" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Variables the session was started with on top of its agent's own (`kelp session new --env`), kept so a restart or a wake reaches the same server. They are stored and shown as the command line is: not for secrets.",
+            "type" : "object"
           },
           "exitCode" : {
             "description" : "How the session's program ended: the exit code, or 128 plus the signal that stopped it. nil while it runs.",
@@ -6228,9 +6529,27 @@
           "artifacts",
           "databases",
           "phone",
-          "prs"
+          "prs",
+          "work"
         ],
         "type" : "string"
+      },
+      "WorkEvent" : {
+        "description" : "An agent's work changed: its conversation, or the conversation of an agent it started, grew. Pushed while someone watches (`WatchTopic.work`), so a view reads `SessionWork` again.",
+        "properties" : {
+          "session" : {
+            "type" : "string"
+          },
+          "stamp" : {
+            "description" : "Changes whenever the conversations change.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "session",
+          "stamp"
+        ],
+        "type" : "object"
       },
       "Worktree" : {
         "properties" : {
@@ -9063,6 +9382,47 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      }
+    },
+    {
+      "description" : "Acts on one commit of workspace `worktreeId`'s history: `checkout` puts HEAD on it with no branch, `branch` makes the branch `branch` there and switches to it, `cherryPick` applies it to the current branch, and `revert` adds a commit that undoes it. A conflict leaves the cherry-pick or revert under way, for Source Control's Merge section.",
+      "name" : "git.commitAct",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "branch",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "commit",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "op",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/GitCommitAct.Kind"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       }
     },
@@ -12712,7 +13072,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`. `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session that started this one, if an agent did (see `Session.parent`, `Session.startedBy`).",
+      "description" : "Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`. `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session that started this one, if an agent did (see `Session.parent`, `Session.startedBy`). `env` and `args` go on top of the agent's own (Claude Code on a local model's server, say) and stay the session's (`Session.env`).",
       "name" : "session.create",
       "paramStructure" : "by-name",
       "params" : [
@@ -12721,6 +13081,16 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "args",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {
@@ -12756,6 +13126,16 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "env",
+          "required" : false,
+          "schema" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
           }
         },
         {
@@ -13855,6 +14235,41 @@
           "type" : "string"
         }
       }
+    },
+    {
+      "description" : "Returns where an agent worked in one turn (`turn`, an index into `AgentWork.turns`; nil for the last) or in the whole session. nil when its conversation can't be read: an agent that keeps none Kelp knows, or a host with no open connection.",
+      "name" : "session.work",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "turn",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "whole",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/AgentWork"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Writes the user's keys (`base64`), or `text` as it is, to the session.",
@@ -15158,6 +15573,13 @@
       }
     },
     {
+      "description" : "Sent when a project's language server ends on its own or doesn't start (`failed`), and again once it runs, so the editor's status bar shows a stopped server without asking. `root` and `command` are as `LSPOpen` gave them.",
+      "name" : "event.lsp.server",
+      "params" : {
+        "$ref" : "#/components/schemas/LSPServerEvent"
+      }
+    },
+    {
       "description" : "What runs in a machine. nil while the machine isn't running.",
       "name" : "event.machine",
       "params" : {
@@ -15268,6 +15690,13 @@
       "name" : "event.ui.browser",
       "params" : {
         "$ref" : "#/components/schemas/UIBrowserEvent"
+      }
+    },
+    {
+      "description" : "An agent's work changed: its conversation, or the conversation of an agent it started, grew. Pushed while someone watches (`WatchTopic.work`), so a view reads `SessionWork` again.",
+      "name" : "event.work",
+      "params" : {
+        "$ref" : "#/components/schemas/WorkEvent"
       }
     },
     {

@@ -132,12 +132,13 @@ extension Daemon {
                 return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
             }
         case .commands, .edits: return agentTools(watch)
-        case .subagents:
-            // Polls each working subagent's tail while a card or journal is open, as a transcript sends no events.
+        case .subagents:   // each working subagent's tail while a card or journal is open: a transcript sends no events
             return Watches.Topic { [self] _ in
                 let steps = await logged(.subagents, key) { try await ask(SessionSubagentSteps(id: key)) }
                 return (steps.flatMap { line(SubagentsEvent(session: key, steps: $0)) }, 3)
             }
+        case .work: return Watches.Topic { [self, reader = WorkReader.of(self)] _ in   // a transcript sends no events
+                ((await logged(.work, key) { try await offload { try reader.event(key) } } ?? nil).flatMap(line), 2) }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
             // Read from memory (the probes read the plans on their own clock), so cheap. Token totals are read again

@@ -23,6 +23,9 @@ struct StripItem: Equatable {
     /// one with nothing to do.
     var words: String?
     var since: Date
+    /// What the lead agent's mark draws beyond its state (`StatusMark.follow`: dots, dashes, pulse, pie, clock), so the
+    /// tile changes when it does.
+    var form = ""
     /// The branch's CI as the sidebar row shows it, with the mark, what it says ("CI: Failed · Tests") and where a
     /// click goes.
     var ci: RowMark?
@@ -114,7 +117,9 @@ enum StripModel {
                 workspace: workspace.id, name: workspace.name, repo: workspace.repo, cell: worst, session: lead.id,
                 agents: agents,
                 words: words,
-                since: lead.statusAt ?? lead.createdAt)
+                since: lead.statusAt ?? lead.createdAt,
+                form: "\(lead.limitHit != nil) \(lead.compacting) \(lead.waitsForCommand) \(lead.guessed == true) "
+                    + "\(lead.progress ?? -1)")
         }
     }
 

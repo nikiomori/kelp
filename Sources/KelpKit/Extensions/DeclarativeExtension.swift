@@ -47,7 +47,7 @@ struct ExtManifest: Decodable {
         var empty: String?
         var actions: [ActionDef]?, toolbar: [ActionDef]?
     }
-    /// A list action, toolbar button or command: exactly one of terminal / run / open / agent.
+    /// A list action, toolbar button or command: exactly one of terminal / run / open / agent / session.
     struct ActionDef: Decodable {
         var id: String?
         var title: String
@@ -55,6 +55,24 @@ struct ExtManifest: Decodable {
         /// For commands only: the menu bar menu the command is listed in (Tools when left out).
         var menu: String?
         var terminal: String?, run: String?, open: String?, agent: String?
+        /// The title in a menu or on a button: an action that asks first (`confirm`) ends in "…".
+        var shownTitle: String { confirm == nil || title.hasSuffix("…") ? title : title + "…" }
+        /// Starts an agent in a tab, as the window does: a command can't, since what Kelp runs for an extension is held
+        /// to an agent's rules.
+        var session: SessionDef?
+        /// A row's field: the row offers the action only while that field is true or has text (`offered(on:)`).
+        var when: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case id, title, icon, key, confirm, menu, terminal, run, open, agent, session, when = "if"
+        }
+    }
+    /// The agent a `session` action starts, and what goes on top of its own launch (`SessionCreate.env`, `args`).
+    struct SessionDef: Decodable {
+        var agent: String
+        var model: String?
+        var env: [String: String]?
+        var args: [String]?
     }
     var id: String
     var name: String
@@ -166,7 +184,9 @@ enum DeclarativeExtension {
         }
         for a in contributes?.commands ?? [] {
             result.commands.append(
-                CommandSpec(id: a.id ?? "\(extManifest.id).\(a.title)", title: a.title, key: a.key, menu: a.menu) { _ in
+                CommandSpec(
+                    id: a.id ?? "\(extManifest.id).\(a.title)", title: a.shownTitle, key: a.key, menu: a.menu
+                ) { _ in
                     ExtActions(app).perform(a, item: nil, folder: folder)
                 })
         }
@@ -202,13 +222,13 @@ enum DeclarativeExtension {
         badge: ExtBadge? = nil,
         props: [String: String] = [:]
     ) -> NSViewController {
-        if let list = viewDef.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
+        if let list = viewDef.list { return ExtListView(def: list, folder: folder, app: app) }
         if let web = viewDef.web {
             // A missing page would load nothing and leave the panel blank, with no word of why.
             guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(web).path) else {
                 let empty = EmptyStateView(), vc = NSViewController()
                 empty.show(
-                    String(localized: "No page to show"), symbol: "exclamationmark.triangle",
+                    String(localized: "No Page to Show"), symbol: "exclamationmark.triangle",
                     text: String(localized: "\(extManifest.name) has no file “\(web)” in its folder."),
                     fix: "kelp ext check \(ShellQuote.word(folder.path))")
                 vc.view = empty
@@ -220,7 +240,7 @@ enum DeclarativeExtension {
         // A view that names neither gets the panel's error block, as a missing page does, not a bare line in a corner.
         let empty = EmptyStateView(), vc = NSViewController()
         empty.showError(
-            String(localized: "Nothing to show"),
+            String(localized: "Nothing to Show"),
             text: String(localized: "\(extManifest.name): view “\(viewDef.id)” has neither list nor web."),
             fix: "kelp ext check \(ShellQuote.word(folder.path))")
         vc.view = empty
@@ -229,11 +249,12 @@ enum DeclarativeExtension {
 
     private static func describe(_ decodingError: DecodingError) -> String {
         switch decodingError {
-        case .keyNotFound(let key, let context): "Missing “\(key.stringValue)” at \(path(context))"
+        case .keyNotFound(let key, let context): String(localized: "Missing “\(key.stringValue)” at \(path(context))")
         case .typeMismatch(_, let context), .valueNotFound(_, let context):
-            "Wrong type at \(path(context)): \(context.debugDescription)"
+            String(localized: "Wrong type at \(path(context)): \(context.debugDescription)")
         case .dataCorrupted(let context):
-            "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)"
+            String(
+                localized: "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)")
         @unknown default: "\(decodingError)"
         }
     }

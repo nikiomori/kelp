@@ -88,7 +88,7 @@ struct AgentWork: View {
         return .init(
             id: id, mark: .status(status), title: name, kind: app.catalog.name(child.agent),
             time: shortAgo(child.statusAt ?? child.createdAt), detail: asks, warns: asks != nil,
-            open: { app.workbench.focus(session: id) })
+            open: { app.workbench.focus(session: id) }, session: child)
     }
 
     private func subagent(_ run: Subagent, in session: Session) -> AgentWorkRow.Row {
@@ -141,6 +141,8 @@ struct AgentWorkRow: View {
         var code = false
         var chevron: Double?
         var open: (@MainActor () -> Void)?
+        /// The chat a status row is of, so its mark says how it works too (`StatusMark.follow`).
+        var session: Session?
     }
     let row: Row
 
@@ -184,7 +186,7 @@ struct AgentWorkRow: View {
 
     @ViewBuilder private var mark: some View {
         switch row.mark {
-        case .status(let status): StatusIcon(status: status)
+        case .status(let status): StatusIcon(status: status, of: row.session)
         case .command: Image(systemName: "terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
         case .none: EmptyView()
         }

@@ -12,7 +12,7 @@ enum DatabaseOpener {
         var tables: (database: String, load: Task<[DatabaseSchema.Table], Never>)?
         app.workbench.showList(
             String(localized: "Database, or database/table"),
-            keys: String(localized: "↩ opens · / goes into a database's tables · esc closes")
+            keys: String(localized: "↩ opens · / goes into a database’s tables · esc closes")
         ) { typed in
             let event = app.latest(DatabasesEvent.self, worktreeId)
             let everything = (event?.databases ?? []) + (event?.library ?? [])

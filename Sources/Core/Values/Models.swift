@@ -214,6 +214,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// when the agent ends, and then it gets a tab.
     public var startedBy: String?
     public var role: SessionRole?   // The job Kelp started the session for (`SessionRole`), kept across a restart.
+    /// Variables the session was started with on top of its agent's own (`kelp session new --env`), kept so a restart
+    /// or a wake reaches the same server. They are stored and shown as the command line is: not for secrets.
+    public var env: [String: String]?
     /// The session whose program asked for this one (`session.create` from inside a session, `--outlive` too). The
     /// daemon sets it from the caller's process, never from what the caller sent, so an agent may act on what it
     /// started and nothing more.

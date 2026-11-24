@@ -20,6 +20,7 @@ struct ExtensionsSettings: View {
         VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "Installed"), String(localized: "Library")],
+                name: String(localized: "Show"),
                 selection: Binding {
                     library ? 1 : 0
                 } set: {
@@ -36,7 +37,7 @@ struct ExtensionsSettings: View {
             Task {
                 do { try await registry.install(url) } catch {
                     Banner.show(
-                        String(localized: "Couldn't install \(url.lastPathComponent): \(AppModel.message(error))"),
+                        String(localized: "Couldn’t install \(url.lastPathComponent): \(AppModel.message(error))"),
                         style: .error)
                 }
             }
@@ -49,15 +50,15 @@ struct ExtensionsSettings: View {
         Section {
             ForEach(registry.extensions.filter { $0.builtin && !$0.essential }) { row($0) }
         } header: {
-            Text("Built-in")
+            Text("Built-in").font(.ui(TextSize.body, weight: .semibold))
         } footer: {
             let always = registry.extensions.filter(\.essential).map { loc($0.name) }.joined(separator: ", ")
-            Text("Turn off what you don't use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
+            Text("Turn off what you don’t use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
                 .secondary)
         }
         let added = registry.extensions.filter { !$0.builtin }
         if !added.isEmpty {
-            Section("Installed") { ForEach(added) { row($0) } }
+            TitledSection("Installed") { ForEach(added) { row($0) } }
         }
         Section {
             Text(
@@ -72,14 +73,13 @@ struct ExtensionsSettings: View {
                 Button("How Extensions Work") {
                     app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md"))
                 }
-                .buttonStyle(.link)
                 Spacer()
                 Button("Install…") { picking = true }
                     .help(
                         "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder"
                     )
                 Menu {
-                    Button("Show in Finder") {
+                    Button("Reveal in Finder") {
                         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: ExtensionRegistry.userDir.path)
                     }
                     Button("Reload Extensions") { registry.reload() }
@@ -104,11 +104,21 @@ struct ExtensionsSettings: View {
         } label: {
             Label {
                 Text(info.builtin ? loc(info.name) : "\(loc(info.name)) \(info.version)")
-                if !info.description.isEmpty { Text(loc(info.description)) }
-                if let err = info.error { Text(err).foregroundStyle(Color.textRed).textSelection(.enabled) }
-                if let reason = info.unavailable { Text(reason) }
+                // A label's lines under the title are set as the system sets them (smaller, grey), because the
+                // window's font is set for its rows.
+                if !info.description.isEmpty {
+                    Text(loc(info.description)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
+                if let err = info.error {
+                    Text(err).font(.ui(TextSize.caption)).foregroundStyle(Color.textRed).textSelection(.enabled)
+                }
+                if let reason = info.unavailable {
+                    Text(reason).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
                 if info.waitsToBeAllowed {
-                    Text("New or changed since it was allowed: it runs no commands until you allow it.")
+                    Text("New or changed since it was allowed: it runs no commands until you allow it.").font(
+                        .ui(TextSize.caption)
+                    ).foregroundStyle(.secondary)
                 }
             } icon: {
                 SymbolIcon(info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textRed)
@@ -144,7 +154,7 @@ struct ExtensionsSettings: View {
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
-            .menuStyle(.borderlessButton).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }

@@ -33,7 +33,7 @@ enum BackgroundItem {
             Banner.show(
                 String(
                     localized:
-                        "Kelp isn't allowed to run in the background: quitting or updating it ends running agents."),
+                        "Kelp isn’t allowed to run in the background: quitting or updating it ends running agents."),
                 action: (String(localized: "Open Login Items"), { SMAppService.openSystemSettingsLoginItems() }))
         }
     }

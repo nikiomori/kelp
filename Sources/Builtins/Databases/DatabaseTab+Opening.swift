@@ -12,13 +12,10 @@ extension DatabaseTab {
     func connecting() {
         whole.isHidden = true
         gate.show(nil)
-        let db = database, name = address.name
-        let elsewhere = db.map {
-            !$0.engine.isFile && ($0.ssh != nil || $0.host.map { !DatabaseInfo.isLocal($0) } == true)
-        }
+        let db = database, name = address.name, elsewhere = self.elsewhere
         reading?.cancel()
         reading = Task { [weak self] in
-            if elsewhere != true { do { try await Task.sleep(for: .seconds(1)) } catch { return } }
+            if !elsewhere { do { try await Task.sleep(for: .seconds(1)) } catch { return } }
             let place = db.flatMap { DatabasePanelRows.place($0) }
             let asks =
                 db?.passwordIn != nil
@@ -27,6 +24,12 @@ extension DatabaseTab {
                 String(localized: "Connecting to \(name)…"),
                 detail: [place, asks].compactMap { $0 }.joined(separator: "\n"))
         }
+    }
+
+    /// Whether the database is elsewhere (a server not on this Mac, or through SSH), which takes more than a moment.
+    var elsewhere: Bool {
+        database.map { !$0.engine.isFile && ($0.ssh != nil || $0.host.map { !DatabaseInfo.isLocal($0) } == true) }
+            ?? false
     }
 
     /// Says why the database didn't open, and offers the ways on: type a password, change the connection, try again.

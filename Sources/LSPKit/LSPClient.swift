@@ -29,6 +29,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         var changes: [String: (write: Int, params: JSONValue)] = [:]
         var nextWrite = 0
         var onIdle: (@Sendable () -> Void)?
+        var onExit: (@Sendable () -> Void)?
         /// What the server said it can do, when it started (`hoverProvider`, `codeActionProvider`…).
         var capabilities: JSONValue = .null
     }
@@ -42,6 +43,11 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     public var onIdle: (@Sendable () -> Void)? {
         get { state.withLock { $0.onIdle } }
         set { state.withLock { $0.onIdle = newValue } }
+    }
+    /// Called once, when the server exited or stopped answering, whoever ended it.
+    public var onExit: (@Sendable () -> Void)? {
+        get { state.withLock { $0.onExit } }
+        set { state.withLock { $0.onExit = newValue } }
     }
 
     /// Starts the server. `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need
@@ -104,12 +110,13 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     public var isRunning: Bool { state.withLock { !$0.exited } }
 
     private func fail(_ error: RPCError) {
-        let all = state.withLock { locked in
-            defer { locked.pending = [:] }
+        let (all, exit) = state.withLock { locked in
+            defer { (locked.pending, locked.onExit) = ([:], nil) }   // onExit is called once
             locked.exited = true
-            return locked.pending
+            return (locked.pending, locked.onExit)
         }
         all.values.forEach { $0.resume(throwing: error) }
+        exit?()
     }
 
     /// Handles one message from the server, decoded as plain JSON because ids may be numbers or strings.

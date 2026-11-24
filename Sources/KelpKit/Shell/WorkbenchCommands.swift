@@ -112,7 +112,9 @@ extension Builtins {
             // Back and forward through the workspaces you visited.
             cmd("workspace.back", "Back", "ctrl+cmd+left") { app.workbench.goBack(-1) },
             cmd("workspace.forward", "Forward", "ctrl+cmd+right") { app.workbench.goBack(1) },
-            cmd("help.guide", "How Kelp Works", "cmd+?") { app.workbench.open(TabURI.file(Help.file.path)) },
+            cmd("help.guide", "How Kelp Works", "cmd+?") {
+                app.workbench.open(TabURI.file(Help.file(app.extensions).path))
+            },
             cmd("help.extensionGuide", "Writing Extensions") {
                 app.workbench.open(TabURI.file(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md").path))
             }
@@ -170,11 +172,20 @@ extension Builtins {
             on(chatInFront, "agents.copyContext", "Copy Chat Context") { agents.copyContext($0.id) },
             on(groupInFront, "workspace.renameGroup", "Rename Group…") { renameInSidebar(app, $0.id) },
             on(groupInFront, "workspace.archiveGroup", "Archive Group") { workspaces.archive($0) },
+            // Only a group in a worktree of its own has a folder and branch to delete, as its heading's menu has it.
+            on(
+                groupInFront, "workspace.deleteGroup", "Delete Folder & Branch…",
+                when: { $0.path != app.repo($0.repoId)?.path }
+            ) { workspaces.delete($0) },
             // A project whose folder is missing can only be located or removed, as its row's menu has it.
             on(
                 projectInFront, "workspace.renameProject", "Rename Project…",
                 when: { !app.missingFolders.contains($0.path) }
             ) { renameInSidebar(app, $0.id, project: true) },
+            on(
+                projectInFront, "workspace.removeCleanWorktrees", "Remove Clean Worktrees…",
+                when: { !app.missingFolders.contains($0.path) && WorkspaceActions.cleansWorktrees($0) }
+            ) { workspaces.removeCleanWorktrees($0) },
             on(projectInFront, "workspace.removeProject", "Remove Project…") { workspaces.removeProject($0) }
         ]
     }

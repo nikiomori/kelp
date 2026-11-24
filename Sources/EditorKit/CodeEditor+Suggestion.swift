@@ -150,6 +150,7 @@ extension CodeEditor {
                     raw, rest: ask.rest, below: ask.below, indent: InlineSuggestion.indent(of: ask.context.prefix))
             else { return askNextEdit() }
             show(text, at: ask.at)
+            announce(String(localized: "Suggestion: \(text.trimmingCharacters(in: .whitespacesAndNewlines))"))
             suggestion.taken = false
             suggestion.onEvent?(false)
         }
@@ -160,6 +161,13 @@ extension CodeEditor {
         suggestion.shown = .init(text: text, at: location, length: textView.length)
         showGhost((text, location))
         markBrackets()
+    }
+
+    /// Says to VoiceOver what is only drawn (the gray text, the next edit's pill), as it comes.
+    func announce(_ text: String) {
+        NSAccessibility.post(
+            element: textView, notification: .announcementRequested,
+            userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.medium.rawValue])
     }
 }
 

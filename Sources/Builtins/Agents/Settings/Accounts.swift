@@ -29,7 +29,7 @@ enum Accounts {
         guard let saved = settings[SettingKeys.accounts.key] else { return [] }
         do { return try saved.decode([AccountProfile].self) } catch {
             let why = error.localizedDescription
-            Banner.show(String(localized: "Kelp can't read the accounts in settings.json: \(why)"), style: .error)
+            Banner.show(String(localized: "Kelp can’t read the accounts in settings.json: \(why)"), style: .error)
             return nil
         }
     }
@@ -54,9 +54,11 @@ struct AccountsSettings: View {
     @State private var newAgent = Session.claudeAgent
 
     var body: some View {
-        Section("Accounts") {
+        TitledSection("Accounts") {
             if profiles.isEmpty {
-                Text("No profiles yet: agents use their own login.").foregroundStyle(.secondary)
+                EmptyState(String(localized: "No Profiles Yet"), symbol: "person.2", lifted: false) {
+                    Text("Agents use their own login.")
+                }
             } else {
                 Table(profiles, selection: $selection) {
                     TableColumn("Name", value: \.name)

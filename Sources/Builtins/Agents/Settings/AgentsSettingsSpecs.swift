@@ -29,11 +29,11 @@ extension Builtins {
                     SettingKeys.commandsBar, "Show the commands an agent runs", .boolean,
                     "A line under its terminal with the commands it ran.",
                     help:
-                        "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."
+                        "A line under Claude Code’s terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."
                 ),
                 s(
                     SettingKeys.editInKelp, "Edit agent prompts in Kelp", .boolean,
-                    "⌃G opens an agent's prompt in a tab here.",
+                    "⌃G opens an agent’s prompt in a tab here.",
                     help: "⌃G in an agent opens its prompt in a tab here. For agents started from now on."),
                 s(
                     SettingKeys.hibernateMinutes, "Pause idle agents", .number,
@@ -47,16 +47,16 @@ extension Builtins {
                         "When Claude Code installs an update, an agent restarts into it once its turn is over, in the same conversation. Not while it asks you something, runs anything in the background, or has text in its prompt."
                 ),
                 s(
-                    SettingKeys.recap, "Recap when you're away", .boolean,
-                    "What it did and what's left, if it finishes while you're away.",
+                    SettingKeys.recap, "Recap when you’re away", .boolean,
+                    "What it did and what’s left, if it finishes while you’re away.",
                     help:
-                        "A Claude Code agent that finishes while nobody's at the Mac says what it did and what's left, from a fork of its conversation that leaves the conversation as it was. Uses a little of its plan."
+                        "A Claude Code agent that finishes while nobody’s at the Mac says what it did and what’s left, from a fork of its conversation that leaves the conversation as it was. Uses a little of its plan."
                 ),
                 s(
                     SettingKeys.childReports, "Report back to the parent agent", .boolean,
-                    "The other agent's result or question comes back as input.",
+                    "The other agent’s result or question comes back as input.",
                     help:
-                        "When an agent starts another with kelp, the other's result or question comes to it as input."
+                        "When an agent starts another with kelp, the other’s result or question comes to it as input."
                 ),
                 s(
                     SettingKeys.keepAwake, "Keep Mac awake", .enum, options: ["agents", "always", "off"],
@@ -68,7 +68,7 @@ extension Builtins {
                     SettingKeys.readPlans, "Show plan limits", .boolean,
                     "At the bottom of the sidebar, read without spending tokens.",
                     help:
-                        "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.",
+                        "How much of each agent’s plan is used, at the bottom of the sidebar; read in the background, no tokens.",
                     group: "Plan limits"),
                 s(
                     SettingKeys.usageLimits, "Limits to show", .enum,
@@ -142,7 +142,7 @@ extension Builtins {
                 group: "Claude Code skills",
                 icon: ("shippingbox.fill", NSColor(hex: 0x34C759))),
             s(
-                SettingKeys.skillDatabases, "Query the project's databases", .boolean,
+                SettingKeys.skillDatabases, "Query the project’s databases", .boolean,
                 "Claude Code reads your databases through Kelp, never their passwords; a change waits for "
                     + "your Allow.",
                 group: "Claude Code skills",
@@ -153,7 +153,7 @@ extension Builtins {
                 group: "Claude Code skills",
                 icon: ("clock.arrow.circlepath", NSColor(hex: 0xFF9500))),
             s(
-                SettingKeys.skillBrowser, "Use pages in Kelp's browser", .enum,
+                SettingKeys.skillBrowser, "Use pages in Kelp’s browser", .enum,
                 "Your app in a tab beside it; a project can have its own.",
                 help:
                     "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",
@@ -202,7 +202,7 @@ extension Builtins {
                     SettingKeys.holdBanners, "Hold finished agents while I type", .boolean,
                     "They come as one when you stop; questions come at once.",
                     help:
-                        "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once."
+                        "A finished or failed agent’s banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once."
                 ),
                 s(
                     SettingKeys.dockStrip, "Show agents above the Dock", .enum,
@@ -228,7 +228,7 @@ extension Builtins {
                     group: "Dock", requires: SettingKeys.dockStrip.key),
                 s(
                     SettingKeys.dockIcon, "Dock icon", .enum,
-                    "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
+                    "What Kelp’s icon in the Dock shows. Also in its menu, on a right-click.",
                     options: ["icon", "agents", "usage"],
                     labels: [
                         "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
@@ -237,13 +237,13 @@ extension Builtins {
                     choices: SettingChoices(picture: { AnyView(DockIconPicture(option: $0)) })),
                 s(
                     SettingKeys.phoneURL, "Phone notifications", .string,
-                    "When you've been away 5 minutes or Kelp is closed.",
+                    "When you’ve been away 5 minutes or Kelp is closed.",
                     help:
-                        "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.",
+                        "When an agent asks, fails or hits a limit and you’ve been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what’s sent.",
                     group: "Phone", placeholder: "https://ntfy.sh/your-topic"),
                 s(
                     SettingKeys.phoneDetails, "Show what the agent says on the phone", .boolean,
-                    "Off: the agent's and the workspace's names only. For the address above and for paired phones.",
+                    "Off: the agent’s and the workspace’s names only. For the address above and for paired phones.",
                     group: "Phone")
             ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50)
     }
@@ -262,7 +262,7 @@ extension Builtins {
         SettingsSection(
             id: "terminal", title: "Terminal", icon: "terminal",
             specs: [
-                s(SettingKeys.terminalFontFamily, "Font", .font, "Default: the theme's / Ghostty's font."),
+                s(SettingKeys.terminalFontFamily, "Font", .font, "Default: the theme’s / Ghostty’s font."),
                 s(SettingKeys.terminalFontSize, "Font size", .number, range: [8, 40]),
                 s(
                     SettingKeys.cursorStyle, "Cursor style", .enum, options: ["block", "bar", "underline"],
@@ -270,10 +270,10 @@ extension Builtins {
                 s(SettingKeys.optionAsAlt, "Option key sends Alt", .boolean),
                 s(
                     SettingKeys.cleanCopy, "Copy text without borders", .boolean,
-                    "Drops box borders and an agent's gutter, and rejoins lines it wrapped."),
+                    "Drops box borders and an agent’s gutter, and rejoins lines it wrapped."),
                 s(
                     SettingKeys.useGhosttyConfig, "Also read ~/.config/ghostty/config", .boolean,
-                    "Keybindings and other Ghostty options; the theme's colors still apply."),
+                    "Keybindings and other Ghostty options; the theme’s colors still apply."),
                 s(
                     SettingKeys.tmux, "Run terminals inside tmux", .boolean,
                     "They keep running when Kelp quits or updates.",
@@ -290,6 +290,11 @@ extension SettingKeys {
     static let commandsBar = Setting("agents.commandsBar", false)
     static let usageResets = Setting("usage.resets", true)
     static let usagePace = Setting("usage.pace", true)
+    /// The plan limits whose bar the person showed or hid in the sidebar's foot, as "agent/kind" (`LimitBars`).
+    static let usageBarsShown = Setting<[String]>("usage.bars.shown", [])
+    static let usageBarsHidden = Setting<[String]>("usage.bars.hidden", [])
+    /// The agents whose row the person hid from the sidebar's foot, by id (`UsageView.visible`).
+    static let usageHiddenAgents = Setting<[String]>("usage.hiddenAgents", [])
     static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
 }
 

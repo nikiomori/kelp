@@ -184,7 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 if let error {
                     Banner.show(
-                        String(localized: "Couldn't relaunch Kelp: \(error.localizedDescription)"), style: .error)
+                        String(localized: "Couldn’t relaunch Kelp: \(error.localizedDescription)"), style: .error)
                 } else {
                     quitChosen = true
                     NSApp.terminate(nil)

@@ -70,6 +70,33 @@ extension OneAtATime {
         #expect(!offered.isEmpty && offered.map(\.title).filter { !rows.contains($0) } == [])
     }
 
+    /// View › Sidebar Blocks lists the sidebar's blocks that can be hidden, in the sidebar's order, ticked while shown.
+    /// A click hides or shows one, and the tick follows a change made elsewhere (Settings), though the menu bar is built
+    /// once.
+    @Test func viewMenuShowsAndHidesTheSidebarsBlocks() throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let before = NSApp.mainMenu
+        defer { NSApp.mainMenu = before }
+        let delegate = AppDelegate(builtins: Builtins.all), app = delegate.app
+        app.extensions.reload()
+        delegate.buildMenu()
+        let view = try #require(NSApp.mainMenu?.item(withTitle: "View")?.submenu)
+        let header = try #require(view.items.firstIndex { $0.title == "Sidebar Blocks" })
+        let blocks = Array(view.items[(header + 1)...].prefix { !$0.isSeparatorItem })
+        #expect(blocks.map(\.title) == ["Machines", "Plan Limits"])
+        func ticked(_ item: NSMenuItem) -> Bool {
+            _ = (item.target as? NSMenuItemValidation)?.validateMenuItem(item)
+            return item.state == .on
+        }
+        let machines = Setting("machines.sidebar", true)
+        #expect(ticked(blocks[0]))
+        _ = (blocks[0].target as? NSObject)?.perform(blocks[0].action)
+        #expect(!app.settings[machines] && !ticked(blocks[0]))
+        app.settings.set(machines, true)
+        #expect(ticked(blocks[0]))
+    }
+
     /// The commands on what is in front are offered only while it is there: none with no screen, the folder's and the
     /// project's on a project's own screen, the chat's and the group's too on a chat in a group, the tabs' while the
     /// focused tab has others beside it or to its right, and the branch's while the folder is on a branch.
@@ -92,7 +119,7 @@ extension OneAtATime {
                 app.extensions.command($0)?.enabled?() == true
             }
         }
-        let folder = NSTemporaryDirectory()   // a folder that is there, so the project isn't one to locate
+        let folder = tmp().path   // a folder that is there, so the project isn't one to locate
         withExtendedLifetime(MainWindowController(app: app)) {   // the workbench holds its window weakly
             app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
             app.worktrees = [
@@ -141,10 +168,10 @@ extension OneAtATime {
         }
         palette.field.stringValue = "zzqqxxjj"
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.count == 1 && headings() == ["No matches"] })
+        #expect(try await waitFor { palette.rows.count == 1 && headings() == ["No matches"] })
         palette.field.stringValue = command.title
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
+        #expect(try await waitFor { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
     }
 
     /// ⌥⌘1–9 are the icons of the inspector's row, in its order: a panel dragged to the front is ⌥⌘1, and one hidden
@@ -185,7 +212,7 @@ extension OneAtATime {
         let now = try numbered()
         #expect(now.first == "Test List" && !now.contains(loc(first.title)))
 
-        let folder = NSTemporaryDirectory()
+        let folder = tmp().path
         let controller = MainWindowController(app: app)
         app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
         app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]

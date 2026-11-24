@@ -24,9 +24,11 @@ import Testing
 }
 
 extension AppOfItsOwn {
-    /// What's chosen is written; a file changed since it was read is left alone.
+    /// What's chosen is written, and the rest of the file stays as it was, byte for byte (CRLF, no last newline); a file
+    /// changed since it was read is left alone.
     @Test func replacingWritesWhatsChosenAndNothingOverALaterChange() async throws {
-        let rig = try await AppRig(files: ["a.txt": "old old\n", "b.txt": "old\n"])
+        let crlf = "old\r\nkeep ä 🌊\r\nold old"
+        let rig = try await AppRig(files: ["a.txt": "old old\n", "b.txt": "old\n", "c.txt": crlf])
         defer { rig.done() }
         let a = rig.workspace.path + "/a.txt", b = rig.workspace.path + "/b.txt", o = FindOptions()
         func file(_ p: String, _ only: Set<Int>?) async throws -> ReplaceFile {
@@ -36,10 +38,12 @@ extension AppOfItsOwn {
                 path: p, name: (p as NSString).lastPathComponent, text: r.text, stamp: r.stamp, matches: plan,
                 chosen: only ?? Set(plan.indices))
         }
-        let first = try await file(a, [1]), second = try await file(b, nil)
+        let c = rig.workspace.path + "/c.txt"
+        let first = try await file(a, [1]), second = try await file(b, nil), third = try await file(c, [0, 1])
         try "changed\n".write(toFile: b, atomically: true, encoding: .utf8)
-        await FilesPanel.write([first, second], app: rig.app)
+        await FilesPanel.write([first, second, third], app: rig.app)
         #expect(try String(contentsOfFile: a, encoding: .utf8) == "old new\n")
+        #expect(try Data(contentsOf: URL(fileURLWithPath: c)) == Data("new\r\nkeep ä 🌊\r\nnew old".utf8))
         #expect(try String(contentsOfFile: b, encoding: .utf8) == "changed\n")
     }
 }

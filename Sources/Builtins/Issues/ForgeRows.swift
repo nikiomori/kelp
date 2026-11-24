@@ -32,34 +32,28 @@ enum ForgeRows {
         return parts.count == 1 ? [(nil, parts[0].1)] : parts.map { ($0.0, $0.1) }
     }
 
-    static func heading(_ text: String) -> NSView {
-        let title = NSTextField.label(
-            text, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        let row = NSStackView(views: [title, NSView()])
-        row.alignment = .bottom
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 4, right: Metrics.insetTrailing)
-        return row
-    }
+    static func heading(_ text: String) -> NSView { SectionHeading(text) }
 
     static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool) -> ForgeRowCell {
-        var said: [(String, NSColor?)] = [("#\(pr.number)", nil), (pr.author, nil)]
-        if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append((updated, nil)) }
+        var said = [word("#\(pr.number)"), word(pr.author)]
+        if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append(word(updated)) }
         if pr.isDraft {
-            said.append((String(localized: "draft"), nil))
+            said.append(word(String(localized: "draft")))
         } else if pr.mergeState == "DIRTY" {
-            said.append((String(localized: "conflict"), .textOrange))
+            said.append(word(String(localized: "conflict"), .textOrange))
         } else if pr.reviewDecision == "CHANGES_REQUESTED" {
-            said.append((String(localized: "changes requested"), .textOrange))
+            said.append(word(String(localized: "changes requested"), .textOrange))
         } else if pr.reviewDecision == "APPROVED" {
-            said.append((String(localized: "approved"), nil))
+            said.append(word(String(localized: "approved")))
         }
-        let checks = pr.checks
+        // The checks as drawn symbols: passed and running are quiet grey; only a failure has a colour.
+        let checks = pr.checks, size = TextSize.caption
         if checks.failed > 0 {
-            said.append(("✕ \(checks.failed)", .textRed))
+            said.append(.signed("xmark.circle.fill", checks.failed, size: size, color: .textRed))
         } else if checks.pending > 0 {
-            said.append(("◌", nil))
+            said.append(.signed("circle.dotted", nil, size: size, color: .secondaryLabelColor))
         } else if checks.passed > 0 {
-            said.append(("✓", nil))   // passed is quiet grey; only a failure has a colour
+            said.append(.signed("checkmark.circle.fill", nil, size: size, color: .secondaryLabelColor))
         }
         return ForgeRowCell(
             symbol: symbol(pr), tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
@@ -84,22 +78,25 @@ enum ForgeRows {
         if working { parts.append(String(localized: "in work")) }
         return ForgeRowCell(
             symbol: "smallcircle.filled.circle", tint: issue.state == "CLOSED" ? .textPurple : .textGreen,
-            title: issue.title, meta: joined(parts.map { ($0, nil) }), branch: working, unseen: false)
+            title: issue.title, meta: joined(parts.map { word($0) }), branch: working, unseen: false)
     }
 
-    /// "#49 · ada · 3d · conflict": the parts with a dot between them, each in its colour (or the caption's grey when
-    /// it has none).
-    private static func joined(_ parts: [(String, NSColor?)]) -> NSAttributedString {
+    /// A part of the line in its colour, or with none for the caption's grey.
+    private static func word(_ text: String, _ color: NSColor? = nil) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: color.map { [.foregroundColor: $0] } ?? [:])
+    }
+
+    /// "#49 · ada · 3d · conflict": the parts with a dot between them.
+    private static func joined(_ parts: [NSAttributedString]) -> NSAttributedString {
         let words = NSMutableAttributedString()
-        for (index, (text, color)) in parts.enumerated() {
+        for (index, part) in parts.enumerated() {
             if index > 0 { words.append(NSAttributedString(string: " · ")) }
-            words.append(
-                NSAttributedString(string: text, attributes: color.map { [.foregroundColor: $0] } ?? [:]))
+            words.append(part)
         }
         return words
     }
 
-    /// How many lines the title takes at `width` (one or two), for the row's height.
+    /// The row's height: a two-line row's 40, and a line more when the title takes two at `width`.
     static func height(title: String, width: CGFloat) -> CGFloat {
         sizer.stringValue = title
         let line = TextSize.of(16)
@@ -110,11 +107,11 @@ enum ForgeRows {
                 (sizer.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: 1000))
                     .height ?? line) / line
             ).rounded())
-        return TextSize.of(8 + 15) + lines * line + TextSize.of(4)
+        return TextSize.of(Metrics.rowTwoLine) + (lines - 1) * line
     }
     private static let sizer: NSTextField = {
         let field = NSTextField(wrappingLabelWithString: "")
-        field.font = .ui(TextSize.row, weight: .medium)
+        field.font = .ui(TextSize.row)
         return field
     }()
     /// The room the title gives up beside it in a row: the glyph's column and the insets.
@@ -140,7 +137,7 @@ final class ForgeRowCell: NSView {
         icon.contentTintColor = tint
         name = NSTextField(wrappingLabelWithString: title)
         super.init(frame: .zero)
-        name.font = .ui(TextSize.row, weight: unseen ? .semibold : .medium)
+        name.font = .ui(TextSize.row, weight: unseen ? .semibold : .regular)
         name.maximumNumberOfLines = 2
         name.cell?.truncatesLastVisibleLine = true   // it wraps by word, and an ellipsis ends the second line
         name.isSelectable = false
@@ -156,7 +153,7 @@ final class ForgeRowCell: NSView {
         sub.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var line: [NSView] = [sub]
         if branch {
-            let mark = NSImageView(image: .symbol("arrow.triangle.branch"))
+            let mark = NSImageView(image: .symbol("arrow.triangle.branch", size: Metrics.iconSmall))
             mark.symbolConfiguration = .chrome(Metrics.iconSmall)
             mark.contentTintColor = .secondaryLabelColor
             mark.toolTip = String(localized: "Has a folder in Kelp")
@@ -171,14 +168,21 @@ final class ForgeRowCell: NSView {
         let row = NSStackView(views: [icon, text])
         row.alignment = .top
         row.spacing = Metrics.gapWide
-        row.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.inset, bottom: 6, right: Metrics.inset)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         if unseen {
             // What changed since you last looked is news, which the title's weight says; the row's tooltip and
             // VoiceOver say it in words.
             toolTip = String(localized: "Changed since you last opened it")
             setAccessibilityHelp(toolTip)
         }
-        pin(row)
+        // The lines stand in the middle of the row, as a tracker's task's do in the same list.
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 }

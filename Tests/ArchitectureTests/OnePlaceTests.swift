@@ -11,9 +11,10 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
 }
 
 /// A kelp-vm machine's state moves in one place (`Lifecycle.move`): written here and there, its moves were where the
-/// runtimes' races hid. Left: that one, and each runtime's first state read off its folder as it's made.
+/// runtimes' races hid. Left: that one, and each runtime's first state read off its folder as it's made. A write
+/// through another object (`runtime.state = `, `$0.state = `) counts too; a new `let state = ` doesn't.
 @Test func aMachinesStateMovesInOnePlace() throws {
-    let writes = try count(#"(^|[^.\w])(self\.)?state = "#, in: ["Sources/KelpVM"])
+    let writes = try count(#"(?<!\blet )(?<!\bvar )\bstate\s*=(?!=)"#, in: ["Sources/KelpVM"])
     #expect(writes == 3, "state written \(writes) times in kelp-vm: through Lifecycle.move")
 }
 
@@ -23,7 +24,7 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
 @Test func remoteIsDecidedInFewerPlaces() throws {
     let daemon = try count(#"\bremotes\.(of|containing)\("#, in: ["Sources/Daemon", "Sources/GitKit"])
     let app = try count(#"\bRemoteHost\.of\("#, in: appDirs)
-    #expect(daemon == 99, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
+    #expect(daemon == 98, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
     #expect(app == 31, "RemoteHost.of in the app: \(app)")
 }
 

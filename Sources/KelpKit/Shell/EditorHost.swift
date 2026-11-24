@@ -327,8 +327,7 @@ final class WelcomeView: NSView {
         icon.symbolConfiguration = .chrome(Metrics.iconHero)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(
-            labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
-        title.font = .ui(TextSize.title, weight: .semibold)
+            labelWithString: hasRepos ? String(localized: "Select a Chat") : String(localized: "Welcome to Kelp"))
         // New Chat's key as it stands. Without one, the button below is what to press.
         let new = app.extensions.keyText("workspace.new") ?? String(localized: "New Chat")
         let body = NSTextField(
@@ -339,12 +338,18 @@ final class WelcomeView: NSView {
                         "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."
                 ))
         body.alignment = .center
-        body.font = .ui(TextSize.body)   // it grows with Text size, which this very screen offers
         body.textColor = .secondaryLabelColor
         // A chat needs no project, so with no project yet a chat is the first thing to do and adding a project the
         // second.
         let chat = ClosureButton(title: String(localized: "New Chat")) { [app] in app.workbench.newChat() }
         let add = ClosureButton(title: String(localized: "Add Project…")) { [app] in app.workbench.addProject() }
+        // The words grow with Text size, which this very screen offers, as soon as it is picked.
+        track(owner: self) { [app] in
+            app.themes.chromeText
+        } changed: { _ in
+            title.font = .ui(TextSize.title, weight: .semibold)
+            body.font = .ui(TextSize.body)
+        }
         let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
         for case let button as NSButton in buttons.arrangedSubviews {
             button.bezelStyle = .push

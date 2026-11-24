@@ -8,6 +8,9 @@ import SwiftUI
 /// bar's card and Settings › Editor show the same list.
 struct SuggestionsList: View {
     let suggestions: Suggestions
+    /// The list's text size: Settings' body, or a row's in the status bar's card, whose switches are small too.
+    var size = TextSize.body
+    private var switches: ControlSize { size < TextSize.body ? .small : .regular }
     @State private var key = ""
     private var app: AppModel { suggestions.app }
 
@@ -26,7 +29,7 @@ struct SuggestionsList: View {
                         if on { Task { await suggestions.switchOn() } } else { suggestions.turnOff() }
                     })
             )
-            .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6)
+            .toggleStyle(.switch).controlSize(switches).padding(.horizontal, 6)
             nextEdit(on: mode != .off)
             heading(String(localized: "On This Mac"))
             ForEach(local, id: \.id) { model in
@@ -48,7 +51,7 @@ struct SuggestionsList: View {
                 if picked { details(each) }
             }
         }
-        .font(.ui(TextSize.row))
+        .font(.ui(size))
         .task {
             if suggestions.models == nil { await suggestions.refresh() }
             for each in SuggestCloud.allCases where suggestions.keys[each] == nil { await suggestions.checkKey(each) }
@@ -62,13 +65,13 @@ struct SuggestionsList: View {
             String(localized: "Predict the next edit"),
             isOn: Binding(get: { on && wanted }, set: { app.settings.set(SettingKeys.nextEdit, $0) })
         )
-        .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6).padding(.top, Metrics.gap).disabled(!on)
+        .toggleStyle(.switch).controlSize(switches).padding(.horizontal, 6).padding(.top, Metrics.gap).disabled(!on)
         if on, wanted {
             HStack(spacing: Metrics.gap) {
                 switch suggestions.nextEditSetup {
                 case .starting:
                     ProgressView().controlSize(.mini)
-                    Text(String(localized: "Getting Sweep Next-Edit ready (1.5 GB the first time)…")).lineLimit(1)
+                    Text(String(localized: "Getting Sweep Next-Edit ready (1.5 GB the first time)…"))
                 case .needs:
                     Text(String(localized: "Needs llama.cpp"))
                     Spacer()
@@ -78,7 +81,7 @@ struct SuggestionsList: View {
                     Spacer()
                     Button(String(localized: "Try Again")) { Task { await suggestions.startNextEdit() } }
                 case nil:
-                    Text(String(localized: "Sweep Next-Edit on this Mac · ⇥ goes to the edit, ⇥ takes it")).lineLimit(1)
+                    Text(String(localized: "Sweep Next-Edit on this Mac · ⇥ goes to the edit, ⇥ takes it"))
                 }
             }
             .font(.ui(TextSize.caption)).foregroundStyle(.secondary).controlSize(.small)
@@ -122,7 +125,7 @@ struct SuggestionsList: View {
     /// A model to download through Ollama (Turn On's way when there's none yet).
     private func get(_ model: (id: String, size: String), note: String) -> some View {
         HStack(spacing: Metrics.gap) {
-            Image(systemName: "arrow.down.circle").foregroundStyle(.secondary).frame(width: 14)
+            Image(systemName: "arrow.down.circle").font(.symbol()).foregroundStyle(.secondary).frame(width: 14)
             Text(Suggestions.shortName(model.id)).lineLimit(1)
             Spacer()
             Text(note).foregroundStyle(.secondary).lineLimit(1)
@@ -148,7 +151,7 @@ struct SuggestionsList: View {
     private func row(_ name: String, side: String, picked: Bool, pick: @escaping () -> Void) -> some View {
         Button(action: pick) {
             HStack(spacing: Metrics.gap) {
-                Image(systemName: picked ? "largecircle.fill.circle" : "circle")
+                Image(systemName: picked ? "largecircle.fill.circle" : "circle").font(.symbol())
                     .foregroundStyle(picked ? Color.accentColor : .secondary).frame(width: 14)
                 Text(name).foregroundStyle(.primary)
                 Spacer()

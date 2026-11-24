@@ -142,7 +142,9 @@ private func compare(_ old: JSONValue?, _ new: JSONValue?, _ path: String, _ out
         out.append("\(path): was \(o[key]?.string ?? "untyped")")
     }
     if let cases = o["enum"]?.array {
-        for c in cases where new["enum"]?.array?.contains(c) != true { out.append("\(path): lost case \(c)") }
+        for c in cases where new["enum"]?.array?.contains(c) != true {
+            out.append("\(path): lost case \(c.string ?? "\(c)")")
+        }
     }
     compare(o["items"], new["items"], "\(path)[]", &out)
     compare(o["additionalProperties"], new["additionalProperties"], "\(path){}", &out)
@@ -203,4 +205,19 @@ private extension JSONValue {
     #expect(breaks(doc(["x"], "x", "string"), doc([], "x", "string")) == ["a.b →.x: no longer always there"])
     #expect(breaks(doc([], "x", "string"), doc([], "y", "string")) == ["a.b →.x: gone"])
     #expect(breaks(doc([], "x", "string"), .object(["methods": .array([])])) == ["a.b: gone"])
+    // An enum that lost a case (one more is fine), a param that became required, an event that went.
+    func cases(_ names: [JSONValue]) -> JSONValue {
+        .object([
+            "x-events": .array([.object(["name": "e.v", "params": .object(["type": "string", "enum": .array(names)])])])
+        ])
+    }
+    #expect(breaks(cases(["a", "b"]), cases(["a", "b", "c"])) == [])
+    #expect(breaks(cases(["a", "b"]), cases(["a"])) == ["e.v: lost case b"])
+    #expect(breaks(cases(["a"]), .object(["x-events": .array([])])) == ["e.v: gone"])
+    func param(required: Bool) -> JSONValue {
+        let p: JSONValue = .object(["name": "p", "required": .bool(required), "schema": .object(["type": "string"])])
+        return .object(["methods": .array([.object(["name": "a.b", "params": .array([p])])])])
+    }
+    #expect(breaks(param(required: true), param(required: false)) == [])
+    #expect(breaks(param(required: false), param(required: true)) == ["a.b(p): now required"])
 }

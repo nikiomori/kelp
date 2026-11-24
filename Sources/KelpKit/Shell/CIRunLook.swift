@@ -6,13 +6,17 @@ import DesignKit
 @MainActor
 package enum CIRunLook {
     /// The mark for a run: a grey filled ✓, as the sidebar's CI mark draws a pass, ✕ red, the agents' spinning ring
-    /// while it runs, an empty circle while it waits its turn, and a grey – when skipped or cancelled. A pass is not
-    /// green: colour is kept for what broke, so a failure is the one coloured mark in a list.
+    /// while it runs, their orange waiting ring while it waits for someone's approval (as the sidebar's CI mark), an
+    /// empty circle while it waits its turn, and a grey – when skipped or cancelled, all in secondary grey, because the
+    /// mark is the only copy of the state on the row and the shapes tell them apart. A pass is not green: colour is
+    /// kept for what broke or waits for you.
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
-        if status == "in_progress" {
+        let ringStatus: AgentStatus? =
+            status == "in_progress" ? .working : approval(status, conclusion) ? .waiting : nil
+        if let ringStatus {
             let ring = StatusMark(size: 12)   // as tall as the symbols beside it
-            ring.status = .working
+            ring.status = ringStatus
             ring.toolTip = words
             return ring
         }
@@ -20,9 +24,9 @@ package enum CIRunLook {
             switch (status, conclusion) {
             case ("completed", "success"?): ("checkmark.circle.fill", .secondaryLabelColor)
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
-                ("minus.circle", .tertiaryLabelColor)
+                ("minus.circle", .secondaryLabelColor)
             case ("completed", _): ("xmark.circle.fill", .systemRed)
-            default: ("circle", .tertiaryLabelColor)
+            default: ("circle", .secondaryLabelColor)
             }
         let view = NSImageView(image: .symbol(symbol, words))
         view.contentTintColor = color
@@ -37,11 +41,22 @@ package enum CIRunLook {
         case ("completed", "skipped"?): String(localized: "Skipped")
         case ("completed", "cancelled"?): String(localized: "Cancelled")
         case ("completed", "neutral"?): String(localized: "Neutral")
+        case _ where approval(status, conclusion): String(localized: "Waiting for approval")
         case ("completed", _): String(localized: "Failed")
         case ("in_progress", _): String(localized: "Running")
-        case ("waiting", _): String(localized: "Waiting for approval")
         default: String(localized: "Queued")
         }
+    }
+
+    /// True when a run waits for someone's approval (a deploy to a protected environment, a fork's first run), which
+    /// the sidebar's CI mark counts as waiting (`CIRuns.state`).
+    private static func approval(_ status: String, _ conclusion: String?) -> Bool {
+        status == "waiting" || conclusion == "action_required"
+    }
+
+    /// The tooltip's line for a run's row that a ⌘-click opens on its site: GitLab's pipelines are under "/-/".
+    package static func clickTip(_ url: String) -> String {
+        String(localized: "⌘-click: open on \(url.contains("/-/pipelines/") ? "GitLab" : "GitHub")")
     }
 
     package static func ago(_ iso: String) -> String {

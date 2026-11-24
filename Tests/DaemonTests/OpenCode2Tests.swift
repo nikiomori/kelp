@@ -13,7 +13,7 @@ import Testing
 
 /// Kelp's plugin after the person's own, from cli.json, else the tui.jsonc OpenCode 2 hasn't migrated yet.
 @Test func openCode2KeepsThePersonsPlugins() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let kelp = URL(fileURLWithPath: "/k/hooks-opencode/tui")
@@ -33,7 +33,7 @@ import Testing
 
 /// Kilo with Kelp's KILO_CONFIG_DIR reads the global AGENTS.md only there: the person's is linked in, and goes with it.
 @Test func kiloGetsThePersonsAgentsFile() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let root = tmp().appendingPathComponent(UUID().uuidString)
     let dir = root.appendingPathComponent("hooks-kilo"), config = root.appendingPathComponent("config")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     try FileManager.default.createDirectory(

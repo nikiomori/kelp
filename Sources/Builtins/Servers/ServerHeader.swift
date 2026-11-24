@@ -25,6 +25,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
     private let plate = NSView()
     /// The same round button as a project's fold (`PointerButton.slot`).
     private lazy var fold = PointerButton.slot { [weak self] in self?.row.fold() }
+    /// Whether the fold showed folded, so a change turns it as a project's does.
+    private var shownFolded: Bool?
 
     init(host: String, app: AppModel, row: ServerRow) {
         self.host = host
@@ -110,6 +112,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
     override func mouseEntered(with event: NSEvent) { showFold(true) }
     override func mouseExited(with event: NSEvent) { showFold(false) }
     private func showFold(_ on: Bool) {
+        guard fold.isHidden == on else { return }
+        fold.superview?.crossfade()   // the icon and the fold fade into each other, as on a project's row
         fold.isHidden = !on
         glyph.alphaValue = on ? 0 : 1
         plate.alphaValue = on ? 0 : 1
@@ -143,6 +147,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
             folded ? "chevron.right" : "chevron.down",
             folded ? String(localized: "Expand") : String(localized: "Collapse"))
         fold.toolTip = fold.image?.accessibilityDescription
+        if let was = shownFolded, was != folded, !fold.isHidden { fold.turn(from: folded ? -.pi / 2 : .pi / 2) }
+        shownFolded = folded
         toolTip = Self.details(stats)
         setAccessibilityLabel(
             [String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
@@ -180,7 +186,7 @@ private final class Meter: NSStackView {
     private let value = NSTextField(labelWithString: "")
     init(_ symbol: String, _ name: String) {
         super.init(frame: .zero)
-        let icon = NSImageView(image: .symbol(symbol, name))
+        let icon = NSImageView(image: .symbol(symbol, name, size: Metrics.iconTiny))
         icon.symbolConfiguration = .chrome(Metrics.iconTiny)
         icon.contentTintColor = .secondaryLabelColor
         value.font = .uiDigits(TextSize.caption)
