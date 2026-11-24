@@ -33719,6 +33719,46 @@
           }
         }
       }
+    },
+    "Export to PowerPoint": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспорт в PowerPoint"
+          }
+        }
+      }
+    },
+    "Its words as text boxes over each slide's picture, or the slides as pictures, exactly as here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слова — текстовыми полями поверх картинки каждого слайда, или слайды картинками, точно как здесь."
+          }
+        }
+      }
+    },
+    "Text Can Be Changed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст можно править"
+          }
+        }
+      }
+    },
+    "As Pictures": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинками"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

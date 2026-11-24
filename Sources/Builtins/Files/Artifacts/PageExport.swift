@@ -68,6 +68,11 @@ extension MarkdownTab {
     func chooseExport(_ format: PageExport) {
         let name = url.deletingLastPathComponent().lastPathComponent
         Task {
+            var editable = false
+            if format == .pptx {
+                guard let text = await askPowerPointText() else { return }
+                editable = text
+            }
             let to: URL
             if let type = format.type {
                 let panel = NSSavePanel()
@@ -84,17 +89,17 @@ extension MarkdownTab {
                 guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
                 to = chosen
             }
-            await export(format, to: to)
+            await export(format, to: to, editable: editable)
         }
     }
 
     /// Exports the page as `format` into `to`, and shows it in Finder; a failure is a banner.
-    func export(_ format: PageExport, to: URL) async {
+    func export(_ format: PageExport, to: URL, editable: Bool = false) async {
         do {
             switch format {
             case .png: try await exportBoards(into: to)
             case .pdf: try await exportSlidesPDF(to)
-            case .pptx: try await exportSlidesPowerPoint(to)
+            case .pptx: try await exportSlidesPowerPoint(to, editable: editable)
             case .html: try await exportHTML(to)
             case .zip: try await zip(url.deletingLastPathComponent(), to: to, keepFolder: true)
             }
@@ -182,18 +187,21 @@ extension MarkdownTab {
         guard document.write(to: to) else { throw CocoaError(.fileWriteUnknown) }
     }
 
-    /// The slides as a PowerPoint of one picture a slide, 1920 wide.
-    private func exportSlidesPowerPoint(_ to: URL) async throws {
-        var slides: [Data] = []
-        try await eachSlide { _, box in
+    /// The slides as a PowerPoint of one picture a slide, 1920 wide; `editable`, their words as text boxes over a
+    /// picture taken without them.
+    private func exportSlidesPowerPoint(_ to: URL, editable: Bool) async throws {
+        var slides: [Data] = [], texts: [[PowerPoint.Text]] = []
+        try await eachSlide { i, box in
+            if editable { texts.append(try await slideTexts(i)) }
             let shot = WKSnapshotConfiguration()
             shot.rect = box
             shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
             let image = try await web.takeSnapshot(configuration: shot)
+            if editable { _ = try await web.callAsyncJavaScript(Self.showWords, contentWorld: Self.world) }
             if let png = Self.png(image, width: 1920, height: 1080) { slides.append(png) }
         }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try PowerPoint.write(slides, into: folder)
+        try PowerPoint.write(slides, texts: texts, into: folder)
         try await zip(folder, to: to, keepFolder: false)
         do { try FileManager.default.removeItem(at: folder) } catch { return }   // temporary: the system clears it
     }

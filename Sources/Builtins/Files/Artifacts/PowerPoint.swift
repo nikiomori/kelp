@@ -1,8 +1,16 @@
 import Foundation
 
 /// A PowerPoint of pictures, one a slide, 16:9: the parts of a .pptx (Office Open XML) written into a folder, which a
-/// ZIP of its contents makes the file. Only what PowerPoint and Keynote need: a master, a blank layout, a theme.
+/// ZIP of its contents makes the file. Only what PowerPoint and Keynote need: a master, a blank layout, a theme. With
+/// `texts`, a slide's words are text boxes over its picture (taken without them), so they can be changed in
+/// PowerPoint or Keynote (Open Design's editable PPTX).
 enum PowerPoint {
+    /// A text box on a slide: where (0–1 across and down), its words (a line a paragraph) and how they look.
+    struct Text: Equatable {
+        var x: Double, y: Double, w: Double, h: Double, words: String
+        /// Points, as on a 13.33-inch slide; a colour as RRGGBB; left, ctr or r.
+        var size: Double, bold = false, italic = false, colour = "000000", align = "l", font = "Helvetica Neue"
+    }
     private static let ns =
         #"xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" "#
         + #"xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" "#
@@ -14,7 +22,7 @@ enum PowerPoint {
         #"<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>"#
 
     /// Writes the parts of a deck of `pictures` (PNG, 16:9) into `folder`.
-    static func write(_ pictures: [Data], into folder: URL) throws {
+    static func write(_ pictures: [Data], texts: [[Text]] = [], into folder: URL) throws {
         let n = pictures.indices.map { $0 + 1 }
         var parts: [String: String] = [
             "[Content_Types].xml": head
@@ -60,6 +68,7 @@ enum PowerPoint {
                 + #"<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>"#
                 + #"<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm>"#
                 + #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>"#
+                + (texts.indices.contains(i - 1) ? texts[i - 1].enumerated().map { box($1, id: $0 + 3) }.joined() : "")
                 + "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
             parts["ppt/slides/_rels/slide\(i).xml.rels"] = rels(
                 [
@@ -71,6 +80,28 @@ enum PowerPoint {
         for (i, picture) in zip(n, pictures) {
             try write(picture, folder.appendingPathComponent("ppt/media/image\(i).png"))
         }
+    }
+
+    /// A text box's shape: placed in EMUs of the 16:9 slide, no insets or fill, a paragraph a line.
+    static func box(_ t: Text, id: Int) -> String {
+        let emu = { (v: Double, of: Double) in String(Int((v * of).rounded())) }
+        let escape = { (s: String) in
+            s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+        }
+        let look =
+            #"<a:rPr lang="en-US" sz="\#(Int((t.size * 100).rounded()))" b="\#(t.bold ? 1 : 0)" "#
+            + #"i="\#(t.italic ? 1 : 0)"><a:solidFill><a:srgbClr val="\#(t.colour)"/></a:solidFill>"#
+            + #"<a:latin typeface="\#(escape(t.font))"/></a:rPr>"#
+        let paragraphs = t.words.split(separator: "\n", omittingEmptySubsequences: false).map {
+            #"<a:p><a:pPr algn="\#(t.align)"/><a:r>\#(look)<a:t>\#(escape(String($0)))</a:t></a:r></a:p>"#
+        }
+        return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>"#
+            + #"<p:spPr><a:xfrm><a:off x="\#(emu(t.x, 12_192_000))" y="\#(emu(t.y, 6_858_000))"/>"#
+            + #"<a:ext cx="\#(emu(t.w, 12_192_000))" cy="\#(emu(t.h, 6_858_000))"/></a:xfrm>"#
+            + #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody>"#
+            + #"<a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0"><a:noAutofit/></a:bodyPr><a:lstStyle/>"#
+            + paragraphs.joined() + "</p:txBody></p:sp>"
     }
 
     private static func write(_ data: Data, _ url: URL) throws {

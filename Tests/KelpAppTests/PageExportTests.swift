@@ -174,3 +174,19 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     #expect((xs.min() ?? 0) < 0.5 && (xs.max() ?? 0) > 0.5 && (ys.min() ?? 0) < 0.5 && (ys.max() ?? 0) > 0.5)
     #expect(try ObjectOutline.outline(of: file, at: CGPoint(x: 0.02, y: 0.02)) == nil)
 }
+
+/// An editable PowerPoint's slide has its words as a text box over its picture: placed on the 16:9 slide, its size in
+/// hundredths of a point, its colour and weight, each line a paragraph, the words escaped.
+@Test func aSlidesWordsAreATextBox() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-pptx-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let text = PowerPoint.Text(
+        x: 0.5, y: 0.25, w: 0.25, h: 0.1, words: "Q3 & beyond\n<next>", size: 40, bold: true, colour: "1D1D1F",
+        align: "ctr")
+    try PowerPoint.write([Data()], texts: [[text]], into: folder)
+    let slide = try String(contentsOf: folder.appendingPathComponent("ppt/slides/slide1.xml"), encoding: .utf8)
+    #expect(slide.contains(#"<a:off x="6096000" y="1714500"/><a:ext cx="3048000" cy="685800"/>"#))
+    #expect(slide.contains(#"sz="4000" b="1""#) && slide.contains(#"<a:srgbClr val="1D1D1F"/>"#))
+    #expect(slide.contains("<a:t>Q3 &amp; beyond</a:t>") && slide.contains("<a:t>&lt;next&gt;</a:t>"))
+    #expect(slide.components(separatedBy: #"<a:pPr algn="ctr"/>"#).count == 3)
+}
