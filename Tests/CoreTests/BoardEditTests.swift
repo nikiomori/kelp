@@ -165,3 +165,29 @@ private let board = """
             == #"<b data-value data-from="issues" data-source="gh issue list, 10:00">42</b> and <i data-from="issues" data-source="gh issue list, 10:00">42</i>"#
     )
 }
+
+/// An entrance and an exit chosen by hand are kept on the element and written as one style of the page: keyframes
+/// used and a rule; letters cut the text into numbered spans; taking them away takes the style away.
+@Test func anEntranceAndAnExitAreWrittenAsOneStyle() throws {
+    let page = #"<html><head><title>t</title></head><body><h1 data-id="t">Hi you</h1></body></html>"#
+    let risen = try #require(
+        MotionPresets.set(page, id: "t", .entrance, .init("rise", length: 0.8, easing: "ease-out", start: 1)))
+    let both = try #require(
+        MotionPresets.set(risen, id: "t", .exit, .init("fade-out", length: 0.4, easing: "ease-in", start: 5.6)))
+    #expect(
+        both.contains(#"data-kelp-in="rise 0.8 ease-out 1""#)
+            && both.contains(#"data-kelp-out="fade-out 0.4 ease-in 5.6""#))
+    #expect(
+        both.contains(
+            "@keyframes kelp-fade-out { to { opacity: 0 } }\n@keyframes kelp-rise { from { opacity: 0; translate: 0 40px } }"
+        ))
+    #expect(
+        both.contains(
+            #"[data-id='t'] { animation: kelp-rise 0.8s ease-out 1s both, kelp-fade-out 0.4s ease-in 5.6s both; }"#))
+    let letters = try #require(
+        MotionPresets.set(page, id: "t", .entrance, .init("words", length: 0.6, easing: "ease-out", start: 0)))
+    #expect(letters.contains(#"<span style="--i: 0">Hi</span> <span style="--i: 1">you</span>"#))
+    #expect(letters.contains("calc(0s + var(--i) * 0.12s)"))
+    let none = try #require(MotionPresets.set(risen, id: "t", .entrance, .init(nil, length: 0, easing: "", start: 0)))
+    #expect(!none.contains("kelp-motion") && !none.contains("data-kelp-in"))
+}

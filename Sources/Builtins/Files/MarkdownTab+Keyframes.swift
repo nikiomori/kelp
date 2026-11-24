@@ -157,4 +157,20 @@ extension MarkdownTab {
             return out
         }
     }
+
+    /// The words of the column's Motion section and its curve.
+    var motionKeyLabels: [String: String] {
+        [
+            "motion": String(localized: "Motion"), "keyframes": String(localized: "Keyframes"),
+            "easing": String(localized: "Easing"), "curve": String(localized: "Curve"),
+            "spring": String(localized: "Spring"), "wiggle": String(localized: "Wiggle"),
+            "bounce": String(localized: "Bounce"), "count": String(localized: "Swings"),
+            "presets": String(localized: "Ready Ones"), "entrance": String(localized: "Entrance and Exit"),
+            "comes": String(localized: "Comes In"), "goes": String(localized: "Goes Out"),
+            "length": String(localized: "Length"), "fade": String(localized: "Fade"),
+            "rise": String(localized: "Rise"), "pop": String(localized: "Pop"),
+            "letters": String(localized: "By Letters"), "words": String(localized: "By Words"),
+            "fade-out": String(localized: "Fade"), "rise-out": String(localized: "Rise Away")
+        ]
+    }
 }

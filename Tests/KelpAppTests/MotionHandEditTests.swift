@@ -390,3 +390,21 @@ extension OneAtATime {
         #expect(again.first?.target == "[data-id=img-1]" && editor.text.components(separatedBy: "data-id").count == 2)
     }
 }
+
+extension OneAtATime {
+    /// An exit's length changed in Edit is written on the element and in the page's style, ending with its scene.
+    @Test func anExitEndsWithItsScene() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page =
+            #"<html><head></head><body data-width="1920" data-height="1080"><h1 data-id="t">Hi</h1></body></html>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        #expect(
+            tab.presetsMessage(
+                "animLength",
+                ["id": "t", "which": "out", "now": "fade-out 0.4 ease-in 1.6", "length": 0.5, "start": 0, "end": 2]))
+        #expect(editor.text.contains(#"data-kelp-out="fade-out 0.5 ease-in 1.5""#))
+        #expect(editor.text.contains("kelp-fade-out 0.5s ease-in 1.5s both"))
+    }
+}

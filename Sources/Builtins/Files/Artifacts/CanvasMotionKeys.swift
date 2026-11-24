@@ -156,7 +156,36 @@ enum CanvasMotionKeys {
             if (curve && curve.id === id) { const c = curveSection(e, id); if (c) out.push(c); }
             return out;
           }
-          props.more = (props.more || []).concat([motionSection]);
+          // Entrance and exit by hand (`MotionPresets`): what, how long, how eased; the tab writes them.
+          function presetSection(e, id) {
+            if (!id) return [];
+            const scene = e.closest('[data-start]') || e, start = +scene.dataset.start || 0;
+            const end = start + (+scene.dataset.duration || window.kelpMotion.duration() - start);
+            const s = K.el('div', 'kelp-isec');
+            s.append(K.el('div', 'kelp-ititle', L.entrance));
+            for (const which of ['in', 'out']) {
+              const now = (e.dataset['kelp' + (which === 'in' ? 'In' : 'Out')] || '').split(' ');
+              const ask = field => K.post({ kind: 'animMenu', id, which, field, start, end, now: now.join(' ') });
+              const how = K.el('button', 'kelp-ipop');
+              how.append(K.el('span', 'kelp-itok', now[0] ? (L[now[0]] || now[0]) : '—'));
+              how.onclick = () => ask('how');
+              const r = K.el('div', 'kelp-irow');
+              r.append(K.el('span', 'kelp-ilabel', which === 'in' ? L.comes : L.goes), how, K.el('span'));
+              s.append(r);
+              if (!now[0]) continue;
+              const len = K.el('input', 'kelp-cv-num'); len.value = now[1] + ' s';
+              len.onchange = () => K.post({ kind: 'animLength', id, which, start, end, now: now.join(' '),
+                length: parseFloat(len.value) || 0.6 });
+              len.onkeydown = ev => ev.stopPropagation();
+              const ease = K.el('button', 'kelp-ipop'); ease.append(K.el('span', 'kelp-itok', now[2] || 'ease-out'));
+              ease.onclick = () => ask('ease');
+              const r2 = K.el('div', 'kelp-irow');
+              r2.append(K.el('span', 'kelp-ilabel', L.length + ' · ' + L.easing), len, ease);
+              s.append(r2);
+            }
+            return [s];
+          }
+          props.more = (props.more || []).concat([motionSection, presetSection]);
           window.kelpCurve = (id, at) => { curve = { id, at }; props.redraw?.(); };
           addEventListener('kelp-chosen', ev => {
             if (!ev.detail || (curve && ev.detail.e.getAttribute('data-id') !== curve.id)) curve = null;

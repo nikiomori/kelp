@@ -66,17 +66,6 @@ extension MarkdownTab {
         runJS("window.kelpSelect?.(\(Self.js(MotionPage.board)), \(Self.js(id)))")
     }
 
-    /// The words of the column's Motion section and its curve.
-    var motionKeyLabels: [String: String] {
-        [
-            "motion": String(localized: "Motion"), "keyframes": String(localized: "Keyframes"),
-            "easing": String(localized: "Easing"), "curve": String(localized: "Curve"),
-            "spring": String(localized: "Spring"), "wiggle": String(localized: "Wiggle"),
-            "bounce": String(localized: "Bounce"), "count": String(localized: "Swings"),
-            "presets": String(localized: "Ready Ones")
-        ]
-    }
-
     func motionMessage(_ body: [String: Any]) {
         let number = { (key: String) in (body[key] as? NSNumber)?.doubleValue ?? 0 }
         let clips = { (key: String, start: String, length: String) in

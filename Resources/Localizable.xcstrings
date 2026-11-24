@@ -32679,6 +32679,106 @@
           }
         }
       }
+    },
+    "Entrance and Exit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появление и уход"
+          }
+        }
+      }
+    },
+    "Comes In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появление"
+          }
+        }
+      }
+    },
+    "Goes Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уход"
+          }
+        }
+      }
+    },
+    "Length": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длина"
+          }
+        }
+      }
+    },
+    "Fade": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проявление"
+          }
+        }
+      }
+    },
+    "Rise": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подъём"
+          }
+        }
+      }
+    },
+    "Pop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хлопок"
+          }
+        }
+      }
+    },
+    "By Letters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По буквам"
+          }
+        }
+      }
+    },
+    "By Words": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По словам"
+          }
+        }
+      }
+    },
+    "Rise Away": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уход вверх"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

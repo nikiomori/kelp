@@ -89,7 +89,10 @@ enum MotionPage {
           function tracks() {
             const by = new Map();
             for (const a of animations()) {
-              const e = a.effect && a.effect.target, timing = a.effect && a.effect.getComputedTiming();
+              // Letters or words coming in one by one are their element's track, not one each.
+              const own = a.effect && a.effect.target;
+              const cut = own && /^(letters|words)/.test(own.parentElement?.dataset.kelpIn || '');
+              const e = cut ? own.parentElement : own, timing = a.effect && a.effect.getComputedTiming();
               if (!e || !timing || !isFinite(timing.endTime)) continue;
               const start = (timing.delay || 0) / 1000, end = timing.endTime / 1000;
               const track = by.get(e) || { id: e.dataset.id || '', title: named(e), start, end, delays: [],
