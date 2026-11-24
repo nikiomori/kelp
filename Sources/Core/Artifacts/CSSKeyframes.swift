@@ -38,9 +38,14 @@ public enum CSSKeyframes {
     public static func frames(_ source: String, name: String) -> [Frame]? {
         guard let rule = rule(source, name: name) else { return nil }
         var out: [Frame] = []
-        var rest = source[rule.body]
+        // Comments go first: one before a keyframe would make its place unreadable, and the rule would be written
+        // back without that keyframe.
+        let body = String(source[rule.body]).replacing(/\/\*[\s\S]*?\*\//, with: "")
+        var rest = body[...]
         while let open = rest.firstIndex(of: "{"), let close = rest[open...].firstIndex(of: "}") {
-            let places = rest[..<open].split(separator: ",").compactMap { place(String($0)) }
+            let names = rest[..<open].split(separator: ",")
+            let places = names.compactMap { place(String($0)) }
+            guard places.count == names.count else { return nil }   // a place this doesn't read: not written over
             let declarations = rest[rest.index(after: open)..<close].split(separator: ";").compactMap {
                 part -> Declaration? in
                 let pair = part.split(separator: ":", maxSplits: 1).map {

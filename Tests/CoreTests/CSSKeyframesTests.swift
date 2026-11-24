@@ -23,4 +23,10 @@ import Testing
     let added = try #require(CSSKeyframes.add(page, name: "t-motion", frames: [.init(at: 0, declarations: [])]))
     #expect(CSSKeyframes.frames(added, name: "t-motion")?.count == 1)
     #expect(CSSKeyframes.add(page, name: "rise", frames: []) == nil)
+    // A comment before a keyframe doesn't lose it; a place that doesn't read leaves the rule alone.
+    let noted = "<style>@keyframes up { /* from below */ from { opacity: 0 } to { opacity: 1 } }</style>"
+    #expect(CSSKeyframes.frames(noted, name: "up")?.map(\.at) == [0, 100])
+    #expect(
+        CSSKeyframes.frames("<style>@keyframes up { entry 10% { opacity: 0 } to { opacity: 1 } }</style>", name: "up")
+            == nil)
 }
