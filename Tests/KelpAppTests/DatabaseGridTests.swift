@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import TestSupport
+import DesignKit
 import Testing
 
 @testable import BuiltinDatabases
@@ -105,16 +106,17 @@ import Testing
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 800, height: 500), styleMask: [.titled, .resizable], backing: .buffered,
         defer: true)
-    window.contentView = tab.view
+    window.contentView = NSView()
+    window.contentView?.pin(tab.view)   // held by constraints, as the editor area holds a tab
     tab.whole.isHidden = false
     tab.mode = .table("orders")
     tab.grid.editable = true
     tab.grid.show(columns: ["note"], rows: [["a"]])
     tab.grid.edits.set(row: 0, column: 0, to: "b", was: "a")   // the foot's edit buttons show too
     tab.arrange()
-    tab.view.layoutSubtreeIfNeeded()
+    window.layoutIfNeeded()
     tab.toggleDetails()
-    tab.view.layoutSubtreeIfNeeded()
+    window.layoutIfNeeded()
     #expect(!tab.details.view.isHidden)
     #expect(window.frame.width == 800, "the window grew to \(window.frame.width)")
     #expect(tab.details.view.frame.maxX <= tab.view.bounds.width + 0.5)

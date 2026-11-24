@@ -202,6 +202,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         rows.setContentHuggingPriority(.defaultLow, for: .vertical)
+        // A bar narrower than its controls cuts them at its end rather than widening the tab, so the details take
+        // their width from the rows and never push the window past its size. Its labels shorten first.
+        let clips = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.windowSizeStayPut.rawValue - 1)
+        for bar in [askBar, top.stack, filters.view, sqlBox, foot.stack] {
+            bar.setClippingResistancePriority(clips, for: .horizontal)
+        }
         // The list and the details keep their width as the window changes, and the rows take the rest. The user can
         // drag the list's width, which is kept per Mac. The details stay closed until a row is picked.
         whole.isVertical = true
@@ -228,7 +234,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders". A click opens the
     /// database's menu.
-    private func capsuleBar() -> NSView {
+    private func capsuleBar() -> Bar {
         capsule.font = .ui(TextSize.caption, weight: .medium)
         capsule.textColor = .secondaryLabelColor
         capsule.lineBreakMode = .byTruncatingMiddle
@@ -252,7 +258,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             [capsuleButton], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleButton)
     }
 
-    private func footBar() -> NSView {
+    private func footBar() -> Bar {
         part.selectedSegment = 0
         part.controlSize = .small
         part.target = self
@@ -355,35 +361,4 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsuleChanged()
         footChanged()
     }
-
-    // MARK: Loading
-
-    func loadTables() async {
-        let first = schema.tables.isEmpty && version == nil
-        if first { connecting() }
-        let (read, error) = await app.tryCall(
-            DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
-        reading?.cancel()
-        await loading.settled()
-        loading.show(nil)
-        guard let read else {
-            if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
-            failureBar.show(error ?? String(localized: "It doesn’t answer."))   // what shows stays, under the line
-            return
-        }
-        failureBar.show(nil)
-        whole.isHidden = false
-        gate.show(nil)
-        if version == nil { Task { await askVersion() } }   // after, so macOS asks for a password once, not twice
-        schema = read
-        sidebar.schema = read
-        let named = address.table.flatMap { name in tables.first { $0.name == name } }
-        if mode == .query, address.run == nil, !chosen,
-            let first = named ?? tables.first(where: { $0.kind != "view" && $0.name != read.migrations?.table })
-        {
-            mode = .table(first.name)
-            await showTable(first.name)
-        }
-    }
-
 }

@@ -61,4 +61,34 @@ extension DatabaseTab {
             await loadTables()
         }
     }
+
+    // MARK: Loading
+
+    func loadTables() async {
+        let first = schema.tables.isEmpty && version == nil
+        if first { connecting() }
+        let (read, error) = await app.tryCall(
+            DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
+        reading?.cancel()
+        await loading.settled()
+        loading.show(nil)
+        guard let read else {
+            if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
+            failureBar.show(error ?? String(localized: "It doesn’t answer."))   // what shows stays, under the line
+            return
+        }
+        failureBar.show(nil)
+        whole.isHidden = false
+        gate.show(nil)
+        if version == nil { Task { await askVersion() } }   // after, so macOS asks for a password once, not twice
+        schema = read
+        sidebar.schema = read
+        let named = address.table.flatMap { name in tables.first { $0.name == name } }
+        if mode == .query, address.run == nil, !chosen,
+            let first = named ?? tables.first(where: { $0.kind != "view" && $0.name != read.migrations?.table })
+        {
+            mode = .table(first.name)
+            await showTable(first.name)
+        }
+    }
 }
