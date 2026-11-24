@@ -32389,6 +32389,36 @@
           }
         }
       }
+    },
+    "Moved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвинут"
+          }
+        }
+      }
+    },
+    "Gone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропал"
+          }
+        }
+      }
+    },
+    "Point Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указать заново"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -65,6 +65,8 @@ enum MarkColumn {
             const head = el('div', 'kelp-row');
             if (m.state === 'draft') head.append(grip(m, box), check(m));
             head.append(num(m), el('span', 'kelp-grow kelp-what', page ? page.what(m) : ''));
+            const where = m.state !== 'done' && page?.status?.(m);   // its element: moved, gone, or (nothing) in place
+            if (where) head.append(page.statusChip(m, where));
             if (m.state === 'draft') {
               const x = el('button', 'kelp-ib'); x.append(el('span', 'kelp-sym-xmark')); x.title = L.remove;
               x.onclick = e => { e.stopPropagation(); M.marks = M.marks.filter(k => k !== m); keep(); draw(); };

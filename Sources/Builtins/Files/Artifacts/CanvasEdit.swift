@@ -49,10 +49,13 @@ enum CanvasEdit {
             outline.classList.toggle('kelp-outline-edit', m === 'edit');   // orange is Mark's: a mark waits for you
           };
           const pointed = e => e.closest('[data-id]') || e;
+          // An element with no data-id is named by its tag and place (`img@3`): the tab writes it one (`stampIDs`).
           const describe = e => {
-            const d = e.closest('[data-id]');
-            return { target: d ? '[data-id=' + d.getAttribute('data-id') + ']' : e.tagName.toLowerCase(),
-              text: (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 60) };
+            const d = e.closest('[data-id]'), t = e.tagName, r = (d || e).getBoundingClientRect();
+            return { target: d ? '[data-id=' + d.getAttribute('data-id') + ']' : t.toLowerCase() + '@'
+              + [...e.ownerDocument.body.getElementsByTagName(t)].indexOf(e),
+              text: (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 60),
+              area: [r.x, r.y, r.width, r.height].map(Math.round) };
           };
           function box(f, e) {
             const fr = f.getBoundingClientRect(), r = e.getBoundingClientRect(), k = fr.width / f.offsetWidth;
@@ -294,7 +297,8 @@ enum CanvasEdit {
             if (m) labelField(Object.assign(at, { x: m.area[0], y: m.area[1] }), m);
           });
           for (const f of frames) f.addEventListener('load', draw);
-          window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode };
+          window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode,
+            hooks, find, inPage, describe };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });

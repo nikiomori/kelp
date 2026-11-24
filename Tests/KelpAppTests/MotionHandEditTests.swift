@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Foundation
 import ImageIO
 import TestSupport
@@ -369,5 +370,23 @@ extension OneAtATime {
         #expect(editor.text.contains("40% { opacity: 1; animation-timing-function: ease-in-out }"))
         tab.keyframeTranslate("t", "10px 0px")   // at 1.5 s: 25% of the animation, where there's no keyframe yet
         #expect(editor.text.contains("25% { translate: 10px 0px }"))
+    }
+}
+
+extension OneAtATime {
+    /// A mark on an element with no data-id (`img@1`) gets one written into the page before it's kept, and points at
+    /// it; marked again, the same id is found, not a second one.
+    @Test func aMarkedElementGetsAnID() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = #"<html><body data-width="1920" data-height="1080"><img src="a.png"><img src="b.png"></body></html>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        let mark = ArtifactMark(kind: .element, board: "motion.html", target: "img@1")
+        let first = await tab.stampIDs([mark])
+        #expect(first.first?.target == "[data-id=img-1]")
+        #expect(editor.text.contains(#"<img data-id="img-1" src="b.png">"#))
+        let again = await tab.stampIDs([mark])
+        #expect(again.first?.target == "[data-id=img-1]" && editor.text.components(separatedBy: "data-id").count == 2)
     }
 }

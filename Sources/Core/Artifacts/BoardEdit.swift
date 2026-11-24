@@ -98,6 +98,12 @@ public enum BoardEdit {
             from = found.upperBound
         }
         guard opens.indices.contains(index) else { return nil }
+        // One that has a data-id already keeps it.
+        if let end = source[opens[index].upperBound...].firstIndex(of: ">"),
+            let had = source[opens[index].upperBound..<end].firstMatch(of: /data-id="([^"]*)"/)
+        {
+            return (source, String(had.1))
+        }
         let id = freeID(source, tag.lowercased())
         var out = source
         out.insert(contentsOf: " data-id=\"\(id)\"", at: source.index(opens[index].lowerBound, offsetBy: tag.count + 1))

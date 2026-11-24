@@ -66,6 +66,10 @@ extension MarkdownTab {
             let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
             let animatedNote = String(localized: "Its animation moves it: change that instead")
             let cropLabels = ["free": String(localized: "Free"), "reset": String(localized: "Reset")]
+            let anchors = [
+                "moved": String(localized: "Moved"), "gone": String(localized: "Gone"),
+                "pointAgain": String(localized: "Point Again")
+            ]
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
@@ -92,7 +96,9 @@ extension MarkdownTab {
                         themes: kind == .motion ? "" : themes.rawValue, labels: chrome,
                         floats: !canvasView.dashboard && kind != .motion)
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
-                    let edit = CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
+                    let edit =
+                        CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
+                        + CanvasAnchors.source(labels: anchors)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                     let handles =
                         CanvasHandles.source(animated: animatedNote) + CanvasEditBar.source

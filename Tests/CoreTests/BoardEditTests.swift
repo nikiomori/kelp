@@ -76,6 +76,7 @@ private let board = """
     #expect(given.id == "p-2")
     #expect(given.text.contains(#"<p data-id="p-2">c</p>"#))
     #expect(BoardEdit.giveID(page, tag: "p", index: 3) == nil)
+    #expect(BoardEdit.giveID(given.text, tag: "p", index: 2)?.text == given.text, "one that has an id keeps it")
     #expect(BoardEdit.giveID(page, tag: "p\"", index: 0) == nil)
     #expect(BoardEdit.freeID(page, "p") == "p-2")
     #expect(BoardEdit.appendToBody("<body><p>a</p></body>", "<img>") == "<body><p>a</p><img>\n</body>")

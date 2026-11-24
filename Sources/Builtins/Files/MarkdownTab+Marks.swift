@@ -17,7 +17,9 @@ extension MarkdownTab {
         switch kind {
         case "marks":
             sendMarks(drafts(body), only: body["only"] as? [Int], queue: body["queue"] as? Bool ?? false)
-        case "marksDraft": change(.drafts(drafts(body)))
+        case "marksDraft":
+            let list = drafts(body)
+            Task { change(.drafts(await stampIDs(list))) }
         case "markDone": if let id { change(.done(id: id)) }
         case "markAgain": if let id { change(.again(id: id)) }
         default: break
@@ -54,7 +56,7 @@ extension MarkdownTab {
         Task {
             // Who gets them is settled first: with no agent to take them, they stay drafts.
             guard let agent = await markTaker() else { return }
-            guard let numbered = await changed(.drafts(drafts)) else { return }
+            guard let numbered = await changed(.drafts(await stampIDs(drafts))) else { return }
             let all = numbered.marks.filter { $0.state == .draft }
             let sending = only.map { $0.filter(all.indices.contains).map { all[$0] } } ?? all
             if queue, agent.status == .working {

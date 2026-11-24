@@ -187,6 +187,7 @@ enum CanvasPage {
         \(CanvasChrome.style)
         \(CanvasStates.style)
         \(CanvasEdit.style)
+        \(CanvasAnchors.style)
         \(MarkColumn.style)
         \(CanvasEditMode.style)
         \(CanvasHandles.style)
