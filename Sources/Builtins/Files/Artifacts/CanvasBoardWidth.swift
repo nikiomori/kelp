@@ -71,7 +71,7 @@ enum CanvasBoardWidth {
             const d = el.closest('[data-id]');
             return d ? '[data-id=' + d.getAttribute('data-id') + ']' : el.tagName.toLowerCase();
           };
-          window.kelpCheckWidths = out => {
+          (window.kelpCheckMore = window.kelpCheckMore || []).push(out => {
             for (const f of K.frames) {
               const doc = f.contentDocument, own = ownOf(f), shown = +f.dataset.w, height = f.style.height;
               if (f.dataset.theme === 'dark' || !doc?.body) continue;
@@ -90,7 +90,7 @@ enum CanvasBoardWidth {
               lay(f, shown === own ? 0 : shown);
               f.style.height = height;
             }
-          };
+          });
           if (!M) return;
           const add = M.add.bind(M);
           M.add = m => { if (m.board && now[m.board]) m.width = now[m.board]; add(m); };

@@ -33269,6 +33269,56 @@
           }
         }
       }
+    },
+    "Flow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход"
+          }
+        }
+      }
+    },
+    "Goes To": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ведёт на"
+          }
+        }
+      }
+    },
+    "Nowhere": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Никуда"
+          }
+        }
+      }
+    },
+    "To the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенту"
+          }
+        }
+      }
+    },
+    "Needs a screen after this: what happens when it's pressed?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен экран после этого: что происходит при нажатии?"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

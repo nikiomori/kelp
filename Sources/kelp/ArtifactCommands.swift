@@ -90,6 +90,7 @@ extension Main {
             let all = try await c.call(ArtifactCheck(path: target))
             let issues = width.map { w in all.filter { $0.contains(" @\(w): ") } } ?? all
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
+        case "links": try await links(cwd, c)
         case "marks": try await listMarks(root: try await projectRoot(cwd, c))
         case "reply":
             let usage = "artifact reply <name> <#> <what you say about that mark>"

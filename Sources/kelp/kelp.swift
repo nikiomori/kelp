@@ -58,6 +58,7 @@ let usage = """
       routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
       artifact guide <doc|review|slides|design|dashboard|proof> [part]   how and where to make one: read it first
       artifact check <design> [--width 390|768|1280]   what the window finds wrong on a design: cut-off text, contrast
+      artifact links <design>              where its buttons and links go, board to board; → (nothing) is a dead end
       artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one

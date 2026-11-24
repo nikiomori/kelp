@@ -47,7 +47,9 @@ extension Artifacts {
             3. Run `kelp artifact check <name>` once and fix what it lists. Don't screenshot, open or read back the
                page: the user sees it beside you. A line with @390 or @768 is the board at that width: fix it in a
                @media for it, keeping the wide layout.
-            4. Answer in two lines: what is on the canvas, what you assumed. `Picked “A. …”` means: build that row
+            4. A flow of screens links them: `<a href="#board:choose">` or `data-link="choose"` on a button (a board's
+               name is its file's); Present clicks through, `kelp artifact links <name>` lists the dead ends.
+            5. Answer in two lines: what is on the canvas, what you assumed. `Picked “A. …”` means: build that row
                out, drop the others from canvas.json.
             \(Artifacts.marksRule)
 

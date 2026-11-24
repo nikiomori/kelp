@@ -230,3 +230,24 @@ private let board = """
     #expect(found.times.count == 16)
     #expect(zip(found.times, stride(from: 0.25, to: 8, by: 0.5)).allSatisfy { abs($0 - $1) < 0.03 })
 }
+
+/// A design's controls and where they go: a link to a board by href="#board:…" or data-link, a dead end (a button, an
+/// <a> going nowhere), and neither (an address outside the design, a form's submit).
+@Test func aBoardsControlsSayWhereTheyGo() {
+    let html = """
+        <a data-id="next" href="#board:choose">Next</a> <button data-id="skip">Skip <b>it</b></button>
+        <button data-link="remind">Later</button> <a href="https://x.dev">Site</a> <a href="#">Top</a>
+        <button type="submit">Send</button>
+        """
+    let links = BoardLinks.controls(html, board: "boards/welcome.html")
+    #expect(
+        links.map { [$0.id, $0.words, $0.to ?? "-"] } == [
+            ["next", "Next", "choose"], ["skip", "Skip it", "-"], ["", "Later", "remind"], ["", "Top", "-"]
+        ])
+    #expect(
+        BoardLinks.lines(links, boards: ["boards/welcome.html", "boards/choose.html"]) == [
+            "welcome:next → choose", "welcome:skip → (nothing)", "welcome:«Later» → remind (no such board)",
+            "welcome:«Top» → (nothing)"
+        ])
+    #expect(BoardLinks.file("choose", in: ["boards/welcome.html", "boards/choose.html"]) == "boards/choose.html")
+}

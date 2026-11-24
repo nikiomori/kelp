@@ -5,9 +5,10 @@ import Testing
 @testable import BuiltinFiles
 
 /// Check's findings are read back for their fix: a value that isn't a token (the board, what, the value, the element,
-/// the nearest token) and what VoiceOver would miss (the board, what, the element), from a light or a dark board.
+/// the nearest token), what VoiceOver would miss (the board, what, the element) and a dead end in the flow (the board,
+/// the element), from a light or a dark board.
 @MainActor @Test func aFindingIsReadForItsFix() throws {
-    let tokens = CanvasTokens.finding, access = CanvasAccess.finding
+    let tokens = CanvasTokens.finding, access = CanvasAccess.finding, dead = CanvasLinks.deadEnd
     let cases: [(String, String, [String])] = [
         (
             tokens, "boards/A.html: colour #1f7a5a in [data-id=cta] is not a token (nearest: accent #2f7d5b)",
@@ -31,7 +32,9 @@ import Testing
             access, "a.html: reading order differs from what is seen in [data-id=rev] (order or a reversed row)",
             ["a.html", "reading order differs", "rev"]
         ),
-        (access, "a.html: 2 buttons, links, fields or headings without a data-id", [])
+        (access, "a.html: 2 buttons, links, fields or headings without a data-id", []),
+        (dead, "boards/B.html: «Skip» in [data-id=skip] goes nowhere", ["boards/B.html", "skip"]),
+        (dead, "b.html: «Skip» goes nowhere", [])
     ]
     for (source, line, parts) in cases {
         let pattern = try NSRegularExpression(pattern: source)
@@ -53,6 +56,6 @@ import Testing
     context.evaluateScript(CanvasEditMore.source(labels: [:]))
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
     #expect(context.evaluateScript("typeof window.kelpIssueFix")?.toString() == "function")
-    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 3)
-    #expect(context.evaluateScript("typeof window.kelpCheckWidths")?.toString() == "function")
+    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 4)
+    #expect(context.evaluateScript("window.kelpCheckMore.length")?.toInt32() == 2)
 }

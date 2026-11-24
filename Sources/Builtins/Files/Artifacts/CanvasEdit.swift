@@ -369,6 +369,9 @@ enum CanvasEdit {
             if (!on) for (const f of slides) f.style.transform = '';
             present();
           };
+          // While presenting, a board's link shows the board it goes to (`CanvasLinks`); false when not presenting.
+          window.kelpGoTo = board => { const i = slides.findIndex(f => f.dataset.board === board);
+            if (at < 0 || i < 0) return false; at = i; present(); return true; };
           addEventListener('keydown', e => {
             if (at < 0) return;
             if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) at = Math.min(at + 1, slides.length - 1);
