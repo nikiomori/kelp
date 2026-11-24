@@ -98,6 +98,20 @@ import Testing
     #expect(found.map(\.database.host) == ["db.local.test", "localhost"])   // a block's own key wins over the merge
 }
 
+/// A file whose aliases nest ten to a level ("billion laughs", from a cloned repo) is read as it is, rather than
+/// written out to 10⁸ lines in kelpd's memory; its database is still found.
+@Test(.timeLimit(.minutes(1))) func nestedAliasesArentWrittenOutPastALimit() {
+    let levels = "abcdefghi".map(String.init)
+    var text = "a: &a\n" + (0..<10).map { "  x\($0): lol" }.joined(separator: "\n") + "\n"
+    for (inner, outer) in zip(levels, levels.dropFirst()) {
+        text += "\(outer): &\(outer)\n" + (0..<10).map { "  k\($0): *\(inner)" }.joined(separator: "\n") + "\n"
+    }
+    text += "development:\n  adapter: postgresql\n  database: shop_dev\n  extra: *i\n"
+    let out = DatabaseFind.expandingAnchors(text)
+    #expect(out.utf8.count <= DatabaseFind.expandedBytes + text.utf8.count)
+    #expect(DatabaseFind.rails(text, source: "config/database.yml", root: "/p").map(\.database.name) == ["shop_dev"])
+}
+
 /// Laravel's and Django's .env give a database in separate variables, libpq's PG* too; SQLAlchemy names its driver in
 /// the URL's scheme.
 @Test func aDatabaseInSeparateVariablesIsFound() {
