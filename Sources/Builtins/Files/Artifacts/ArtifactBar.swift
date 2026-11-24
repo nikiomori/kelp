@@ -333,13 +333,16 @@ final class ArtifactBar: NSObject {
             }
             menu.addItem(.separator())
         }
-        menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
+        // Slides have their own PDF, a page a slide (Export); printing would cut them by the sheet.
+        if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
         exportItems(menu)
         menu.addItem(.separator())
         WorkspaceActions.addLocate(
             to: menu, path: path,
             copies: [(String(localized: "Relative Path"), { @MainActor in copyText(Artifacts.projectPath(path)) })])
-        if let id = item?.session, app.session(id)?.status != .exited {
+        // The author's button goes to the chat; here only while the bar has no room for it.
+        let authorShown = !author.isHidden && !((view as? Bar)?.stack.detachedViews.contains(author) ?? false)
+        if !authorShown, let id = item?.session, app.session(id)?.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + 4), in: more)

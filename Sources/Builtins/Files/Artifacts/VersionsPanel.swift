@@ -139,18 +139,10 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
         if let id = bar.chat { bar.app.workbench.focus(session: id) }
     }
 
-    /// Asks, then brings the chosen version back as the page, kept as a new version that says where it came from.
+    /// Brings the chosen version back as the page, kept as a new version that says where it came from: nothing is
+    /// erased, so it doesn't ask (as the bar's Restore doesn't).
     @objc private func restoreChosen() {
         guard let version = chosen?.entry.version else { return }
-        Task {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Restore version \(version.n)?")
-            alert.informativeText = String(
-                localized: "The page becomes version \(version.n) again, kept as a new version: nothing is erased.")
-            alert.addButton(withTitle: String(localized: "Restore"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            await bar.restore(version)
-        }
+        Task { await bar.restore(version) }
     }
 }

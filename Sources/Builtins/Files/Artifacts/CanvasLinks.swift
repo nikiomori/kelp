@@ -45,7 +45,9 @@ enum CanvasLinks {
             props?.redraw?.();
           };
           if (props) props.more = (props.more || []).concat([(e, id) => {
-            if (!e.matches(control)) return [];
+            // A link to an address elsewhere is Link › Address's; Goes To is for one to a board, or none yet.
+            const href = e.getAttribute('href');
+            if (!e.matches(control) || (href && href !== '#' && !linked(e))) return [];
             const at = props.at(), now = linked(e) ? target(e) : null;
             const s = K.el('div', 'kelp-isec'), r = K.el('div', 'kelp-irow'), b = K.el('button', 'kelp-ipop');
             b.append(K.el('span', 'kelp-itok', now ? titleOf(files.find(x => base(x) === now) || now) : L.nowhere));
