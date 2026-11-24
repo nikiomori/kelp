@@ -33559,6 +33559,46 @@
           }
         }
       }
+    },
+    "Document": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ"
+          }
+        }
+      }
+    },
+    "Make an Artifact from “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать артефакт из «%@»"
+          }
+        }
+      }
+    },
+    "An agent makes it from the file, which is kept beside it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сделает его из файла, а файл останется рядом."
+          }
+        }
+      }
+    },
+    "Make from This": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать из этого"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

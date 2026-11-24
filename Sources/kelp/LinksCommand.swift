@@ -21,4 +21,13 @@ extension Main {
         let lines = BoardLinks.lines(BoardLinks.all(canvas, read: read), boards: canvas.boards.map(\.file))
         print(lines.isEmpty ? "No buttons or links on its boards." : lines.joined(separator: "\n"))
     }
+
+    /// `artifact new … --from <file>`: the file copied beside the new page, and the line that says so ("" without one).
+    static func keep(_ source: String?, beside page: String) throws -> String {
+        guard let source else { return "" }
+        let from = URL(fileURLWithPath: (source as NSString).expandingTildeInPath)
+        let to = URL(fileURLWithPath: page).deletingLastPathComponent().appendingPathComponent(from.lastPathComponent)
+        try FileManager.default.copyItem(at: from, to: to)
+        return "\nMade from \(to.path), kept beside it: read it whole, then make the page from it."
+    }
 }

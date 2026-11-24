@@ -60,6 +60,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.menu = NSMenu()
         table.menu?.delegate = self
         table.onSpace = { [weak self] in self?.togglePreview() }
+        table.registerForDraggedTypes([.fileURL])   // a file from Finder starts a page (`startFrom`)
         search.placeholderString = String(localized: "Filter")
         search.controlSize = .small
         search.sendsSearchStringImmediately = true

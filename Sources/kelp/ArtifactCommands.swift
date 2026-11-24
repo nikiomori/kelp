@@ -23,7 +23,7 @@ extension Main {
             }
             print(text, terminator: "")
         case "new":
-            let quiet = has("--no-open")
+            let quiet = has("--no-open"), source = flag("--from")
             guard args.count >= 2, let kind = Artifacts.Kind(rawValue: args[0]) else {
                 fail("artifact new <\(Artifacts.Kind.allCases.map(\.rawValue).joined(separator: "|"))> <title>")
             }
@@ -40,7 +40,7 @@ extension Main {
                     )
                 }
             }
-            print(file)
+            print(file + (try keep(source, beside: file)))
             if kind.isCanvas {
                 let folder = (file as NSString).deletingLastPathComponent
                 let system = DesignSystem.dir(root: try await projectRoot(cwd, c)).path

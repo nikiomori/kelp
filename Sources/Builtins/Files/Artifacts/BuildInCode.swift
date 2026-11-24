@@ -85,7 +85,7 @@ extension MarkdownTab {
     }
 
     /// The done marks' last notes, the decisions made on the page.
-    private func doneMarks() async -> [String] {
+    func doneMarks() async -> [String] {
         let notes = url.deletingLastPathComponent().appendingPathComponent(ArtifactMarks.file).path
         guard let file = await app.quiet(FilesRead(path: notes)) else { return [] }
         return ArtifactMarks.read(Data(file.text.utf8)).marks.filter { $0.state == .done }.map {
