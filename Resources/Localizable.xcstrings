@@ -1909,6 +1909,16 @@
         }
       }
     },
+    "This chat works on its own branch, %@ — click for its changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот чат работает в своей ветке, %@ — нажмите, чтобы увидеть её изменения"
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {
