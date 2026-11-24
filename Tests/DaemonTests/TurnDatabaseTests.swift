@@ -106,6 +106,29 @@ private func orders(_ path: String) throws -> [String] {
     try server.close()
 }
 
+/// Statements sent together that write from inside a query (`WITH … DELETE`) are kept with the turn as a change, as
+/// one such statement is.
+@Test func aTurnKeepsSeveralStatementsThatWriteInsideAQuery() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let (_, server) = try shop(in: wt.path)
+    defer { try? server.close() }
+    var shopDB = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    shopDB.access = .free
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shopDB))
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let live = try #require(w.d.sessions.existing(s.id))
+    live.noteTurn(.working)
+    #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
+    let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
+    let sql = "WITH old AS (SELECT 1) DELETE FROM orders WHERE id = 1; SELECT count(*) FROM orders"
+    _ = try await w.d.workspaces.databases.query(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: sql), origin: s.id)
+    #expect(w.d.sessions.turns.databases.kept(turn.id).first?.runs.count == 1)
+}
+
 /// Kelp keeps a turn's databases as long as the turn is listed: the last 20.
 @Test func aTurnsDatabasesGoWithTheTurn() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])

@@ -41,7 +41,9 @@ extension Databases {
                 // A change inside a query (`changesUncounted`) counts what it returns: the total isn't the rows'
                 let uncounted = statements.contains(where: SQLText.changesUncounted)
                 run.changed = uncounted ? nil : Self.total(tried)
-                note(databaseQuery.worktreeId, run, result: Self.result(run.id, statements, tried, ms: 0))
+                var said = Self.result(run.id, statements, tried, ms: 0)
+                said.risk = await risk(databaseConnection, statements)
+                note(databaseQuery.worktreeId, run, result: said)
                 let question =
                     Self.question(statements: statements.count, database: name, changed: run.changed)
                     + (uncounted ? " Kelp can’t count the rows they change." : "")
@@ -54,9 +56,7 @@ extension Databases {
             let started = Date(), allowed = asked
             // A branch's Postgres copy is kept for Undo Turn before the turn's first change, and the change is kept
             // with the turn (a batch of reads changes nothing)
-            let changes = statements.contains {
-                !["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb($0))
-            }
+            let changes = await changesInATurn(statements, databaseConnection, session: session)
             if changes { await turnChanging(session, databaseConnection, databaseQuery.worktreeId) }
             // The batch may change only the counts the user allowed, because the tables can change while asking
             let changed = try await DatabaseEngines.batch(
@@ -73,6 +73,22 @@ extension Databases {
             if changes { turnChanged(run) }
             return result
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
+    }
+
+    /// Whether the statements of an agent in a turn change anything, told as for one statement (`query`): one that
+    /// reads as a query is run as a read, which the database refuses when it writes (`WITH d AS (DELETE …) SELECT 1`, a
+    /// function that writes). Limit: such a statement runs once more, as that read.
+    private func changesInATurn(_ statements: [String], _ databaseConnection: DatabaseConnection, session: String?)
+        async -> Bool
+    {
+        guard let session, currentTurn(session) != nil else { return false }   // only a turn keeps what they change
+        for sql in statements {
+            guard ["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb(sql)),
+                SQLText.mayTryAsRead(sql, databaseConnection.database.engine)
+            else { return true }
+            do { _ = try await DatabaseEngines.read(databaseConnection, sql, off: offloads) } catch { return true }
+        }
+        return false
     }
 
     /// The total number of rows the statements changed, or nil when no statement reports a count (reads only).

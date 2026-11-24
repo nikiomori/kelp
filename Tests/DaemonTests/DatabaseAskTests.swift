@@ -184,6 +184,11 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
         ("delete from orders -- where id = 1", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
         ("UPDATE orders SET note = 'where'", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
         ("DELETE FROM orders WHERE id = 1", undoable, nil, nil),
+        ("DELETE FROM orders WHERE id IN (SELECT id FROM old)", undoable, nil, nil),
+        (   // a WHERE or LIMIT in a subquery isn't the statement's own
+            "UPDATE orders SET total = (SELECT max(t) FROM prices WHERE id = 1 LIMIT 1)", undoable,
+            ChangeRisk(kind: .noWhere, table: "orders"), nil
+        ),
         ("DELETE FROM orders WHERE id = 1", nil, ChangeRisk(kind: .noUndo, table: "orders"), nil),
         ("INSERT INTO orders VALUES (4, 'new')", RowChange(kind: .insert, table: "orders", key: ["id"]), nil, nil),
         (

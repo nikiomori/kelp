@@ -63,13 +63,38 @@ extension Databases {
             return (ChangeRisk(kind: .truncate, table: found[0]), "SELECT count(*) FROM \(found[0])")
         }
         guard SQLText.countsItsRows(sql), let table = table(sql, asWritten: true) else { return nil }
-        // A WHERE or LIMIT in a string ('where') isn't one: strings are left out before looking
-        let bare = code.replacing(/'(?:[^']|'')*'|"[^"]*"|`[^`]*`/, with: "''")
+        // A WHERE or LIMIT in a string ('where') or in a subquery isn't the statement's own: strings, and what is in
+        // parentheses, are left out before looking
+        let bare = topLevel(code.replacing(/'(?:[^']|'')*'|"[^"]*"|`[^`]*`/, with: "''"))
         if ["UPDATE", "DELETE"].contains(SQLText.verb(sql)),
             bare.range(of: #"\b(WHERE|LIMIT)\b"#, options: [.regularExpression, .caseInsensitive]) == nil
         {
             return (ChangeRisk(kind: .noWhere, table: table), nil)
         }
         return change?.undoable == true ? nil : (ChangeRisk(kind: .noUndo, table: table), nil)
+    }
+
+    /// The text outside parentheses.
+    static func topLevel(_ text: String) -> String {
+        var depth = 0, out = ""
+        for c in text {
+            if c == "(" {
+                depth += 1
+            } else if c == ")" {
+                depth = max(0, depth - 1)
+            } else if depth == 0 {
+                out.append(c)
+            }
+        }
+        return out
+    }
+
+    /// The risk of several statements run as one change: the first one's with a line of its own (no WHERE, a DROP…).
+    /// That Undo This Change can't put them back isn't said, since a batch never has it.
+    func risk(_ databaseConnection: DatabaseConnection, _ statements: [String]) async -> ChangeRisk? {
+        guard
+            let first = statements.first(where: { Self.risk($0, change: nil).map { $0.risk.kind != .noUndo } == true })
+        else { return nil }
+        return await risk(databaseConnection, first, change: nil)
     }
 }
