@@ -6,20 +6,21 @@ import KelpKit
 /// The words of a slide for an editable PowerPoint (`PowerPoint.Text`): each block of text with no block of text inside
 /// it, where it is on the slide and how it looks; then hidden, so the slide's picture is taken without them.
 extension MarkdownTab {
-    /// Asks how the slides become a PowerPoint: with text that can be changed (true), or as pictures; nil: cancelled.
-    func askPowerPointText() async -> Bool? {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Export to PowerPoint")
-        alert.informativeText = String(
-            localized: "Its words as text boxes over each slide's picture, or the slides as pictures, exactly as here.")
-        alert.addButton(withTitle: String(localized: "Text Can Be Changed"))
-        alert.addButton(withTitle: String(localized: "As Pictures"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        switch await runSheet(alert) {
-        case .alertFirstButtonReturn: return true
-        case .alertSecondButtonReturn: return false
-        default: return nil
-        }
+    /// How the slides become a PowerPoint, chosen under its save panel and kept for the next one: with text that can
+    /// be changed (on), or as pictures.
+    static var editablePowerPoint: Bool {
+        get { UserDefaults.standard.object(forKey: "artifacts.pptxEditable") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "artifacts.pptxEditable") }
+    }
+
+    /// The choice under the PowerPoint's save panel: its words as text boxes over each slide's picture, or the slides
+    /// as pictures, exactly as here.
+    static func powerPointChoice() -> NSPopUpButton {
+        let choice = PointerPopUpButton()
+        choice.addItems(withTitles: [String(localized: "Text Can Be Changed"), String(localized: "As Pictures")])
+        choice.selectItem(at: editablePowerPoint ? 0 : 1)
+        choice.sizeToFit()
+        return choice
     }
 
     /// Slide `i`'s blocks of text, hidden after they are read (`showWords` puts them back).

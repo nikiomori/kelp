@@ -72,16 +72,18 @@ extension MarkdownTab {
         let name = url.deletingLastPathComponent().lastPathComponent
         Task {
             var editable = false
-            if format == .pptx {
-                guard let text = await askPowerPointText() else { return }
-                editable = text
-            }
             let to: URL
             if let type = format.type {
                 let panel = NSSavePanel()
                 panel.allowedContentTypes = [type]
                 panel.nameFieldStringValue = name + "." + (type.preferredFilenameExtension ?? format.rawValue)
+                let choice = format == .pptx ? Self.powerPointChoice() : nil
+                panel.accessoryView = choice
                 guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
+                if let choice {
+                    editable = choice.indexOfSelectedItem == 0
+                    Self.editablePowerPoint = editable
+                }
                 to = chosen
             } else {
                 let panel = NSOpenPanel()
