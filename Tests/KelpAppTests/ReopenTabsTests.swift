@@ -179,3 +179,26 @@ extension OneAtATime {
         #expect(app.workbench.closedTabs.all.first?.workspace == rig.workspace.id)
     }
 }
+
+extension OneAtATime {
+    /// A branch group with commits of its own never closes by itself, even when its time ran out before the list knew
+    /// of them, and its countdown stops.
+    @Test func aBranchWithWorkNeverClosesByItself() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let made = try await rig.client.call(
+            WorktreeCreate(repoId: rig.project.id, branch: "work", tabs: false, setup: false))
+        let branch = made.worktree
+        try "b\n".write(toFile: branch.path + "/b.txt", atomically: true, encoding: .utf8)
+        for args in [["add", "."], ["commit", "-qm", "work"]] { try Git.run(args, cwd: branch.path, remotes: .none) }
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        let later = Date(timeIntervalSinceNow: 2 * (try #require(actions.emptyFor)))
+        #expect(try #require(actions.closesAt(branch)) < later)   // nothing told the list of its commits yet
+        actions.closeIdle(now: later)
+        #expect(try await waitFor { actions.closesAt(branch) == nil })
+        #expect(try await rig.client.call(WorktreeList(repoId: rig.project.id)).contains { $0.id == branch.id })
+    }
+}

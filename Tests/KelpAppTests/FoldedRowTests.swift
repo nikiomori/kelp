@@ -84,6 +84,15 @@ extension OneAtATime {
             let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
             #expect(project.cardKind == .workspace("w1"))
         }
+        // With a branch holding a helper and an empty one, the row marks the empty one and the card names it too.
+        var busy = Worktree(id: "b0", repoId: "r1", branch: "helpers", path: "/tmp/kelp-screen-atlas-b0")
+        busy.madeBy = "c"
+        let helped = Session(id: "k0", worktreeId: "b0", cwd: "/", command: "claude", agent: "claude", status: .working)
+        try withSidebar(repos: [atlas], worktrees: [home, busy, branch], sessions: [chat, helped]) { vc, o in
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+            let card = try #require(CardModel(.agent("c"), app: vc.app))
+            #expect(cell.folder?.id == "b" && card.branch?.id == "b")
+        }
     }
 
     /// A project with a second screen gives its own screen a row, named by its branch. Folded, it keeps both screens'
