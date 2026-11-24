@@ -158,22 +158,23 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     /// Returns the marks in a `notes.json`. A file from before marks had numbers (a list of drafts) reads as those
     /// drafts. A file that doesn't read gives no marks.
     public static func read(_ data: Data?) -> ArtifactMarks {
-        guard let data else { return ArtifactMarks() }
+        guard let data, !data.isEmpty else { return ArtifactMarks() }
+        return (try? decoded(data)) ?? ArtifactMarks()   // a file that doesn't read holds no marks
+    }
+
+    /// The marks in a `notes.json`, or why it doesn't read.
+    static func decoded(_ data: Data) throws -> ArtifactMarks {
         struct Old: Decodable { var board: String, target: String, text: String, note: String }
         let decoder = JSONDecoder()
-        do {
-            guard data.first(where: { !Character(UnicodeScalar($0)).isWhitespace }) == UInt8(ascii: "[") else {
-                return try decoder.decode(ArtifactMarks.self, from: data)
-            }
-            let marks = try decoder.decode([Old].self, from: data).enumerated().map { i, m in
-                ArtifactMark(
-                    id: i + 1, kind: m.board.isEmpty ? .quote : .element, board: m.board, target: m.target,
-                    text: m.text, note: m.note)
-            }
-            return ArtifactMarks(next: marks.count + 1, marks: marks)
-        } catch {
-            return ArtifactMarks()   // a file that doesn't read holds no marks
+        guard data.first(where: { !Character(UnicodeScalar($0)).isWhitespace }) == UInt8(ascii: "[") else {
+            return try decoder.decode(ArtifactMarks.self, from: data)
         }
+        let marks = try decoder.decode([Old].self, from: data).enumerated().map { i, m in
+            ArtifactMark(
+                id: i + 1, kind: m.board.isEmpty ? .quote : .element, board: m.board, target: m.target,
+                text: m.text, note: m.note)
+        }
+        return ArtifactMarks(next: marks.count + 1, marks: marks)
     }
 
     public func encoded() throws -> Data {
@@ -371,7 +372,9 @@ extension ArtifactMarks {
         lock.lock()
         defer { lock.unlock() }
         let url = folder.appendingPathComponent(file)
-        var marks = read(FileManager.default.contents(atPath: url.path))
+        // A file that doesn't read (a newer Kelp's, or one edited by hand) is left as it is, not written over empty.
+        let data = FileManager.default.contents(atPath: url.path)
+        var marks = try data.flatMap { $0.isEmpty ? nil : try decoded($0) } ?? ArtifactMarks()
         guard try body(&marks) else { return nil }
         try marks.encoded().write(to: url, options: .atomic)
         return marks

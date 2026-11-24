@@ -17,6 +17,23 @@ private let page = ".kelp/artifacts/home/canvas.json"
     #expect(saved == marks)
 }
 
+/// A notes.json that doesn't read is never written over: a change to it fails and the file stays as it was.
+@Test func marksThatDontReadAreNotWrittenOver() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("marks-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let file = folder.appendingPathComponent(ArtifactMarks.file),
+        odd = Data(#"{"marks": [{"id": 1, "kind": "x"}]}"#.utf8)
+    try odd.write(to: file)
+    #expect(throws: (any Error).self) {
+        try ArtifactMarks.update(in: folder) {
+            $0.next += 1
+            return true
+        }
+    }
+    #expect(FileManager.default.contents(atPath: file.path) == odd)
+}
+
 @Test func aMarkGoesFromDraftToTheAgentToTheUserAndBack() {
     var m = ArtifactMarks()
     m.apply(.drafts([ArtifactMark(board: "boards/A.html", target: "[data-id=title]", note: "bigger")]))
