@@ -18,8 +18,8 @@ final class MotionTimeline: NSView {
         var trims: Bool { delays.count <= 1 }
         /// An element hidden by hand (`data-hidden`): not in the page or the video.
         var hidden = false
-        /// Its first animation's keyframes, when it has one.
-        var keys: Keys?
+        /// Its first animation's keyframes, when it has one; a scene's way in from the one before.
+        var keys: Keys?, transition: String?
     }
     private enum Drag { case time, move(Clip, Double), start(Clip), end(Clip) }
 
@@ -201,6 +201,7 @@ final class MotionTimeline: NSView {
         drawClips(font)
         drawSelecting()
         drawKeyframes()
+        drawSeams()
         if let range {
             NSColor.systemYellow.setFill()
             NSRect(

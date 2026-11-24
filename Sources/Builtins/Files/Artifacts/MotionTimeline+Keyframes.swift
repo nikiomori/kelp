@@ -27,6 +27,32 @@ extension MotionTimeline {
         var onMove: ((String, Double, Double) -> Void)?
         var onChoose: ((String, Double) -> Void)?
         var menu: ((String, Double) -> NSMenu?)?
+        /// The menu of the seam between two scenes (the one going out, the one coming in).
+        var seamMenu: ((String, String) -> NSMenu?)?
+    }
+
+    /// Where two scenes meet under `p` on the scene lane (or overlap, with a transition), within a few points.
+    func seam(at p: NSPoint) -> (out: Clip, in: Clip)? {
+        guard laneRect(0).contains(p) else { return nil }
+        let sorted = scenes.filter { !$0.id.isEmpty }.sorted { $0.start < $1.start }
+        for (a, b) in zip(sorted, sorted.dropFirst())
+        where p.x >= x(b.start) - 6 && p.x <= x(max(a.end, b.start)) + 6 {
+            return (a, b)
+        }
+        return nil
+    }
+
+    /// ⇄ where a scene comes in by a transition.
+    func drawSeams() {
+        let row = laneRect(0)
+        for scene in scenes where scene.transition != nil {
+            let r = NSRect(x: x(scene.start) - 1, y: row.midY - 8, width: 16, height: 16)
+            NSColor.systemIndigo.setFill()
+            NSBezierPath(roundedRect: r, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
+            ("⇄" as NSString).draw(
+                in: r.insetBy(dx: 3, dy: 1),
+                withAttributes: [.font: NSFont.ui(TextSize.micro), .foregroundColor: NSColor.white])
+        }
     }
 
     private func keyframes() -> [(id: String, keys: Keys, lane: Int)] {

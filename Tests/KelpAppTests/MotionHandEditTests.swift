@@ -408,3 +408,38 @@ extension OneAtATime {
         #expect(editor.text.contains("kelp-fade-out 0.5s ease-in 1.5s both"))
     }
 }
+
+extension OneAtATime {
+    /// A crossfade at a seam starts the next scene earlier by its length and fades the two over each other; taking it
+    /// away puts the scene back where it began.
+    @Test func aSeamGetsACrossfade() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-undo/.kelp/artifacts/launch/motion.html")
+        let page = """
+            <html><head></head><body data-width="1920" data-height="1080">
+            <div data-id="a" data-start="0" data-duration="2">A</div><div data-id="b" data-start="2" data-duration="2">B</div>
+            </body></html>
+            """
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        let scenes: [[String: Any]] = [
+            ["id": "a", "title": "A", "start": 0, "duration": 2], ["id": "b", "title": "B", "start": 2, "duration": 2]
+        ]
+        tab.motionMessage(["t": 0, "duration": 4, "scenes": scenes])
+        let menu = try #require(tab.seamMenu("a", "b"))
+        menu.performActionForItem(at: 1)   // Crossfade
+        #expect(editor.text.contains(#"data-id="b" data-start="1.6" data-duration="2.4""#))
+        #expect(
+            editor.text.contains("kelp-fade 0.4s ease-in-out 1.6s both")
+                && editor.text.contains("kelp-fade-out 0.4s ease-in-out 1.6s both"))
+        tab.motionMessage([
+            "t": 0, "duration": 4,
+            "scenes": [scenes[0], ["id": "b", "title": "B", "start": 1.6, "duration": 2.4, "trans": "fade"]]
+        ])
+        let again = try #require(tab.seamMenu("a", "b"))
+        again.performActionForItem(at: again.numberOfItems - 1)   // Remove Transition
+        #expect(
+            editor.text.contains(#"data-id="b" data-start="2" data-duration="2""#)
+                && !editor.text.contains("kelp-motion"))
+    }
+}

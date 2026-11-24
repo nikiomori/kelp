@@ -32779,6 +32779,56 @@
           }
         }
       }
+    },
+    "Transition %@ s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход %@ с"
+          }
+        }
+      }
+    },
+    "Crossfade": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наплыв"
+          }
+        }
+      }
+    },
+    "Slide Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвиг влево"
+          }
+        }
+      }
+    },
+    "Wipe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шторка"
+          }
+        }
+      }
+    },
+    "Remove Transition": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать переход"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

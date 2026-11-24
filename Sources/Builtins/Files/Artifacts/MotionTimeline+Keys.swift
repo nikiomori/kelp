@@ -50,6 +50,7 @@ extension MotionTimeline {
     /// A clip's menu: Duplicate and Delete.
     override func menu(for event: NSEvent) -> NSMenu? {
         let p = convert(event.locationInWindow, from: nil)
+        if let seam = seam(at: p) { return keyframing.seamMenu?(seam.out.id, seam.in.id) }
         if let key = keyframe(at: p) {
             keyframing.chosen = key
             needsDisplay = true

@@ -81,7 +81,7 @@ enum MotionPage {
           const media = e => /^(IMG|VIDEO)$/.test(e.tagName);
           const scenes = () => parts().filter(e => !media(e)).map(e => ({ id: e.dataset.id || '',
             title: e.dataset.title || e.dataset.id || '', start: +e.dataset.start || 0,
-            duration: +e.dataset.duration || 0 }));
+            duration: +e.dataset.duration || 0, trans: (e.dataset.kelpIn || '').split(' ')[0] }));
           // Each element that moves, as a track: its name and when its animations run.
           const named = e => e.dataset.title || e.dataset.id
             || (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 28) || e.classList[0]

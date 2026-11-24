@@ -24,6 +24,7 @@ extension MarkdownTab {
         made.keyframes { k in
             k.onMove = { [weak self] id, from, to in self?.moveKeyframe(id, from: from, to: to) }
             k.menu = { [weak self] id, place in self?.keyframeMenu(id, place) }
+            k.seamMenu = { [weak self] out, into in self?.seamMenu(out, into) }
         }
         made.onMany = { [weak self] kind, ids in
             kind == "remove" ? self?.removeElements(ids) : self?.copyClips(ids, cut: kind == "cut")
@@ -72,7 +73,7 @@ extension MarkdownTab {
             (body[key] as? [[String: Any]] ?? []).map { c in
                 let begins = (c[start] as? NSNumber)?.doubleValue ?? 0
                 let takes = (c[length] as? NSNumber)?.doubleValue ?? 0
-                return MotionTimeline.Clip(
+                var clip = MotionTimeline.Clip(
                     id: c["id"] as? String ?? "", title: c["title"] as? String ?? "", start: begins,
                     length: length == "end" ? takes - begins : takes,
                     delays: (c["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
@@ -86,6 +87,8 @@ extension MarkdownTab {
                             at: (k["at"] as? [NSNumber])?.map(\.doubleValue) ?? [],
                             easing: k["easing"] as? [String] ?? [])
                     })
+                clip.transition = (c["trans"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                return clip
             }
         }
         motionStudio.show(
