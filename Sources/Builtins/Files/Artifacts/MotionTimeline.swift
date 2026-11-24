@@ -53,13 +53,13 @@ final class MotionTimeline: NSView {
     var onHide: ((String, Bool) -> Void)?, onRestack: (([String]) -> Void)?
     /// How close it looks: 1 shows the whole length, more shows `length / zoom` seconds from `from`.
     private(set) var zoom = 1.0
-    private var from = 0.0
-    private var span: Double { length / zoom }
+    var from = 0.0
+    var span: Double { length / zoom }
     /// The zoom changed by a pinch or ⌘ and the wheel, for the studio's slider.
     var onZoom: ((Double) -> Void)?
     private var drag: Drag?
     /// The clip being dragged, as it is now, and its lane.
-    private var dragged: Clip?, draggedLane = 0
+    var dragged: Clip?, draggedLane = 0
     /// The element chosen on the page: its lane stands out.
     var chosen = "" { didSet { if chosen != oldValue { needsDisplay = true } } }
     var onSeek: ((Double) -> Void)?
@@ -90,7 +90,9 @@ final class MotionTimeline: NSView {
     private(set) var names: CGFloat = 120
     /// The lane of marks, above the scenes, while there are any.
     var marksLane: CGFloat { marks.isEmpty ? 0 : Self.lane }
-    private var lanes: Int { 1 + tracks.count }
+    private var lanes: Int { rows.count }
+    /// The subtitles' cues, a lane of their own under the elements' when there are any (`setCaptions`).
+    var captions: [Clip] = []
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: Self.ruler + Self.lane * CGFloat(2 + Self.shown) + Metrics.gap)
@@ -169,7 +171,9 @@ final class MotionTimeline: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let font = NSFont.ui(TextSize.caption), nameFont = NSFont.ui(TextSize.row)
-        let laneNames = [String(localized: "Scenes")] + tracks.map(\.title)
+        let laneNames =
+            [String(localized: "Scenes")] + tracks.map(\.title)
+            + (captions.isEmpty ? [] : [String(localized: "Subtitles")])
         NSGraphicsContext.saveGraphicsState()
         lanesArea.clip()
         for (i, name) in laneNames.enumerated() {
@@ -178,11 +182,11 @@ final class MotionTimeline: NSView {
                 NSColor.fillRest.setFill()
                 row.fill()
             }
-            let hidden = i > 0 && tracks[i - 1].hidden
+            let element = i > 0 && i <= tracks.count, hidden = element && tracks[i - 1].hidden
             text(
                 name, at: NSPoint(x: Metrics.inset, y: row.midY), font: nameFont,
-                color: hidden ? .tertiaryLabelColor : .secondaryLabelColor, width: nameWidth - (i > 0 ? 18 : 0))
-            if i > 0, hidden || i == hoveredLane { drawEye(lane: i, hidden: hidden) }
+                color: hidden ? .tertiaryLabelColor : .secondaryLabelColor, width: nameWidth - (element ? 18 : 0))
+            if element, hidden || i == hoveredLane { drawEye(lane: i, hidden: hidden) }
         }
         drawLaneDrag()
         NSGraphicsContext.restoreGraphicsState()
@@ -264,50 +268,7 @@ final class MotionTimeline: NSView {
                     || (!track.id.isEmpty && (track.id == chosen || selecting.ids.contains(track.id))),
                 font: font)
         }
-    }
-
-    private func drawRuler() {
-        let font = NSFont.uiDigits(TextSize.caption)
-        let step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30].first { CGFloat($0 / span) * track.width >= 48 } ?? 60
-        var mark = (from / step).rounded(.down) * step
-        while mark <= min(from + span, length) + 0.001 {
-            NSColor.separatorColor.setFill()
-            NSRect(x: x(mark), y: Self.ruler - 6, width: 1, height: 6).fill()
-            text(
-                Self.label(mark), at: NSPoint(x: x(mark) + 3, y: Self.ruler / 2 - 2), font: font,
-                color: .secondaryLabelColor, width: 60)
-            mark += step
-        }
-    }
-
-    private func draw(_ clip: Clip, in rect: NSRect, fill: NSColor, chosen: Bool, font: NSFont) {
-        fill.setFill()
-        let shape = NSBezierPath(roundedRect: rect, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
-        shape.fill()
-        // A scene has a hairline round it; the accent marks only the clip chosen or dragged.
-        if chosen || fill == .fillRest {
-            (chosen ? NSColor.controlAccentColor : .separatorColor).setStroke()
-            shape.lineWidth = chosen ? 2 : 1
-            shape.stroke()
-        }
-        if rect.width > 30 {
-            text(
-                clip.title, at: NSPoint(x: rect.minX + Metrics.gapTight + 2, y: rect.midY), font: font,
-                color: .labelColor, width: rect.width - 2 * Metrics.gapTight)
-        }
-    }
-
-    private func text(_ string: String, at point: NSPoint, font: NSFont, color: NSColor, width: CGFloat) {
-        let style = NSMutableParagraphStyle()
-        style.lineBreakMode = .byTruncatingTail
-        let made = NSAttributedString(
-            string: string, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: style])
-        let height = made.size().height
-        made.draw(in: NSRect(x: point.x, y: point.y - height / 2, width: width, height: height))
-    }
-
-    static func label(_ seconds: Double) -> String {
-        seconds.rounded() == seconds ? "\(Int(seconds))s" : String(format: "%.1fs", seconds)
+        drawCaptions(font)
     }
 
     // MARK: The pointer
@@ -324,7 +285,7 @@ final class MotionTimeline: NSView {
         if layerDown(at: p) || keyDown(at: p) || selectDown(at: p, shift: event.modifierFlags.contains(.shift)) {
             return
         }
-        let lanes = [scenes] + tracks.map { [$0] }
+        let lanes = rows
         for (lane, clips) in lanes.enumerated() {
             guard let clip = clips.first(where: { box($0, lane: lane).insetBy(dx: -3, dy: 0).contains(p) }) else {
                 continue
@@ -370,10 +331,11 @@ final class MotionTimeline: NSView {
         if selecting.box == nil, drag == nil, convert(event.locationInWindow, from: nil).x >= track.minX {
             seek(convert(event.locationInWindow, from: nil).x)
         }
-        let lanes = [scenes] + tracks.map { [$0] }
+        let lanes = rows
         if let dragged, let before = lanes[draggedLane].first(where: { $0.id == dragged.id }), dragged != before {
             if draggedLane == 0, let i = scenes.firstIndex(where: { $0.id == dragged.id }) { scenes[i] = dragged }
-            if draggedLane > 0 { tracks[draggedLane - 1] = dragged }
+            if draggedLane > 0, draggedLane <= tracks.count { tracks[draggedLane - 1] = dragged }
+            if let i = captions.firstIndex(where: { $0.id == dragged.id }) { captions[i] = dragged }
             onClip?(before, dragged, draggedLane)
         }
         drag = nil

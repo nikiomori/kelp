@@ -169,6 +169,12 @@ extension MarkdownTab {
             "comes": String(localized: "Comes In"), "goes": String(localized: "Goes Out"),
             "length": String(localized: "Length"), "fade": String(localized: "Fade"),
             "rise": String(localized: "Rise"), "pop": String(localized: "Pop"),
+            "subtitles": String(localized: "Subtitles"), "look": String(localized: "Look"),
+            "place": String(localized: "Place"), "size": String(localized: "Size"),
+            "box": String(localized: "Box"), "plain": String(localized: "Plain"),
+            "outline": String(localized: "Outline"),
+            "highlight": String(localized: "Highlight"), "bottom": String(localized: "Bottom"),
+            "top": String(localized: "Top"), "middle": String(localized: "Middle"),
             "letters": String(localized: "By Letters"), "words": String(localized: "By Words"),
             "fade-out": String(localized: "Fade"), "rise-out": String(localized: "Rise Away")
         ]

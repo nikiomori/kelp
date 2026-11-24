@@ -79,7 +79,11 @@ enum MotionPage {
           }
           // A picture or a video with its own time is a layer of its own, not a scene.
           const media = e => /^(IMG|VIDEO)$/.test(e.tagName);
-          const scenes = () => parts().filter(e => !media(e)).map(e => ({ id: e.dataset.id || '',
+          const caption = e => !!e.closest('[data-kelp-captions]');
+          const captions = () => parts().filter(caption).map(e => ({ id: e.dataset.id || '',
+            title: e.textContent.trim(),
+            start: +e.dataset.start || 0, duration: +e.dataset.duration || 0 }));
+          const scenes = () => parts().filter(e => !media(e) && !caption(e)).map(e => ({ id: e.dataset.id || '',
             title: e.dataset.title || e.dataset.id || '', start: +e.dataset.start || 0,
             duration: +e.dataset.duration || 0, trans: (e.dataset.kelpIn || '').split(' ')[0] }));
           // Each element that moves, as a track: its name and when its animations run.
@@ -140,6 +144,7 @@ enum MotionPage {
             const marks = (window.kelpMarks?.list?.() || []).filter(m => m.time != null && m.state !== 'done')
               .map(m => ({ id: m.id, time: m.time, state: m.state }));
             post({ kind: 'motion', t, duration: duration(), playing, scenes: scenes(), tracks: moving, marks, range,
+              captions: captions(),
               width: +frame.dataset.w, height: +frame.dataset.h });
           }
           function tick(at) {

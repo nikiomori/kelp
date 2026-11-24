@@ -105,7 +105,7 @@ extension MarkdownTab {
                 },
                 range: (body["range"] as? [NSNumber]).flatMap { r in
                     r.count == 2 && r[1].doubleValue > r[0].doubleValue ? r[0].doubleValue...r[1].doubleValue : nil
-                }))
+                }, captions: clips("captions", "start", "duration")))
     }
 
     /// Gives the stage another shape: the body's `data-width` and `data-height`. The page's own layout is the
@@ -271,6 +271,7 @@ extension MarkdownTab {
             item.verdict = verdict
             item.progress = nil
             leaveCheck(verdict, for: to)
+            await writeSRT(beside: to)
             app.workbench.open(TabURI.file(to.path))
         } catch {
             runJS("window.kelpMotion?.done()")

@@ -17,8 +17,13 @@ extension MarkdownTab {
         web.onFiles = { [weak self] files, at in self?.dropped(files, at: at) ?? false }
     }
 
-    /// Whether the files are the tab's to take: pictures or videos, on a canvas or a motion page.
+    /// Whether the files are the tab's to take: pictures or videos, on a canvas or a motion page; on a motion page also
+    /// subtitles (SRT, WebVTT).
     func dropped(_ files: [URL], at point: NSPoint) -> Bool {
+        if page == .motion, let file = files.first, ["srt", "vtt"].contains(file.pathExtension.lowercased()) {
+            Task { await importCaptions(file) }
+            return true
+        }
         guard page == .canvas || page == .motion, !files.isEmpty, files.allSatisfy(Self.isMedia) else { return false }
         Task { await drop(files, at: point) }
         return true

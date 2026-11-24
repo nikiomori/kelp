@@ -191,3 +191,21 @@ private let board = """
     let none = try #require(MotionPresets.set(risen, id: "t", .entrance, .init(nil, length: 0, easing: "", start: 0)))
     #expect(!none.contains("kelp-motion") && !none.contains("data-kelp-in"))
 }
+
+/// Subtitles from SRT and WebVTT become one block of cues in the page, styled by its look, and go back out as SRT.
+@Test func subtitlesComeInAndGoOut() throws {
+    let srt = "1\n00:00:00,200 --> 00:00:01,600\nКаждый день\n\n2\n00:00:01,700 --> 00:00:03,200\n<i>понемногу</i>\n"
+    let vtt = "WEBVTT\n\n00:01.700 --> 00:03.200 align:middle\nпонемногу\n"
+    let cues = Captions.parse(srt)
+    #expect(cues == [.init(start: 0.2, end: 1.6, text: "Каждый день"), .init(start: 1.7, end: 3.2, text: "понемногу")])
+    #expect(Captions.parse(vtt) == [cues[1]])
+    let page = Captions.write("<html><head></head><body></body></html>", cues: cues)
+    #expect(page.contains(#"<p data-id="cap-2" data-start="1.7" data-duration="1.5">понемногу</p>"#))
+    #expect(page.contains("bottom: 6%") && page.contains("rgba(0,0,0,.65)"))
+    let outlined = try #require(Captions.setLook(page, "outline top 56"))
+    #expect(outlined.contains("top: 6%") && outlined.contains("-webkit-text-stroke: 3px"))
+    #expect(Captions.write(outlined, cues: [cues[0]]).components(separatedBy: "data-id=\"cap-").count == 2)
+    #expect(
+        Captions.srt(page)
+            == "1\n00:00:00,200 --> 00:00:01,600\nКаждый день\n\n2\n00:00:01,700 --> 00:00:03,200\nпонемногу\n")
+}

@@ -185,7 +185,28 @@ enum CanvasMotionKeys {
             }
             return [s];
           }
-          props.more = (props.more || []).concat([motionSection, presetSection]);
+          // The subtitles' look, for a cue or their block: a box, plain, an outline or a highlight; where; how big.
+          function captionSection(e) {
+            const block = e.closest('[data-kelp-captions]'); if (!block) return [];
+            const [look, place, size] = (block.dataset.kelpCaptions || 'box bottom 48').split(' ');
+            const pop = (field, value) => {
+              const b = K.el('button', 'kelp-ipop'); b.append(K.el('span', 'kelp-itok', L[value] || value));
+              b.onclick = () => K.post({ kind: 'captionMenu', field }); return b;
+            };
+            const big = K.el('input', 'kelp-cv-num'); big.value = size;
+            big.onchange = () => K.post({ kind: 'captionSize', size: parseInt(big.value) || 48 });
+            big.onkeydown = ev => ev.stopPropagation();
+            const s = K.el('div', 'kelp-isec');
+            s.append(K.el('div', 'kelp-ititle', L.subtitles));
+            const rows = [[L.look, pop('look', look)], [L.place, pop('place', place)], [L.size, big]];
+            for (const [label, control] of rows) {
+              const r = K.el('div', 'kelp-irow');
+              r.append(K.el('span', 'kelp-ilabel', label), control, K.el('span'));
+              s.append(r);
+            }
+            return [s];
+          }
+          props.more = (props.more || []).concat([motionSection, presetSection, captionSection]);
           window.kelpCurve = (id, at) => { curve = { id, at }; props.redraw?.(); };
           addEventListener('kelp-chosen', ev => {
             if (!ev.detail || (curve && ev.detail.e.getAttribute('data-id') !== curve.id)) curve = null;

@@ -32889,6 +32889,96 @@
           }
         }
       }
+    },
+    "Subtitles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры"
+          }
+        }
+      }
+    },
+    "No subtitles in “%@”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» нет субтитров."
+          }
+        }
+      }
+    },
+    "Box": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плашка"
+          }
+        }
+      }
+    },
+    "Plain": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просто"
+          }
+        }
+      }
+    },
+    "Outline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обводка"
+          }
+        }
+      }
+    },
+    "Highlight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маркер"
+          }
+        }
+      }
+    },
+    "Middle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Посередине"
+          }
+        }
+      }
+    },
+    "Look": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вид"
+          }
+        }
+      }
+    },
+    "Place": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

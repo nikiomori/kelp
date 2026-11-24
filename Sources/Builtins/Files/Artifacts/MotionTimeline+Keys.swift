@@ -56,7 +56,7 @@ extension MotionTimeline {
             needsDisplay = true
             return keyframing.menu?(key.id, key.at)
         }
-        let lanes = [scenes] + tracks.map { [$0] }
+        let lanes = rows
         for (lane, clips) in lanes.enumerated() {
             guard let clip = clips.first(where: { box($0, lane: lane).contains(p) }), !clip.id.isEmpty else { continue }
             picked = clip.id
@@ -70,7 +70,7 @@ extension MotionTimeline {
     }
 
     override func resetCursorRects() {
-        let lanes = [scenes] + tracks.map { [$0] }
+        let lanes = rows
         for (lane, clips) in lanes.enumerated() {
             for clip in clips where !clip.id.isEmpty && clip.trims { edges(box(clip, lane: lane)) }
         }
