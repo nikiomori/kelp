@@ -191,6 +191,7 @@ extension MarkdownTab {
 
     /// Sets the mode chosen with View / Mark / Edit in the bar.
     func setCanvasMode(_ mode: CanvasMode) {
+        if mode != .view { (split.arrangedSubviews.last as? VersionsPanel)?.removeFromSuperview() }   // one column
         marking = mode == .mark
         if marking { followAuthor() }
         guard page != .canvas && page != .motion else {

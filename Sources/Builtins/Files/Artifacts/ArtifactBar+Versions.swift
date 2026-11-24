@@ -75,9 +75,14 @@ extension ArtifactBar {
     var agentName: String? { item?.session.flatMap(app.session).flatMap { app.catalog.name($0.agent) } }
     var chat: String? { item?.session.flatMap { app.session($0)?.status == .exited ? nil : $0 } }
 
-    /// The column of versions beside the page (its "N of M"), opened or closed.
+    /// The column of versions beside the page (its "N of M"), opened or closed. One column at a time: it opens in
+    /// View, and Mark or Edit closes it again (`MarkdownTab.setCanvasMode`).
     func showVersions() {
         if let open = versionsPanel { return open.removeFromSuperview() }
+        if markdown.canvasMode != .view {
+            markdown.setCanvasMode(.view)
+            markdown.onPageMode?(.view)
+        }
         markdown.split.addArrangedSubview(VersionsPanel(bar: self))
     }
 
