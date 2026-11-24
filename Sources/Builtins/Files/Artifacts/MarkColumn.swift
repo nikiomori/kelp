@@ -333,7 +333,8 @@ enum MarkColumn {
             attach(hooks) { page = hooks; draw(); },
             setOn(on) {
               this.on = on;
-              if (!on) { showBefore(false); C.close(); }
+              // Leaving Mark for Edit keeps the column: Edit's inspector is in it.
+              if (!on) { showBefore(false); if (window.kelpCanvas?.mode() !== 'edit') C.close(); }
               if (on && by('check').length) show(); else draw();
             },
             add(mark) {

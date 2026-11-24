@@ -30,6 +30,8 @@ enum CanvasLanguages {
             return out;
           }
           function show(view) {
+            // Edit writes what a board shows into its file, so it never shows the made-up words.
+            if (view !== 'as' && K.mode() === 'edit') return;
             now = view;
             for (const [n, t] of kept) n.textContent = t;
             kept.clear();
