@@ -131,13 +131,18 @@ struct PostgresWire: DatabaseRunner {
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
     ) async throws -> T {
-        let db = databaseConnection.database, config = try configuration(databaseConnection)
+        let db = databaseConnection.database, name = applicationName()
+        let config = try configuration(databaseConnection, name: name)
         let conn: PostgresConnection
         do {
             conn = try await PostgresConnection.connect(
                 on: DatabaseWire.eventLoop, configuration: config, id: 1, logger: DatabaseWire.logger
             ).get()
         } catch { throw failure(error, db) }
+        // A Stop closes the connection (`within`), which leaves the statement running on the server: it is cancelled
+        // there too, found by the connection's own name
+        let stop = DatabaseStop.current, token = stop?.on { Task { await cancel(name, databaseConnection) } }
+        defer { stop?.off(token) }
         do {
             let result = try await DatabaseWire.within(
                 seconds, db, close: { await DatabaseWire.close { try await conn.close() } }
@@ -150,9 +155,39 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
+    /// A connection's own application_name, "kelp/<uuid>", by which a Stop finds its statement on the server.
+    static func applicationName() -> String { "kelp/" + UUID().uuidString.lowercased() }
+
+    /// The statement that cancels what the connection named `name` runs, the name bound as $1.
+    static func cancelQuery(_ name: String) -> PostgresQuery {
+        "SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE application_name = \(name)"
+    }
+
+    /// Cancels on the server the statement of the connection named `name`, from a short connection of its own. Out of
+    /// the Stop's task, which would close this one too. A failure goes to the log.
+    private static func cancel(_ name: String, _ databaseConnection: DatabaseConnection) async {
+        let db = databaseConnection.database
+        await DatabaseStop.$current.withValue(nil) {
+            do {
+                let conn = try await PostgresConnection.connect(
+                    on: DatabaseWire.eventLoop, configuration: configuration(databaseConnection), id: 2,
+                    logger: DatabaseWire.logger
+                ).get()
+                defer { Task { await DatabaseWire.close { try await conn.close() } } }
+                _ = try await DatabaseWire.within(
+                    DatabaseTimes.kill, db, close: { await DatabaseWire.close { try await conn.close() } }
+                ) { try await conn.query(cancelQuery(name), logger: DatabaseWire.logger).collect() }
+            } catch {
+                Log.store.error("cancelling \(db.name)'s stopped statement on the server: \(error)")
+            }
+        }
+    }
+
     /// The connection's settings: TLS as the sslmode says, checked against the server's own name when it is reached
-    /// through a forwarded port.
-    static func configuration(_ databaseConnection: DatabaseConnection) throws -> PostgresConnection.Configuration {
+    /// through a forwarded port. `name` is its application_name.
+    static func configuration(_ databaseConnection: DatabaseConnection, name: String = "kelp") throws
+        -> PostgresConnection.Configuration
+    {
         let db = databaseConnection.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
         let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
@@ -167,7 +202,7 @@ struct PostgresWire: DatabaseRunner {
         config.options.tlsServerName = databaseConnection.serverName
         config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
         // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
-        config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
+        config.options.additionalStartupParameters = [("application_name", name), ("TimeZone", "UTC")]
         return config
     }
 

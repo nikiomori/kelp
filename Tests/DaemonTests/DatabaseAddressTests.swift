@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GRDB
 import NIOSSL
+import PostgresNIO
 import TestSupport
 import Testing
 
@@ -171,4 +172,16 @@ import Testing
     #expect(throws: DatabaseFailure.self) {
         try PostgresWire.configuration(Databases.forwarded(.init(database: db), to: 1))
     }
+}
+
+/// Each wire connection to Postgres has a name of its own after "kelp/", by which a Stop finds its statement on the
+/// server; the statement that cancels it binds that name rather than writing it into the SQL.
+@Test func aStoppedPostgresStatementIsFoundByItsConnectionsName() throws {
+    let name = PostgresWire.applicationName()
+    #expect(name.hasPrefix("kelp/") && name != PostgresWire.applicationName())
+    let db = DatabaseInfo(name: "app", engine: .postgres, host: "localhost", port: 5432)
+    let options = try PostgresWire.configuration(DatabaseConnection(database: db), name: name).options
+    #expect(options.additionalStartupParameters.contains { $0 == ("application_name", name) })
+    let cancel = PostgresWire.cancelQuery(name)
+    #expect(cancel.sql.hasSuffix("application_name = $1") && cancel.binds.count == 1 && !cancel.sql.contains(name))
 }
