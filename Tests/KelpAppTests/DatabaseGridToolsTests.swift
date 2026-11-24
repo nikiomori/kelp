@@ -126,3 +126,61 @@ import Testing
     grid.show(columns: ["note"], rows: [["c"]])
     #expect(!undo.canUndo)
 }
+
+/// JSON is indented as it is written: numbers, escapes and the keys' order stay.
+@Test func jsonIsIndentedAsWritten() {
+    #expect(
+        JSONText.pretty(#"{"b":1.50,"a":[1, {}, "x,\"y"], "c": []}"#) == """
+            {
+              "b": 1.50,
+              "a": [
+                1,
+                {},
+                "x,\\"y"
+              ],
+              "c": []
+            }
+            """)
+    #expect(JSONText.pretty("12") == nil && JSONText.pretty("{nope") == nil)
+}
+
+extension OneAtATime {
+    /// A value with line breaks, or JSON, opens in a sheet rather than in its cell; Set makes the text, real line
+    /// breaks and all, the cell's edit. ⌥↩ opens any cell there; Cancel changes nothing.
+    @Test func aLongValueOpensInASheet() async throws {
+        let (grid, window) = editableGrid([["a\nb"], [#"{"k":1}"#], ["plain"]])
+        window.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { window.orderOut(nil) }
+        #expect(grid.opensInSheet(row: 0, column: 0) && grid.opensInSheet(row: 1, column: 0))
+        #expect(!grid.opensInSheet(row: 2, column: 0))
+        grid.table.editColumn(1, row: 0, with: nil, select: true)
+        #expect(!(window.firstResponder is NSTextView))   // not typed in, where it would show ⏎
+        func sheetText() async throws -> NSTextView {
+            #expect(try await waitFor(10) { window.attachedSheet != nil })
+            func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+            let content = try #require(window.attachedSheet?.contentView)
+            return try #require(all(content).compactMap { $0 as? NSTextView }.first)
+        }
+        grid.openValue(row: 0, column: 0)
+        let text = try await sheetText()
+        #expect(text.string == "a\nb" && text.isEditable)
+        text.string = "a\nc"
+        let set = try #require(window.attachedSheet)
+        window.endSheet(set, returnCode: .alertFirstButtonReturn)   // Set
+        #expect(try await waitFor { grid.edits.value(row: 0, column: 0) == .some("a\nc") })
+        grid.table.lookedAt = (2, 0)
+        grid.table.selectRowIndexes([2], byExtendingSelection: false)
+        let optionReturn = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: .option, timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        grid.table.keyDown(with: optionReturn)
+        let plain = try await sheetText()
+        #expect(plain.string == "plain")
+        let cancel = try #require(window.attachedSheet)
+        window.endSheet(cancel, returnCode: .alertSecondButtonReturn)   // Cancel
+        #expect(try await waitFor { window.attachedSheet == nil })
+        #expect(grid.edits.count == 1)
+    }
+}

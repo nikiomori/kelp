@@ -36,7 +36,8 @@ import Testing
     }
 }
 
-/// Entering a cell and leaving it without typing leaves the row as it was, in every kind of cell.
+/// Entering a cell and leaving it without typing leaves the row as it was, in every kind of cell; one with line
+/// breaks isn't entered, it opens in its sheet (`aLongValueOpensInASheet`).
 @MainActor @Test func aCellEnteredAndLeftKeepsItsValue() throws {
     let (grid, window) = editableGrid([["a\nb"], [nil], ["x"]])
     defer { withExtendedLifetime(window) {} }
@@ -45,7 +46,7 @@ import Testing
     let before = grid.edits
     for row in 0..<grid.count {
         grid.table.editColumn(1, row: row, with: nil, select: true)
-        #expect(window.firstResponder is NSTextView, "row \(row) wasn't entered")
+        #expect(window.firstResponder is NSTextView == (row != 0), "row \(row)")
         #expect(!grid.typing)
         window.makeFirstResponder(grid.table)
     }

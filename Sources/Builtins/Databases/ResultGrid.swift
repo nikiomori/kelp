@@ -68,6 +68,10 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.headerView?.menu?.delegate = self
         table.onCopy = { [weak self] in self?.copySelection() }
         table.onPaste = { [weak self] in self?.pasteFromClipboard() }
+        table.onOpen = { [weak self] in self?.openSelected() }
+        table.opensInSheet = { [weak self] row, column in self?.opensInSheet(row: row, column: column) ?? false }
+        table.target = self
+        table.doubleAction = #selector(openClicked)
         scroll.documentView = table
         area.pin(scroll)
         scroll.hasVerticalScroller = true
