@@ -159,7 +159,7 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     /// drafts. A file that doesn't read gives no marks.
     public static func read(_ data: Data?) -> ArtifactMarks {
         guard let data, !data.isEmpty else { return ArtifactMarks() }
-        return (try? decoded(data)) ?? ArtifactMarks()   // a file that doesn't read holds no marks
+        do { return try decoded(data) } catch { return ArtifactMarks() }   // a file that doesn't read holds no marks
     }
 
     /// The marks in a `notes.json`, or why it doesn't read.
