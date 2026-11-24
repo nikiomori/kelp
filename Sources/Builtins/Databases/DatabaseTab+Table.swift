@@ -331,7 +331,8 @@ extension DatabaseTab {
     }
 
     private func text(_ format: ResultText.Format, _ picked: [Int]) -> String {
-        ResultText.text(format, grid.columns, picked.map { grid.rows[$0] }, table: mode.table, engine: engine)
+        ResultText.text(
+            format, grid.columns, picked.map { grid.rows[$0] }, types: grid.types, from: (mode.table, engine))
     }
 
     /// Saves the rows where the user says: a file of their own choosing, not one in the project.

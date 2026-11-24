@@ -86,11 +86,20 @@ private func db(
 }
 
 /// JSON keeps numbers as numbers but not a code with a leading zero, a cell's JSON as JSON, and text that only starts
-/// like JSON as text.
+/// like JSON as text. A column's type decides: a text column's digits stay text, a number column's long integer keeps
+/// every digit, and what JSON has no number for (NaN, Infinity, 1e999) is text rather than a crash.
 @MainActor @Test func rowsCopyAsJSONKeepTheirTypes() {
     let json = ResultText.json(["zip", "n", "f", "bad"], [["02134", "0", "1.5", "{not json"]])
     #expect(json.contains(#""zip" : "02134""#) && json.contains(#""n" : 0"#) && json.contains(#""f" : 1.5"#))
     #expect(json.contains(#""bad" : "{not json""#))
+    let columns = ["id", "phone", "word", "f", "huge"]
+    let typed = ResultText.json(
+        columns, [["1234567890123456789", "5551234", "inf", "NaN", "1e999"], ["2", "5550000", "x", "-Infinity", "1"]],
+        types: ["bigint", "text", "text", "double precision", nil])
+    #expect(typed.contains(#""id" : 1234567890123456789"#) && typed.contains(#""phone" : "5551234""#))
+    #expect(
+        typed.contains(#""word" : "inf""#) && typed.contains(#""f" : "NaN""#) && typed.contains(#""f" : "-Infinity""#))
+    #expect(typed.contains(#""huge" : "1e999""#) && typed.contains(#""huge" : 1"#))
     #expect(ResultText.tsv(["a", "b"], [["1", nil]]) == "a\tb\n1\tNULL")
 }
 
