@@ -131,9 +131,8 @@ struct DuckDBRun: DatabaseRunner {
         let duckdb = try DatabaseEngines.client("duckdb", also: ["/opt/homebrew/bin", "/usr/local/bin"])
         let argv = arguments(duckdb, path, readOnly: readOnly)
         let script = (changes ? ".changes on\n" : "") + statements.map { $0 + "\n;\n.print " + marker + "\n" }.joined()
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: DatabaseEngines.environment([:]), stdin: Data(script.utf8),
-            timeLimit: timeout + 5, limit: DatabaseEngines.outputLimit)
+        let out = try DatabaseStop.program(
+            argv, env: DatabaseEngines.environment([:]), stdin: Data(script.utf8), timeLimit: timeout + 5)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("duckdb took more than \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)

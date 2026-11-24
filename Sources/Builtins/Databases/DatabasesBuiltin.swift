@@ -50,6 +50,7 @@ extension Builtins {
                 // key: ⇧⌘F is Find in Project everywhere, and ⌥⌘F is Git: Fetch.
                 tabCommand(app, "databases.run", "Run Statement", "cmd+return", shown: { $0.run }) { $0.runQuery() },
                 tabCommand(app, "databases.explain", "Explain", shown: { $0.explain }) { $0.explainQuery() },
+                tabCommand(app, "databases.stop", "Stop Statement", shown: { $0.stopButton }) { $0.stopRunning() },
                 tabCommand(app, "databases.filters", "Filters", shown: { $0.filterToggle }) {
                     $0.toggleFilters()
                 },

@@ -51,6 +51,8 @@ final class Databases: Sendable {
     /// The addresses from projects' files (`fromTheFiles`) that the user has opened since kelpd started. Agents reach
     /// only those.
     private let opened = OSAllocatedUnfairLock(initialState: Set<String>())
+    /// The user's statements running now, by the name `db.cancel` stops each by (`stoppable`).
+    let stops = OSAllocatedUnfairLock(initialState: [String: DatabaseStop]())
     /// A remote project's databases as its host's files listed them, and when they were read. They are read again
     /// after a minute.
     private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())

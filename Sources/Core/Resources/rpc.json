@@ -1625,7 +1625,7 @@
             "type" : "string"
           },
           "ssl" : {
-            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\" or \"require\". nil or \"prefer\" means TLS is used when the server offers it.",
+            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\", \"require\", or \"verify-ca\" and \"verify-full\", which also check the server's certificate (and its name). nil or \"prefer\" means TLS is used when the server offers it.",
             "type" : "string"
           },
           "user" : {
@@ -1806,7 +1806,7 @@
             "type" : "boolean"
           },
           "references" : {
-            "description" : "\"users.id\" for a foreign key.",
+            "description" : "\"users.id\" for a foreign key, with the table's schema where it has one (\"auth.users.id\").",
             "type" : "string"
           },
           "type" : {
@@ -7909,6 +7909,27 @@
       "x-internal" : true
     },
     {
+      "description" : "Stops the user's statement that runs under `id` (`DatabaseQuery.cancelId`) in the database, not only its wait: SQLite is interrupted, a client program is ended, and a server's connection is closed (MySQL's `KILL QUERY` too). The statement's call then fails with `stopped`. A statement that already ended is left as it is.",
+      "name" : "db.cancel",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Connects with what the sheet says and reports what is there: the server's version, its tables and its other databases. It throws the server's own words when it can't connect. A nil `password` uses the one kept for `database.name`, if any. `versionOnly` reads only the version (for a tab's capsule) on one connection, without counting tables or listing databases.",
       "name" : "db.check",
       "paramStructure" : "by-name",
@@ -8194,6 +8215,14 @@
       "name" : "db.query",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "A name the caller gives this run, by which `db.cancel` stops it.",
+          "name" : "cancelId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
         {
           "name" : "database",
           "required" : true,

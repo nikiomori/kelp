@@ -84,7 +84,10 @@ enum DatabaseWire {
         _ seconds: TimeInterval, _ db: DatabaseInfo, close: @escaping @Sendable () async -> Void,
         _ body: @escaping @Sendable () async throws -> T
     ) async throws -> T {
-        try await withThrowingTaskGroup(of: WireOutcome<T>.self) { group in
+        // A Stop closes the connection too, which ends the call (and, for MySQL, KILL QUERY stops it on the server)
+        let stop = DatabaseStop.current, token = stop?.on { Task { await close() } }
+        defer { stop?.off(token) }
+        return try await withThrowingTaskGroup(of: WireOutcome<T>.self) { group in
             group.addTask { .done(try await body()) }
             group.addTask {
                 try await Task.sleep(for: .seconds(seconds))

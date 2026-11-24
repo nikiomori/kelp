@@ -8,7 +8,7 @@ import Testing
 @testable import KelpKit
 
 /// A grid of `rows` in a window, as a tab shows it, with its cells editable.
-@MainActor private func editableGrid(_ rows: [[String?]]) -> (ResultGrid, NSWindow) {
+@MainActor func editableGrid(_ rows: [[String?]]) -> (ResultGrid, NSWindow) {
     let grid = ResultGrid()
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
@@ -53,7 +53,7 @@ import Testing
 }
 
 /// A table tab showing `orders` (one column, `note`) with its rows in a window of their own, on screen for a sheet.
-@MainActor private func editableTab(_ rows: [[String?]]) -> (DatabaseTab, NSWindow) {
+@MainActor func editableTab(_ rows: [[String?]]) -> (DatabaseTab, NSWindow) {
     let tab = DatabaseTab(uri: "db:w1/shop?table=orders", app: AppModel(builtins: []))
     tab.schema = DatabaseSchema(tables: [
         DatabaseSchema.Table(

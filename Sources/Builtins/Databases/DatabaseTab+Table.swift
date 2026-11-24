@@ -73,12 +73,14 @@ extension DatabaseTab {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             self?.status.stringValue = words
             self?.busy.startAnimation(nil)
+            self?.showStop(true)
         }
     }
 
     func readingEnded() {
         reading?.cancel()
         busy.stopAnimation(nil)
+        showStop(false)
         rowsWait.show(nil)
     }
 

@@ -98,6 +98,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
+    /// Where Run is while a statement or a read runs past a second; it and ⌘. stop it in the database (`running`).
+    lazy var stopButton = NSButton(title: String(localized: "Stop"), target: self, action: #selector(stopRunning))
+    /// The name of the statement or read in progress, by which `db.cancel` stops it.
+    var running: String?
     /// Explain is a bar's worded button, the grey plate, beside Run, the one main action in the system's accent.
     lazy var explain = TextButton(String(localized: "Explain"), target: self, action: #selector(explainQuery))
     lazy var saveQuery = NSButton(title: String(localized: "Save Query…"), target: self, action: #selector(keepQuery))
@@ -262,8 +266,14 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         save.toolTip = app.extensions.hint(String(localized: "Save Changes"), "databases.save")
         run.keyEquivalent = "\r"
         run.keyEquivalentModifierMask = .command
+        stopButton.keyEquivalent = "."   // the button's own, as Save's ⌘S: Run's Stop has ⌘. everywhere else
+        stopButton.keyEquivalentModifierMask = .command
+        stopButton.toolTip = String(localized: "Stop the Statement") + " (⌘.)"
+        stopButton.setContentHuggingPriority(.required, for: .horizontal)
+        stopButton.isHidden = true
         return Bar.content(
-            [capsuleButton], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleButton)
+            [capsuleButton], [run, stopButton, explain, reload, filterToggle, copyAs, detailsToggle],
+            stretching: capsuleButton)
     }
 
     private func footBar() -> Bar {
@@ -369,7 +379,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         for v in [previous, next, columnsButton] as [NSView] { v.isHidden = !data }
         addRow.isHidden = !data || !grid.editable
         reload.isHidden = mode.isRun
-        run.isHidden = mode != .query
+        run.isHidden = mode != .query || !stopButton.isHidden
         explain.isHidden = mode != .query
         saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun

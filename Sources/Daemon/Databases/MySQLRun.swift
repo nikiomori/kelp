@@ -147,9 +147,7 @@ struct MySQLRun: DatabaseRunner {
         if let name = db.database { argv.append(name) }
         let script = Self.script(statements)
         let env = DatabaseEngines.environment(["MYSQL_PWD": databaseConnection.password])
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout,
-            limit: DatabaseEngines.outputLimit)
+        let out = try DatabaseStop.program(argv, env: env, stdin: Data(script.utf8), timeLimit: timeout)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)

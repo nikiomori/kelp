@@ -164,10 +164,8 @@ struct PostgresRun: DatabaseRunner {
             // UTC, as the wire runner uses (`PostgresText`), so a row found by its values compares the same text
             "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": databaseConnection.password, "PGTZ": "UTC"
         ])
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: Data((script(commands) + (then ?? "")).utf8),
-            timeLimit: timeout,
-            limit: DatabaseEngines.outputLimit)
+        let out = try DatabaseStop.program(
+            argv, env: env, stdin: Data((script(commands) + (then ?? "")).utf8), timeLimit: timeout)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             throw failure(String(decoding: out.stderr, as: UTF8.self))

@@ -85,12 +85,27 @@ public struct DatabaseQuery: RPCMethod {
     public static var timeout: TimeInterval? { DatabaseTimes.query + DatabaseTimes.slack }
     public static let answerWithin: TimeInterval = 600
     public var worktreeId: String, database: String, sql: String, limit: Int?
-    public init(worktreeId: String, database: String, sql: String, limit: Int? = nil) {
+    /// A name the caller gives this run, by which `db.cancel` stops it.
+    public var cancelId: String?
+    public init(worktreeId: String, database: String, sql: String, limit: Int? = nil, cancelId: String? = nil) {
         self.worktreeId = worktreeId
         self.database = database
         self.sql = sql
         self.limit = limit
+        self.cancelId = cancelId
     }
+}
+
+/// Stops the user's statement that runs under `id` (`DatabaseQuery.cancelId`) in the database, not only its wait:
+/// SQLite is interrupted, a client program is ended, and a server's connection is closed (MySQL's `KILL QUERY` too).
+/// The statement's call then fails with `stopped`. A statement that already ended is left as it is.
+public struct DatabaseCancel: InternalMethod {
+    public static let name = "db.cancel"
+    public typealias Result = Done
+    /// What a stopped statement's call says.
+    public static let stopped = "Stopped."
+    public var id: String
+    public init(id: String) { self.id = id }
 }
 
 /// Adds a database by hand, or changes one by name (what agents may do, production). A found database keeps its

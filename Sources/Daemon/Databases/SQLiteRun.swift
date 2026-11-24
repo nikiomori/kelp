@@ -136,7 +136,10 @@ struct SQLiteRun: DatabaseRunner {
         let stop = DispatchWorkItem { queue.interrupt() }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
         defer { stop.cancel() }
-        do { return try body() } catch let error as DatabaseError where error.resultCode == .SQLITE_INTERRUPT {
+        do { return try DatabaseStop.during({ queue.interrupt() }, body) } catch let error as DatabaseError
+            where error.resultCode == .SQLITE_INTERRUPT
+        {
+            if DatabaseStop.current?.stopped == true { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
             throw DatabaseFailure.failed("It took more than \(Int(timeout)) s.")
         }
     }

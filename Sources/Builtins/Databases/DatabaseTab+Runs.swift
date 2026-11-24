@@ -137,15 +137,20 @@ extension DatabaseTab {
     /// Runs the user's statement as the user's own, so a change runs without a question. Its error shows where the
     /// rows would. A read of `table`'s rows that fails while its rows show keeps them, under a line with Try Again.
     func query(_ sql: String, limit: Int = ResultGrid.shown, reading table: String? = nil) async -> QueryResult? {
+        let id = UUID().uuidString
+        running = id
+        defer { if running == id { running = nil } }
         let (result, error) = await app.tryCall(
-            DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
+            DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit, cancelId: id))
         let shown = table != nil && grid.source?.table == table && !grid.columns.isEmpty
         // The tab may have gone on to show something else meanwhile; then this read's failure isn't said over it.
         guard table.map({ sidebar.current == $0 }) ?? (mode == .query) else { return result }
         failureBar.show(shown ? error : nil)
         if let error, !shown {
             grid.show(columns: [], rows: [])
-            if table == nil {
+            if error == DatabaseCancel.stopped {
+                empty.show(String(localized: "Stopped"), symbol: "stop.circle")
+            } else if table == nil {
                 empty.showError(
                     String(localized: "\(address.name) Said No"), text: error, buttons: askAbout(sql, said: error))
             } else {
@@ -156,6 +161,18 @@ extension DatabaseTab {
             status.stringValue = ""
         }
         return result
+    }
+
+    /// Stop, and ⌘.: the statement or read in progress is stopped in the database, and says so where its rows would be.
+    @objc func stopRunning() {
+        guard let running else { return NSSound.beep() }
+        app.notify { DatabaseCancel(id: running) }
+    }
+
+    /// Shows Stop in Run's place while something runs (past a second, as the foot's wheel does), and Run again after.
+    func showStop(_ shown: Bool) {
+        stopButton.isHidden = !shown || running == nil
+        run.isHidden = mode != .query || !stopButton.isHidden
     }
 
     /// Try Again under a read that failed: it reads what the tab shows again.

@@ -179,9 +179,10 @@ extension Databases {
 
     func failed(_ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
         run.state = .failed
-        run.error = failure.message
+        // A statement the user stopped fails however its engine ended it (a closed connection, a killed client)
+        run.error = DatabaseStop.current?.stopped == true ? DatabaseCancel.stopped : failure.message
         note(databaseQuery.worktreeId, run)
-        return RPCError.invalidParams(failure.message)
+        return RPCError.invalidParams(run.error ?? failure.message)
     }
 
     /// Tries the change and rolls it back, then asks the user on the agent's row. Returns whether the user allowed it.
