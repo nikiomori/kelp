@@ -49,7 +49,7 @@ final class MarkReviewBar {
     /// Shows where the check is: `count` marks wait, `at` is shown with what was asked of it and the agent's answer
     /// (`said`), and whether Before shows (and can, on a canvas).
     func show(
-        count: Int, at: Int, before shown: Bool, canBefore: Bool, who: String?, said: (note: String, reply: String)
+        count: Int, at: Int, before: (shown: Bool, can: Bool), who: String?, said: (note: String, reply: String)
     ) {
         _ = bar
         bar.isHidden = count == 0
@@ -61,8 +61,8 @@ final class MarkReviewBar {
             ? String(localized: "\(agent) finished its turn") : "“\(said.note)” → " + answer
         label.toolTip = said.note.isEmpty ? nil : said.note + "\n\n" + answer
         position.stringValue = String(localized: "\(at + 1) of \(count)")
-        before.isHidden = !canBefore
-        before.selectedSegment = shown ? 0 : 1
+        self.before.isHidden = !before.can
+        self.before.selectedSegment = before.shown ? 0 : 1
     }
 
     @objc private func beforeChosen() { run("showBefore(\(before.selectedSegment == 0))") }

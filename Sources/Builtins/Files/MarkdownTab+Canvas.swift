@@ -62,8 +62,9 @@ extension MarkdownTab {
         case "review":
             let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
             reviewBar.show(
-                count: number("count"), at: number("at"), before: body["before"] as? Bool ?? false,
-                canBefore: body["canBefore"] as? Bool ?? false, who: pageAuthor.map { app.catalog.name($0.agent) },
+                count: number("count"), at: number("at"),
+                before: (body["before"] as? Bool ?? false, body["canBefore"] as? Bool ?? false),
+                who: pageAuthor.map { app.catalog.name($0.agent) },
                 said: (body["note"] as? String ?? "", body["reply"] as? String ?? ""))
         case "pick":
             let row = (body["row"] as? String ?? "").trimmingCharacters(in: .whitespaces)

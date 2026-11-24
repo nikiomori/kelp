@@ -122,11 +122,11 @@ private func demo() throws -> (root: URL, folder: URL) {
 /// ended.
 @MainActor @Test func theCheckBarSaysWhatWasAskedAndAnswered() {
     let bar = MarkReviewBar { _ in }
-    bar.show(count: 2, at: 0, before: false, canBefore: false, who: "Claude", said: ("bigger", "Made it 40px"))
+    bar.show(count: 2, at: 0, before: (false, false), who: "Claude", said: ("bigger", "Made it 40px"))
     #expect(bar.label.stringValue == "“bigger” → Made it 40px" && !bar.bar.isHidden)
-    bar.show(count: 2, at: 1, before: false, canBefore: false, who: "Claude", said: ("bigger", ""))
+    bar.show(count: 2, at: 1, before: (false, false), who: "Claude", said: ("bigger", ""))
     #expect(bar.label.stringValue == "“bigger” → Claude didn’t answer it")
-    bar.show(count: 1, at: 0, before: false, canBefore: false, who: nil, said: ("", ""))
+    bar.show(count: 1, at: 0, before: (false, false), who: nil, said: ("", ""))
     #expect(bar.label.stringValue == "The agent finished its turn")
 }
 
