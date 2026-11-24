@@ -45,6 +45,11 @@ private let board = """
     #expect(added.contains(#"<h1 data-id="t" data-start="1">"#))
     #expect(BoardEdit.setAttribute(page, id: "intro", name: "style", value: "x") == nil, "only data- attributes")
     #expect(BoardEdit.setAttribute(page, id: "intro", name: "data-start", value: "1\"><script>") == nil)
+    // A link's address and a picture's words take any text, escaped, and read back as typed.
+    let link = ##"<a data-id="cta" href="#">Go</a>"##
+    let linked = try #require(BoardEdit.setAttribute(link, id: "cta", name: "href", value: "/a?x=1&y=\"2\""))
+    #expect(linked.contains(#"href="/a?x=1&amp;y=&quot;2&quot;""#))
+    #expect(BoardEdit.attribute(linked, id: "cta", name: "href") == "/a?x=1&y=\"2\"")
 }
 
 /// An element taken out leaves no empty line; one copied comes right after it, its data-ids and those inside it

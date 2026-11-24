@@ -75,14 +75,17 @@ public enum BoardEdit {
 
     /// Sets attribute `name` of element `id` (the page's `<body>` when nil) to `value`, adding it when the element has
     /// none, or takes it away when `value` is nil. Only a `data-` name or `src`, and a value that can't end the
-    /// attribute, are taken (a motion page's times and size, an element hidden, an image replaced).
+    /// attribute, are taken (a motion page's times and size, an element hidden, an image replaced); a link's and a
+    /// picture's words (`href`, `target`, `alt`) take any text, written escaped.
     public static func setAttribute(_ source: String, id: String?, name: String, value: String?) -> String? {
-        guard name.hasPrefix("data-") || name == "src", name.allSatisfy({ $0.isLetter || $0 == "-" }),
-            !(value ?? "").contains(where: { "\"<>&".contains($0) }),
+        let words = ["href", "target", "alt"].contains(name)
+        guard name.hasPrefix("data-") || name == "src" || words, name.allSatisfy({ $0.isLetter || $0 == "-" }),
+            words || !(value ?? "").contains(where: { "\"<>&".contains($0) }),
             let tag = id.map({ openingTag(source, id: $0) }) ?? bodyTag(source)
         else { return nil }
         var opening = String(source[tag])
-        let attribute = value.map { " \(name)=\"\($0)\"" } ?? ""
+        let written = words ? value.map { escape($0).replacingOccurrences(of: "\"", with: "&quot;") } : value
+        let attribute = written.map { " \(name)=\"\($0)\"" } ?? ""
         if let start = opening.range(of: " \(name)=\""),
             let end = opening[start.upperBound...].firstIndex(of: "\"")
         {
@@ -93,6 +96,14 @@ public enum BoardEdit {
         var out = source
         out.replaceSubrange(tag, with: opening)
         return out
+    }
+
+    /// Returns attribute `name` of element `id` as written in its tag, unescaped, or nil when it has none.
+    public static func attribute(_ source: String, id: String, name: String) -> String? {
+        guard let tag = openingTag(source, id: id), let at = source[tag].range(of: " \(name)=\""),
+            let end = source[at.upperBound..<tag.upperBound].firstIndex(of: "\"")
+        else { return nil }
+        return unescape(String(source[at.upperBound..<end]))
     }
 
     /// Returns the value of `property` in element `id`'s inline style, or nil when it sets none.

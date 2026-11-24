@@ -72,7 +72,7 @@ extension MarkdownTab {
             let layerLabels = [
                 "layers": String(localized: "Layers"), "keys": String(localized: "↑ parent · ↓ inside · ⇥ next"),
                 "allLike": String(localized: "All like this"), "onBoards": String(localized: "on %d boards")
-            ]
+            ].merging(canvasEditMoreLabels) { own, _ in own }   // and Edit's Link, Picture and Arrange
             let anchors = [
                 "moved": String(localized: "Moved"), "gone": String(localized: "Gone"),
                 "pointAgain": String(localized: "Point Again")
@@ -109,7 +109,7 @@ extension MarkdownTab {
                         + CanvasVariants.source(labels: variantLabels)
                     let byHand =
                         CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
-                        + CanvasLayers.source(labels: layerLabels)
+                        + CanvasLayers.source(labels: layerLabels) + CanvasEditMore.source(labels: layerLabels)
                     let handles =
                         CanvasHandles.source(animated: animatedNote) + CanvasEditBar.source
                         + CanvasCrop.source(labels: cropLabels) + CanvasTypeOver.source

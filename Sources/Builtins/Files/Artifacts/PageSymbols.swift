@@ -5,7 +5,13 @@ import DesignKit
 /// CSS mask (`.kelp-sym-xmark`), so it takes the text's colour and size like a letter would.
 @MainActor
 enum PageSymbols {
-    static let names = ["xmark", "pencil", "arrow.up", "arrow.uturn.backward", "ellipsis"]
+    static let names = [
+        "xmark", "pencil", "arrow.up", "arrow.uturn.backward", "ellipsis",
+        // Edit's Arrange (`CanvasEditMore`)
+        "arrow.right", "arrow.down", "align.horizontal.left", "align.horizontal.center", "align.horizontal.right",
+        "arrow.left.and.right", "align.vertical.top", "align.vertical.center", "align.vertical.bottom",
+        "arrow.up.and.down"
+    ]
 
     /// The script that adds the symbols' CSS to the page.
     static func script() -> String {
