@@ -73,8 +73,11 @@ extension SidebarController {
     /// except where the session is, whose child it is, and whether it ended.
     static func place(_ session: Session) -> String {
         let shell = session.isTerminal ? "sh" : ""
-        return [session.id, session.worktreeId ?? "", session.parent ?? "", shell, session.status == .exited ? "x" : ""]
-            .joined(separator: "|")
+        return [
+            session.id, session.worktreeId ?? "", session.parent ?? "", shell, session.status == .exited ? "x" : "",
+            session.branchFolder ?? ""
+        ]
+        .joined(separator: "|")
     }
 
     /// Called when sessions changed without any row moving. Only the rows showing those sessions are updated, not every

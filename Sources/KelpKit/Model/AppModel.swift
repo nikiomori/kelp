@@ -495,6 +495,16 @@ package final class AppModel {
         if worktreeBy == nil { worktreeBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
         return id.flatMap { worktreeBy?[$0] }
     }
+    /// A folder the git marks name by id: a workspace, or a chat's own branch folder (`Session.branchKey`), made up
+    /// here as the daemon makes it up for its reads (`Store.gitPlace`). Only marks and their reads take it: no group.
+    func gitPlace(_ id: String?) -> Worktree? {
+        guard let id, id.hasPrefix(Session.branchKeyPrefix) else { return worktree(id) }
+        guard let chat = session(String(id.dropFirst(Session.branchKeyPrefix.count))), let folder = chat.branchFolder,
+            let home = worktree(chat.worktreeId)
+        else { return nil }
+        let branch = gitState.branch(id) ?? (folder as NSString).lastPathComponent
+        return Worktree(id: id, repoId: home.repoId, branch: branch, path: folder)
+    }
     /// Returns the workspace whose folder holds `path`. It picks the innermost one, because a branch's folder can sit
     /// inside its project's folder.
     package func worktree(holding path: String) -> Worktree? {

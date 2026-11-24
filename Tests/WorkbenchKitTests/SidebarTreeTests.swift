@@ -176,3 +176,17 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
     #expect(chats.map(\.branch) == [nil, nil, nil, "w3", nil, nil])   // w3 holds no chat: it is a2's branch
     #expect(kinds(chats[1].children) == [.agent("kid")])
 }
+
+/// A chat working in a worktree its CLI made (`Session.branchFolder`), not one of Kelp's groups, is marked with that
+/// branch, on any screen; one working in a group's folder isn't, as the group has its row.
+@Test func aChatsOwnWorktreeMarksItsRow() {
+    let own = Worktree(id: "w1", repoId: "r1", branch: "main", path: "/a")
+    let group = Worktree(id: "w2", repoId: "r1", branch: "feat", path: "/w2", createdAt: Date(timeIntervalSinceNow: 60))
+    var a1 = agent("a1", in: "w1", .working), a2 = agent("a2", in: "w1", .idle), a3 = agent("a3", in: "w2", .idle)
+    a1.branchFolder = "/a/.claude/worktrees/fix"
+    a2.branchFolder = "/w2"
+    a3.branchFolder = "/a/.claude/worktrees/other"
+    let rows = tree([own, group], [a1, a2, a3]).build()[0].children
+    #expect(rows[0].children.map(\.branch) == ["session:a1", nil])
+    #expect(rows[1].children.map(\.branch) == ["session:a3"])
+}

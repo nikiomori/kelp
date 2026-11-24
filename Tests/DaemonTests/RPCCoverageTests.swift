@@ -252,6 +252,26 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await sessions(r).first { $0.id == s.id }?.workDir == nil)
 }
 
+/// A hook from a worktree of the project's that Kelp didn't make (Claude Code's own) names the chat's branch, which
+/// stays when the agent works in its first folder again. Git reads it by the chat's key; what removes a workspace can't
+/// take it.
+@Test func aWorktreeTheAgentWorksInIsItsBranchAndStays() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let s = try await session(r, "cat")
+    let fix = r.repo.path + "/.claude/worktrees/fix"
+    try Git.run(["worktree", "add", "-q", "-b", "fix", fix], cwd: r.repo.path, remotes: .none)
+    _ = try await r.c.call(
+        "session.hook", .obj(["id": .string(s.id), "event": "working", "cwd": .string(fix + "/Sources")]))
+    _ = try await r.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "cwd": .string(s.cwd)]))
+    let chat = try #require(try await sessions(r).first { $0.id == s.id })
+    #expect(chat.workDir == nil)
+    #expect(chat.branchFolder == URL(fileURLWithPath: fix).resolvingSymlinksInPath().path)
+    #expect(try await r.c.call(GitBranches(id: chat.branchKey)).current == "fix")
+    await #expect(throws: (any Error).self) { try await r.c.call(WorktreeRemove(id: chat.branchKey)) }
+    #expect(FileManager.default.fileExists(atPath: fix + "/.git"))
+}
+
 @Test func whatAProgramReportsShowsUntilItSaysSomethingElse() async throws {
     let r = try await rig()
     defer { r.d.stop() }

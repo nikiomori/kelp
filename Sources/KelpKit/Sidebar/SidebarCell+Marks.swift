@@ -121,7 +121,7 @@ extension SidebarCell {
         case .project(let id):
             node.children.contains { $0.kind == .workspace(node.workspace ?? "") } ? nil : app.gitFolder(project: id)
         case .workspace(let id): if isOwnScreen { app.worktree(id) } else { app.gitFolder(workspace: id) }
-        case .agent: node.branch.flatMap { app.worktree($0) }   // not `app.worktree`: that picks worktree(holding:)
+        case .agent: app.gitPlace(node.branch)
         case .host, .parked: nil
         }
     }

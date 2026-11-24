@@ -16,8 +16,8 @@ struct SourceControl: Sendable {
     /// do to a session.
     let send: @Sendable (SessionSend) throws -> Void
 
-    /// The folder of the workspace a client named.
-    func folder(_ worktreeId: String) throws -> String { try store.worktree(named: worktreeId).path }
+    /// The folder of the workspace a client named, or of a chat's own branch (`Store.gitPlace`).
+    func folder(_ worktreeId: String) throws -> String { try store.gitPlace(named: worktreeId).path }
 
     /// Returns what an agent's turn changed, and the folder it worked in then (maybe its own worktree). With `turn`, a
     /// turn from the agent's history, the diff runs from that turn's start up to the next turn's start, or up to now

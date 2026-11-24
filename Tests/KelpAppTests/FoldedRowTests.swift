@@ -76,6 +76,14 @@ extension OneAtATime {
                 }
             }
         }
+        // A worktree its CLI made, no group of Kelp's, marks the row and fills the card the same way.
+        var cli = chat
+        cli.branchFolder = "/tmp/kelp-screen-atlas/.claude/worktrees/fix"
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: [cli]) { vc, o in
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+            #expect(cell.folder?.id == "session:c" && cell.folder?.path == cli.branchFolder)
+            #expect(try #require(CardModel(.agent("c"), app: vc.app)).branch?.id == "session:c")
+        }
         // A helper group the chat made, under the chat, is no second screen: the project's row keeps its screen's card.
         var helper = Worktree(id: "h", repoId: "r1", branch: "main", path: atlas.path, note: "Helpers")
         helper.madeBy = "c"

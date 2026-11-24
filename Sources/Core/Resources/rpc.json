@@ -4577,6 +4577,10 @@
             },
             "type" : "array"
           },
+          "branchFolder" : {
+            "description" : "The git worktree of its project, other than the folder it started in, that the agent last worked in: a branch of its own that its CLI made (Claude Code's `.claude/worktrees/…`), not one of Kelp's groups. Unlike `workDir`, it stays when the agent works in its first folder again. The chat's row shows that branch (`branchKey`).",
+            "type" : "string"
+          },
           "browser" : {
             "description" : "Whether Claude Code got Kelp's browser skill, and why (\"on · Vite in package.json\"). nil for agents without skills.",
             "type" : "string"
