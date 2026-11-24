@@ -61,13 +61,26 @@ extension MarkdownTab {
     func soundMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         guard kind == "soundProp", let id = body["id"] as? String, let name = body["name"] as? String,
             ["volume", "from", "fade-in", "fade-out", "rate", "loop", "duck", "loudness"].contains(name),
-            let value = body["value"] as? String
+            let asked = body["value"] as? String
         else { return false }
+        // Where in the file it starts is within the file: past its end it would play nothing.
+        var value = asked
+        if name == "from", let from = Double(asked), let length = soundLength(id) {
+            value = MarkdownTab.seconds(min(max(from, 0), max(length - 0.1, 0)))
+        }
         // What is as if it weren't set goes: a speed of 1, no loop, no fade, the file from its start.
         let plain = name == "rate" ? Double(value) == 1 : name != "volume" && Double(value) == 0
         let edit = HandEdit(board: pageFile, id: id, what: name, from: nil, to: value)
         rewritePage(edit) { BoardEdit.setAttribute($0, id: id, name: "data-" + name, value: plain ? nil : value) }
         return true
+    }
+
+    /// How long element `id`'s sound file plays, in seconds; nil when it doesn't read.
+    private func soundLength(_ id: String) -> Double? {
+        guard let src = BoardEdit.attribute(editor.text, id: id, name: "src"),
+            let file = try? AVAudioFile(forReading: url.deletingLastPathComponent().appendingPathComponent(src))
+        else { return nil }
+        return Double(file.length) / file.fileFormat.sampleRate
     }
 
     /// The beats of the page's first sound, at the page's seconds (once its file is read).
