@@ -195,6 +195,17 @@ private func tempRoot() throws -> URL {
     #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.n == 24)
 }
 
+/// A version kept from a record read before another version was kept takes the next number, not the same one.
+@Test func versionsKeptFromAnOldRecordDontOverwriteEachOther() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.doc, title: "Plan", root: root.path, session: "s1")
+    let (slug, stale) = try #require(Artifacts.list(root: root.path).first)
+    #expect(try Artifacts.keepVersion(slug, stale, root: root.path, label: "turn", now: Date()))
+    try "# Plan\n\nBy hand.\n".write(to: page, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersion(slug, stale, root: root.path, label: "By hand", byUser: true, now: Date()))
+    #expect(Artifacts.items(root: root.path).first?.versions?.map(\.n) == [1, 2])
+}
+
 /// A cloned repository can commit `.kelp/artifacts/x/artifact.json`: it lists only a web page's link or a file in its
 /// own folder, and a page that is a link to a device (`/dev/zero` never ends) is never read.
 @Test(.timeLimit(minutes: 1)) func aCommittedArtifactIsReadWithCare() throws {

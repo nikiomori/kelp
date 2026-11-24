@@ -198,6 +198,11 @@ extension Artifacts {
         _ slug: String, _ record: ArtifactRecord, root: String, label: String, byUser: Bool = false,
         restored: Int? = nil, now: Date
     ) throws -> Bool {
+        // A turn's end, a pause in hand edits and a send can keep a version at once: one at a time, each with the
+        // record as the one before it left it, so no two take the same number.
+        Artifacts.versionLock.lock()
+        defer { Artifacts.versionLock.unlock() }
+        let record = Artifacts.record(in: dir(root: root).appendingPathComponent(slug)) ?? record
         let target = target(slug, record, root: root)
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
         // A design's version is one file that holds the canvas together with the text of every board, so an older

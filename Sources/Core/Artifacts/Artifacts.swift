@@ -128,6 +128,9 @@ public enum Artifacts {
             .sorted { $0.record.created > $1.record.created }
     }
 
+    /// Held while a version of a page is kept (the daemon's `keepVersion`), one at a time in this process.
+    public static let versionLock = NSLock()
+
     /// Reads the record in an artifact's folder, or returns nil for a folder that isn't one (or a half-written record).
     /// A repository can commit a record, so only what Kelp writes is accepted: a link to a web page, or a file in the
     /// artifact's own folder.
