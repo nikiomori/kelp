@@ -58,9 +58,9 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
     Worktree(id: id, repoId: r.id, branch: "main", path: r.path, createdAt: Date(timeIntervalSince1970: t))
 }
 
-/// A project's own screen has no heading: its agents are the project's chats, right under the name. Nothing else moves
-/// when a group comes: it goes under them, under a heading of its own, however many agents it holds.
-@Test func aProjectsChatsHaveNoHeadingAndGroupsAlwaysDo() {
+/// A project with one screen lists its chats right under its name. Once it has another screen, its own screen gets a
+/// row too, so every chat sits under the screen it is on, however many agents each holds.
+@Test func aProjectsOwnScreenGetsARowOnceThereAreOthers() {
     let chats = [agent("a1", in: "d", .working), agent("a2", in: "d", .idle)]
     let alone = tree([workspace("d", r1)], chats).build()
     #expect(alone[0].workspace == "d" && kinds(alone[0].children) == [.agent("a1"), .agent("a2")])
@@ -69,9 +69,25 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
         [workspace("d", r1), workspace("g", r1, at: 1), workspace("e", r1, at: 2)],
         chats + [agent("a3", in: "g", .working)]
     ).build()
-    #expect(grouped[0].workspace == "d")
-    #expect(kinds(grouped[0].children) == [.agent("a1"), .agent("a2"), .workspace("g"), .workspace("e")])
-    #expect(kinds(grouped[0].children[2].children) == [.agent("a3")])   // one agent keeps its heading, and none does too
+    #expect(grouped[0].workspace == "d")   // the project's row still opens its own screen
+    #expect(kinds(grouped[0].children) == [.workspace("d"), .workspace("g"), .workspace("e")])
+    #expect(kinds(grouped[0].children[0].children) == [.agent("a1"), .agent("a2")])
+    #expect(kinds(grouped[0].children[1].children) == [.agent("a3")])   // one agent keeps its row, and none does too
+}
+
+/// A folded project hides its chats and keeps its screens, each with the chats it hides; a project with one screen
+/// folds to its own row, which holds them all.
+@Test func aFoldedProjectKeepsItsScreensAndHidesTheirChats() {
+    let ss = [agent("a1", in: "d", .working), agent("a2", in: "g", .waiting), agent("b1", in: "x", .working)]
+    var t = SidebarTree(
+        projects: [r1, r2], workspaces: [workspace("d", r1), workspace("g", r1, at: 1), workspace("x", r2)],
+        sessions: ss)
+    t.foldedProjects = ["r1", "r2"]
+    let out = t.build()
+    #expect(kinds(out[0].children) == [.workspace("d"), .workspace("g")])
+    #expect(out[0].children.map(\.hidden) == [["a1"], ["a2"]])
+    #expect(out[0].children.allSatisfy(\.children.isEmpty) && out[0].hidden.isEmpty)
+    #expect(out[1].children.isEmpty && out[1].hidden == ["b1"])
 }
 
 /// Which workspace is the project's own doesn't follow a dragged order, and a checkout elsewhere is never it.
@@ -128,9 +144,10 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
     #expect(kinds(out[1].children) == [.agent("a2")])
 }
 
-/// A group a chat made (a branch for its helpers) stands right under that chat, its own chats under it; one made from
-/// inside a group, or whose maker is gone, stays among the project's groups.
-@Test func aGroupAnAgentMadeStandsUnderItsChat() {
+/// A group a chat made (a branch for its helpers) stands right under that chat, its own chats under it; one that holds
+/// no chats is the chat's own branch, a mark on its row. One made from inside a group, or whose maker is gone, is a
+/// screen of the project's, so the project's own screen gets its row.
+@Test func aGroupAnAgentMadeStandsUnderItsChatOrMarksIt() {
     var made = wt("w2", "r1", "helper"), typed = wt("w3", "r1", "typed"), orphan = wt("w4", "r1", "orphan")
     var deep = wt("w5", "r1", "deep")
     made.madeBy = "a1"
@@ -142,11 +159,10 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
         agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle), agent("kid", in: "w2", .working)
     ]
     let rows = tree([own, made, typed, orphan, deep], ss).build()[0].children
-    #expect(
-        kinds(rows) == [
-            .agent("a1"), .workspace("w2"), .agent("a2"), .workspace("w3"), .workspace("w4"), .workspace("w5")
-        ]
-    )
-    #expect(rows.map(\.under) == [nil, "a1", nil, "a2", nil, nil])
-    #expect(kinds(rows[1].children) == [.agent("kid")])
+    #expect(kinds(rows) == [.workspace("w1"), .workspace("w4"), .workspace("w5")])
+    let chats = rows[0].children
+    #expect(kinds(chats) == [.agent("a1"), .workspace("w2"), .agent("a2")])
+    #expect(chats.map(\.under) == [nil, "a1", nil])
+    #expect(chats.map(\.branch) == [nil, nil, "w3"])   // w3 holds no chat: it is a2's branch
+    #expect(kinds(chats[1].children) == [.agent("kid")])
 }
