@@ -142,7 +142,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         designButton.image = .symbol("cursorarrow.rays", String(localized: "Design Mode"))
         designButton.toolTip = String(
             localized:
-                "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)"
+                "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them, ⇧-click copies its picture for an artifact's mark)"
         )
         recordButton.contentTintColor = .systemRed
         recordButton.isHidden = true

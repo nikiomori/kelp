@@ -8450,16 +8450,6 @@
         }
       }
     },
-    "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Режим дизайна: нажмите на элемент, чтобы отправить агенту его исходник, HTML, CSS и снимок (⌥-клик копирует их)"
-          }
-        }
-      }
-    },
     "Detached at %@": {
       "localizations": {
         "ru": {
@@ -33676,6 +33666,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "на этом слайде"
+          }
+        }
+      }
+    },
+    "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them, ⇧-click copies its picture for an artifact's mark)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим дизайна: нажмите на элемент, чтобы отправить агенту его исходник, HTML, CSS и снимок (⌥-клик копирует их, ⇧-клик копирует его картинку для пометки артефакта)"
+          }
+        }
+      }
+    },
+    "Copied as a picture: paste it into a mark's note to make it the example": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано картинкой: вставьте в заметку пометки, чтобы она стала образцом"
           }
         }
       }
