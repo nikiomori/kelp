@@ -8,16 +8,16 @@ enum CanvasObjects {
         (function () {
           const K = window.kelpCanvas; if (!K) return;
           let pending = null;
-          K.sheet.addEventListener('click', e => {
-            if (K.mode() !== 'mark' || K.tool?.() !== 'element' || e.detail > 1) return;
+          K.claims.push(e => {
+            if (K.mode() !== 'mark' || K.tool?.() !== 'element' || e.detail > 1) return false;
             const at = K.under(e, true);
-            if (!at || at.e.tagName !== 'IMG' || !at.e.currentSrc.startsWith('file:')) return;
+            if (!at || at.e.tagName !== 'IMG' || !at.e.currentSrc.startsWith('file:')) return false;
             const fr = at.f.getBoundingClientRect(), k = fr.width / at.f.offsetWidth, r = at.e.getBoundingClientRect();
             const x = (e.clientX - fr.left) / k, y = (e.clientY - fr.top) / k;
-            e.stopImmediatePropagation();
             pending = { at, box: [r.left, r.top, r.width, r.height] };
             K.post({ kind: 'objectAt', src: at.e.currentSrc, x: (x - r.left) / r.width, y: (y - r.top) / r.height });
-          }, true);
+            return true;
+          });
           // Kelp's answer: the outline's points across and down the picture, or null for the picture as a whole.
           window.kelpObjectMark = points => {
             const p = pending; pending = null; if (!p) return;

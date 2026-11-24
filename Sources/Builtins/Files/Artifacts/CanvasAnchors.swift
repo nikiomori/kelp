@@ -44,17 +44,17 @@ enum CanvasAnchors {
             return chip;
           };
           // While pointing again, a click on an element is the mark's new target, not a new mark.
-          K.sheet.addEventListener('click', e => {
-            if (!repointing) return;
-            const at = K.under(e); if (!at) return;
-            e.stopImmediatePropagation();
+          K.claims.push(e => {
+            if (!repointing) return false;
+            const at = K.under(e); if (!at) return true;
             const m = Object.assign(repointing, { board: at.f.dataset.board }, K.describe(at.e));
             repointing = null;
             document.body.classList.remove('kelp-repointing');
             // A draft goes with the drafts; a mark sent or to check is changed on its own.
             if (m.state !== 'draft') K.post({ kind: 'markTarget', id: m.id, mark: m });
             M.changed();
-          }, true);
+            return true;
+          });
         """
 
     static let style = """

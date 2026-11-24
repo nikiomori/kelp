@@ -281,7 +281,10 @@ enum CanvasEdit {
             });
             field.addEventListener('blur', () => end(true));
           }
+          // A click others take first (pointing a mark again, an object in a photo): asked in turn, before a mark.
+          const claims = [];
           sheet.addEventListener('click', e => {
+            if (claims.some(take => take(e))) return;
             if (mode === 'mark' && tool === 'label') {
               const at = frameAt(e); if (!at || e.detail > 1) return;
               return labelField(Object.assign(at, { cx: e.clientX, cy: e.clientY }));
@@ -313,7 +316,7 @@ enum CanvasEdit {
             return id;
           }
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode,
-            hooks, find, inPage, describe, need, nameOf, tool: () => tool };
+            hooks, find, inPage, describe, need, nameOf, claims, tool: () => tool };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });
