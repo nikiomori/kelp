@@ -48,10 +48,14 @@ import Testing
             """)
     #expect(diff.tables.first { $0.name == "customers" }?.same == true)
 
-    // Hidden from agents, neither is compared for one; the user still compares them
+    // Hidden from agents, neither is compared for one; the user still compares them. The original hidden alone is
+    // refused too, though the copy isn't hidden.
     var project = try #require(try await w.c.call(DatabaseList(worktreeId: main.id)).first)
     project.access = .hidden
     _ = try await w.c.call(DatabaseSave(worktreeId: main.id, database: project))
+    await expectRefusal(says: "no databases Kelp knows of") {
+        try await w.d.workspaces.databases.compare(branch.id, nil, agent: true)
+    }
     var hidden = try #require(try await w.c.call(DatabaseList(worktreeId: branch.id)).first)
     hidden.access = .hidden
     _ = try await w.c.call(DatabaseSave(worktreeId: branch.id, database: hidden))
@@ -74,4 +78,14 @@ import Testing
             [column("id", "INTEGER"), column("total", "REAL"), column("paid_at", "TEXT")],
             [column("id", "INTEGER"), column("total", "INTEGER"), column("note", "TEXT")])
             == ["total INTEGER → REAL", "+ paid_at TEXT", "− note TEXT"])
+}
+
+/// A production original's rows aren't counted one by one (an exact COUNT(*) reads each table whole): the schema's
+/// own numbers stand.
+@Test func aProductionOriginalIsntCounted() {
+    let tables = [DatabaseSchema.Table(name: "orders", rows: 12, columns: [])]
+    var db = DatabaseInfo(name: "app", engine: .postgres)
+    #expect(Databases.counting(tables, db)?.contains("COUNT(*)") == true)
+    db.production = true
+    #expect(Databases.counting(tables, db) == nil)
 }

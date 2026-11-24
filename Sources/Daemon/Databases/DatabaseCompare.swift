@@ -16,9 +16,10 @@ extension Databases {
 
     /// The copy named (or the workspace's only copy) and the database it copies. A file copied into the branch's
     /// folder keeps the original's name, so then the original is the project's own workspace's.
-    private func pair(_ worktreeId: String, _ name: String?, agent: Bool) throws -> (DatabaseConnection,
-        DatabaseConnection)
-    {
+    private func pair(_ worktreeId: String, _ name: String?, agent: Bool) throws -> (
+        DatabaseConnection,
+        DatabaseConnection
+    ) {
         let copies = try connections(worktreeId).filter {
             $0.database.copy != nil && (!agent || $0.database.agentAccess != .hidden)
         }
@@ -41,8 +42,8 @@ extension Databases {
         return (copy, try connection(home.id, of, agent: agent))
     }
 
-    /// A database's tables (views left out), with their rows counted in one statement. Where counting fails, the
-    /// schema's own numbers stand.
+    /// A database's tables (views left out), with their rows counted in one statement (`counting`). Where counting
+    /// fails, the schema's own numbers stand.
     private func tables(_ databaseConnection: DatabaseConnection, _ worktreeId: String) async throws
         -> [DatabaseSchema.Table]
     {
@@ -51,10 +52,7 @@ extension Databases {
         do {
             tables = try await DatabaseEngines.schema(near, table: nil, off: offloads).tables.filter { $0.kind == nil }
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
-        guard !tables.isEmpty else { return tables }
-        let engine = near.database.engine
-        let sql = tables.map { "SELECT \(engine.literal($0.name)), COUNT(*) FROM \(engine.table($0.name))" }
-            .joined(separator: " UNION ALL ")
+        guard let sql = Self.counting(tables, near.database) else { return tables }
         do {
             var counts: [String: Int] = [:]
             for row in try await DatabaseEngines.read(near, sql, off: offloads).rows where row.count == 2 {
@@ -65,6 +63,14 @@ extension Databases {
             Log.store.error("counting \(near.database.name)'s rows: \(error)")
         }
         return tables
+    }
+
+    /// The read that counts each table's rows, or nil when none is counted: a production database keeps the schema's
+    /// own numbers (Postgres' estimates), as an exact COUNT(*) of each table would read all of it.
+    static func counting(_ tables: [DatabaseSchema.Table], _ db: DatabaseInfo) -> String? {
+        guard !tables.isEmpty, !db.production else { return nil }
+        return tables.map { "SELECT \(db.engine.literal($0.name)), COUNT(*) FROM \(db.engine.table($0.name))" }
+            .joined(separator: " UNION ALL ")
     }
 
     /// The tables of both, by name: what is only in one, and the columns that differ in those in both.
