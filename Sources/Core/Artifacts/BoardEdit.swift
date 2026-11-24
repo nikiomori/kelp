@@ -252,7 +252,11 @@ public enum BoardEdit {
     /// The range of the whole element with `data-id="id"`, from its opening tag to its closing one, counting the same
     /// tags opened inside it. nil when there is no such element, more than one, or it isn't closed.
     static func elementRange(_ source: String, id: String) -> Range<String.Index>? {
-        guard let tag = openingTag(source, id: id) else { return nil }
+        openingTag(source, id: id).flatMap { elementRange(source, tag: $0) }
+    }
+
+    /// The range of the whole element whose opening tag is `tag`, to its closing one; nil when it isn't closed.
+    static func elementRange(_ source: String, tag: Range<String.Index>) -> Range<String.Index>? {
         let name = source[tag].dropFirst().prefix(while: { $0.isLetter || $0.isNumber || $0 == "-" }).lowercased()
         let voids: Set = ["img", "br", "hr", "input", "meta", "link", "source", "area", "col", "embed", "wbr"]
         guard !name.isEmpty else { return nil }

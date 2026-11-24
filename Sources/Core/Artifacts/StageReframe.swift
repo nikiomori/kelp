@@ -13,15 +13,20 @@ public enum StageReframe: String, CaseIterable, Sendable {
         else { return source }
         let marker = #"data-kelp-frame=""#
         var design = old
-        var inner = String(source[body.upperBound..<close.lowerBound])
-        // Already framed: its design size, and what it holds.
+        var inner = String(source[body.upperBound..<close.lowerBound]), before = "", after = ""
+        // Already framed: its design size, and what it holds. What sits outside the frame (music dropped after it)
+        // stays outside.
         if let at = inner.range(of: marker),
             let size = inner[at.upperBound...].split(separator: "\"", maxSplits: 1).first,
+            let open = inner[..<at.lowerBound].lastIndex(of: "<"),
             let end = inner[at.upperBound...].firstIndex(of: ">"),
-            let last = inner.range(of: "</div>", options: .backwards)
+            let whole = BoardEdit.elementRange(inner, tag: open..<inner.index(after: end)),
+            let last = inner[..<whole.upperBound].range(of: "</div>", options: .backwards)
         {
             let parts = size.split(separator: "x").compactMap { Int($0) }
             if parts.count == 2 { design = (parts[0], parts[1]) }
+            before = inner[..<open].trimmingCharacters(in: .whitespacesAndNewlines)
+            after = inner[whole.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
             inner = String(inner[inner.index(after: end)..<last.lowerBound])
         }
         let (w, h) = (Double(design.0), Double(design.1))
@@ -30,7 +35,10 @@ public enum StageReframe: String, CaseIterable, Sendable {
         let style =
             "position: absolute; left: \(Self.px(left)); top: \(Self.px(top)); width: \(design.0)px; "
             + "height: \(design.1)px; transform: scale(\(Self.number(k))); transform-origin: 0 0"
-        let framed = "\n<div \(marker)\(design.0)x\(design.1)\" style=\"\(style)\">" + inner + "</div>\n"
+        let framed =
+            (before.isEmpty ? "" : "\n" + before) + "\n<div \(marker)\(design.0)x\(design.1)\" style=\"\(style)\">"
+            + inner
+            + "</div>\n" + (after.isEmpty ? "" : after + "\n")
         var out = source
         out.replaceSubrange(body.upperBound..<close.lowerBound, with: framed)
         return out

@@ -128,6 +128,11 @@ private let board = """
     #expect(
         fill.contains("left: -1166.67px; top: 0px; width: 1920px")
             && fill.components(separatedBy: "data-kelp-frame").count == 2)
+    // Music dropped after the frame stays, outside it, when the stage changes again.
+    let withMusic = fill.replacingOccurrences(of: "</body>", with: #"<audio data-id="m" src="a.mp3"></audio></body>"#)
+    let again = StageReframe.fit.apply(withMusic, old: (1080, 1920), width: 1920, height: 1080)
+    #expect(
+        again.contains(#"<h1>Hi</h1></div>"#) && again.contains("</div>\n<audio data-id=\"m\" src=\"a.mp3\"></audio>"))
     #expect(StageReframe.none.apply(page, old: (1920, 1080), width: 1080, height: 1920) == page)
 }
 
