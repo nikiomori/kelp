@@ -141,7 +141,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             agents.setLabel(DatabaseLook.title(access), forSegment: i)
         }
         let defaultAccess = DatabaseInfo.Access(rawValue: app.settings[SettingKeys.databaseAccess]) ?? .ask
-        agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: editing?.access ?? defaultAccess) ?? 2
+        agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: editing?.access ?? defaultAccess) ?? 0
         agents.target = self
         agents.action = #selector(changed)
         stage.target = self
@@ -267,7 +267,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         whyRow?.isHidden = why.stringValue.isEmpty   // hides the grid's row, or its gap would stay
         let access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
         agentsWhy.stringValue =
-            picked == .production && access != .hidden && access != .read
+            picked == .production && access.atMost(.read) != access
             ? String(localized: "Production: agents only read it, whatever is picked here.")
             : DatabaseLook.meaning(access)
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
@@ -275,9 +275,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     }
 
     @objc private func stageClicked() {
-        let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 3
+        let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 0
         if DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)] == .staging, agents.selectedSegment == free {
-            agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 2
+            agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 0
         }
         changed()
     }

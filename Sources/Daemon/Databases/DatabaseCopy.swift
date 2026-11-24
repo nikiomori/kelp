@@ -114,7 +114,7 @@ extension Databases {
         // kept as a database added by hand.
         if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
             var db = Self.asCopy(found.database, of: databaseConnection.database.name, for: worktree.id)
-            if databaseConnection.database.access == .hidden { db.access = .hidden }
+            if databaseConnection.database.access.unseenRows { db.access = databaseConnection.database.access }
             let entry = try SavedDatabase(repoId: worktree.repoId, database: db, byHand: false, copyIn: worktree.id)
             try store.db.write { try entry.save($0) }
             touch(worktree.id)
@@ -124,7 +124,7 @@ extension Databases {
             name: databaseConnection.database.name + "_" + suffix, engine: databaseConnection.database.engine,
             path: target)
         db = Self.asCopy(db, of: databaseConnection.database.name, for: worktree.id)
-        db.access = databaseConnection.database.access == .hidden ? .hidden : .free
+        db.access = databaseConnection.database.access.unseenRows ? databaseConnection.database.access : .free
         return try save(worktree.id, db, password: nil)
     }
 
@@ -133,7 +133,7 @@ extension Databases {
     static func asCopy(_ db: DatabaseInfo, of name: String, for worktreeId: String) -> DatabaseInfo {
         var copy = db
         copy.copy = BranchCopy(of: name, worktreeId: worktreeId, at: Date())
-        copy.access = db.access == .hidden ? .hidden : .free
+        copy.access = db.access.unseenRows ? db.access : .free
         copy.production = false
         return copy
     }

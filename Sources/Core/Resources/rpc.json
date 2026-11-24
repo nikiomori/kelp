@@ -1641,9 +1641,10 @@
         "type" : "object"
       },
       "DatabaseInfo.Access" : {
-        "description" : "What agents may do with the database: not see it, read it, change it once the user allows each change, or change it freely.",
+        "description" : "What agents may do with the database: not see it, see only its structure (tables, columns, row counts: no rows), read it, change it once the user allows each change, or change it freely. Each allows what the one before it does, and more.",
         "enum" : [
           "hidden",
+          "structure",
           "read",
           "ask",
           "free"

@@ -350,7 +350,7 @@ enum DatabaseFind {
                 n += 1
             }
             item.database.name = name
-            if isRemote(item.database) { item.database.access = .read }
+            if isRemote(item.database) { item.database.access = item.database.access.atMost(.read) }
             names.insert(name)
             kept.append(item)
         }

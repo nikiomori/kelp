@@ -116,10 +116,20 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         let at = host.map { Self.isLocal($0) ? "localhost" : $0.lowercased() } ?? ""
         return [engine.rawValue, at, port.map(String.init) ?? "", database ?? "", ssh ?? ""].joined(separator: "\u{1F}")
     }
-    /// What agents may do with the database: not see it, read it, change it once the user allows each change, or change
-    /// it freely.
+    /// What agents may do with the database: not see it, see only its structure (tables, columns, row counts: no rows),
+    /// read it, change it once the user allows each change, or change it freely. Each allows what the one before it
+    /// does, and more.
     public enum Access: String, Codable, Sendable, CaseIterable {
-        case hidden, read, ask, free
+        case hidden, structure, read, ask, free
+
+        /// Whether agents don't read its rows: hidden, or its structure only. A copy of such a database stays so.
+        public var unseenRows: Bool { self == .hidden || self == .structure }
+
+        /// This, or `limit` where this allows more.
+        public func atMost(_ limit: Access) -> Access {
+            let all = Self.allCases
+            return all[min(all.firstIndex(of: self) ?? 0, all.firstIndex(of: limit) ?? 0)]
+        }
     }
     /// The database's environment, tagged the way TablePlus and TablePro tag theirs. It sets the database's colour
     /// everywhere it shows (green, blue, orange, red). Agents may only read a Production database.
@@ -191,7 +201,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// The access agents actually get, because a production database can at most be read.
-    public var agentAccess: Access { production && access != .hidden ? .read : access }
+    public var agentAccess: Access { production ? access.atMost(.read) : access }
 
     /// The address shown to people, such as "postgres://app@localhost:5432/app_dev" or the SQLite file's path. It never
     /// holds a password.

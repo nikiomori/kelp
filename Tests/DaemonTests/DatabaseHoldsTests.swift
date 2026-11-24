@@ -202,3 +202,26 @@ func aChangeAllowedForSomeRowsDoesntChangeMore(sql: String, question: String) as
     } catch { #expect((error as? DatabaseFailure)?.message.contains("didn't finish logging in") == true, "\(error)") }
     #expect(Date().timeIntervalSince(started) < 5)
 }
+
+/// See Structure: an agent reads the tables, columns and row counts, and runs no statement, not even a read. A
+/// production database stays so: production only lowers what agents may do.
+@Test func aDatabaseThatShowsItsStructureRunsNoStatementForAgents() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    _ = try ordersDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    var shop = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    shop.access = .structure
+    shop.production = true
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).first?.agentAccess == .structure)
+    let dbs = w.d.workspaces.databases
+    #expect(try await dbs.schema(wt.id, "shop", table: nil, agent: true).tables.first?.rows == 3)
+    for sql in ["SELECT * FROM orders", "UPDATE orders SET status = 'paid'", "SELECT 1; SELECT 2"] {
+        do {
+            _ = try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: sql), origin: agent.id)
+            Issue.record("\(sql) ran on a database agents see the structure of")
+        } catch { #expect("\(error)".contains("structure only"), "\(sql)") }
+    }
+}

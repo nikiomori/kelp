@@ -16,6 +16,12 @@ extension Databases {
         // This runs off the pool, because a remote project's databases are read on its host and reached through a
         // forwarded port.
         let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
+        if forAgent, target.database.agentAccess == .structure {
+            throw RPCError.refused(
+                "\(name) shows agents its structure only: `kelp db schema` reads its tables, columns and row counts, "
+                    + "but no statement runs on it for agents. Write the query and ask the user to run it, or to let "
+                    + "agents read it.")
+        }
         let all: [String]
         do { all = try SQLText.several(databaseQuery.sql, target.database.engine) } catch let failure as DatabaseFailure
         {
@@ -47,7 +53,7 @@ extension Databases {
             return finish(databaseQuery, &run, rows, started: started, agent: forAgent)
         } catch DatabaseFailure.change {
             switch access {
-            case .hidden, .read:
+            case .hidden, .structure, .read:
                 run.state = .refused
                 run.error = "\(target.database.name) is read-only for agents."
                 note(databaseQuery.worktreeId, run)

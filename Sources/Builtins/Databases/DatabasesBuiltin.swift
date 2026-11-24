@@ -78,8 +78,11 @@ extension Builtins {
                             SettingKeys.databaseAccess, "Agents may", .enum,
                             "With a database Kelp finds in a project, until its menu says otherwise. "
                                 + "Production: read only.",
-                            options: ["read", "ask", "free"],
-                            labels: ["read": "Read", "ask": "Read, Ask to Change", "free": "Read and Change"]),
+                            options: ["structure", "read", "ask", "free"],
+                            labels: [
+                                "structure": "See Structure", "read": "Read", "ask": "Read, Ask to Change",
+                                "free": "Read and Change"
+                            ]),
                         s(
                             SettingKeys.databaseRows, "Rows an agent gets", .number,
                             "A statement’s rows an agent reads unless it asks for more; the tab shows up to 1000.",

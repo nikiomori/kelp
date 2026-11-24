@@ -93,6 +93,7 @@ extension Main {
         let access =
             switch db.agentAccess {
             case .hidden: "hidden"
+            case .structure: "structure only (schema, no rows)"
             case .read: "read only"
             case .ask: "read, ask to change"
             case .free: "read, change freely"

@@ -21,9 +21,9 @@ extension Builtins {
         password from the project's files: Kelp holds the passwords, and the user sees each statement you run in its
         Databases panel.
 
-        - `kelp db list` — the databases: name, engine, where it was found, and what agents may do there (read only;
-          read, ask to change; read, change freely). One listed as this branch's copy is the branch's own, made for
-          trying changes: `--db` left out means it, not the database it's a copy of.
+        - `kelp db list` — the databases: name, engine, where it was found, and what agents may do there (structure
+          only; read only; read, ask to change; read, change freely). One listed as this branch's copy is the
+          branch's own, made for trying changes: `--db` left out means it, not the database it's a copy of.
         - `kelp db schema [table] [--db name]` — tables with their row counts; with a table, its columns (type, null,
           primary key, → what a foreign key points to) and indexes. Read it before you write a query. Its last line
           says which migrations aren't applied, when Kelp knows the project's tool (Rails, Prisma, Django, Alembic,
@@ -35,6 +35,9 @@ extension Builtins {
         - `kelp db diff [name]` — how this branch's copy differs from the database it copies: each table's added or
           changed columns and its row count, not the rows themselves. Fit for a pull request's description.
         - `kelp db open [name]` — the database in a tab beside you, for the user.
+
+        A database that shows you its structure only: `kelp db schema` works, row counts too; `kelp db query` and
+        `kelp db open` are refused. Write the query from the schema and give it to the user to run.
 
         Reads run in a read-only transaction. A change (INSERT, UPDATE, DELETE, DDL) goes by the database:
         - ask: Kelp tries it, rolls it back, and asks the user ("Allow changing 1204 rows of orders in app_dev?");

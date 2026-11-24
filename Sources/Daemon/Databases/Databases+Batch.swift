@@ -26,7 +26,7 @@ extension Databases {
             }
             var asked: [Int?]?
             switch forAgent ? databaseConnection.database.agentAccess : .free {
-            case .hidden, .read:
+            case .hidden, .structure, .read:
                 run.state = .refused
                 run.error = "\(name) is read-only for agents."
                 note(databaseQuery.worktreeId, run)
