@@ -53,14 +53,18 @@ extension MainWindowController {
         }
         GhosttyTerminalView.holdSize(true)
         moves.forEach { $0.side.holdWidth(closing: $0.collapsed) }
-        // The side that stays is the one whose panel isn't moving. With both moving, what's shown travels with the
+        // What's shown travels with the edge that moves, as a page's content does when its sidebar opens, and the far
+        // side takes the new width once the columns stand. When it stood still while the column came over it, the
+        // column covered its first tabs and they all jumped over at the end. With both moving, it travels with the
         // left.
-        editors.holdWidth(trailing: !moves.contains { $0.side === right })
+        editors.holdWidth(trailing: !moves.contains { $0.side === left })
         // Columns that only close leave as panels do: sooner, speeding away.
+        // Columns that open move as a fold does: at once, settling slowly, long enough to follow (as a page's sidebar
+        // opens in about 300 ms).
         let leaving = moves.allSatisfy(\.collapsed)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = leaving ? Motion.fast : Motion.base
-            ctx.timingFunction = CAMediaTimingFunction(name: leaving ? .easeIn : .easeOut)
+            ctx.duration = leaving ? Motion.fast : Motion.fold
+            ctx.timingFunction = leaving ? CAMediaTimingFunction(name: .easeIn) : Motion.soft
             moves.forEach { $0.side.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
@@ -112,9 +116,9 @@ extension MainWindowController {
         let away = hides(left)
         let floor = away ? lightsStart : lightsEnd + 12
         if toggleFloor?.constant != floor {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Motion.duration(away ? Motion.fast : Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: away ? .easeIn : .easeOut)
+            NSAnimationContext.runAnimationGroup { ctx in   // with the column, as `slide` moves it
+                ctx.duration = Motion.duration(away ? Motion.fast : Motion.fold)
+                ctx.timingFunction = away ? CAMediaTimingFunction(name: .easeIn) : Motion.soft
                 toggleFloor?.animator().constant = floor
                 pillFloor?.animator().constant = floor
             }
@@ -182,9 +186,12 @@ extension MainWindowController {
     func togglePeek(_ side: Side) {
         if peeking === side { endPeek() } else { peek(side) }
     }
-    /// Opens columns for panels that no longer hide. A panel in its floater comes in there (or stays, peeking) over its
-    /// opening column, and is put in the column once the column stands. Moving a panel takes the main thread some
-    /// 40 ms, and when the panel moved first, that was a wait between the key and anything happening.
+    /// Opens columns for panels that no longer hide. A panel out of sight goes into its column at once and rides in
+    /// with it at its width, the editor area moving over with the column's edge: one motion, as a page's sidebar
+    /// opens. When it came in on its floater's spring over a column opening on another curve, and then jumped from the
+    /// floater (inset, border, shadow) into the column, the two motions and the jump read as lag. Moving the panel
+    /// takes the main thread some 40 ms before the motion starts. A panel peeking stays in its floater over the opening
+    /// column, and goes into the column once the column stands.
     func land(_ columns: [(side: Side, collapsed: Bool)]) {
         for (side, collapsed) in columns where !collapsed && !hides(side) {
             guard side.panel.superview === side.floater.box else { continue }
@@ -196,7 +203,10 @@ extension MainWindowController {
                 peekMoves = nil
                 peeking = nil
             } else {
-                side.floater.slide(in: true)
+                let width = side.floater.width
+                side.column.pin(side.panel)
+                side.holdWidth(closing: false, width: width)
+                if side === left { sidebar.gutter = 0 }
             }
         }
         slide(columns) { [weak self] in
@@ -239,9 +249,10 @@ final class Side {
     /// While its column slides, the panel keeps the width it has when open, and the column uncovers or covers it. When
     /// it was laid out for every width on the way, the sidebar's rows dropped and took back their badges, and a panel's
     /// lines rewrapped.
-    func holdWidth(closing: Bool) {
+    func holdWidth(closing: Bool, width: CGFloat? = nil) {
         guard panel.superview === column, held == nil else { return }
         if closing { openWidth = panel.frame.width }
+        if let width { openWidth = width }   // the width it had in its floater, coming from there
         // The edge beside the editor area lets go, and the edge on the window's side keeps the panel in place.
         guard openWidth > 0, let hold = WidthHold(panel, in: column, edge: inner, width: openWidth) else { return }
         column.clipsToBounds = true
