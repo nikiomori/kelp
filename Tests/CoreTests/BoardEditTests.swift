@@ -204,6 +204,11 @@ private let board = """
         MotionPresets.set(page, id: "t", .entrance, .init("words", length: 0.6, easing: "ease-out", start: 0)))
     #expect(letters.contains(#"<span style="--i: 0">Hi</span> <span style="--i: 1">you</span>"#))
     #expect(letters.contains("calc(0s + var(--i) * 0.12s)"))
+    // Letters dragged on the timeline: the preset starts later, the spans' rule follows, the spans stay.
+    let later = try #require(MotionPresets.shift(letters, id: "t", by: 1.5))
+    #expect(
+        later.contains(#"data-kelp-in="words 0.6 ease-out 1.5""#) && later.contains("calc(1.5s + var(--i) * 0.12s)"))
+    #expect(later.contains(#"<span style="--i: 1">you</span>"#))
     let none = try #require(MotionPresets.set(risen, id: "t", .entrance, .init(nil, length: 0, easing: "", start: 0)))
     #expect(!none.contains("kelp-motion") && !none.contains("data-kelp-in"))
 }

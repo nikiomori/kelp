@@ -117,6 +117,23 @@ public enum MotionPresets {
         return BoardEdit.setInner(page, id: id, html: html)
     }
 
+    /// `page` with element `id`'s entrance and exit starting `shift` seconds later (sooner when below 0), as its track
+    /// dragged on the timeline: letters and words keep their spans, and their rule is written again.
+    public static func shift(_ page: String, id: String, by shift: Double) -> String? {
+        var out = page, any = false
+        for which in [Which.entrance, .exit] {
+            guard let value = BoardEdit.attribute(out, id: id, name: "data-kelp-\(which.rawValue)") else { continue }
+            let p = parse(value), start = max((Double(p.start) ?? 0) + shift, 0)
+            guard
+                let set = BoardEdit.setAttribute(
+                    out, id: id, name: "data-kelp-\(which.rawValue)",
+                    value: "\(p.name) \(p.length) \(p.easing) \(number(start))")
+            else { return nil }
+            (out, any) = (set, true)
+        }
+        return any ? refresh(out) : nil
+    }
+
     /// What an attribute value says: preset, seconds, easing, start.
     public static func parse(_ value: String) -> (name: String, length: String, easing: String, start: String) {
         let p = value.split(separator: " ").map(String.init)

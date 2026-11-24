@@ -172,6 +172,13 @@ extension MarkdownTab {
 
     private func animationTiming(_ was: MotionTimeline.Clip, _ now: MotionTimeline.Clip) -> Timing {
         let shift = now.start - was.start
+        // Letters or words coming in one by one animate their spans: their start is in the element's preset.
+        let preset = BoardEdit.attribute(editor.text, id: now.id, name: "data-kelp-in") ?? ""
+        if preset.hasPrefix("letters") || preset.hasPrefix("words") {
+            let edit = HandEdit(
+                board: pageFile, id: now.id, what: "start", from: Self.seconds(was.start), to: Self.seconds(now.start))
+            return (edit, { MotionPresets.shift($0, id: now.id, by: shift) })
+        }
         let delays = was.delays.map { $0 + shift }
         let lengths = was.delays.count == 1 && now.length != was.length ? [now.length] : was.lengths
         let list = { (values: [Double]) in values.map { Self.seconds(max($0, 0)) + "s" }.joined(separator: ", ") }
