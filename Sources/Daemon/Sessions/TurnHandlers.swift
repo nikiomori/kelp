@@ -21,7 +21,10 @@ extension SessionTurnUndo: AsyncHandled {
             let later = try turns.store.turns(session: id).prefix { $0.id != turn }.map(\.id)
             return (mark, dir, try Git.changed(since: mark.tree, cwd: dir, remotes: turns.remotes), later, agent)
         }
-        let dbs = databases?.turnDatabases(turn, later: later, files: plan.files, top: dir) ?? []
+        let found = databases?.turnDatabases(turn, later: later, files: plan.files, top: dir) ?? []
+        // Only those the sheet listed go back: one changed since it was shown isn't put back unasked
+        let listed = self.databases   // the request's names; `databases` here is the project's
+        let dbs = apply == true ? found.filter { listed?.contains(Turns.sheetName($0)) ?? true } : found
         guard apply == true else {
             return Plan(
                 files: plan.files, state: plan.now, databases: dbs.isEmpty ? nil : Turns.sheet(dbs, agent: agent))
@@ -118,10 +121,14 @@ struct Turns: Sendable {
     static func sheet(_ dbs: [TurnDatabase], agent: String?) -> [SessionTurnUndo.Database] {
         dbs.map { one in
             SessionTurnUndo.Database(
-                name: one.kept.path.map { ($0 as NSString).lastPathComponent } ?? one.kept.name,
+                name: sheetName(one),
                 detail: Databases.said(agent: agent ?? "The agent", one.kept.runs, one.kept.engine),
                 cannot: one.kept.cannot)
         }
+    }
+
+    static func sheetName(_ one: TurnDatabase) -> String {
+        one.kept.path.map { ($0 as NSString).lastPathComponent } ?? one.kept.name
     }
 
     /// The ref that keeps the folder as it was before the session's last undone turn.

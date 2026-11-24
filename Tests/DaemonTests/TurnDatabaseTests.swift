@@ -82,6 +82,30 @@ private func orders(_ path: String) throws -> [String] {
     try server.close()
 }
 
+/// Put Back puts back only the databases its sheet listed: one the project's code changed after the sheet was shown
+/// stays as it is.
+@Test func putBackLeavesADatabaseTheSheetDidntList() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let (path, server) = try shop(in: wt.path)
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let live = try #require(w.d.sessions.existing(s.id))
+    live.noteTurn(.working)
+    #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
+    let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
+    live.noteTurn(.idle)
+    await saved(w, s.id)
+    let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
+    #expect(plan.databases == nil)   // nothing changed yet
+    try await server.write { try $0.execute(sql: "INSERT INTO orders (id, status) VALUES (3, 'new')") }
+    let changed = try orders(path)
+    _ = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state, databases: []))
+    #expect(try orders(path) == changed)
+    try server.close()
+}
+
 /// Kelp keeps a turn's databases as long as the turn is listed: the last 20.
 @Test func aTurnsDatabasesGoWithTheTurn() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])

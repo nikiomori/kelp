@@ -80,7 +80,10 @@ extension DiffViewController {
                 : String(localized: "Put \(plan.files.count) files back as they were before this turn?")
             guard
                 await confirm(title, detail: detail, action: String(localized: "Put Back"), destructive: true),
-                let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state))
+                let after = await app.call(
+                    SessionTurnUndo(
+                        id: sid, turn: turn, apply: true, state: plan.state,
+                        databases: databases.filter { $0.cannot == nil }.map(\.name)))
             else { return }
             status.stringValue =
                 plan.files.isEmpty

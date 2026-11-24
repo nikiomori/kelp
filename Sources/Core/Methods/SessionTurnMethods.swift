@@ -64,16 +64,19 @@ public struct SessionTurns: RPCMethod {
 /// what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that
 /// `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there
 /// are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The
-/// databases the turn changed (`Plan.databases`) go back with the files.
+/// databases the turn changed (`Plan.databases`) go back with the files. With `apply`, `databases` names those the
+/// sheet listed (their `Plan.databases` names): only those go back, so one that changed since isn't put back unasked.
+/// nil puts back each the turn changed, as found now.
 public struct SessionTurnUndo: RPCMethod {
     public static let name = "session.turnUndo"
     public typealias Result = Plan
-    public var id: String, turn: String, apply: Bool?, state: String?
-    public init(id: String, turn: String, apply: Bool? = nil, state: String? = nil) {
+    public var id: String, turn: String, apply: Bool?, state: String?, databases: [String]?
+    public init(id: String, turn: String, apply: Bool? = nil, state: String? = nil, databases: [String]? = nil) {
         self.id = id
         self.turn = turn
         self.apply = apply
         self.state = state
+        self.databases = databases
     }
     public struct Plan: Codable, Sendable, Equatable {
         public var files: [String], state: String

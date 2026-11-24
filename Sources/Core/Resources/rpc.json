@@ -13998,7 +13998,7 @@
       }
     },
     {
-      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The databases the turn changed (`Plan.databases`) go back with the files.",
+      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The databases the turn changed (`Plan.databases`) go back with the files. With `apply`, `databases` names those the sheet listed (their `Plan.databases` names): only those go back, so one that changed since isn't put back unasked. nil puts back each the turn changed, as found now.",
       "name" : "session.turnUndo",
       "paramStructure" : "by-name",
       "params" : [
@@ -14007,6 +14007,16 @@
           "required" : false,
           "schema" : {
             "type" : "boolean"
+          }
+        },
+        {
+          "name" : "databases",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {
