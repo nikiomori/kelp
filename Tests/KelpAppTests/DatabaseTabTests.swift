@@ -70,13 +70,13 @@ import Testing
     edits.toggleDeleted(1)
     edits.set(row: 0, column: 1, to: "z", was: "a")
     edits.add([nil, "new"])
-    edits.add([nil, nil])   // nothing typed: no statement
+    edits.add([nil, nil])   // nothing typed: every column its default
     #expect(edits.count == 4)
     let sql = edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id"], rows: rows)
     #expect(
         sql == [
             #"DELETE FROM "t" WHERE "id" = '2'"#, #"UPDATE "t" SET "v" = 'z' WHERE "id" = '1'"#,
-            #"INSERT INTO "t" ("v") VALUES ('new')"#
+            #"INSERT INTO "t" ("v") VALUES ('new')"#, #"INSERT INTO "t" DEFAULT VALUES"#
         ])
     // A table without a key takes new rows only.
     var only = DatabaseEdits()
@@ -85,6 +85,12 @@ import Testing
         only.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
             "INSERT INTO `t` (`v`) VALUES ('x')"
         ])
+    var blank = DatabaseEdits()
+    blank.add([nil])
+    #expect(blank.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
+        "INSERT INTO `t` () VALUES ()"
+    ])
+    #expect(blank.statements(table: "t", engine: .appwrite, columns: ["v"], primary: [], rows: []).isEmpty)
     // A key the result doesn't hold in full is no key: the row is found by all its values.
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id", "w"], rows: rows)

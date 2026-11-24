@@ -94,11 +94,20 @@ struct DatabaseEdits: Equatable {
         }
         let inserts = added.compactMap { row -> String? in
             let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
-            guard !given.isEmpty else { return nil }
+            guard !given.isEmpty else { return Self.defaults(name, engine) }
             return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
                 + ") VALUES (" + given.map { literal(row[$0], $0) }.joined(separator: ", ") + ")"
         }
         return deletes + updates + inserts
+    }
+
+    /// A new row with nothing typed in it: every column its default. Appwrite's SQL has no such INSERT.
+    static func defaults(_ table: String, _ engine: DatabaseInfo.Engine) -> String? {
+        switch engine {
+        case .mysql: "INSERT INTO \(table) () VALUES ()"
+        case .appwrite: nil
+        case .postgres, .sqlite, .duckdb: "INSERT INTO \(table) DEFAULT VALUES"
+        }
     }
 
     /// Quotes a table or column name for the engine (`DatabaseInfo.Engine.table`).

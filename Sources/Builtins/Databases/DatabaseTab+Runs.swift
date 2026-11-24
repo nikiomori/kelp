@@ -176,9 +176,10 @@ extension DatabaseTab {
         return [ask]
     }
 
-    /// Leaves edit mode for `next`, but only once the edits are saved or dropped.
-    func leave(to next: Mode) async {
-        if isEdited, await !close() { return }
+    /// Leaves edit mode for `next`, but only once the edits are saved or dropped; false when the user kept them.
+    @discardableResult
+    func leave(to next: Mode) async -> Bool {
+        if isEdited, await !close() { return false }
         chosen = true
         mode = next
         readingEnded()   // a read still on its way is for what the tab showed: its wheel stops
@@ -192,6 +193,7 @@ extension DatabaseTab {
         case .run(let id): await showRun(id)
         case .query: startedQuery()
         }
+        return true
     }
 
     /// Opens a table in this tab, in place of the one shown, or in a tab of its own.
@@ -199,8 +201,11 @@ extension DatabaseTab {
         if pin {
             app.workbench.open(DatabaseURI(worktree: address.worktree, name: address.name, table: name).uri)
         } else {
-            filters.clear()
-            Task { await leave(to: .table(name)) }
+            Task {
+                guard isEdited ? await settleEdits() : true else { return }   // the filter stays with the edits
+                filters.clear()
+                await leave(to: .table(name))
+            }
         }
     }
 

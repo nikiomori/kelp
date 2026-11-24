@@ -42,16 +42,24 @@ extension DatabaseTab {
     /// Shows what saving would run, before it runs.
     @objc func showEdits() {
         guard let statements = pending() else { return }
-        let text = statements.joined(separator: ";\n") + ";"
+        let alert = Self.question(
+            String(localized: "\(statements.count) statements, in one transaction"), statements,
+            action: String(localized: "Copy"), cancel: String(localized: "Close"))
         Task {
-            if await confirm(
-                String(localized: "\(statements.count) statements, in one transaction"), detail: text,
-                action: String(localized: "Copy"), cancel: String(localized: "Close"))
-            {
-                copyText(text)
-            }
+            if await runSheet(alert) == .alertFirstButtonReturn { copyText(Self.sql(statements)) }
         }
     }
+
+    /// A question over statements, which scroll in a box of their own however many there are: the sheet stays as
+    /// tall as the screen allows.
+    static func question(_ title: String, _ statements: [String], action: String, cancel: String) -> NSAlert {
+        let alert = NSAlert(question: title, action: action, cancel: cancel)
+        let text = sql(statements)
+        alert.accessoryView = NSScrollView.readOnly(text, lines: text.components(separatedBy: "\n").count)
+        return alert
+    }
+
+    static func sql(_ statements: [String]) -> String { statements.joined(separator: ";\n") + ";" }
 
     private func pending() -> [String]? {
         guard let name = mode.table, let table = current else { return nil }
@@ -67,18 +75,20 @@ extension DatabaseTab {
     @discardableResult
     func saveChanges() async -> Bool {
         grid.commitTyping()   // a cell still being typed in is saved with the rest
-        guard let name = mode.table, let statements = pending(), !statements.isEmpty else { return !isEdited }
+        guard let name = mode.table, let statements = pending(), !statements.isEmpty else {
+            if isEdited { Banner.show(String(localized: "Nothing to save: give the new row a value.")) }
+            return !isEdited
+        }
         guard save.isEnabled else { return false }   // these edits are being saved: a second ⌘S doesn't run them twice
         save.isEnabled = false
         defer { save.isEnabled = true }
         if database?.production == true {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Change \(address.name)? You marked it Production.")
-            alert.informativeText = statements.joined(separator: ";\n") + ";"
-            let change = alert.addButton(withTitle: String(localized: "Change Production"))
-            change.hasDestructiveAction = true
-            change.keyEquivalent = ""   // Return cancels, so a change to production takes a click
-            alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\r"
+            let alert = Self.question(
+                String(localized: "Change \(address.name)? You marked it Production."), statements,
+                action: String(localized: "Change Production"), cancel: String(localized: "Cancel"))
+            alert.buttons[0].hasDestructiveAction = true
+            alert.buttons[0].keyEquivalent = ""   // Return cancels, so a change to production takes a click
+            alert.buttons[1].keyEquivalent = "\r"
             guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
         }
         let (done, error) = await app.tryCall(

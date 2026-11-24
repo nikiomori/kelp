@@ -233,8 +233,39 @@ import Testing
     }
 }
 
+/// Show SQL and the Production question hold their statements in a box that scrolls: sixty edits keep the sheet on
+/// the screen.
+@MainActor @Test func manyStatementsScrollInTheirSheet() {
+    let statements = (0..<60).map { "UPDATE \"orders\" SET \"status\" = 'paid' WHERE \"id\" = '\($0)'" }
+    let alert = DatabaseTab.question("60 statements", statements, action: "Copy", cancel: "Close")
+    alert.layout()
+    #expect(alert.window.frame.height < 500, "\(alert.window.frame)")
+    #expect((alert.accessoryView as? NSScrollView)?.documentView.map { ($0 as? NSTextView)?.string } == DatabaseTab.sql(statements))
+}
+
 /// The questions are sheets on the front window, so the tests that answer one take turns.
 extension OneAtATime {
+    /// Following a key's arrow with unsaved edits asks; Cancel stays on the table, its edits and its filter.
+    @Test func cancellingAKeysArrowStaysOnTheTable() async throws {
+        let (tab, window) = editableTab([["a"]])
+        window.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { window.orderOut(nil) }
+        tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
+        tab.filters.use(columns: ["note"], engine: .sqlite)
+        tab.follow("orders", "note", "b")   // a key to a row of the same table
+        let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
+        #expect(try await waitFor(10) { asking() != nil })
+        if let window = asking(), let asked = window.attachedSheet {
+            window.endSheet(asked, returnCode: .alertSecondButtonReturn)   // Cancel
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(tab.mode == .table("orders") && !tab.filters.isActive && tab.grid.edits.count == 1)
+        #expect(asking() == nil)   // not asked again
+        if let window = asking(), let asked = window.attachedSheet {
+            window.endSheet(asked, returnCode: .alertSecondButtonReturn)
+        }
+    }
+
     /// A header click with unsaved edits asks first; Cancel keeps the edits and the order the rows are in. Don't Save
     /// from the quit question drops them.
     @Test func aSortAsksBeforeItDropsTheEdits() async throws {

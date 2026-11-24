@@ -343,7 +343,7 @@ extension DatabaseTab {
     func follow(_ table: String, _ column: String, _ value: String) {
         let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
         Task {
-            await leave(to: .table(target))
+            guard await leave(to: .table(target)) else { return }   // Cancel keeps the table and its edits
             filters.add(column: column, op: .equal, value: value)
         }
     }
