@@ -287,6 +287,8 @@ extension MarkdownTab {
             if !sounds.isEmpty {
                 let mixed = to.deletingLastPathComponent().appendingPathComponent(
                     ".kelp-mixing-" + to.lastPathComponent)
+                // A mix that failed before left its file, and the writer won't write over one.
+                do { try FileManager.default.removeItem(at: mixed) } catch CocoaError.fileNoSuchFile {}
                 if try await MotionSound.mix(to, sounds: sounds, into: mixed) {
                     _ = try FileManager.default.replaceItemAt(to, withItemAt: mixed)
                 }
