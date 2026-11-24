@@ -173,8 +173,8 @@ extension OneAtATime {
                 return try #require(find(cell))
             }
             try fold().performClick(nil)
-            #expect(o.numberOfRows == 1)   // the project alone
-            let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
+            #expect(o.numberOfRows == 3)   // the project and its two screens, without their chats
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true))   // feat/login's screen
             @MainActor func stack(_ v: NSView) -> AgentStack? {
                 v as? AgentStack ?? v.subviews.lazy.compactMap(stack).first
             }

@@ -1,10 +1,12 @@
 import Core
 import Foundation
 
-/// What the sidebar lists, decided without a window: projects with their chats, then their groups with the chats in
-/// those. A project's chats are the agents on its own screen (`mainWorkspace`), with no heading. Every other workspace
-/// is a group someone made, with a row of its own. An agent's children show on its row, not on rows of their own. What
-/// needs you is in the line over the list (`Inbox`).
+/// What the sidebar lists, decided without a window: projects, their screens, and the chats on each screen. A project
+/// with one screen (`mainWorkspace`) lists its chats right under its name; once it has more, its own screen gets a row
+/// too, so every chat sits under the screen it is on. Code is never a row of its own: a branch a chat made for itself
+/// is a mark on that chat (`branch`), and a screen on a branch carries its marks on its own row. A folded project hides
+/// its chats and keeps its screens, each with its chats' logos (`hidden`). An agent's children show on its row, not
+/// on rows of their own. What needs you is in the line over the list (`Inbox`).
 public struct SidebarItem: Equatable, Sendable {
     /// `host` is a server's header, with its projects after it on the same card. They aren't under it, because they
     /// keep their place in the outline. `parked` is the heading over agents put out of the way, which are its children.
@@ -19,6 +21,10 @@ public struct SidebarItem: Equatable, Sendable {
     /// On a group, the chat that made it (`Worktree.madeBy`, a branch for its helpers), when the group stands right
     /// under that chat's row, a step further in, rather than among the project's groups.
     public var under: String?
+    /// On a chat, the group it made that holds no chats of its own: the chat's own branch, which its row marks.
+    public var branch: String?
+    /// On a row of a folded project, the chats it holds that the fold hides (agents' ids), shown as their logos.
+    public var hidden: [String] = []
 }
 
 public struct SidebarTree {
@@ -38,6 +44,10 @@ public struct SidebarTree {
     public var pinnedLast: String?
     /// Parked agents, which leave their projects and show under a "Parked" heading over the pinned row.
     public var parked: Set<String> = []
+    /// Folded projects (by id): their screens stay, their chats show only as logos.
+    public var foldedProjects: Set<String> = []
+    /// Groups with tabs open, which keep a row even with no chats (a terminal, a file, a diff).
+    public var withTabs: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
         self.projects = projects
@@ -59,28 +69,59 @@ public struct SidebarTree {
         let live = workspaces.filter { !$0.archived }
         let listed = projects.map { r -> SidebarItem in
             let own = mainWorkspace(of: r, among: live)
-            let chats = own.map(workspace)?.children ?? []
+            var chats = own.map(workspace)?.children ?? []
             // A group that an agent made stands under that agent's chat, but only for a chat on the project's own
             // screen. A group can't hold a group, so a group made from inside a group stays among the project's groups.
+            // One on a folder of its own that holds no chats and no tabs is that chat's own branch: a mark on its row,
+            // not a row. A chat has one such mark; another one like it keeps its row under the chat.
             let makers = Set(chats.compactMap { if case .agent(let id) = $0.kind { id } else { nil } })
-            func maker(_ worktree: Worktree) -> String? {
-                Self.maker(worktree).flatMap { makers.contains($0) ? $0 : nil }
+            var made: [String: [SidebarItem]] = [:], branches: [String: String] = [:], screens: [SidebarItem] = []
+            for group in live where group.repoId == r.id && group.id != own?.id {
+                var item = workspace(group)
+                guard let by = Self.maker(group).flatMap({ makers.contains($0) ? $0 : nil }) else {
+                    screens.append(item)
+                    continue
+                }
+                if item.children.isEmpty, group.path != r.path, !withTabs.contains(group.id), branches[by] == nil {
+                    branches[by] = group.id
+                } else {
+                    item.under = by
+                    made[by, default: []].append(item)
+                }
             }
-            let groups = live.filter { $0.repoId == r.id && $0.id != own?.id }
+            chats = chats.map { chat in
+                var marked = chat
+                if case .agent(let id) = chat.kind { marked.branch = branches[id] }
+                return marked
+            }
             let rows = chats.flatMap { chat -> [SidebarItem] in
-                [chat]
-                    + groups.filter { .agent(maker($0) ?? "") == chat.kind }.map {
-                        var made = workspace($0)
-                        made.under = maker($0)
-                        return made
-                    }
+                guard case .agent(let id) = chat.kind else { return [chat] }
+                return [chat] + (made[id] ?? [])
             }
-            return SidebarItem(
-                kind: .project(r.id), children: rows + groups.filter { maker($0) == nil }.map(workspace),
-                workspace: own?.id)
+            var project = SidebarItem(kind: .project(r.id), workspace: own?.id)
+            if let own, !screens.isEmpty {
+                project.children = [SidebarItem(kind: .workspace(own.id), children: rows)] + screens
+            } else {
+                project.children = rows + screens
+            }
+            guard foldedProjects.contains(r.id) else { return project }
+            // Folded: a project whose chats are all on one screen is its row alone; otherwise each screen keeps a row.
+            if own != nil, screens.isEmpty {
+                project.hidden = Self.chats(in: project.children)
+                project.children = []
+            } else {
+                project.children = project.children.map { screen in
+                    var row = screen
+                    row.hidden = Self.chats(in: screen.children)
+                    row.children = []
+                    return row
+                }
+            }
+            return project
         }
         func busy(_ sidebarItem: SidebarItem) -> Bool {
-            sidebarItem.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
+            !sidebarItem.hidden.isEmpty
+                || sidebarItem.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
         }
         let all = sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
         func isPinned(_ sidebarItem: SidebarItem) -> Bool {
@@ -91,6 +132,13 @@ public struct SidebarTree {
         }
         return all.filter { !isPinned($0) } + (away.isEmpty ? [] : [SidebarItem(kind: .parked, children: away)])
             + all.filter(isPinned)
+    }
+
+    /// The agents in `items` and under them, in order.
+    static func chats(in items: [SidebarItem]) -> [String] {
+        items.flatMap { item -> [String] in
+            if case .agent(let id) = item.kind { [id] + chats(in: item.children) } else { chats(in: item.children) }
+        }
     }
 
     /// The session that made a workspace: the agent itself, or the terminal an agent was typed into (`typed:<id>`).

@@ -16,10 +16,16 @@ struct CardView: View {
                     Text(model.subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            if let when = model.closes?.formatted(.relative(presentation: .named)) {
+                Text("Empty: it closes by itself \(when), unless something opens here.")
+                    .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let host = model.server, let servers = model.app.extensions.all.servers {
                 servers.section(host, model.closeCard)
             }
             if let repo = model.repo { WorktreeSizes(items: model.worktrees, root: repo.path) }
+            if let branch = model.branch { OwnBranch(model: model, branch: branch) }
             if let folder = model.folder, let pr = model.app.extensions.all.ci?.card(folder) { pr }
             if let changes = model.changes, changes.totalAdded + changes.totalRemoved > 0 {
                 (Text("Not committed  ")
@@ -28,7 +34,11 @@ struct CardView: View {
                     + Text(changes.totalRemoved > 0 ? "−\(changes.totalRemoved)" : "").foregroundColor(.textRed))
                     .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
-            ForEach(model.agents, id: \.id) { agent in
+            ForEach(Array(model.agents.enumerated()), id: \.element.id) { index, agent in
+                if let screen = model.heading(at: index) {
+                    Text(screen).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
                     HStack(spacing: Metrics.gap) {
                         StatusIcon(status: agent.markStatus, of: agent)
@@ -237,5 +247,36 @@ private struct ContextPie: NSViewRepresentable {
     func updateNSView(_ pie: ContextMeter, context: Context) {
         pie.usage = usage
         pie.isHidden = false
+    }
+}
+
+/// On a chat's card, the branch the chat works on in a folder of its own: its name, what it holds that the base
+/// branch doesn't, and a button to its changes. Its PR and what isn't committed follow, as on a group's card.
+struct OwnBranch: View {
+    let model: CardModel
+    let branch: Worktree
+
+    var body: some View {
+        let base = model.app.repo(branch.repoId)?.baseBranch ?? "main"
+        let commits = model.app.gitState.ownWork(branch.id)?.commits ?? 0
+        VStack(alignment: .leading, spacing: Metrics.lineGap) {
+            HStack(spacing: Metrics.gap) {
+                Image(systemName: "arrow.triangle.branch").foregroundStyle(.secondary)
+                Text(branch.branch).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: Metrics.gapWide)
+                Button("Changes") {   // on the chat's screen, as its row's mark opens them: the branch has no row
+                    model.app.workbench.open(TabURI.diff(branch.id), workspace: model.workspaceId)
+                    model.closeCard()
+                }
+                .controlSize(.small)
+            }
+            Text(
+                commits > 0
+                    ? "Its own branch: \(commits) commits not on \(base) yet" : "Its own branch, cut from \(base)"
+            )
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+            Text((branch.path as NSString).abbreviatingWithTildeInPath).font(.ui(TextSize.caption))
+                .foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+        }
     }
 }

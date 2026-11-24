@@ -37,9 +37,32 @@ extension SidebarController {
         }
     }
 
-    /// Folds or opens a row (at once under Reduce Motion). A click while the row is moving turns it back.
+    /// Folds or opens a row (at once under Reduce Motion). A click while the row is moving turns it back. A project
+    /// folds in the tree instead (`foldProject`).
     func toggle(_ node: Node) {
+        if Self.isHeader(node) { return foldProject(node.key) }
+        // A screen's row in a folded project holds its chats as logos: the project's fold hides them, so it opens.
+        if !node.hidden.isEmpty, let project = outline.parent(forItem: node) as? Node { return unfold(project) }
         if outline.isItemExpanded(node), folding[node.key] == nil { close(node) } else { open(node) }
+    }
+
+    /// Folds or opens a project. Folded, it keeps its screens' rows and its chats show as logos on them, so the tree
+    /// is built again; the rows that go or come move as one change, however many there are.
+    func foldProject(_ key: String) {
+        if collapsed.contains(key) { collapsed.remove(key) } else { collapsed.insert(key) }
+        foldingHost = true
+        refresh()
+        foldingHost = false
+        refreshCell(key)
+    }
+
+    /// Opens a folded row so the rows under it show: a project in the tree, anything else in the outline.
+    func unfold(_ node: Node) {
+        if Self.isHeader(node) {
+            if collapsed.contains(node.key) { foldProject(node.key) }
+        } else {
+            open(node)
+        }
     }
 
     /// Closes the rows under `node` up to nothing, and then has the outline fold `node` for real, when nothing has to
@@ -169,11 +192,11 @@ extension SidebarController {
                 endServer()
             }
             let color = look.style == .card ? look.colors[id] : nil
-            guard !root.children.isEmpty || color != nil else { continue }
+            guard root.holds || color != nil else { continue }
             var frame = SidebarRowView.band(rows, 6)
             // The outline is flipped. The card starts 4 pt below the first row's top and ends 4 pt above the last row's
             // bottom, which leaves 2 pt round the rows' content (`pads` is 6).
-            if root.children.isEmpty {
+            if !root.holds {
                 frame = frame.insetBy(dx: 0, dy: 1)
             } else {
                 frame.origin.y += 4
@@ -184,7 +207,7 @@ extension SidebarController {
             let gap = serverGap(root)
             frame.origin.y += gap
             frame.size.height -= gap
-            put(root.key, frame, ProjectCard.Look(color: color, plain: root.children.isEmpty))
+            put(root.key, frame, ProjectCard.Look(color: color, plain: !root.holds))
         }
         endServer()
         for (key, card) in cards where !shown.contains(key) {
@@ -267,7 +290,10 @@ extension SidebarController {
         guard !gone.isEmpty, gone.count <= fewRows, let list = outline.enclosingScrollView else { return }
         for key in gone {
             guard let node = node(key), case let row = outline.row(forItem: node), row >= 0 else { continue }
-            outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(in: list)
+            // An empty group whose time ran out fades over a fold's time, drifting up into its project.
+            let due = (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.ranOut == true
+            outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(
+                in: list, duration: due ? Motion.fold : Motion.base, drift: due ? Metrics.gap : 0)
         }
     }
 

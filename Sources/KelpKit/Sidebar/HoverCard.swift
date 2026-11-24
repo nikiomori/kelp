@@ -88,6 +88,17 @@ final class CardModel {
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
+    /// On a project's card with several screens, each screen's name by its id: the chats are listed under them.
+    var screenNames: [String: String] = [:]
+    /// The screen's name to show above the chat at `index`, where the list moves on to another screen.
+    func heading(at index: Int) -> String? {
+        guard let id = agents[index].worktreeId, let name = screenNames[id] else { return nil }
+        return index > 0 && agents[index - 1].worktreeId == id ? nil : name
+    }
+    /// On a chat's card, the branch of its own it works on (`SidebarItem.branch`).
+    var branch: Worktree?
+    /// On an empty group's card, when it closes by itself (`WorkspaceActions.closesAt`).
+    var closes: Date?
     /// On a project's card, the project. `worktrees` holds the disk its other worktrees take (nil while `du` runs).
     let repo: Repo?
     /// The ids whose mute the card shows, which are the row's. A workspace alone in its project is also that
@@ -126,12 +137,31 @@ final class CardModel {
             repo = nil
             muteIds = [session.id]
             server = nil
-            folder = nil
+            // A chat working on a branch of its own: its card shows that branch, its changes and its PR.
+            // The same one the row marks (`SidebarTree.build`): for a chat on the project's own screen, the first of
+            // the groups it made on a folder of its own, with no chats and no tabs in it.
+            let own = app.repo(worktree?.repoId ?? "").flatMap { project -> Worktree? in
+                let screens = app.workspaces(of: project)
+                guard session.worktreeId == mainWorkspace(of: project, among: screens)?.id else { return nil }
+                return screens.first {
+                    SidebarTree.maker($0) == session.id && $0.path != project.path && app.liveChats(in: $0.id).isEmpty
+                        && app.workbench.layouts[$0.id].allTabs.isEmpty
+                }
+            }
+            folder = own?.id
+            branch = own
         case .project(let id):
             guard let project = app.repo(id) else { return nil }
             title = app.projectName(project.id) ?? project.name
             subtitle = app.projectPlace(project)
-            agents = []
+            // Every screen's chats, screen by screen, each screen's under its name.
+            let screens = app.workspaces(of: project)
+            agents = screens.flatMap { app.liveChats(in: $0.id) }
+            if screens.count > 1 {
+                screenNames = Dictionary(
+                    screens.map { ($0.id, app.groupName($0) ?? app.gitState.branch($0.id) ?? $0.branch) }
+                ) { first, _ in first }
+            }
             workspaceId = ""
             agentOnly = false
             repo = project
@@ -155,6 +185,7 @@ final class CardModel {
             muteIds = [worktree.id] + (alone ? [worktree.repoId] : [])
             server = project.flatMap { RemoteHost.of($0.path)?.host }
             folder = app.gitFolder(of: worktree.id)?.id
+            closes = WorkspaceActions(app).closesAt(worktree)
         case .host, .parked:
             return nil
         }

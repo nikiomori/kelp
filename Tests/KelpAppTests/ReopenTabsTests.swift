@@ -109,3 +109,116 @@ extension OneAtATime {
         #expect(await bench.keepClosedTabs(of: other, on: rig.workspace))
     }
 }
+
+extension OneAtATime {
+    /// An empty group stays when the screen leaves it, as it was set up: it goes by itself only after a day with
+    /// nothing in it. One with a tab, or on screen, stays however old.
+    @Test func anEmptyGroupStaysADayAfterTheScreenLeftIt() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let app = rig.app, bench = rig.app.workbench, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let empty = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let full = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let stale = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        var layout = bench.layouts[full.id]
+        _ = layout.add("untitled:1", to: nil)
+        bench.layouts[full.id] = layout
+        let day = try #require(actions.emptyFor)
+        actions.emptied(stale.id, now: Date(timeIntervalSinceNow: -2 * day))
+        let open = { try await rig.client.call(WorktreeList(repoId: rig.project.id)).map(\.id) }
+        // Leaving the empty group closes the one empty for two days, and not the one just left.
+        actions.left(empty.id)
+        #expect(try await waitFor { try await !open().contains(stale.id) })
+        #expect(try await open().contains(empty.id))
+        // A chat's own branch is a group with nothing in it, which its agent works in from the screen the chat is on.
+        let chat = try await rig.client.call(SessionCreate(worktreeId: rig.workspace.id, agent: "shell"))
+        app.upsert(chat)
+        let made = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id)).map {
+            var group = $0
+            if group.id == made.id { group.madeBy = chat.id }
+            return group
+        }
+        // Settings › Close empty groups says how long: Never keeps it, an hour is gone after two.
+        actions.emptied(empty.id, now: Date(timeIntervalSinceNow: -7200))
+        defer { app.settings.set(SettingKeys.closeEmptyGroups, nil) }
+        app.settings.set(SettingKeys.closeEmptyGroups, "never")
+        #expect(actions.closesAt(empty) == nil)
+        app.settings.set(SettingKeys.closeEmptyGroups, "hour")
+        #expect(try #require(actions.closesAt(empty)) < Date())
+        app.settings.set(SettingKeys.closeEmptyGroups, nil)
+        actions.closeIdle(now: Date(timeIntervalSinceNow: day + 60))
+        #expect(try await waitFor { try await !open().contains(empty.id) })
+        #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id, made.id]))
+    }
+}
+
+extension OneAtATime {
+    /// Two empty groups whose time ran out together: what was closed in the first goes to a group that stays, not to
+    /// the second, which is closing too.
+    @Test func groupsClosingTogetherKeepTheirClosedTabsOnOneThatStays() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let first = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let second = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        #expect(app.workspaces(of: rig.project).map(\.id) == [rig.workspace.id, first.id, second.id])
+        app.workbench.closedTabs.remember(
+            ClosedTab(
+                uri: TabURI.file(rig.repo + "/a.txt"), title: "a.txt", workspace: first.id, group: nil, index: nil))
+        let day = try #require(actions.emptyFor)
+        actions.closeIdle(now: Date(timeIntervalSinceNow: 2 * day))
+        let open = { try await rig.client.call(WorktreeList(repoId: rig.project.id)).map(\.id) }
+        #expect(try await waitFor { try await open() == [rig.workspace.id] })
+        #expect(app.workbench.closedTabs.all.first?.workspace == rig.workspace.id)
+    }
+}
+
+extension OneAtATime {
+    /// A branch group with commits of its own never closes by itself, even when its time ran out before the list knew
+    /// of them, and its countdown stops.
+    @Test func aBranchWithWorkNeverClosesByItself() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let made = try await rig.client.call(
+            WorktreeCreate(repoId: rig.project.id, branch: "work", tabs: false, setup: false))
+        let branch = made.worktree
+        try "b\n".write(toFile: branch.path + "/b.txt", atomically: true, encoding: .utf8)
+        for args in [["add", "."], ["commit", "-qm", "work"]] { try Git.run(args, cwd: branch.path, remotes: .none) }
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        let later = Date(timeIntervalSinceNow: 2 * (try #require(actions.emptyFor)))
+        #expect(try #require(actions.closesAt(branch)) < later)   // nothing told the list of its commits yet
+        actions.closeIdle(now: later)
+        #expect(try await waitFor { actions.closesAt(branch) == nil })
+        #expect(try await rig.client.call(WorktreeList(repoId: rig.project.id)).contains { $0.id == branch.id })
+    }
+}
+
+extension OneAtATime {
+    /// A branch group whose work can't be told (its folder gone) never closes by itself, and its countdown stops.
+    @Test func aBranchWhoseWorkCantBeToldStopsCountingDown() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let made = try await rig.client.call(
+            WorktreeCreate(repoId: rig.project.id, branch: "gone", tabs: false, setup: false))
+        try FileManager.default.removeItem(atPath: made.worktree.path)
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        let later = Date(timeIntervalSinceNow: 2 * (try #require(actions.emptyFor)))
+        #expect(try #require(actions.closesAt(made.worktree)) < later)
+        actions.closeIdle(now: later)
+        #expect(try await waitFor { actions.closesAt(made.worktree) == nil })
+        #expect(try await rig.client.call(WorktreeList(repoId: rig.project.id)).contains { $0.id == made.worktree.id })
+    }
+}

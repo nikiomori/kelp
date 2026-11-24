@@ -115,7 +115,10 @@ extension SidebarController {
         guard let node = project ? node("p:" + id) : workspaceNode(id) else { return false }
         // The File menu's command can ask for a row that is out of sight, which the row's own menu never does. A folded
         // project opens first, as it does when its group comes on screen, and the list scrolls to the row.
-        if let above = outline.parent(forItem: node) as? Node, isCollapsed(above) { open(above) }
+        if let above = outline.parent(forItem: node) as? Node, isCollapsed(above) {
+            unfold(above)
+            return startRename(id, project: project)   // the rows were made again
+        }
         let row = outline.row(forItem: node)
         guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else {
             return false
@@ -259,6 +262,7 @@ extension SidebarController {
             menu.addChoiceMenu(SettingKeys.serverLook, app, title: String(localized: "Servers"))
         }
         menu.addChoiceMenu(SettingKeys.agentIcons, app, title: String(localized: "Agent Icons"))
+        menu.addChoiceMenu(SettingKeys.closeEmptyGroups, app, title: String(localized: "Close Empty Groups"))
         menu.addToggle(SettingKeys.gitBadges, app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)

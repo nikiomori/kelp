@@ -391,7 +391,8 @@ func codeOnly(_ s: String) -> String {
 
 @Test func theAppStartsNoPrograms() throws {
     let allowed = ["Sources/KelpKit/Model/DaemonLink.swift", "Sources/KelpKit/DevAids/DevAids.swift"]
-    let starter = #"\bProcess\(\)|\bProcess\.run\(|\blaunchedProcess\(|posix_spawn|\bNSTask\b|(?<![.\w])(?:popen|system)\("#
+    let starter =
+        #"\bProcess\(\)|\bProcess\.run\(|\blaunchedProcess\(|posix_spawn|\bNSTask\b|(?<![.\w])(?:popen|system)\("#
     let found = try matches(
         starter + #"|\bSubprocess\.|\bLoginPath\.|\bfetchExtension\(|\blibrary\(index"#, in: appDirs
     )
@@ -526,6 +527,9 @@ func codeOnly(_ s: String) -> String {
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
         "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
+        "KelpKit/Shell/WorkspaceActions+Idle.swift": (
+            1, "an empty group's row shows its sand run out for a moment before the group goes"
+        ),
         "Builtins/Browser/BrowserRecording.swift": (
             1, "a recording's frames, ten a second: WebKit says when it drew none"
         ),

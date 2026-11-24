@@ -20,7 +20,8 @@ extension OneAtATime {
         let own = Worktree(id: "w1", repoId: "r1", branch: "main", path: atlas.path)
         try withSidebar(repos: [atlas], worktrees: [own, group], sessions: [a, kid, b]) {
             vc, _ in
-            #expect(Set(vc.rows(showing: [kid]).map(\.key)) == ["a:a", "p:r1"])   // its parent's row stands for it
+            // Its parent's row stands for it, under the project's own screen, which has a row beside the group's.
+            #expect(Set(vc.rows(showing: [kid]).map(\.key)) == ["a:a", "w:w1", "p:r1"])
             #expect(Set(vc.rows(showing: [b]).map(\.key)) == ["a:b", "w:w2", "p:r1"])
         }
         let place = SidebarController.place(a)
