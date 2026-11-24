@@ -34,7 +34,9 @@ enum MarkColumn {
           const chosen = () => by('draft').filter(m => !skip.has(m.id));
           const by = s => M.marks.filter(m => m.state === s);
           const last = m => m.rounds[m.rounds.length - 1];
-          const keep = () => post({ kind: 'marksDraft', marks: by('draft') });
+          // With the newest mark seen: a draft the agent added since (a question) isn't one removed.
+          const seen = () => Math.max(0, ...M.marks.map(m => m.id));
+          const keep = () => post({ kind: 'marksDraft', marks: by('draft'), seen: seen() });
           const typing = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)
             && !!document.activeElement.closest('.kelp-col, .kelp-composer');
           const num = m => m.asked && m.state === 'draft' ? el('span', 'kelp-num kelp-n-ask', '?')
@@ -315,7 +317,7 @@ enum MarkColumn {
             for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
             const d = by('draft'), only = d.map((m, i) => skip.has(m.id) ? -1 : i).filter(i => i >= 0);
             if (!only.length && !M.edits.length) return;
-            post({ kind: 'marks', marks: d, only, queue: !!queue });
+            post({ kind: 'marks', marks: d, only, queue: !!queue, seen: seen() });
           }
 
           addEventListener('keydown', e => {

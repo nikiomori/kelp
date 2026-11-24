@@ -190,7 +190,8 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     /// the window's drafts, an agent's reply and the end of a turn never write over each other.
     public struct Change: Codable, Equatable, Sendable {
         public enum Kind: String, Codable, CaseIterable, Sendable {
-            /// The window's drafts as they are now (`drafts`). Drafts not in the list are removed; a draft with id 0
+            /// The window's drafts as they are now (`drafts`). Drafts not in the list are removed, but for those
+            /// after the newest mark the window had seen (`id`: an agent's question not shown yet); a draft with id 0
             /// is new.
             case drafts
             /// Sends drafts `ids` to chat `to`, with the page at version `before`. Their hand edits go with them.
@@ -236,7 +237,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             self.edit = edit
         }
 
-        public static func drafts(_ list: [ArtifactMark]) -> Change { Change(.drafts, drafts: list) }
+        public static func drafts(_ list: [ArtifactMark], seen: Int? = nil) -> Change {
+            Change(.drafts, drafts: list, id: seen)
+        }
         public static func send(ids: [Int], to: String?, before: Int?) -> Change {
             Change(.send, ids: ids, to: to, before: before)
         }
@@ -268,6 +271,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
                 // A draft sent again keeps what was said before.
                 if let old = marks.first(where: { $0.id == d.id }) { d.rounds = old.rounds }
                 kept.append(d)
+            }
+            if let seen = change.id {
+                kept += marks.filter { m in m.state == .draft && m.id > seen && !kept.contains { $0.id == m.id } }
             }
             let changed = kept != marks
             marks = kept

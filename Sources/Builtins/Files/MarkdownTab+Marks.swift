@@ -16,10 +16,12 @@ extension MarkdownTab {
         let id = (body["id"] as? NSNumber)?.intValue
         switch kind {
         case "marks":
-            sendMarks(drafts(body), only: body["only"] as? [Int], queue: body["queue"] as? Bool ?? false)
+            sendMarks(
+                drafts(body), only: body["only"] as? [Int], queue: body["queue"] as? Bool ?? false,
+                seen: (body["seen"] as? NSNumber)?.intValue)
         case "marksDraft":
-            let list = drafts(body)
-            Task { change(.drafts(await stampIDs(list))) }
+            let list = drafts(body), seen = (body["seen"] as? NSNumber)?.intValue
+            Task { change(.drafts(await stampIDs(list), seen: seen)) }
         case "markDone": if let id { change(.done(id: id)) }
         case "markRef":
             // An example picture, kept as PNG whatever it came as.
@@ -62,11 +64,11 @@ extension MarkdownTab {
     /// Sends the drafts chosen (`only`: their places among `drafts`, all when nil), in order: first all drafts as they
     /// are (so each has its number), then with a picture of each area and stroke, and then the message, to the chat
     /// that made the page (or the agent on screen). With `queue` while that agent works, they wait for its turn to end.
-    private func sendMarks(_ drafts: [ArtifactMark], only: [Int]?, queue: Bool) {
+    private func sendMarks(_ drafts: [ArtifactMark], only: [Int]?, queue: Bool, seen: Int?) {
         Task {
             // Who gets them is settled first: with no agent to take them, they stay drafts.
             guard let agent = await markTaker() else { return }
-            guard let numbered = await changed(.drafts(await stampIDs(drafts))) else { return }
+            guard let numbered = await changed(.drafts(await stampIDs(drafts), seen: seen)) else { return }
             let all = numbered.marks.filter { $0.state == .draft }
             let sending = only.map { $0.filter(all.indices.contains).map { all[$0] } } ?? all
             if queue, agent.status == .working {

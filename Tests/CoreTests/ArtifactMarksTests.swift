@@ -34,6 +34,18 @@ private let page = ".kelp/artifacts/home/canvas.json"
     #expect(FileManager.default.contents(atPath: file.path) == odd)
 }
 
+/// An agent's question added after the window last saw the marks stays when the window keeps its drafts; a draft the
+/// window had seen and left out goes.
+@Test func anAgentsQuestionIsntTakenForADraftRemoved() {
+    var m = ArtifactMarks()
+    m.apply(.drafts([ArtifactMark(board: "boards/A.html", target: "[data-id=a]", note: "x")]))
+    var asked = ArtifactMark(board: "boards/A.html", target: "[data-id=t]", note: "this one?")
+    asked.asked = "Which size?"
+    m.apply(.ask(asked))
+    m.apply(.drafts([], seen: 1))
+    #expect(m.marks.map(\.id) == [2] && m.marks[0].asked == "Which size?")
+}
+
 @Test func aMarkGoesFromDraftToTheAgentToTheUserAndBack() {
     var m = ArtifactMarks()
     m.apply(.drafts([ArtifactMark(board: "boards/A.html", target: "[data-id=title]", note: "bigger")]))
