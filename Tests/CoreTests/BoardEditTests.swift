@@ -315,6 +315,7 @@ private let board = """
     let csv = "name,city\r\n\"Иванова, Ольга\",Москва\n\"Say \"\"hi\"\"\",\"two\nlines\"\n\n"
     #expect(DataRows.parse(csv) == [["name", "city"], ["Иванова, Ольга", "Москва"], ["Say \"hi\"", "two\nlines"]])
     #expect(DataRows.parse("name;sum\nОльга;1,5\n") == [["name", "sum"], ["Ольга", "1,5"]])
+    #expect(DataRows.parse("\u{FEFF}name;sum\r\nОльга;1,5\r\n") == [["name", "sum"], ["Ольга", "1,5"]])
     let page = #"<h2 data-field="clients.csv:name">Hi</h2><img data-field="clients.csv:photo"><p data-field="b.csv:x">"#
     #expect(DataRows.files(in: page) == ["clients.csv", "b.csv"])
     #expect(

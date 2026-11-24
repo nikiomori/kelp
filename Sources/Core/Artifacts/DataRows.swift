@@ -8,10 +8,13 @@ public enum DataRows {
     /// its cells split by commas, or by semicolons when its first line has those and no commas (as a European
     /// spreadsheet writes it).
     public static func parse(_ text: String) -> [[String]] {
+        // "\r\n" is one Character in Swift, so lines are made plain first; Excel's CSV UTF-8 starts with a BOM.
+        var text = text.replacingOccurrences(of: "\r\n", with: "\n")
+        if text.first == "\u{FEFF}" { text.removeFirst() }
         let head = text.prefix { $0 != "\n" && $0 != "\r" }
         let split: Character = head.contains(",") || !head.contains(";") ? "," : ";"
         var rows: [[String]] = [], row: [String] = [], cell = "", quoted = false
-        var chars = Array(text.replacingOccurrences(of: "\r\n", with: "\n"))[...]
+        var chars = Array(text)[...]
         while let c = chars.popFirst() {
             if quoted {
                 if c == "\"" {
