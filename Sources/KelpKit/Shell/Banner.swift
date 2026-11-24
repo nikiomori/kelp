@@ -18,10 +18,12 @@ package enum Banner {
     /// Shows a banner. `action` adds one button beside the text (e.g. "Open Settings"), and the banner then stays a
     /// little longer. `title`, `subtitle` and `icon` are what an agent's banner leads with (its name and what it did,
     /// where, and its icon), with the text under them. `lasts` is the seconds on screen, when the action holds for a
-    /// known time (an Undo the daemon keeps for a minute).
+    /// known time (an Undo the daemon keeps for a minute). With `stays`, it stays until it is answered or closed, for
+    /// what waits on the user's choice whenever they come back (agents to continue).
     package static func show(
         _ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil,
-        title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil
+        title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil,
+        stays: Bool = false
     ) {
         guard let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }),
             let stack = stack(in: window)
@@ -42,7 +44,7 @@ package enum Banner {
         }
         let card = BannerCard(
             text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
-            stays: fix?.blocking == true)   // when git can't run at all, it stays until closed
+            stays: stays || fix?.blocking == true)   // when git can't run at all, it stays until closed
         stack.rearrange { stack.insertArrangedSubview(card, at: 0) }
         card.appear()
         cards.dropFirst(most).forEach { $0.dismiss() }   // the oldest fades out, as one whose time came does

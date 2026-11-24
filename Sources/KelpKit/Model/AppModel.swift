@@ -167,6 +167,18 @@ package final class AppModel {
     /// How the user arranged the sidebar. It is its own observed model (`Arrangement`), not part of the daemon's
     /// mirror.
     @ObservationIgnored private(set) lazy var arrangement = Arrangement(app: self)
+    /// Returns sessions in about the order the sidebar lists them: by project and workspace, then as dragged among
+    /// their siblings, then oldest first.
+    package func inSidebarOrder(_ sessions: [Session]) -> [Session] {
+        let place = Dictionary(
+            projects.flatMap(workspaces(of:)).enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let rank = arrangement.rank
+        return sessions.sorted {
+            (place[$0.worktreeId ?? ""] ?? .max, rank[$0.id] ?? .max, $0.createdAt)
+                < (place[$1.worktreeId ?? ""] ?? .max, rank[$1.id] ?? .max, $1.createdAt)
+        }
+    }
+
     /// Puts the given sibling ids in the given order.
     func reorder(_ ids: [String]) { arrangement.order = ids + arrangement.order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {

@@ -80,8 +80,9 @@ extension Builtins {
             pushed: [{ LimitWatch.of(app).landed($0) }],
             plans: PlanNote.words(app),
             // Starts the strip over the Dock, which shows while Kelp is behind another app, and puts its items in the
-            // Dock icon's menu. Also starts the context rings on agents' tabs, watched for the workspace on screen.
-            launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }],
+            // Dock icon's menu. Also starts the context rings on agents' tabs, watched for the workspace on screen, and
+            // the offer to continue the agents Kelp's going down cut short.
+            launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }, { InterruptedAgents.start(app) }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
             dockUsage: { LimitWatch.dockFace(app) },
             skills: [terminalsSkill, agentsSkill],

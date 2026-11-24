@@ -221,7 +221,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `show(over:)` and `hide`), so a drop looks the same on every pane.
     // +2: a built-in's rows for whatever is typed in ⌘P, under its own heading (`QuickSection`, its `init`), so Agents
     // lists the lines open terminals printed without the shell knowing terminals.
-    #expect(declared == 382, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: agents Kelp's going down cut short are offered to go on by the Agents built-in, which reads whether one was
+    // (`Session.interrupted`) and continues them in the sidebar's order (`inSidebarOrder`).
+    #expect(declared == 384, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -535,6 +537,9 @@ func codeOnly(_ s: String) -> String {
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
         "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
+        "Builtins/Agents/Session/InterruptedAgents.swift": (
+            1, "Continue All wakes the agents Kelp's going down cut short a second apart, so a dozen don't start at once"
+        ),
         "KelpKit/Shell/WorkspaceActions+Idle.swift": (
             1, "an empty group's row shows its sand run out for a moment before the group goes"
         ),
