@@ -15,6 +15,7 @@ private func parsed(_ text: String) throws -> DatabaseAddress { try DatabaseAddr
     #expect(try parsed("postgres://app:p%2540ss@h/db").password == "p%40ss")
     #expect(try parsed("postgres://h/db?user=a%2540b&password=100%25").password == "100%")
 
+    #expect(try parsed("mysql+pymysql://u@h/shop").database.engine == .mysql)   // SQLAlchemy's driver after "+"
     let jdbc = try parsed("jdbc:postgresql://db.example.com/app_dev?user=app&password=pw")
     #expect(jdbc.database.port == 5432 && jdbc.database.user == "app" && jdbc.password == "pw")
 

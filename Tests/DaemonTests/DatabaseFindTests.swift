@@ -73,3 +73,63 @@ import Testing
         #expect(DatabaseInfo.Engine(image: image) == engine, "\(image)")
     }
 }
+
+/// A database.yml as `rails new` writes it: the shared settings under an anchor, merged into each block.
+@Test func railsDatabaseYAMLsAnchorsAreFollowed() {
+    let text = """
+        default: &default
+          adapter: postgresql
+          encoding: unicode
+          host: db.local.test
+          pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+        development:
+          <<: *default
+          database: shop_development
+
+        test:
+          <<: *default
+          host: localhost
+          database: shop_test
+        """
+    let found = DatabaseFind.rails(text, source: "config/database.yml", root: "/p")
+    #expect(found.map(\.database.name) == ["shop_development", "shop_test"])
+    #expect(found.allSatisfy { $0.database.engine == .postgres })
+    #expect(found.map(\.database.host) == ["db.local.test", "localhost"])   // a block's own key wins over the merge
+}
+
+/// Laravel's and Django's .env give a database in separate variables, libpq's PG* too; SQLAlchemy names its driver in
+/// the URL's scheme.
+@Test func aDatabaseInSeparateVariablesIsFound() {
+    typealias Seen = (engine: DatabaseInfo.Engine, host: String?, database: String?, user: String?, password: String?)
+    let cases: [(String, [Seen])] = [
+        (
+            "DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_DATABASE=laravel\nDB_USERNAME=root\nDB_PASSWORD=s",
+            [(.mysql, "127.0.0.1", "laravel", "root", "s")]
+        ),
+        ("DB_CONNECTION=pgsql\nDB_DATABASE=shop\nDB_PASSWORD=", [(.postgres, "localhost", "shop", nil, nil)]),
+        (
+            "DB_ENGINE=django.db.backends.postgresql\nDB_NAME=app\nDB_USER=u\nDB_HOST=db.example.com",
+            [(.postgres, "db.example.com", "app", "u", nil)]
+        ),
+        ("DB_HOST=localhost\nDB_PORT=5432\nDB_NAME=app", [(.postgres, "localhost", "app", nil, nil)]),
+        (
+            "PGHOST=localhost\nPGDATABASE=shop\nPGUSER=app\nPGPASSWORD=pw",
+            [(.postgres, "localhost", "shop", "app", "pw")]
+        ),
+        ("DATABASE_URL=postgresql+psycopg://app:pw@localhost/shop", [(.postgres, "localhost", "shop", "app", "pw")]),
+        ("DB_CONNECTION=sqlite\n# DB_HOST=127.0.0.1", []),
+        ("DB_HOST=redis.internal", [])
+    ]
+    for (text, seen) in cases {
+        let found = DatabaseFind.env(text, source: ".env", root: "/p")
+        #expect(found.count == seen.count, "\(text)")
+        for (one, want) in zip(found, seen) {
+            let db = one.database
+            #expect(db.engine == want.engine && db.host == want.host && db.database == want.database, "\(text)")
+            #expect(db.user == want.user && one.password == want.password, "\(text)")
+        }
+    }
+    let sqlite = DatabaseFind.env("DB_CONNECTION=sqlite\nDB_DATABASE=database/app.sqlite", source: ".env", root: "/p")
+    #expect(sqlite.first?.database.path == "/p/database/app.sqlite")
+}

@@ -49,7 +49,7 @@ public struct DatabaseAddress: Equatable, Sendable {
     }
 
     static func url(_ text: String) throws(Problem) -> DatabaseAddress {
-        var text = text
+        var text = withoutDriver(text)
         if text.hasPrefix("jdbc:") { text.removeFirst(5) }
         let scheme = String(text.prefix { $0 != ":" }).lowercased()
         if ["sqlite", "sqlite3", "file", "duckdb"].contains(scheme) {
@@ -157,6 +157,11 @@ public struct DatabaseAddress: Equatable, Sendable {
         case "require", "required", "verify-ca", "verify-full", "verify_identity", "true", "1": "require"
         default: nil
         }
+    }
+
+    /// Drops the driver SQLAlchemy names after a "+" in the scheme: postgresql+psycopg://… is postgresql://….
+    public static func withoutDriver(_ url: String) -> String {
+        url.replacing(/^([A-Za-z][A-Za-z0-9]*)\+[A-Za-z0-9_]+:/, maxReplacements: 1) { "\($0.1):" }
     }
 
     /// Returns the value of a line like `DATABASE_URL=…` or `export DATABASE_URL="…"`.
