@@ -32829,6 +32829,66 @@
           }
         }
       }
+    },
+    "Also in Other Formats…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё и в других форматах…"
+          }
+        }
+      }
+    },
+    "Also in Other Formats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё и в других форматах"
+          }
+        }
+      }
+    },
+    "Its agent makes each as a page of its own, laid out again for the shape, and exports them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сделает каждый отдельной страницей, переставив под форму, и выгрузит их."
+          }
+        }
+      }
+    },
+    "As it is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
+    },
+    "15 seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 секунд"
+          }
+        }
+      }
+    },
+    "6 seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 секунд"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

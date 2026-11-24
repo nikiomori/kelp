@@ -96,3 +96,11 @@ import Testing
 func buildInCodeGuessesTheStack(json: String, stack: String) {
     #expect(MarkdownTab.stack(packageJSON: json) == stack)
 }
+
+/// Adaptations go to the agent as one request: every format chosen, laid out again rather than cropped, then exported.
+@MainActor @Test func adaptationsAreOneRequest() {
+    let line = MarkdownTab.adaptations(
+        page: ".kelp/artifacts/launch/motion.html", formats: [("9:16", 1080, 1920), ("1:1", 1080, 1080)], length: "6 s")
+    #expect(line.contains("for 9:16 (1080 × 1920), 1:1 (1080 × 1080)") && line.contains("6 s long"))
+    #expect(line.contains("not cropped") && line.hasSuffix("kelp artifact export <name> mp4."))
+}

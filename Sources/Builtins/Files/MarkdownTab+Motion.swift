@@ -18,6 +18,7 @@ extension MarkdownTab {
         made.onRemove = { [weak self] id in self?.removeElement(MotionPage.board, id) }
         made.onHide = { [weak self] id, hide in self?.hideElement(id, hide) }
         made.onFormat = { [weak self] w, h in self?.resizeStage(w, h) }
+        made.onAdapt = { [weak self] in self?.askAdaptations() }
         made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
         made.onKeyframe = { [weak self] in self?.keyframe() }
         made.marking = marking

@@ -229,11 +229,23 @@ final class MotionStudio {
             item.state = reframe == way ? .on : .off
             size.menu?.addItem(item)
         }
+        size.menu?.addItem(.separator())
+        let other = NSMenuItem(
+            title: String(localized: "Also in Other Formats…"), action: #selector(adaptChosen), keyEquivalent: "")
+        other.target = self
+        size.menu?.addItem(other)
         size.selectItem(at: shown)
     }
 
     /// What a change of the stage's shape does to what's drawn on it (`StageReframe`).
     private(set) var reframe = StageReframe.fit
+
+    /// Also in Other Formats…: the tab asks which, and the agent makes them.
+    var onAdapt: (() -> Void)?
+    @objc private func adaptChosen() {
+        fillFormats()
+        onAdapt?()
+    }
 
     @objc private func reframeChosen(_ item: NSMenuItem) {
         reframe = (item.representedObject as? String).flatMap(StageReframe.init(rawValue:)) ?? .fit
