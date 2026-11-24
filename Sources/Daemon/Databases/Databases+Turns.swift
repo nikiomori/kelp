@@ -109,6 +109,19 @@ extension Databases {
         }
     }
 
+    /// Drops the Postgres databases turns kept of a branch's copy that was just dropped at `near`, the address it was
+    /// reached at: with the copy gone, `dropTemplates` can't find their server. A failure goes to the log.
+    func dropTurnTemplates(of near: DatabaseConnection) async {
+        guard near.database.engine == .postgres, let worktreeId = near.database.copy?.worktreeId else { return }
+        var maintenance = near
+        maintenance.database.database = "postgres"
+        for template in turnKeeps.takeTemplates(of: near.database.name, in: worktreeId) {
+            do { _ = try await DatabaseEngines.write(maintenance, Self.dropSQL(template), off: offloads) } catch {
+                Log.store.error("dropping \(template), kept for a turn of a removed copy: \(error)")
+            }
+        }
+    }
+
     // MARK: The SQL
 
     /// The Postgres database a turn (or an undo) keeps a copy in, such as kelp_6f1c2a4e_9d1b_4c_shop_fix.

@@ -60,11 +60,11 @@ public enum DatabaseTimes {
     }
 
     /// The sum of the time limits for each step of an agent's statement: the superuser check, trying it as a read, its
-    /// trial (MySQL's client asks first whether it can roll back), counting what it takes away, the user's answer, and
-    /// the change.
+    /// trial (MySQL's client asks first whether it can roll back), counting what it takes away, the user's answer, the
+    /// copy Undo Turn keeps of a branch's Postgres copy (CREATE DATABASE … TEMPLATE), and the change.
     public static var query: TimeInterval {
         reach + call(superuser) + call(longestRead) + call(read) + call(trial) + call(risk) + DatabaseQuery.answerWithin
-            + call(write)
+            + call(write) + call(write)
     }
     /// The time limit for applying the table's edits in one transaction. Limit: Appwrite's edits are one request each,
     /// and this time doesn't stretch to cover all of them.

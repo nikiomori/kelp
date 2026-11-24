@@ -70,6 +70,27 @@ final class TurnDatabases: Sendable {
         }
     }
 
+    /// Takes the Postgres copies kept of the database `name` in `worktreeId` out of every turn's list, for them to be
+    /// dropped as the branch's copy goes: once it is gone, nothing says which server they are on. Undoing such a turn
+    /// says why it can't put that database back.
+    func takeTemplates(of name: String, in worktreeId: String) -> [String] {
+        let keys = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        var taken: [String] = []
+        for key in keys where kept(key).contains(where: { $0.name == name && $0.worktreeId == worktreeId }) {
+            Log.store.attempt("forgetting \(name)'s copies kept for \(key)") {
+                try change(key) { all in
+                    for i in all.indices where all[i].name == name && all[i].worktreeId == worktreeId {
+                        guard let template = all[i].template else { continue }
+                        taken.append(template)
+                        all[i].template = nil
+                        all[i].cannot = "Its branch's copy was removed."
+                    }
+                }
+            }
+        }
+        return taken
+    }
+
     /// The file a database is kept in, numbered in its turn's folder.
     func file(_ key: String, _ index: Int) -> String { folder(key).appendingPathComponent("\(index).db").path }
 
@@ -121,13 +142,27 @@ final class TurnDatabases: Sendable {
     }
 
     /// Puts a database's file back from a clone (`clone`). SQLite's goes back through SQLite's backup, which takes the
-    /// file's locks and its log as any writer does. DuckDB's file and log are replaced.
+    /// file's locks and its log as any writer does, in one transaction. DuckDB's file and log are cloned beside them,
+    /// then moved over them, so a clone that fails leaves them as they were.
     static func putBack(_ path: String, _ engine: DatabaseInfo.Engine, from clone: String) throws {
         guard engine == .duckdb else { return try SQLiteRun.copy(clone, to: path) }
-        FileManager.default.removeIfAny(URL(fileURLWithPath: log(path, engine)))
-        try cloneFile(clone, to: path)
-        if FileManager.default.fileExists(atPath: log(clone, engine)) {
-            try cloneFile(log(clone, engine), to: log(path, engine))
+        let log = Self.log(path, engine), cloneLog = Self.log(clone, engine), aside = ".kelp-back"
+        let logs = FileManager.default.fileExists(atPath: cloneLog)
+        do {
+            try cloneFile(clone, to: path + aside)
+            if logs { try cloneFile(cloneLog, to: log + aside) }
+            try move(path + aside, over: path)
+        } catch {
+            for file in [path + aside, log + aside] { FileManager.default.removeIfAny(URL(fileURLWithPath: file)) }
+            throw error
+        }
+        if logs { try move(log + aside, over: log) } else { FileManager.default.removeIfAny(URL(fileURLWithPath: log)) }
+    }
+
+    /// Renames `file` over `target` in one step.
+    private static func move(_ file: String, over target: String) throws {
+        guard rename(file, target) == 0 else {
+            throw DatabaseFailure.failed("\(target) couldn't be replaced (\(String(cString: strerror(errno)))).")
         }
     }
 }

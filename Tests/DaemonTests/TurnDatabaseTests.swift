@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GRDB
 import GitKit
+import TestSupport
 import Testing
 
 @testable import Daemon
@@ -169,4 +170,40 @@ func theSheetSaysWhatTheAgentDid(runs: [String: Int], said: String?) {
     #expect(
         said.name == "app_fix"
             && said.cannot?.hasPrefix("Postgres couldn't copy it before the turn's first change") == true)
+}
+
+/// A DuckDB file goes back by a clone moved over it: a clone that fails leaves the file and its log as they were; one
+/// that works brings back the file, and a log the kept file had none of goes.
+@Test func aDuckDBFileThatCantGoBackStaysAsItWas() throws {
+    let dir = tmp().appendingPathComponent("duck-\(UUID().uuidString)").path
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    let live = dir + "/shop.duckdb", kept = dir + "/kept.db"
+    try "live".write(toFile: live, atomically: true, encoding: .utf8)
+    try "log".write(toFile: live + ".wal", atomically: true, encoding: .utf8)
+    #expect(throws: DatabaseFailure.self) { try TurnDatabases.putBack(live, .duckdb, from: dir + "/gone.db") }
+    #expect(try String(contentsOfFile: live, encoding: .utf8) == "live")
+    #expect(try String(contentsOfFile: live + ".wal", encoding: .utf8) == "log")
+    try "kept".write(toFile: kept, atomically: true, encoding: .utf8)
+    try TurnDatabases.putBack(live, .duckdb, from: kept)
+    #expect(try String(contentsOfFile: live, encoding: .utf8) == "kept")
+    #expect(!FileManager.default.fileExists(atPath: live + ".wal"))
+    #expect(try FileManager.default.contentsOfDirectory(atPath: dir).sorted() == ["kept.db", "shop.duckdb"])
+}
+
+/// A branch's Postgres copy that goes takes the copies turns kept of it along (which only its address reaches): each
+/// turn that kept one hands it over, and its undo then says why that copy can't go back.
+@Test func aRemovedCopysTurnTemplatesAreHandedOver() throws {
+    let keeps = TurnDatabases(root: tmp().appendingPathComponent("turns-\(UUID().uuidString)"))
+    defer { try? FileManager.default.removeItem(at: keeps.dir) }
+    func kept(_ name: String, _ template: String, in worktreeId: String = "w1") -> KeptDatabase {
+        KeptDatabase(worktreeId: worktreeId, name: name, engine: .postgres, template: template)
+    }
+    try keeps.change("t1") { $0 = [kept("app_fix", "kelp_t1_app_fix"), kept("other", "kelp_t1_other")] }
+    try keeps.change("t2") { $0 = [kept("app_fix", "kelp_t2_app_fix"), kept("app_fix", "kelp_t2_w2", in: "w2")] }
+    #expect(keeps.takeTemplates(of: "app_fix", in: "w1").sorted() == ["kelp_t1_app_fix", "kelp_t2_app_fix"])
+    #expect(keeps.kept("t1").map(\.template) == [nil, "kelp_t1_other"])
+    #expect(keeps.kept("t2").map(\.template) == [nil, "kelp_t2_w2"])
+    #expect(keeps.kept("t1").first?.cannot == "Its branch's copy was removed.")
+    #expect(keeps.takeTemplates(of: "app_fix", in: "w1").isEmpty)
 }

@@ -36,8 +36,7 @@ extension Databases {
         await dropTemplates(older)
         for one in all where one.kept.cannot == nil {
             do {
-                let now = try await undo(one, keeping: turnKeeps.kept(undone).count, in: undone)
-                try turnKeeps.change(undone) { $0.append(now) }
+                try await undo(one, keeping: turnKeeps.kept(undone).count, in: undone)
             } catch {
                 await redoTurn(undone)
                 let why = (error as? DatabaseFailure)?.message ?? "\(error)"
@@ -46,19 +45,19 @@ extension Databases {
         }
     }
 
-    /// Puts one database back, after keeping it as it is now at `index` in `undone`. Returns what was kept.
-    private func undo(_ one: TurnDatabase, keeping index: Int, in undone: String) async throws -> KeptDatabase {
+    /// Puts one database back, after keeping it as it is now at `index` in `undone` and listing it there. A file is
+    /// listed before it goes back, so a put-back that fails part way is put as it was too (`redoTurn`).
+    private func undo(_ one: TurnDatabase, keeping index: Int, in undone: String) async throws {
         var now = KeptDatabase(worktreeId: one.kept.worktreeId, name: one.kept.name, engine: one.kept.engine)
         if let path = one.kept.path {
             let (engine, here, from) = (
                 one.kept.engine, turnKeeps.file(undone, index), turnKeeps.file(one.key, one.index)
             )
-            try await offloads.run {
-                try TurnDatabases.clone(path, engine, to: here)
-                try TurnDatabases.putBack(path, engine, from: from)
-            }
+            try await offloads.run { try TurnDatabases.clone(path, engine, to: here) }
             now.path = path
-            return now
+            try turnKeeps.change(undone) { $0.append(now) }
+            try await offloads.run { try TurnDatabases.putBack(path, engine, from: from) }
+            return
         }
         let target = try await offloads.run { [self] in
             try connection(one.kept.worktreeId, one.kept.name, agent: false)
@@ -76,7 +75,7 @@ extension Databases {
             throw error
         }
         now.template = aside
-        return now
+        try turnKeeps.change(undone) { $0.append(now) }
     }
 
     /// The statements that put a Postgres copy back from `template`: the copy is renamed `aside` (where Redo finds

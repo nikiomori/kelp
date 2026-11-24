@@ -138,8 +138,8 @@ extension Databases {
         return copy
     }
 
-    /// Drops the workspace's copy `name` (`DatabaseCopyRemove`): its file, or its Postgres database, and what Kelp
-    /// keeps of it.
+    /// Drops the workspace's copy `name` (`DatabaseCopyRemove`): its file, or its Postgres database and the copies
+    /// Undo Turn kept of it, and what Kelp keeps of it.
     func dropCopy(_ worktreeId: String, _ name: String) async throws {
         let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
         guard c.database.copy?.worktreeId == worktreeId, let repo = try store.worktree(worktreeId)?.repoId else {
@@ -149,7 +149,9 @@ extension Databases {
             if c.database.engine.isFile {
                 if let path = c.database.path { Self.removeCopy(path) }
             } else {
-                try await dropDatabase(try await offloads.run { [self] in try reach(c, worktreeId) })
+                let near = try await offloads.run { [self] in try reach(c, worktreeId) }
+                try await dropDatabase(near)
+                await dropTurnTemplates(of: near)
             }
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
         try forget(copy: c.database, byHand: c.origin == .project, repo: repo)
@@ -193,7 +195,10 @@ extension Databases {
                 database: db, password: entry.byHand ? Keychain.get(Self.account(entry.id)) : nil)
             Task { [self] in
                 do {
-                    if !db.engine.isFile { try await dropDatabase(connection) }
+                    if !db.engine.isFile {
+                        try await dropDatabase(connection)
+                        await dropTurnTemplates(of: connection)
+                    }
                     try forget(copy: db, byHand: entry.byHand, repo: worktree.repoId)
                 } catch { Log.store.error("dropping \(db.name), \(worktree.branch)'s copy: \(error)") }
             }
