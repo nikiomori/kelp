@@ -173,6 +173,24 @@ import os
         Git.branchExists(w.repo.path, "theirs", remotes: .none) && !FileManager.default.fileExists(atPath: theirs.path))
 }
 
+/// A branch an agent made and works in from its own chat on another screen (its row's branch mark) stays while that
+/// chat is open, however old, with no session of its own: the agent is on it.
+@Test func anAgentsBranchStaysWhileItsChatIsOpen() async throws {
+    let w = try await world(agents: [
+        AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"])
+    ])
+    defer { w.d.stop() }
+    let home = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
+    let chat = try await w.c.call(SessionCreate(worktreeId: home.id, agent: "sleepy"))
+    var branch = try await workspace(w, "helper/mine")
+    branch.madeBy = chat.id
+    branch.createdAt = Date().addingTimeInterval(-600)
+    try w.d.store.save(branch)
+    w.d.workspaces.headQueue.sync { w.d.workspaces.tidyBranches() }
+    #expect(try w.d.store.worktree(branch.id) != nil && FileManager.default.fileExists(atPath: branch.path))
+    w.d.sessions.discard(chat)
+}
+
 /// Removing a workspace opened on a branch that was there already (`--existing`) removes its folder and keeps the
 /// branch, whoever asks; one Kelp made for it goes with it.
 @Test func removingAWorkspaceKeepsABranchItDidntMake() async throws {
