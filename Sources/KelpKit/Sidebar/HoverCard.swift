@@ -88,6 +88,8 @@ final class CardModel {
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
+    /// On a chat's card, the branch of its own it works on (`SidebarItem.branch`).
+    var branch: Worktree?
     /// On an empty group's card, when it closes by itself (`WorkspaceActions.closesAt`).
     var closes: Date?
     /// On a project's card, the project. `worktrees` holds the disk its other worktrees take (nil while `du` runs).
@@ -128,7 +130,12 @@ final class CardModel {
             repo = nil
             muteIds = [session.id]
             server = nil
-            folder = nil
+            // A chat working on a branch of its own: its card shows that branch, its changes and its PR.
+            let own = app.worktrees.first {
+                SidebarTree.maker($0) == session.id && !$0.archived && $0.path != app.repo($0.repoId)?.path
+            }
+            folder = own?.id
+            branch = own
         case .project(let id):
             guard let project = app.repo(id) else { return nil }
             title = app.projectName(project.id) ?? project.name

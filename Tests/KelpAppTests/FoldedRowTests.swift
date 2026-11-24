@@ -56,6 +56,14 @@ extension OneAtATime {
             cell.layoutSubtreeIfNeeded()
             #expect(cell.folder?.id == "b")
             #expect(cell.hasBadge.pr && !cell.pr.isHidden)
+            // Under the pointer the mark spells its branch out, and the chat's card shows that branch.
+            #expect(!cell.pr.attributedTitle.string.contains("fix-login"))
+            cell.spell(cell.pr, true)
+            #expect(cell.pr.attributedTitle.string.contains("fix-login"))
+            cell.spell(cell.pr, false)
+            #expect(!cell.pr.attributedTitle.string.contains("fix-login"))
+            let card = try #require(CardModel(.agent("c"), app: vc.app))
+            #expect(card.branch?.id == "b" && card.folder == "b")
             // Short of room for both, the branch's mark stays and the changes dot steps aside.
             let row = try #require(cell.pr.superview as? NSStackView)
             for width in stride(from: 280, through: 120, by: -2) {

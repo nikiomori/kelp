@@ -167,13 +167,24 @@ extension SidebarCell {
             pr.toolTip = prBadge.tip + "\n" + Self.onGitHub
             pr.setAccessibilityLabel(prBadge.tip)
         } else if let branch {
+            // Under the pointer the mark spells its branch out, as the changes dot spells its counts; the chat's card
+            // says the rest.
             let commits = app.gitState.ownWork(branch.id)?.commits ?? 0
-            pr.attributedTitle = .signed(
-                "arrow.triangle.branch", commits > 0 ? commits : nil, size: TextSize.caption,
-                color: .secondaryLabelColor)
-            pr.toolTip = String(
-                localized: "This chat works on its own branch, \(branch.branch) — click for its changes")
-            pr.setAccessibilityLabel(pr.toolTip)
+            let title = NSMutableAttributedString(
+                attributedString: .signed(
+                    "arrow.triangle.branch", commits > 0 ? commits : nil, size: TextSize.caption,
+                    color: .secondaryLabelColor))
+            if spelling === pr {
+                title.append(
+                    NSAttributedString(
+                        string: " " + branch.branch,
+                        attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor])
+                )
+            }
+            pr.attributedTitle = title
+            pr.toolTip = nil
+            pr.setAccessibilityLabel(
+                String(localized: "This chat works on its own branch, \(branch.branch) — click for its changes"))
         }
         let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state

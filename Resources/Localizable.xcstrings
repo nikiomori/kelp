@@ -2018,6 +2018,28 @@
         }
       }
     },
+    "Its own branch: %lld commits not on %@ yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Своя ветка, коммитов не в %2$@: %1$lld"
+          }
+        }
+      }
+    },
+    "Its own branch, cut from %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Своя ветка от %@, коммитов пока нет"
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {

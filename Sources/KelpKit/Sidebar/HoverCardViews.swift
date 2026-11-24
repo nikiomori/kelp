@@ -25,6 +25,7 @@ struct CardView: View {
                 servers.section(host, model.closeCard)
             }
             if let repo = model.repo { WorktreeSizes(items: model.worktrees, root: repo.path) }
+            if let branch = model.branch { OwnBranch(model: model, branch: branch) }
             if let folder = model.folder, let pr = model.app.extensions.all.ci?.card(folder) { pr }
             if let changes = model.changes, changes.totalAdded + changes.totalRemoved > 0 {
                 (Text("Not committed  ")
@@ -242,5 +243,36 @@ private struct ContextPie: NSViewRepresentable {
     func updateNSView(_ pie: ContextMeter, context: Context) {
         pie.usage = usage
         pie.isHidden = false
+    }
+}
+
+/// On a chat's card, the branch the chat works on in a folder of its own: its name, what it holds that the base
+/// branch doesn't, and a button to its changes. Its PR and what isn't committed follow, as on a group's card.
+struct OwnBranch: View {
+    let model: CardModel
+    let branch: Worktree
+
+    var body: some View {
+        let base = model.app.repo(branch.repoId)?.baseBranch ?? "main"
+        let commits = model.app.gitState.ownWork(branch.id)?.commits ?? 0
+        VStack(alignment: .leading, spacing: Metrics.lineGap) {
+            HStack(spacing: Metrics.gap) {
+                Image(systemName: "arrow.triangle.branch").foregroundStyle(.secondary)
+                Text(branch.branch).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: Metrics.gapWide)
+                Button("Changes") {
+                    model.app.workbench.open(TabURI.diff(branch.id), workspace: branch.id)
+                    model.closeCard()
+                }
+                .controlSize(.small)
+            }
+            Text(
+                commits > 0
+                    ? "Its own branch: \(commits) commits not on \(base) yet" : "Its own branch, cut from \(base)"
+            )
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+            Text((branch.path as NSString).abbreviatingWithTildeInPath).font(.ui(TextSize.caption))
+                .foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+        }
     }
 }

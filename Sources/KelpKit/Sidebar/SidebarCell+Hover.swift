@@ -44,7 +44,7 @@ extension SidebarCell {
     /// under the pointer and come back.
     func spell(_ badge: NSView?, _ on: Bool) {
         if on { spelling = badge } else if spelling === badge { spelling = nil }
-        showChanges()
+        if badge === pr { updateBadges() } else { showChanges() }
         ciMark.spelled = spelling === ci
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.fast)

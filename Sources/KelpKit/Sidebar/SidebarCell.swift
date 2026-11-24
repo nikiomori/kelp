@@ -212,7 +212,7 @@ final class SidebarCell: NSTableCellView {
             badge.target = self
         }
         stack.onMore = { [weak owner, node] in owner?.toggle(node) }
-        for badge in [changes, ci] { badge.onHover = { [weak self, weak badge] in self?.spell(badge, $0) } }
+        for badge in [changes, ci, pr] { badge.onHover = { [weak self, weak badge] in self?.spell(badge, $0) } }
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
         ci.action = #selector(openCI)
