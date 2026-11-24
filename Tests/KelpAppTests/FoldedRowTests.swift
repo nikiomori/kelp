@@ -76,6 +76,14 @@ extension OneAtATime {
                 }
             }
         }
+        // A helper group the chat made, under the chat, is no second screen: the project's row keeps its screen's card.
+        var helper = Worktree(id: "h", repoId: "r1", branch: "main", path: atlas.path, note: "Helpers")
+        helper.madeBy = "c"
+        let kid = Session(id: "k", worktreeId: "h", cwd: "/", command: "claude", agent: "claude", status: .working)
+        try withSidebar(repos: [atlas], worktrees: [home, helper], sessions: [chat, kid]) { _, o in
+            let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
+            #expect(project.cardKind == .workspace("w1"))
+        }
     }
 
     /// A project with a second screen gives its own screen a row, named by its branch. Folded, it keeps both screens'
@@ -101,6 +109,9 @@ extension OneAtATime {
             vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
             let folded = names(o)
             #expect(folded.count == 3 && folded[1].contains("main") && folded[2].contains("Release"))
+            // → on the folded project's row opens it again, as ← folded it.
+            #expect(vc.outline.onRight(0) && names(o).count == 5)
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
             let screen = try #require(o.view(atColumn: 0, row: 2, makeIfNecessary: true) as? SidebarCell)
             #expect(screen.stack.total == 1)   // There, as a logo
             o.selectRowIndexes([2], byExtendingSelection: false)

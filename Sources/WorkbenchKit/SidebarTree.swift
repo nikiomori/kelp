@@ -46,6 +46,8 @@ public struct SidebarTree {
     public var parked: Set<String> = []
     /// Folded projects (by id): their screens stay, their chats show only as logos.
     public var foldedProjects: Set<String> = []
+    /// Groups with tabs open, which keep a row even with no chats (a terminal, a file, a diff).
+    public var withTabs: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
         self.projects = projects
@@ -70,7 +72,8 @@ public struct SidebarTree {
             var chats = own.map(workspace)?.children ?? []
             // A group that an agent made stands under that agent's chat, but only for a chat on the project's own
             // screen. A group can't hold a group, so a group made from inside a group stays among the project's groups.
-            // One that holds no chats is that chat's own branch: a mark on its row, not a row.
+            // One on a folder of its own that holds no chats and no tabs is that chat's own branch: a mark on its row,
+            // not a row. A chat has one such mark; another one like it keeps its row under the chat.
             let makers = Set(chats.compactMap { if case .agent(let id) = $0.kind { id } else { nil } })
             var made: [String: [SidebarItem]] = [:], branches: [String: String] = [:], screens: [SidebarItem] = []
             for group in live where group.repoId == r.id && group.id != own?.id {
@@ -79,7 +82,7 @@ public struct SidebarTree {
                     screens.append(item)
                     continue
                 }
-                if item.children.isEmpty {
+                if item.children.isEmpty, group.path != r.path, !withTabs.contains(group.id), branches[by] == nil {
                     branches[by] = group.id
                 } else {
                     item.under = by

@@ -48,7 +48,9 @@ extension WorkspaceActions {
                 $0.status != .exited && ($0.worktreeId == group.id || $0.id == SidebarTree.maker(group))
             }),
             let repo = app.repo(group.repoId), group.id != mainWorkspace(of: repo, among: app.workspaces(of: repo))?.id,
-            group.path == repo.path || app.gitState.ownWork(group.id).map({ $0.commits + $0.files == 0 }) ?? true
+            group.path == repo.path
+                || !WorkspaceActions.kept.contains(group.id)
+                    && app.gitState.ownWork(group.id).map({ $0.commits + $0.files == 0 }) ?? true
         else { return nil }
         return (emptySince[group.id].map(Date.init(timeIntervalSince1970:)) ?? group.createdAt) + emptyFor
     }
@@ -56,9 +58,13 @@ extension WorkspaceActions {
     /// Closes the groups whose time ran out (`closesAt`). One on a branch with work of its own stays, since nothing of
     /// it may go unasked. On a visible list the row's sand runs out first (`Workbench.timeUp`), then the row goes.
     func closeIdle(now: Date = Date()) {
-        for group in app.worktrees where closesAt(group).map({ $0 <= now }) == true {
+        let due = app.worktrees.filter { closesAt($0).map { $0 <= now } == true }, going = Set(due.map(\.id))
+        for group in due {
+            // What was closed there goes to a group that stays, not to another one closing now.
             guard let repo = app.repo(group.repoId), WorkspaceActions.closing.insert(group.id).inserted,
-                let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
+                let next = WorkspaceClosing.afterLastTab(
+                    of: group, rows: app.workspaces(of: repo).filter { $0.id == group.id || !going.contains($0.id) },
+                    repos: app.repos)
             else { continue }
             // Throws only when cancelled, and then the group stays.
             Task { () async throws in
@@ -67,20 +73,30 @@ extension WorkspaceActions {
                     app.workbench.timeUp.remove(group.id)
                 }
                 if group.path != repo.path {
-                    guard let work = await work(on: group.id), !work.isAny else { return }
+                    guard let work = await work(on: group.id) else { return }
+                    // Its countdown stops, and it isn't asked about again while Kelp runs.
+                    guard !work.isAny else {
+                        WorkspaceActions.kept.insert(group.id)
+                        return
+                    }
                 }
                 if !Motion.reduced, app.workbench.mainWindow?.isVisible == true {
                     app.workbench.timeUp.insert(group.id)
                     try await Task.sleep(for: .seconds(Motion.fold * 2))
                 }
-                guard closesAt(group) != nil, await app.workbench.keepClosedTabs(of: group, on: next) else { return }
+                guard closesAt(group) != nil, await app.workbench.keepClosedTabs(of: group, on: next),
+                    closesAt(group) != nil   // and not shown or opened while its closed tabs moved
+                else { return }
                 _ = await app.quiet(WorktreeRemove(id: group.id))
             }
         }
     }
 }
 
-/// The groups `closeIdle` is closing now, so a second call meanwhile leaves them alone.
 @MainActor private extension WorkspaceActions {
+    /// The groups `closeIdle` is closing now, so a second call meanwhile leaves them alone.
     static var closing: Set<String> = []
+    // ponytail: kept until Kelp quits, so a branch merged meanwhile counts down again only after a restart.
+    /// Branch groups found to hold work of their own: they never close by themselves.
+    static var kept: Set<String> = []
 }

@@ -155,3 +155,27 @@ extension OneAtATime {
         #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id, made.id]))
     }
 }
+
+extension OneAtATime {
+    /// Two empty groups whose time ran out together: what was closed in the first goes to a group that stays, not to
+    /// the second, which is closing too.
+    @Test func groupsClosingTogetherKeepTheirClosedTabsOnOneThatStays() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let app = rig.app, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let first = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let second = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        #expect(app.workspaces(of: rig.project).map(\.id) == [rig.workspace.id, first.id, second.id])
+        app.workbench.closedTabs.remember(
+            ClosedTab(
+                uri: TabURI.file(rig.repo + "/a.txt"), title: "a.txt", workspace: first.id, group: nil, index: nil))
+        let day = try #require(actions.emptyFor)
+        actions.closeIdle(now: Date(timeIntervalSinceNow: 2 * day))
+        let open = { try await rig.client.call(WorktreeList(repoId: rig.project.id)).map(\.id) }
+        #expect(try await waitFor { try await open() == [rig.workspace.id] })
+        #expect(app.workbench.closedTabs.all.first?.workspace == rig.workspace.id)
+    }
+}

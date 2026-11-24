@@ -43,9 +43,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         /// The item whose card the row shows. A project with its own screen stands for that screen.
         /// The card a row shows. A project's row stands for its own screen while that screen has no row; once the
-        /// project has several screens, its card is the project's, with every screen's chats.
+        /// project has several screens (its own screen has a row), its card is the project's, with every screen's
+        /// chats. A group a chat made, under that chat, is no screen of the project's.
         var cardKind: SidebarItem.Kind {
-            let screens = children.contains { if case .workspace = $0.kind { true } else { false } }
+            let screens = workspace.map { own in children.contains { $0.kind == .workspace(own) } } ?? false
             return screens ? kind : workspace.map(SidebarItem.Kind.workspace) ?? kind
         }
         /// What a dragged row reorders: a project's id or a workspace's id.
@@ -112,6 +113,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         set { app.uiState["sidebar.collapsed"] = try? .from(newValue.sorted()) }
     }
     var syncing = false
+    /// The groups chats made that have tabs open: they keep a row (`SidebarTree.withTabs`).
+    static func madeWithTabs(_ app: AppModel) -> Set<String> {
+        Set(app.worktrees.filter { $0.madeBy != nil && !app.workbench.layouts[$0.id].allTabs.isEmpty }.map(\.id))
+    }
     /// The workspace whose project syncSelection last opened (or found open).
     var revealed: String?
     /// The workspace or project (`project`) whose name is being edited in its row.
@@ -141,6 +146,13 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.selectionHighlightStyle = .none   // SidebarRowView draws the selection as a pill
         outline.floatsGroupRows = false
         outline.indentationPerLevel = 14
+        outline.onRight = { [weak self] row in
+            guard let self, let node = outline.item(atRow: row) as? Node, Self.isHeader(node),
+                collapsed.contains(node.key)
+            else { return false }
+            unfold(node)
+            return true
+        }
         outline.steps = { [weak self] row in
             guard let self, let node = outline.item(atRow: row) as? Node else { return 0 }
             return node.under ?? (outline.parent(forItem: node) as? Node)?.under == nil ? 0 : 1
@@ -246,7 +258,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in
             Values(
                 app.repos, app.worktrees, app.missingFolders, app.arrangement.order, app.arrangement.parked,
-                app.arrangement.parkedBack, app.extensions.all.servers != nil, app.settings[SettingKeys.sidebarOrder])
+                app.arrangement.parkedBack, app.extensions.all.servers != nil, app.settings[SettingKeys.sidebarOrder],
+                Self.madeWithTabs(app))
         } changed: { [weak self] _ in
             self?.refresh()
         }

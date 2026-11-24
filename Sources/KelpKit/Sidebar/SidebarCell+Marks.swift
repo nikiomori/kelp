@@ -125,8 +125,12 @@ extension SidebarCell {
         case .host, .parked: nil
         }
     }
+    /// On a chat's row, the changes open on the chat's screen: its branch has no row, so a screen of its own would
+    /// leave the list with nothing selected.
     @objc func openChanges() {
-        if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
+        guard let folder else { return }
+        let chat = if case .agent(let id) = node.kind { app.session(id)?.worktreeId } else { nil as String? }
+        app.workbench.open(TabURI.diff(folder.id), workspace: chat ?? folder.id)
     }
     /// Opens the PR's tab, and with ⌘ held its page in the browser. A ⌘-click on the CI mark opens the run's page
     /// the same way (`FolderCI.open`).

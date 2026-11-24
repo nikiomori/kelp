@@ -88,8 +88,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let first = app.worktrees.first { !$0.archived && !NoProject.holds(app.repo($0.repoId)) }
             if let workspace = pick ?? last ?? first { app.workbench.show(workspace: workspace.id) }
             app.workbench.reopenOwnWindows()
-            WorkspaceActions(app).closeIdle()
             await UnsavedBackups.reopen(app, in: app.workbench.editors)
+            WorkspaceActions(app).closeIdle()   // after the unsaved tabs are back in their groups
             app.updates.sayInstalled()
             let early = pendingOpens ?? []
             pendingOpens = nil

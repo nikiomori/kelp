@@ -29,6 +29,7 @@ extension SidebarController {
         leavePage(unless: Set(tree.hosts.values))
         tree.folded = Set(collapsed.filter { $0.hasPrefix("h:") }.map { String($0.dropFirst(2)) })
         tree.foldedProjects = Set(collapsed.filter { $0.hasPrefix("p:") }.map { String($0.dropFirst(2)) })
+        tree.withTabs = Self.madeWithTabs(app)
         func node(_ item: SidebarItem) -> Node {
             let built = Node(item.kind)
             built.children = item.children.map(node)

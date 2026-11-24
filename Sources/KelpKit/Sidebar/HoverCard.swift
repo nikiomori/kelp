@@ -138,8 +138,12 @@ final class CardModel {
             muteIds = [session.id]
             server = nil
             // A chat working on a branch of its own: its card shows that branch, its changes and its PR.
-            let own = app.worktrees.first {
-                SidebarTree.maker($0) == session.id && !$0.archived && $0.path != app.repo($0.repoId)?.path
+            // The same one the row marks: the first of the project's groups the chat made on a folder of its own,
+            // with no chats in it (`SidebarTree.build`).
+            let own = app.repo(worktree?.repoId ?? "").flatMap { project in
+                app.workspaces(of: project).first {
+                    SidebarTree.maker($0) == session.id && $0.path != project.path && app.liveChats(in: $0.id).isEmpty
+                }
             }
             folder = own?.id
             branch = own
