@@ -222,8 +222,8 @@ import Testing
     // SwiftUI's `@AppStorage` and `@SceneStorage` are UserDefaults by another name.
     let all = try matches(#"\bUserDefaults\b|@AppStorage\b|@SceneStorage\b"#, in: ["Sources"])
     let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
-    #expect(app.count <= 72, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
-    #expect(app.count >= 72, "\(app.count) now: lower this")
+    #expect(app.count <= 71, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(app.count >= 71, "\(app.count) now: lower this")
     #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
 }
 

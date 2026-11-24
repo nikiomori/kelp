@@ -22,7 +22,6 @@ extension MainWindowController {
     func setAutoHide(_ side: Side, _ on: Bool) {
         guard on != side.autoHide else { return }   // so the first read, before loading, keeps the saved layout
         side.autoHide = on
-        side.pinned = false
         followLights()   // the lights and the toggle move with the column, from its first frame
         if inFocusMode { side.closedBefore = on }
         if peeking === side { stopPeek() }
@@ -75,7 +74,7 @@ extension MainWindowController {
         }
     }
 
-    func hides(_ side: Side) -> Bool { inFocusMode || side.autoHide && !side.pinned }
+    func hides(_ side: Side) -> Bool { inFocusMode || side.autoHide }
 
     /// Puts each panel where it belongs now: in its column, or in its floater while it hides. A panel leaving its open
     /// column for the floater keeps its width there.
@@ -177,22 +176,12 @@ extension MainWindowController {
         side.floater.slide(in: false, animated: animated, carrying: side === left && hides(left) ? lights : [])
         followLights()
     }
-    /// Called when the panels change for good (focus mode, auto-hide switched, pinned), so the peeking panel goes at
+    /// Called when the panels change for good (focus mode, auto-hide switched), so the peeking panel goes at
     /// once.
     func stopPeek() { endPeek(animated: false) }
     func togglePeek(_ side: Side) {
         if peeking === side { endPeek() } else { peek(side) }
     }
-    /// With auto-hide, a pinned panel stays in its column (a peeking panel moves there). Unpinned, it goes away and
-    /// comes in at the edge again.
-    func togglePin(_ side: Side) {
-        side.pinned.toggle()
-        if side.pinned { return land([(side, false)]) }
-        if peeking === side { stopPeek() }
-        floatWidths()
-        slide([(side, true)]) { [weak self] in self?.place() }
-    }
-
     /// Opens columns for panels that no longer hide. A panel in its floater comes in there (or stays, peeking) over its
     /// opening column, and is put in the column once the column stands. Moving a panel takes the main thread some
     /// 40 ms, and when the panel moved first, that was a wait between the key and anything happening.
@@ -228,11 +217,8 @@ final class Side {
     let edge = EdgeTrigger()
     /// The panel's edge next to the editor area, which lets go while its column slides.
     let inner: NSLayoutConstraint.Attribute
-    /// Settings › Appearance › Auto-hide. When on, the panel stays away as in focus mode, for good.
+    /// Switched by the panel's button (⌘0 / ⌥⌘0). When on, the panel stays away at its edge as in focus mode.
     var autoHide = false
-    /// True when the toggle (⌘0 / ⌥⌘0) pinned an auto-hidden panel. It then stays in like a normal panel until the
-    /// toggle is pressed again.
-    var pinned = false
     /// True when the column was closed (or the panel hid) before focus mode, so leaving focus mode puts that back.
     var closedBefore = false
     private var openWidth: CGFloat = 0

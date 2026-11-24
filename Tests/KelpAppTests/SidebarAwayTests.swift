@@ -58,4 +58,24 @@ extension StripPlaceTests {
                 return main.sidebarToggle.frame.minX > close.frame.maxX   // back after the lights
             })
     }
+
+    /// The inspector's button (⌥⌘0) does as the sidebar's: the inspector is in its column or away at the window's right
+    /// edge, never just closed. Neither panel closes by its divider dragged shut.
+    @Test func theInspectorButtonPutsTheInspectorAwayToo() async throws {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all), main = MainWindowController(app: app)
+        let split = try #require(main.window?.contentView?.subviews.first { !($0 is Backdrop) })
+        let was = app.settings[SettingKeys.inspectorAutoHide]
+        defer { app.settings.set(SettingKeys.inspectorAutoHide, was) }
+        if was { main.toggleInspectorPanel() }
+        main.right.item.isCollapsed = false   // open, whatever this Mac's tests left in the split's autosave
+        #expect(try await waitFor(5) { main.inspector.view.isDescendant(of: split) })
+        main.toggleInspectorPanel()
+        #expect(try await waitFor(5) { !main.inspector.view.isDescendant(of: split) })   // in its floater, at the edge
+        #expect(app.settings[SettingKeys.inspectorAutoHide] && !main.inspectorShown)
+        main.toggleInspectorPanel()
+        #expect(try await waitFor(5) { main.inspector.view.isDescendant(of: split) })
+        #expect(!app.settings[SettingKeys.inspectorAutoHide] && main.inspectorShown)
+        #expect(!main.left.item.canCollapse && !main.right.item.canCollapse)
+    }
 }

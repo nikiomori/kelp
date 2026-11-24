@@ -153,10 +153,6 @@ extension InspectorController {
             }
         }
         menu.addItem(.separator())
-        menu.addItem(
-            item(
-                String(localized: "Auto-Hide Inspector"), #selector(toggleAutoHide), nil,
-                on: settings[SettingKeys.inspectorAutoHide]))
         menu.addSettingsLink(String(localized: "Inspector Settings…"), section: "appearance", group: "Inspector", app)
         return menu
     }
@@ -186,7 +182,4 @@ extension InspectorController {
         app.settings.set(key, .string(v))
     }
 
-    @objc private func toggleAutoHide() {
-        app.settings.set(SettingKeys.inspectorAutoHide, !app.settings[SettingKeys.inspectorAutoHide])
-    }
 }
