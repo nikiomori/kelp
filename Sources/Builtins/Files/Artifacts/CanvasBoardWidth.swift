@@ -102,7 +102,7 @@ enum CanvasBoardWidth {
         """
 
     static let style = """
-        .kelp-widths { margin-left: 8px; vertical-align: middle; font-size: calc(10px / var(--z, 1));
+        .kelp-widths { margin-left: 8px; vertical-align: middle; font-size: calc(var(--k-text-micro) / var(--z, 1));
           visibility: hidden; }
         /* Out of the way until looked for: on the board's hover, in Edit, or while a width is chosen. */
         .frame:hover .kelp-widths, [data-mode="edit"] .kelp-widths, .kelp-widths:has(.on:not([data-w="0"])) {

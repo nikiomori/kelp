@@ -38,7 +38,8 @@ enum MarkColumn {
           const typing = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)
             && !!document.activeElement.closest('.kelp-col, .kelp-composer');
           const num = m => m.asked && m.state === 'draft' ? el('span', 'kelp-num kelp-n-ask', '?')
-            : el('span', 'kelp-num kelp-n-' + m.state, m.state === 'done' ? '✓' : String(m.id || '·'));
+            : m.state === 'done' ? el('span', 'kelp-num kelp-n-done kelp-sym-checkmark')
+            : el('span', 'kelp-num kelp-n-' + m.state, String(m.id || '·'));
 
           function pins() {
             layer.replaceChildren();
@@ -79,7 +80,8 @@ enum MarkColumn {
             } else if (m.state === 'sent') {
               head.append(el('span', 'kelp-spin'));
             } else if (m.state === 'done') {
-              const again = el('button', 'kelp-ib', '↺'); again.title = L.again;
+              const again = el('button', 'kelp-ib'); again.title = L.again;
+              again.append(el('span', 'kelp-sym-arrow-uturn-backward'));
               again.onclick = e => { e.stopPropagation(); sendAgain(m); };
               head.append(again);
             }
@@ -233,7 +235,7 @@ enum MarkColumn {
               filter, key => { filter = key; draw(); });
             const queued = busy.queued ? ' · ' + L.queued.replace('%d', busy.queued) : '';
             const band = busy.who
-              ? [el('span', 'kelp-busy-dot', '●'), el('span', null, L.working.replace('%@', busy.who) + queued)] : [];
+              ? [el('span', 'kelp-busy-dot'), el('span', null, L.working.replace('%@', busy.who) + queued)] : [];
             if (!more.length) return C.open([which], rows(), band);
             const tabs = C.tabs([['marks', L.marks]].concat(more), tab, key => { tab = key; draw(); });
             C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab), band);

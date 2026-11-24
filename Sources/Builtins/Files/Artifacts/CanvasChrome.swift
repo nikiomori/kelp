@@ -1,3 +1,4 @@
+import DesignKit
 import Foundation
 
 /// The controls Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`). They are the column on the
@@ -85,36 +86,50 @@ enum CanvasChrome {
             """
     }
 
+    /// DesignKit's text sizes and radii as the page's CSS variables (`--k-text-caption`, `--k-radius-md`), so what
+    /// Kelp draws on a page is sized as the window around it is.
+    private static let sizes =
+        [
+            ("title", TextSize.title), ("heading", TextSize.heading), ("body", TextSize.body), ("row", TextSize.row),
+            ("caption", TextSize.caption), ("micro", TextSize.micro)
+        ].map { "--k-text-\($0.0): \(Int($0.1))px;" }.joined(separator: " ") + " "
+        + [
+            ("xs", Metrics.radiusXS), ("sm", Metrics.radiusSM), ("md", Metrics.radiusMD), ("lg", Metrics.radiusLG),
+            ("xl", Metrics.radiusXL)
+        ].map { "--k-radius-\($0.0): \(Int($0.1))px;" }.joined(separator: " ")
+
     /// The CSS for what Kelp draws on the page: Kelp's tokens in light and dark (following the window's appearance),
     /// and the style of each control.
     static let style = """
         :root { --k-ground: #f2f2f2; --k-win: #eaeced; --k-card: #fff; --k-label: rgba(0,0,0,.85);
           --k-sec: rgba(0,0,0,.5); --k-sep: rgba(0,0,0,.1); --k-rest: rgba(0,0,0,.05); --k-hover: rgba(0,0,0,.08);
           --k-sel: rgba(0,0,0,.12); --k-accent: #007aff; --k-float: rgba(246,246,246,.96); --k-orange: #ff9500;
-          --k-text-orange: #9a5000; --k-quiet: #aeaeb2; }
+          --k-text-orange: #9a5000; --k-quiet: #aeaeb2; --k-purple: #af52de; --k-knob: #fff;
+          \(sizes) }
         @media (prefers-color-scheme: dark) {
           :root { --k-ground: #232325; --k-win: #363a3c; --k-card: #282828; --k-label: rgba(255,255,255,.85);
             --k-sec: rgba(255,255,255,.55); --k-sep: rgba(255,255,255,.1); --k-rest: rgba(255,255,255,.05);
             --k-hover: rgba(255,255,255,.08); --k-sel: rgba(255,255,255,.12); --k-accent: #0a84ff;
             --k-float: rgba(48,48,50,.96); --k-orange: #ff9f0a; --k-text-orange: #ff9f0a;
-            --k-quiet: #636366; }
+            --k-quiet: #636366; --k-purple: #bf5af2; --k-knob: #e5e5e7; }
         }
         body.kelp-with-col { padding-right: 300px; }
         .kelp-col { position: fixed; top: 0; right: 0; bottom: 0; width: 260px; display: none; flex-direction: column;
           background: var(--k-win); border-left: 1px solid var(--k-sep); z-index: 20; color: var(--k-label);
-          font: 12px/1.35 -apple-system, BlinkMacSystemFont, sans-serif; }
+          font: var(--k-text-row)/1.35 -apple-system, BlinkMacSystemFont, sans-serif; }
         .kelp-with-col .kelp-col { display: flex; }
         .kelp-col-head { height: 36px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 12px;
-          border-bottom: 1px solid var(--k-sep); font-size: 13px; font-weight: 600; }
+          border-bottom: 1px solid var(--k-sep); font-size: var(--k-text-body); font-weight: 600; }
         .kelp-col-body { flex: 1; overflow-y: auto; padding-bottom: 12px; }
-        .kelp-sec { font-size: 11px; font-weight: 600; color: var(--k-sec); padding: 12px 12px 6px; }
+        .kelp-sec { font-size: var(--k-text-caption); font-weight: 600; color: var(--k-sec); padding: 12px 12px 6px; }
         .kelp-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; }
         .kelp-row > span:first-child { flex: none; }
         .kelp-grow { flex: 1; }
-        .kelp-note { color: var(--k-sec); font-size: 11px; padding: 10px 12px; }
+        .kelp-note { color: var(--k-sec); font-size: var(--k-text-caption); padding: 10px 12px; }
         .kelp-float { position: fixed; z-index: 15; display: flex; align-items: center; gap: 2px; padding: 0 4px;
-          height: 30px; border-radius: 8px; background: var(--k-float); color: var(--k-label);
-          box-shadow: 0 0 0 .5px var(--k-sep), 0 2px 6px rgba(0,0,0,.2); font: 12px -apple-system, sans-serif; }
+          height: 30px; border-radius: var(--k-radius-md); background: var(--k-float); color: var(--k-label);
+          box-shadow: 0 0 0 .5px var(--k-sep), 0 2px 6px rgba(0,0,0,.2);
+          font: var(--k-text-row) -apple-system, sans-serif; }
         .kelp-zoom { bottom: 14px; right: 14px; }
         .kelp-with-col .kelp-zoom { right: 274px; }
         .kelp-seg { display: inline-flex; height: 22px; padding: 2px; box-sizing: border-box; border-radius: 999px;
@@ -123,7 +138,8 @@ enum CanvasChrome {
           color: var(--k-sec); font: inherit; }
         .kelp-seg button.on { background: var(--k-card); color: var(--k-label);
           box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
-        .kelp-ib { width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: var(--k-sec);
+        .kelp-ib { width: 22px; height: 22px; border: 0; border-radius: var(--k-radius-sm); background: none;
+          color: var(--k-sec);
           font: 14px -apple-system, sans-serif; }
         .kelp-ib:hover { background: var(--k-hover); }
         .kelp-ib .kelp-glyph { display: block; margin: auto; }
@@ -131,12 +147,14 @@ enum CanvasChrome {
         .kelp-pill { height: 22px; padding: 0 8px; border: 0; border-radius: 999px; background: var(--k-rest);
           color: var(--k-label); font: inherit; }
         .kelp-pill:hover { background: var(--k-hover); }
-        .kelp-prominent { height: 24px; padding: 0 12px; border: 0; border-radius: 6px; background: var(--k-accent);
-          color: #fff; font: 500 12px -apple-system, sans-serif; }
+        .kelp-prominent { height: 24px; padding: 0 12px; border: 0; border-radius: var(--k-radius-sm);
+          background: var(--k-accent);
+          color: #fff; font: 500 var(--k-text-row) -apple-system, sans-serif; }
         .kelp-pct { width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
         .kelp-sep { width: 1px; height: 16px; background: var(--k-sep); margin: 0 4px; }
         .kelp-issues { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 9; }
-        .kelp-fault { position: absolute; width: 16px; height: 16px; border-radius: 4px; background: var(--k-card);
+        .kelp-fault { position: absolute; width: 16px; height: 16px; border-radius: var(--k-radius-xs);
+          background: var(--k-card);
           color: var(--k-text-orange); box-shadow: 0 0 0 1px var(--k-orange);
           display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: default; }
         .kelp-present .kelp-col, .kelp-present .kelp-float, .kelp-present .kelp-issues { display: none !important; }

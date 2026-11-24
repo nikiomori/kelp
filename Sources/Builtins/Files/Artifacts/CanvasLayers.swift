@@ -83,13 +83,14 @@ enum CanvasLayers {
         """
 
     static let style = """
-        .kelp-layers { max-height: 220px; overflow: auto; outline: none; border-radius: 6px; }
+        .kelp-layers { max-height: 220px; overflow: auto; outline: none; border-radius: var(--k-radius-sm); }
         .kelp-layers:focus { box-shadow: inset 0 0 0 1px var(--k-accent); }
-        .kelp-lrow { height: 22px; line-height: 22px; border-radius: 4px; font-size: 12px; white-space: nowrap;
+        .kelp-lrow { height: 22px; line-height: 22px; border-radius: var(--k-radius-xs);
+          font-size: var(--k-text-row); white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis; cursor: default; }
         .kelp-lrow:hover { background: var(--k-hover); }
         .kelp-lrow.on { background: color-mix(in srgb, var(--k-accent) 35%, transparent); }
         .kelp-layers-keys { margin-top: 4px; }
-        .kelp-like { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 11px; }
+        .kelp-like { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: var(--k-text-caption); }
         """
 }

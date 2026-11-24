@@ -5,7 +5,7 @@ extension MarkColumn {
     static let helpers = """
         // ⋮⋮: dragged over another draft, puts this one before it, in the order the agent will do them.
         function grip(m, box) {
-          const g = el('span', 'kelp-grip', '⋮⋮');
+          const g = el('span', 'kelp-grip kelp-sym-line-3-horizontal');
           g.onmousedown = () => { box.draggable = true; };
           box.ondragstart = e => { e.dataTransfer.setData('text/kelp-mark', String(by('draft').indexOf(m))); };
           box.ondragend = () => { box.draggable = false; };

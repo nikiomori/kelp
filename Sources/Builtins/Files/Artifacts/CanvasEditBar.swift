@@ -24,7 +24,7 @@ enum CanvasEditBar {
             const s = props.shown(key, at.e), parts = [];
             if (s.swatch) { const w = K.el('span', 'kelp-iswatch'); w.style.background = s.swatch; parts.push(w); }
             else parts.push(s.title);
-            parts.push(K.el('span', 'kelp-edown', '⌄'));
+            parts.push(K.el('span', 'kelp-edown kelp-sym-chevron-down'));
             return button(parts, () => props.open(key), s.title);
           }
           function draw() {
@@ -55,15 +55,16 @@ enum CanvasEditBar {
     /// The bar: the floating card of Kelp's pages, words 11, its buttons answering the pointer.
     static let style = """
         .kelp-ebar { position: absolute; z-index: 17; display: flex; align-items: center; gap: 2px; padding: 3px;
-          border-radius: 8px; background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2);
-          -webkit-backdrop-filter: blur(20px); font: 11px -apple-system, sans-serif; color: var(--k-label); }
+          border-radius: var(--k-radius-md); background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          -webkit-backdrop-filter: blur(20px); font: var(--k-text-caption) -apple-system, sans-serif;
+          color: var(--k-label); }
         .kelp-ebtn { display: flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border: 0;
           border-radius: 5px; background: none; color: inherit; font: inherit; font-variant-numeric: tabular-nums;
           white-space: nowrap; }
         .kelp-ebtn:hover { background: var(--k-hover); }
         .kelp-ebtn:active { background: var(--k-sel); }
         .kelp-ebtn .kelp-iswatch { margin: 0; }
-        .kelp-edown { color: var(--k-sec); font-size: 10px; position: relative; top: -2px; }
+        .kelp-edown { color: var(--k-sec); font-size: var(--k-text-micro); position: relative; top: -2px; }
         .kelp-esep { width: 1px; height: 14px; background: var(--k-sep); margin: 0 2px; }
         .kelp-rec .kelp-ebar { display: none !important; }
         """

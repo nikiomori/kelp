@@ -142,7 +142,7 @@ enum PageMarks {
         \(MarkColumn.style)
         ::highlight(kelp-mark) { background-color: rgba(255,149,0,.28); }
         .kelp-markbtn { position: absolute; z-index: 2147483647; display: none; padding: 4px 10px; border: 0;
-          border-radius: 999px; font: 500 12px -apple-system, BlinkMacSystemFont, sans-serif;
+          border-radius: 999px; font: 500 var(--k-text-row) -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--k-accent);
           color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); cursor: default; }
         .kelp-quote { font-style: italic; color: var(--k-sec); }

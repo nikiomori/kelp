@@ -180,14 +180,14 @@ enum CanvasPage {
         <!doctype html><html><head><meta charset="utf-8"><style>
         :root { color-scheme: light dark; }
         body { margin: 0; padding: 32px 40px 80px; background: var(--k-ground); color: var(--k-label);
-          font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
+          font: var(--k-text-row)/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
         #kelp-canvas { display: flex; width: max-content; flex-direction: column; gap: 48px;
           transform-origin: 0 0; }
-        .row h2 { font-size: calc(13px / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
+        .row h2 { font-size: calc(var(--k-text-body) / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
         .boards { display: flex; gap: 48px; align-items: flex-start; }
         .frame { display: flex; flex-direction: column; gap: 6px; flex: none; }
-        .name { opacity: 0.6; font-size: calc(11px / var(--z, 1)); white-space: nowrap; }
-        iframe { border: 0; display: block; border-radius: 4px; background: #fff;
+        .name { opacity: 0.6; font-size: calc(var(--k-text-caption) / var(--z, 1)); white-space: nowrap; }
+        iframe { border: 0; display: block; border-radius: var(--k-radius-xs); background: #fff;
           box-shadow: 0 0 0 0.5px rgba(0,0,0,.15), 0 1px 4px rgba(0,0,0,.18); }
         iframe[data-theme="dark"] { background: #1c1c1e; }
         \(CanvasChrome.style)

@@ -126,8 +126,9 @@ enum CanvasCrop {
           pointer-events: auto; }
         .kelp-crop-left, .kelp-crop-right { width: 6px; height: 24px; cursor: ew-resize; }
         .kelp-crop-top, .kelp-crop-bottom { cursor: ns-resize; }
-        .kelp-crop-bar { position: absolute; display: flex; gap: 2px; padding: 3px; border-radius: 8px;
-          background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2); font: 11px -apple-system, sans-serif;
+        .kelp-crop-bar { position: absolute; display: flex; gap: 2px; padding: 3px; border-radius: var(--k-radius-md);
+          background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          font: var(--k-text-caption) -apple-system, sans-serif;
           color: var(--k-label); pointer-events: auto; }
         """
 }

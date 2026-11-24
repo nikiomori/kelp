@@ -12,24 +12,24 @@ extension CanvasEdit {
         .kelp-outline { position: absolute; display: none; border: 1.5px solid var(--k-orange); border-radius: 3px; }
         .kelp-outline.kelp-outline-edit { border: 1px solid var(--k-accent); opacity: .6; }
         .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
-          color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;
+          color: #1d1d1f; font: 600 var(--k-text-micro)/18px -apple-system, sans-serif; text-align: center;
           box-shadow: 0 0 0 2px var(--k-card); }
         .kelp-num { width: 16px; height: 16px; border-radius: 50%; background: var(--k-orange); color: #1d1d1f;
-          font: 600 10px/16px -apple-system, sans-serif; text-align: center; }
+          font: 600 var(--k-text-micro)/16px -apple-system, sans-serif; text-align: center; }
         .kelp-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .kelp-indent { padding-left: 36px; padding-top: 0; }
         .kelp-end { justify-content: flex-end; padding-top: 10px; }
         .kelp-field { flex: 1; min-width: 0; height: 22px; box-sizing: border-box; padding: 0 7px; border: 0;
-          border-radius: 6px; background: var(--k-card); color: var(--k-label); font: inherit;
+          border-radius: var(--k-radius-sm); background: var(--k-card); color: var(--k-label); font: inherit;
           box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-issue { align-items: flex-start; }
-        .kelp-mark-warn { width: 14px; height: 14px; border-radius: 4px; color: var(--k-text-orange);
+        .kelp-mark-warn { width: 14px; height: 14px; border-radius: var(--k-radius-xs); color: var(--k-text-orange);
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 0 0 1px var(--k-orange); margin-top: 1px; }
         .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 999px; padding: 1px 8px; font: inherit;
           font-weight: 500; background: var(--k-rest); color: inherit; opacity: 0; }
         .row h2:hover .kelp-pick, .kelp-tweaks { opacity: 1; }
-        .kelp-panel { display: none; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; font-size: 11px; }
+        .kelp-panel { display: none; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; font-size: var(--k-text-caption); }
         .kelp-panel.open { display: flex; }
         .kelp-panel label { display: flex; gap: 6px; align-items: center; }
         .kelp-panel input[type=color] { width: 22px; height: 18px; border: 0; padding: 0; background: none; }
@@ -39,7 +39,8 @@ extension CanvasEdit {
         .kelp-tseg button.on { background: var(--k-card); box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
         .kelp-strip { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: none;
           align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 999px; opacity: 0;
-          background: rgba(40,40,40,.85); color: rgba(255,255,255,.85); font: 12px -apple-system, sans-serif;
+          background: rgba(40,40,40,.85); color: rgba(255,255,255,.85);
+          font: var(--k-text-row) -apple-system, sans-serif;
           transition: opacity .17s ease-in; }
         .kelp-present .kelp-strip { display: flex; }
         .kelp-present .kelp-sheet { z-index: 35; right: 0; cursor: default; }   /* over the board shown: its links */
@@ -63,10 +64,12 @@ extension CanvasEdit {
           .frame { break-after: page; }
         }
         .kelp-label { position: absolute; padding: 1px 5px; border-radius: 3px; background: var(--k-orange);
-          color: #1d1d1f; font: 600 11px/16px -apple-system, sans-serif; white-space: nowrap; pointer-events: none; }
+          color: #1d1d1f; font: 600 var(--k-text-caption)/16px -apple-system, sans-serif; white-space: nowrap;
+          pointer-events: none; }
         .kelp-label.kelp-n-sent { background: var(--k-quiet); }
         .kelp-label-field { position: absolute; z-index: 13; width: 140px; height: 20px; padding: 0 5px; border: 0;
-          border-radius: 3px; background: var(--k-orange); color: #1d1d1f; font: 600 11px -apple-system, sans-serif;
+          border-radius: 3px; background: var(--k-orange); color: #1d1d1f;
+          font: 600 var(--k-text-caption) -apple-system, sans-serif;
           outline: none; }
         """
 }

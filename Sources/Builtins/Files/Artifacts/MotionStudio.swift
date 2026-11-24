@@ -80,7 +80,7 @@ final class MotionStudio {
     }()
     /// Mark's mark on the whole video, with no second: for its pace, its music, its mood.
     private lazy var whole: TextButton = {
-        let button = TextButton(String(localized: "+ To the Whole Video")) { [weak self] in
+        let button = TextButton(String(localized: "Mark the Whole Video")) { [weak self] in
             self?.act("window.kelpMarks?.add({ kind: 'area', whole: true })")
         }
         button.toolTip = String(localized: "A mark about the whole video, not one moment of it")
@@ -170,7 +170,10 @@ final class MotionStudio {
         }
         timeline.range = state.range
         rangeChip.isHidden = state.range == nil
-        if let r = state.range { rangeChip.title = String(format: "⟲ %.1f–%.1f s  ×", r.lowerBound, r.upperBound) }
+        if let r = state.range {
+            rangeChip.title = String(
+                format: String(localized: "Work Area %.1f–%.1f s"), r.lowerBound, r.upperBound)
+        }
         exportOptions.range = state.range
         timeline.setCaptions(state.captions)
         if timeline.beats != state.beats { timeline.beats = state.beats }

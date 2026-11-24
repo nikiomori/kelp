@@ -142,10 +142,11 @@ enum CanvasMotionKeys {
               if (next != null) window.kelpMotion.seek(next);
             };
             const on = keys.frames.some(f => Math.abs(f.at - p) < 0.6);
-            const steps = [['◀', () => go(-1), ''], ['◆', () => K.post({ kind: 'keyframe' }), on ? 'on' : ''],
-              ['▶', () => go(1), '']];
+            const steps = [['chevron-left', () => go(-1), ''],
+              ['diamond-fill', () => K.post({ kind: 'keyframe' }), on ? 'on' : ''], ['chevron-right', () => go(1), '']];
             for (const [glyph, run, cls] of steps) {
-              const b = K.el('button', cls, glyph); b.onclick = run; nav.append(b);
+              const b = K.el('button', cls); b.append(K.el('span', 'kelp-sym-' + glyph)); b.onclick = run;
+              nav.append(b);
             }
             const seg = keys.frames.filter(f => f.at <= p + 0.01).pop() || keys.frames[0];
             const easing = K.el('button', 'kelp-ipop');
@@ -296,12 +297,12 @@ enum CanvasMotionKeys {
         .kelp-cv-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .kelp-cv-num { width: 100%; min-width: 0; height: 20px; border: 0; border-radius: 5px; padding: 0 6px;
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); color: var(--k-label);
-          font: 12px -apple-system, sans-serif; font-variant-numeric: tabular-nums; }
+          font: var(--k-text-row) -apple-system, sans-serif; font-variant-numeric: tabular-nums; }
         .kelp-cv-seg { margin: 4px 0; }
         .kelp-cv-sub { margin-top: 8px; }
         .kelp-cv-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .kelp-cv-tile { height: 30px; border: 0; border-radius: 5px; background: var(--k-hover); color: var(--k-sec);
-          font: 10px -apple-system, sans-serif; }
+          font: var(--k-text-micro) -apple-system, sans-serif; }
         .kelp-cv-tile.on { background: var(--k-sel); color: var(--k-label); }
         """
 }

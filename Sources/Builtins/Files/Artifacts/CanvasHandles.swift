@@ -260,6 +260,6 @@ enum CanvasHandles {
         .kelp-guides { position: absolute; inset: 0 auto auto 0; z-index: 16; pointer-events: none; }
         .kelp-guide { position: absolute; background: #ff2d55; }
         .kelp-measure-n { position: absolute; transform: translate(-50%, -50%); padding: 0 4px; border-radius: 3px;
-          background: #ff2d55; color: #fff; font: 600 10px/15px -apple-system, sans-serif; }
+          background: #ff2d55; color: #fff; font: 600 var(--k-text-micro)/15px -apple-system, sans-serif; }
         """
 }

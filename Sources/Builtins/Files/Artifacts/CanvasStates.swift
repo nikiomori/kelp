@@ -66,13 +66,14 @@ enum CanvasStates {
           align-items: center; gap: 10px; text-align: center; padding: 0 16px; }
         .kelp-with-col .kelp-empty { right: 260px; }
         .kelp-empty svg { color: var(--k-sec); opacity: .55; }
-        .kelp-empty b { font-size: 13px; font-weight: 600; }
-        .kelp-empty p { margin: 0; font-size: 13px; color: var(--k-sec); max-width: 380px; }
-        .kelp-code { font: 11px ui-monospace, "SF Mono", Menlo, monospace; color: var(--k-sec); }
+        .kelp-empty b { font-size: var(--k-text-body); font-weight: 600; }
+        .kelp-empty p { margin: 0; font-size: var(--k-text-body); color: var(--k-sec); max-width: 380px; }
+        .kelp-code { font: var(--k-text-caption) ui-monospace, "SF Mono", Menlo, monospace; color: var(--k-sec); }
         .kelp-actions { display: flex; gap: 8px; margin-top: 4px; }
-        .kelp-skel { box-sizing: border-box; border: 1.5px dashed var(--k-sep); border-radius: 4px; display: flex;
+        .kelp-skel { box-sizing: border-box; border: 1.5px dashed var(--k-sep); border-radius: var(--k-radius-xs);
+          display: flex;
           flex-direction: column; gap: 4px; align-items: center; justify-content: center; color: var(--k-sec);
-          font-size: calc(11px / var(--z, 1)); }
+          font-size: calc(var(--k-text-caption) / var(--z, 1)); }
         .kelp-ring { display: inline-block; width: calc(9px / var(--z, 1)); height: calc(9px / var(--z, 1));
           margin-right: calc(6px / var(--z, 1)); vertical-align: -1px; box-sizing: border-box;
           border-radius: 50%; border: 1.5px solid var(--k-sep); border-top-color: var(--k-sec);

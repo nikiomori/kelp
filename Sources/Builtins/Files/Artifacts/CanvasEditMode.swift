@@ -221,8 +221,9 @@ enum CanvasEditMode {
           // Left, centre, right: three buttons, the one set on.
           function align(e) {
             const now = css(e).textAlign, seg = K.el('span', 'kelp-iseg');
-            for (const [value, glyph] of [['left', '⟸'], ['center', '≡'], ['right', '⟹']]) {
-              const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '', glyph);
+            for (const value of ['left', 'center', 'right']) {
+              const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '');
+              b.append(K.el('span', 'kelp-sym-text-align' + value));
               b.onclick = () => set('align', value);
               seg.append(b);
             }
@@ -323,31 +324,34 @@ enum CanvasEditMode {
     static let style = """
         .kelp-chosen { position: absolute; display: none; box-sizing: border-box; border: 2px solid var(--k-accent);
           border-radius: 2px; }
-        .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: 4px;
-          background: var(--k-accent); color: #fff; font: 500 10px/16px -apple-system, sans-serif;
+        .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: var(--k-radius-xs);
+          background: var(--k-accent); color: #fff; font: 500 var(--k-text-micro)/16px -apple-system, sans-serif;
           white-space: nowrap; }
         .kelp-q { color: var(--k-sec); }
         .kelp-col-head:has(.kelp-ihd) { height: auto; padding: 10px 12px 8px; }
         .kelp-ihd { min-width: 0; }
-        .kelp-ittl { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden;
+        .kelp-ittl { font-size: var(--k-text-body); font-weight: 600; white-space: nowrap; overflow: hidden;
           text-overflow: ellipsis; }
-        .kelp-icrumb { color: var(--k-sec); font-size: 11px; font-weight: 400; margin-top: 1px; white-space: nowrap;
+        .kelp-icrumb { color: var(--k-sec); font-size: var(--k-text-caption); font-weight: 400; margin-top: 1px;
+          white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis; }
         .kelp-ilink { border: 0; background: none; color: var(--k-sec); font: inherit; padding: 0 2px;
-          border-radius: 4px; }
+          border-radius: var(--k-radius-xs); }
         .kelp-ilink:hover { background: var(--k-hover); color: var(--k-label); }
         .kelp-isec { padding: 8px 12px 6px; border-bottom: 1px solid var(--k-sep); }
-        .kelp-ititle { font-size: 11px; font-weight: 600; color: var(--k-sec); margin-bottom: 4px; }
+        .kelp-ititle { font-size: var(--k-text-caption); font-weight: 600; color: var(--k-sec); margin-bottom: 4px; }
         .kelp-irow { display: grid; grid-template-columns: 88px minmax(0, 1fr) 16px; align-items: center; gap: 6px;
           height: 26px; }
         .kelp-ilabel { color: var(--k-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .kelp-ireset { border: 0; background: none; color: var(--k-sec); padding: 0; font-size: 11px;
-          border-radius: 4px; }
+        .kelp-ireset { border: 0; background: none; color: var(--k-sec); padding: 0; font-size: var(--k-text-caption);
+          border-radius: var(--k-radius-xs); }
         .kelp-ireset:hover { color: var(--k-label); background: var(--k-hover); }
         .kelp-ipop { display: flex; align-items: center; height: 20px; min-width: 0; padding: 0 6px; border: 0;
-          border-radius: 5px; background: var(--k-hover); color: var(--k-label); font: 12px -apple-system, sans-serif; }
+          border-radius: 5px; background: var(--k-hover); color: var(--k-label);
+          font: var(--k-text-row) -apple-system, sans-serif; }
         .kelp-ipop:hover { background: var(--k-sel); }
-        .kelp-ipop::after { content: "⌄"; color: var(--k-sec); font-size: 10px; margin-left: 4px; position: relative;
+        .kelp-ipop::after { content: "⌄"; color: var(--k-sec); font-size: var(--k-text-micro); margin-left: 4px;
+          position: relative;
           top: -2px; }
         .kelp-itok { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .kelp-ival { color: var(--k-sec); margin-left: auto; padding-left: 6px; font-variant-numeric: tabular-nums; }
@@ -355,15 +359,16 @@ enum CanvasEditMode {
           vertical-align: -2px; box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-iseg { display: flex; gap: 2px; height: 20px; padding: 1px; border-radius: 5px;
           background: var(--k-hover); }
-        .kelp-iseg button { flex: 1; border: 0; border-radius: 4px; background: none; color: var(--k-sec);
-          font-size: 12px; }
+        .kelp-iseg button { flex: 1; border: 0; border-radius: var(--k-radius-xs); background: none;
+          color: var(--k-sec);
+          font-size: var(--k-text-row); }
         .kelp-iseg button.on { background: var(--k-sel); color: var(--k-label); }
         .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px;
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); }
-        .kelp-ifld b { color: var(--k-quiet); font-weight: 500; font-size: 10px; margin-right: 6px; }
+        .kelp-ifld b { color: var(--k-quiet); font-weight: 500; font-size: var(--k-text-micro); margin-right: 6px; }
         .kelp-ifld input { width: 100%; min-width: 0; border: 0; outline: 0; background: none; color: var(--k-label);
-          font: 12px -apple-system, sans-serif; font-variant-numeric: tabular-nums; padding: 0; }
+          font: var(--k-text-row) -apple-system, sans-serif; font-variant-numeric: tabular-nums; padding: 0; }
         .kelp-ifld:focus-within { box-shadow: 0 0 0 2px var(--k-accent); }
         .kelp-islide { display: flex; align-items: center; gap: 8px; }
         .kelp-islide input { flex: 1; min-width: 0; height: 14px; margin: 0; background: none;
@@ -372,7 +377,7 @@ enum CanvasEditMode {
           background: linear-gradient(var(--k-sec), var(--k-sec)) 0 / var(--v, 100%) 100% no-repeat, var(--k-sel); }
         .kelp-islide input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
           margin-top: -5px;
-          border-radius: 50%; background: #e5e5e7; box-shadow: 0 1px 2px rgba(0,0,0,.45); }
+          border-radius: 50%; background: var(--k-knob); box-shadow: 0 1px 2px rgba(0,0,0,.45); }
         .kelp-type { position: absolute; z-index: 26; margin: 0; padding: 0; border: 0; resize: none;
           white-space: pre-wrap;
           overflow: hidden; background: rgba(0,122,255,.08); outline: 2px solid var(--k-accent); border-radius: 2px; }

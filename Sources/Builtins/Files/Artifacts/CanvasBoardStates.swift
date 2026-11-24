@@ -54,6 +54,6 @@ enum CanvasBoardStates {
         """
 
     static let style = """
-        .kelp-states { margin-left: 8px; vertical-align: middle; font-size: calc(10px / var(--z, 1)); }
+        .kelp-states { margin-left: 8px; vertical-align: middle; font-size: calc(var(--k-text-micro) / var(--z, 1)); }
         """
 }

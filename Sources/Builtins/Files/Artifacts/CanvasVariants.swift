@@ -29,7 +29,7 @@ enum CanvasVariants {
         """
 
     static let style = """
-        .frame .name .kelp-pill { margin-left: 6px; font-size: calc(10px / var(--z, 1)); }
+        .frame .name .kelp-pill { margin-left: 6px; font-size: calc(var(--k-text-micro) / var(--z, 1)); }
         .frame .name .kelp-keep { background: var(--k-accent); color: #fff; }
         """
 }
