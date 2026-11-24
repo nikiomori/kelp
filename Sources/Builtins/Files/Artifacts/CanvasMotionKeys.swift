@@ -16,6 +16,9 @@ enum CanvasMotionKeys {
           const presets = [['Linear', 'linear'], ['Out', 'ease-out'], ['In Out', 'ease-in-out'],
             ['Back', 'cubic-bezier(.34, 1.56, .64, 1)'], ['Expo', 'cubic-bezier(.16, 1, .3, 1)'],
             ['Gentle', spring(0.2)], ['Bouncy', spring(0.6)], ['Hold', 'steps(1, end)']];
+          // The same easing however it's written: WebKit gives `cubic-bezier(0.34, 1.56, 0.64, 1)` for `.34, …`.
+          const same = (a, b) => String(a).replace(/\\s+/g, '').replace(/(^|[(,])0[.]/g, '$1.')
+            === String(b).replace(/\\s+/g, '').replace(/(^|[(,])0[.]/g, '$1.');
           // A damped spring sampled as CSS linear(): `bounce` 0 settles at once, 1 rings long.
           function spring(bounce) {
             const damp = 9 - bounce * 6, freq = 10 + bounce * 8, pts = [];
@@ -122,7 +125,7 @@ enum CanvasMotionKeys {
             }
             const tiles = K.el('div', 'kelp-cv-tiles');
             for (const [name, value] of presets) {
-              const t = K.el('button', 'kelp-cv-tile' + (value === now ? ' on' : ''), name);
+              const t = K.el('button', 'kelp-cv-tile' + (same(value, now) ? ' on' : ''), name);
               t.onclick = () => ease(id, curve.at, value);
               tiles.append(t);
             }
@@ -146,7 +149,7 @@ enum CanvasMotionKeys {
             }
             const seg = keys.frames.filter(f => f.at <= p + 0.01).pop() || keys.frames[0];
             const easing = K.el('button', 'kelp-ipop');
-            easing.append(K.el('span', 'kelp-itok', (presets.find(([, v]) => v === seg.easing) || [seg.easing])[0]));
+            easing.append(K.el('span', 'kelp-itok', (presets.find(([, v]) => same(v, seg.easing)) || [seg.easing])[0]));
             easing.onclick = () => window.kelpCurve(id, seg.at);
             const row = (label, control) => { const r = K.el('div', 'kelp-irow');
               r.append(K.el('span', 'kelp-ilabel', label), control, K.el('span')); return r; };
