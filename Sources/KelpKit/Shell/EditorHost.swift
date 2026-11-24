@@ -231,7 +231,7 @@ final class EditorHost: NSViewController {
     }
 
     /// Called when chats left a workspace that may not be on screen. Their tabs leave its layout, and a group left with
-    /// no tab closes.
+    /// no tab closes a day later if nothing opens there (`WorkspaceActions.closeIdle`).
     func chatsLeft(_ id: String) {
         var layout = app.workbench.layouts[id]
         for tab in layout.allTabs
@@ -239,7 +239,7 @@ final class EditorHost: NSViewController {
             layout.remove(tab.id)
         }
         app.workbench.layouts[id] = layout
-        if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
+        if layout.allTabs.isEmpty { WorkspaceActions(app).emptied(id) }
     }
 
     /// Closes a chat from its row, on any screen, with the questions its tab asks and with ⇧⌘T to reopen it. Where the
@@ -260,7 +260,7 @@ final class EditorHost: NSViewController {
                 ClosedTab(uri: uri, title: title, workspace: id, group: layout.group(of: tab.id), index: nil))
             layout.remove(tab.id)
             app.workbench.layouts[id] = layout
-            if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
+            if layout.allTabs.isEmpty { WorkspaceActions(app).emptied(id) }
         }
     }
 

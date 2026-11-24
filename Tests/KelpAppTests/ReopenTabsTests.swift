@@ -109,3 +109,31 @@ extension OneAtATime {
         #expect(await bench.keepClosedTabs(of: other, on: rig.workspace))
     }
 }
+
+extension OneAtATime {
+    /// An empty group stays when the screen leaves it, as it was set up: it goes by itself only after a day with
+    /// nothing in it. One with a tab, or on screen, stays however old.
+    @Test func anEmptyGroupStaysADayAfterTheScreenLeftIt() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let app = rig.app, bench = rig.app.workbench, actions = WorkspaceActions(rig.app)
+        await app.uiState.load()
+        app.connected = true
+        let empty = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let full = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let stale = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        app.worktrees = try await rig.client.call(WorktreeList(repoId: rig.project.id))
+        var layout = bench.layouts[full.id]
+        _ = layout.add("untitled:1", to: nil)
+        bench.layouts[full.id] = layout
+        actions.emptied(stale.id, now: Date(timeIntervalSinceNow: -2 * WorkspaceActions.emptyFor))
+        let open = { try await rig.client.call(WorktreeList(repoId: rig.project.id)).map(\.id) }
+        // Leaving the empty group closes the one empty for two days, and not the one just left.
+        actions.left(empty.id)
+        #expect(try await waitFor { try await !open().contains(stale.id) })
+        #expect(try await open().contains(empty.id))
+        actions.closeIdle(now: Date(timeIntervalSinceNow: WorkspaceActions.emptyFor + 60))
+        #expect(try await waitFor { try await !open().contains(empty.id) })
+        #expect(try await Set(open()).isSuperset(of: [full.id, rig.workspace.id]))
+    }
+}

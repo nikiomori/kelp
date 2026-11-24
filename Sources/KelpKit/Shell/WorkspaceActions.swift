@@ -248,44 +248,48 @@ package struct WorkspaceActions {
         for wid in from { app.workbench.editors?.chatsLeft(wid) }
     }
 
-    /// Called when the screen left a group: a group with nothing open lived only while on screen, so it closes.
-    func left(_ id: String) {
-        if app.workbench.layouts[id].allTabs.isEmpty { closeEmpty(id, ended: nil) }
+    /// How long a group with nothing in it stays: a day after it was last on screen or lost its last tab.
+    static let emptyFor: TimeInterval = 24 * 3600
+    static let emptyKey = "workbench.emptySince"
+
+    /// When each empty group was last on screen or lost its last tab, by group id.
+    var emptySince: [String: Double] {
+        guard case .object(let all)? = app.uiState[Self.emptyKey] else { return [:] }
+        return all.compactMapValues(\.number)
     }
 
-    /// Called when a group's last tab was closed: the group's row goes too, unasked, unless the group is on screen,
-    /// where it offers what to open next and goes when the screen moves on (`left`). A group on a branch with work of
-    /// its own stays and says so, since closing a tab decides nothing. `ended` is that tab's session, on its way out.
-    func closeEmpty(_ id: String, ended: String?) {
-        guard !app.workbench.isOnScreen(id) else { return }
-        // The session's children end a moment later, with no tab, and nothing would come back to close this group.
-        var ending = Set([ended].compactMap { $0 })
-        while case let more = Set(app.sessions.filter { $0.parent.map(ending.contains) == true }.map(\.id)).subtracting(
-            ending), !more.isEmpty
-        {
-            ending.formUnion(more)
-        }
-        guard let group = app.worktree(id), let repo = app.repo(group.repoId),
-            !app.sessions.contains(where: { $0.worktreeId == id && !ending.contains($0.id) && $0.status != .exited }),
-            let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
-        else { return }
-        Task {
-            if group.path != repo.path {
-                guard let work = await work(on: id) else { return }
-                if work.isAny {
-                    let key = app.extensions.keyText("workspace.close") ?? String(localized: "Close Group")
-                    Banner.show(
-                        String(
-                            localized:
-                                "“\(group.displayName)” stays: its work is only on \(group.branch). \(key) closes it."
-                        ))
-                    return
+    /// Called when the screen left a group. A group with nothing open stays as it was set up, for a day.
+    func left(_ id: String) {
+        if app.workbench.layouts[id].allTabs.isEmpty { emptied(id) }
+        closeIdle()
+    }
+
+    /// Called when a group's last tab closed or its last chat moved out: the day it may stay empty starts now.
+    func emptied(_ id: String, now: Date = Date()) {
+        var since = emptySince.filter { id in app.worktree(id.key) != nil }
+        since[id] = now.timeIntervalSince1970
+        app.uiState[Self.emptyKey] = .object(since.mapValues(JSONValue.double))
+    }
+
+    /// Closes the groups that stayed empty for a day: no tab, no agent, not on screen. One on a branch with work of
+    /// its own stays, since nothing of it may go unasked. Until the saved tabs are read, every group looks empty.
+    func closeIdle(now: Date = Date()) {
+        guard app.connected, app.uiState.loaded else { return }
+        let since = emptySince
+        for group in app.worktrees where !group.archived && !app.workbench.isOnScreen(group.id) {
+            let at = since[group.id].map(Date.init(timeIntervalSince1970:)) ?? group.createdAt
+            guard now.timeIntervalSince(at) >= Self.emptyFor, app.workbench.layouts[group.id].allTabs.isEmpty,
+                !app.sessions.contains(where: { $0.worktreeId == group.id && $0.status != .exited }),
+                let repo = app.repo(group.repoId),
+                let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
+            else { continue }
+            Task {
+                if group.path != repo.path {
+                    guard let work = await work(on: group.id), !work.isAny else { return }
                 }
+                guard await app.workbench.keepClosedTabs(of: group, on: next) else { return }
+                _ = await app.quiet(WorktreeRemove(id: group.id))
             }
-            if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            // The group stays when a closed chat couldn't move or the agent that just ended left something after all.
-            guard await app.workbench.keepClosedTabs(of: group, on: next), await app.call(WorktreeRemove(id: id)) != nil
-            else { return app.workbench.show(workspace: id) }
         }
     }
 

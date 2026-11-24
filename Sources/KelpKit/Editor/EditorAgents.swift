@@ -38,7 +38,7 @@ extension EditorArea {
             layout.manual = manual
             changed = true
         }
-        if movedOut, layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: nil) }
+        if movedOut, layout.allTabs.isEmpty { WorkspaceActions(app).emptied(workspaceId) }
         let shown = Set(layout.allTabs.filter { TabURI.scheme($0.uri) == "session" }.map { TabURI.body($0.uri) })
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
         for session in mine

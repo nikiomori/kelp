@@ -88,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let first = app.worktrees.first { !$0.archived && !NoProject.holds(app.repo($0.repoId)) }
             if let workspace = pick ?? last ?? first { app.workbench.show(workspace: workspace.id) }
             app.workbench.reopenOwnWindows()
+            WorkspaceActions(app).closeIdle()
             await UnsavedBackups.reopen(app, in: app.workbench.editors)
             app.updates.sayInstalled()
             let early = pendingOpens ?? []
@@ -103,8 +104,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Looks for agents again when Kelp comes to the front, so agents installed meanwhile show up.
+    /// Closes the groups that stayed empty for a day, too.
     func applicationDidBecomeActive(_ notification: Notification) {
         app.availability.refresh()
+        WorkspaceActions(app).closeIdle()
         notifier.checkAllowed()
     }
     /// Sends the banners held while you typed, once you're in another app.
