@@ -26,6 +26,7 @@ extension ArtifactMarks {
             }
             if let time = m.time { what.append(String(format: "at %.2f s", time)) }
             if let asked = m.asked { what.append("(you asked: «\(asked)»)") }
+            if let reference = m.reference { what.append("(example: \(folder)/\(reference))") }
             if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
             let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
             let note = m.note.isEmpty ? "look at this" : m.note

@@ -68,6 +68,9 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public var time: Double?
     /// The agent's question, when the agent put the mark (`kelp artifact ask`): the user's note answers it.
     public var asked: String?
+    /// A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder
+    /// (`marks/3-ref.png`).
+    public var reference: String?
     /// The note the user is writing now: a draft's note, empty once sent.
     public var note: String
     public var state: State
@@ -76,9 +79,10 @@ public struct ArtifactMark: Codable, Equatable, Sendable {
     public init(
         id: Int = 0, kind: Kind = .element, board: String = "", target: String = "", text: String = "",
         area: [Double]? = nil, path: String? = nil, picture: String? = nil, time: Double? = nil, note: String = "",
-        state: State = .draft, rounds: [Round] = [], asked: String? = nil
+        state: State = .draft, rounds: [Round] = [], asked: String? = nil, reference: String? = nil
     ) {
         self.asked = asked
+        self.reference = reference
         self.time = time
         self.id = id
         self.kind = kind
@@ -191,6 +195,8 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             case ask
             /// The agent's suggestions for what to ask next (`lines`, three at most), from `kelp artifact suggest`.
             case suggest
+            /// A picture for mark `id` as its example (the call's `pictures`, by the mark's number).
+            case reference
         }
         public var kind: Kind
         public var drafts: [ArtifactMark]?
@@ -227,6 +233,7 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         public static func edit(_ edit: HandEdit) -> Change { Change(.edit, edit: edit) }
         public static func ask(_ mark: ArtifactMark) -> Change { Change(.ask, drafts: [mark]) }
         public static func suggest(_ lines: [String]) -> Change { Change(.suggest, lines: lines) }
+        public static func reference(id: Int) -> Change { Change(.reference, id: id) }
     }
 
     /// Applies `change` at time `now`. Returns false when it changes nothing (an unknown mark, or one in a state that
@@ -273,6 +280,8 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
                 let said = mark.rounds[mark.rounds.count - 1].reply
                 mark.rounds[mark.rounds.count - 1].reply = said.map { $0 + "\n" + line } ?? line
             }
+        case .reference:
+            return false   // the picture is the change, written beside the marks (`ArtifactMarksChange`)
         case .ask:
             guard var mark = change.drafts?.first, mark.asked?.isEmpty == false else { return false }
             mark.id = next

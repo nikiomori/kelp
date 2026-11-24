@@ -97,11 +97,13 @@ enum MarkColumn {
               const take = () => { const d = by('draft')[i]; if (d) d.note = note.value; };
               note.placeholder = m.asked ? L.answer : m.rounds.length ? L.whatsWrong : L.note; note.value = m.note;
               note.addEventListener('change', () => { take(); keep(); });
+              takesPictures(note, m);
               note.addEventListener('keydown', e => {
                 if (e.key === 'Enter' && e.metaKey) { take(); send(); }
                 else if (e.key === 'Enter') note.blur();
               });
               body.append(note);
+              if (m.reference) body.append(example(m));
             } else if (said) {
               body.append(el('div', 'kelp-said' + (m.state === 'done' ? ' kelp-faded' : ''), said.note || L.look));
               if (said.reply) {
@@ -145,30 +147,28 @@ enum MarkColumn {
 
           function sec(text) { return el('div', 'kelp-sec', text); }
 
-          // Whether a draft goes with the next send: a circle, filled when it does.
-          function check(m) {
-            const c = el('button', 'kelp-check' + (skip.has(m.id) ? '' : ' on'));
-            c.onclick = e => { e.stopPropagation(); skip.has(m.id) ? skip.delete(m.id) : skip.add(m.id); draw(); };
-            return c;
-          }
-          // ⋮⋮: dragged over another draft, puts this one before it, in the order the agent will do them.
-          function grip(m, box) {
-            const g = el('span', 'kelp-grip', '⋮⋮');
-            g.onmousedown = () => { box.draggable = true; };
-            box.ondragstart = e => { e.dataTransfer.setData('text/kelp-mark', String(by('draft').indexOf(m))); };
-            box.ondragend = () => { box.draggable = false; };
-            box.ondragover = e => { if (e.dataTransfer.types.includes('text/kelp-mark')) e.preventDefault(); };
-            box.ondrop = e => {
-              e.preventDefault();
-              const d = by('draft'), moved = d[+e.dataTransfer.getData('text/kelp-mark')];
-              if (!moved || moved === m) return;
-              M.marks = M.marks.filter(k => k !== moved);
-              M.marks.splice(M.marks.indexOf(m), 0, moved);
-              keep(); draw();
+          // A picture pasted or dropped into a mark's note is its example, kept beside the marks as marks/N-ref.png.
+          function takesPictures(field, m) {
+            const take = files => {
+              const file = [...files].find(f => f.type.startsWith('image/'));
+              if (!file || !m.id) return false;
+              const r = new FileReader();
+              r.onload = () => post({ kind: 'markRef', id: m.id, data: String(r.result).split(',')[1] || '' });
+              r.readAsDataURL(file);
+              return true;
             };
-            return g;
+            field.addEventListener('paste', e => { if (take(e.clipboardData?.files || [])) e.preventDefault(); });
+            field.addEventListener('dragover', e => e.preventDefault());
+            field.addEventListener('drop', e => { if (take(e.dataTransfer?.files || [])) e.preventDefault(); });
+          }
+          function example(m) {
+            const row = el('div', 'kelp-example'), img = el('img');
+            img.src = m.reference + '?' + (m.rounds.length);
+            row.append(img, el('span', 'kelp-hint', m.reference.split('/').pop()));
+            return row;
           }
 
+        \(helpers)
           function rows() {
             const d = by('draft'), s = by('sent'), c = by('check'), done = by('done');
             if (!M.marks.length && !M.edits.length && !M.suggestions?.length) {
@@ -271,6 +271,7 @@ enum MarkColumn {
               e.stopPropagation();
             });
             field.addEventListener('blur', () => done(true));
+            takesPictures(field, m);
             field.focus();
           }
 

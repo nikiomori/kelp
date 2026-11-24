@@ -46,7 +46,7 @@ extension MarkdownTab {
         if arrangeMessage(kind, body) || propsMessage(kind, body) || slidesMessage(kind, body) { return true }
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
-        case "marks", "marksDraft", "markDone", "markAgain": marksMessage(kind, body)
+        case "marks", "marksDraft", "markDone", "markAgain", "markRef": marksMessage(kind, body)
         case "motion": motionMessage(body)
         case "undo": undoHandEdit(redo: body["redo"] as? Bool ?? false)
         case "review":

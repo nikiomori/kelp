@@ -102,9 +102,15 @@ extension ArtifactMarksChange: Handled {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                 for (key, png) in pictures {
                     guard let id = Int(key), let i = marks.marks.firstIndex(where: { $0.id == id }) else { continue }
-                    let name = "\(id)-\(marks.marks[i].rounds.count + 1).png"   // each sending keeps its own
+                    // An example the user gave, or the picture of each sending (each keeps its own).
+                    let example = change.kind == .reference
+                    let name = example ? "\(id)-ref.png" : "\(id)-\(marks.marks[i].rounds.count + 1).png"
                     try png.write(to: dir.appendingPathComponent(name), options: .atomic)
-                    marks.marks[i].picture = ArtifactMarks.pictures + "/" + name
+                    if example {
+                        marks.marks[i].reference = ArtifactMarks.pictures + "/" + name
+                    } else {
+                        marks.marks[i].picture = ArtifactMarks.pictures + "/" + name
+                    }
                 }
             }
             return marks.apply(change) || !(pictures ?? [:]).isEmpty

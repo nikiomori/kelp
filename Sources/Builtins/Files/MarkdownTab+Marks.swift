@@ -21,6 +21,12 @@ extension MarkdownTab {
             let list = drafts(body)
             Task { change(.drafts(await stampIDs(list))) }
         case "markDone": if let id { change(.done(id: id)) }
+        case "markRef":
+            // An example picture, kept as PNG whatever it came as.
+            guard let id, let data = (body["data"] as? String).flatMap({ Data(base64Encoded: $0) }),
+                let png = NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:])
+            else { break }
+            change(.reference(id: id), pictures: [String(id): png])
         case "markAgain": if let id { change(.again(id: id)) }
         default: break
         }

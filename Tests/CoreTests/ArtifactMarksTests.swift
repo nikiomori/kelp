@@ -112,7 +112,10 @@ private let page = ".kelp/artifacts/home/canvas.json"
             note: "later"),
         ArtifactMark(id: 6, kind: .area, board: "motion.html", note: "livelier music"),
         ArtifactMark(
-            id: 7, kind: .area, board: "motion.html", text: "closer", area: [250, 168, 0, 0], time: 1.2, note: "")
+            id: 7, kind: .area, board: "motion.html", text: "closer", area: [250, 168, 0, 0], time: 1.2, note: ""),
+        ArtifactMark(
+            id: 8, kind: .element, board: "boards/A.html", target: "[data-id=hero]", note: "like this",
+            asked: "Screenshot or drawing?", reference: "marks/8-ref.png")
     ]
     let edits = [
         HandEdit(board: "boards/A.html", id: "cta", what: "text", from: "Start", to: "Go"),
@@ -130,6 +133,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
             #5 motion.html [data-id=logo] at 4.60 s (picture: .kelp/artifacts/home/marks/5.png): later
             #6 motion.html the whole page: livelier music
             #7 motion.html area 250,168,0,0 labelled «closer» at 1.20 s: look at this
+            #8 boards/A.html [data-id=hero] (you asked: «Screenshot or drawing?») (example: .kelp/artifacts/home/marks/8-ref.png): like this
             Edited by the user since version 5, keep these:
               boards/A.html [data-id=cta] text «Start» → «Go»
               boards/A.html [data-id=sub] font-size none → small

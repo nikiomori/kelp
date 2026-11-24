@@ -407,6 +407,11 @@ private func tempRoot() throws -> URL {
     #expect(marks.marks.allSatisfy { $0.state == .sent && $0.rounds.last?.before == 2 } && marks.edits.isEmpty)
     #expect(
         FileManager.default.contents(atPath: folder.appendingPathComponent("marks/2-1.png").path) == Data([1, 2, 3]))
+    // An example picture given to #2 is kept beside its own, and named in the message.
+    let example = try ArtifactMarksChange(path: path, change: .reference(id: 2), pictures: ["2": Data([4, 5])])
+        .handle(NoService())
+    #expect(example.marks.first { $0.id == 2 }?.reference == "marks/2-ref.png")
+    #expect(FileManager.default.contents(atPath: folder.appendingPathComponent("marks/2-ref.png").path) == Data([4, 5]))
     #expect(Artifacts.items(root: root.path).first?.marks == ArtifactMarkCounts(sent: 2, check: 0))
     // The agent answers #2 through kelp; a mark that isn't there is refused.
     #expect(try await c.call(ArtifactReply(path: path, id: 2, text: "Which screen?")))

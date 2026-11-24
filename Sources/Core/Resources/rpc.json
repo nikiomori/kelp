@@ -434,6 +434,10 @@
             "description" : "The picture of an area or a stroke, or of a motion page's frame, relative to the page's folder (`marks/2.png`).",
             "type" : "string"
           },
+          "reference" : {
+            "description" : "A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder (`marks/3-ref.png`).",
+            "type" : "string"
+          },
           "rounds" : {
             "items" : {
               "$ref" : "#/components/schemas/ArtifactMark.Round"
@@ -642,7 +646,8 @@
           "reply",
           "edit",
           "ask",
-          "suggest"
+          "suggest",
+          "reference"
         ],
         "type" : "string"
       },

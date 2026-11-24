@@ -2,6 +2,9 @@ import Foundation
 
 extension MarkColumn {
     static let style = """
+        .kelp-example { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+        .kelp-example img { width: 64px; height: 40px; object-fit: cover; border-radius: 4px;
+          box-shadow: 0 0 0 1px var(--k-sep); }
         .kelp-n-ask { background: var(--k-purple, #bf5af2) !important; color: #fff !important; }
         .kelp-suggest { display: block; width: calc(100% - 24px); margin: 0 12px 6px; padding: 5px 8px; border: 0;
           border-radius: 6px; background: var(--k-hover); color: var(--k-label); font: 12px -apple-system, sans-serif;
