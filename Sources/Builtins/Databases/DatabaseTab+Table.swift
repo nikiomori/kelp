@@ -27,13 +27,16 @@ extension DatabaseTab {
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
         startReading(name)
-        let asked = page
+        let asked = page, order = Self.order(grid.orders)
         let result = await query(sql, limit: Self.pageSize, reading: name)
         await rowsWait.settled()
-        // When another page, table or filter was asked for meanwhile, this answer is for the older ask. It is checked
-        // after each wait.
+        // When another page, table, filter or order was asked for meanwhile, this answer is for the older ask. It is
+        // checked after each wait.
         let still = { [weak self] in
-            self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
+            self.map {
+                $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition
+                    && Self.order($0.grid.orders) == order
+            } ?? false
         }
         guard still() else { return }
         readingEnded()
@@ -64,6 +67,7 @@ extension DatabaseTab {
     /// at once, over the grid. With no `table`, it is the user's statement that runs.
     func startReading(_ table: String? = nil) {
         reading?.cancel()
+        if table != nil { takesEdits(false) }   // the answer replaces the rows, and edits made meanwhile with them
         let words = table.map { String(localized: "Reading \($0)…") } ?? String(localized: "Running the statement…")
         if grid.columns.isEmpty, elsewhere {
             empty.show(nil)
@@ -79,9 +83,24 @@ extension DatabaseTab {
 
     func readingEnded() {
         reading?.cancel()
+        takesEdits(true)
         busy.stopAnimation(nil)
         showStop(false)
         rowsWait.show(nil)
+    }
+
+    /// Lets a table's rows take edits, or not while they are read again. A view's never do.
+    func takesEdits(_ on: Bool) {
+        let now = on && mode.table != nil && current?.kind != "view"
+        guard grid.editable != now else { return }
+        grid.editable = now
+        grid.table.reloadData()   // the cells on screen take it
+        arrange()   // and Add Row
+    }
+
+    /// An order as text, to tell two apart.
+    static func order(_ orders: [(column: String, ascending: Bool)]) -> [String] {
+        orders.map { $0.column + ($0.ascending ? " ASC" : " DESC") }
     }
 
     /// Counts how many rows the filter leaves. The server stops a count that takes too long.
