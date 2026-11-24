@@ -120,10 +120,11 @@ extension MarkdownTab {
     func resizeStage(_ width: Int, _ height: Int) {
         let (w, h) = MotionPage.size(editor.text)
         let edit = HandEdit(board: pageFile, id: "body", what: "size", from: "\(w) × \(h)", to: "\(width) × \(height)")
+        let reframe = motionStudio.reframe
         rewritePage(edit) { text in
             BoardEdit.setAttribute(text, id: nil, name: "data-width", value: String(width)).flatMap {
                 BoardEdit.setAttribute($0, id: nil, name: "data-height", value: String(height))
-            }
+            }.map { reframe.apply($0, old: (w, h), width: width, height: height) }
         }
     }
 

@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 
 /// The studio under a motion page, as a video editor has it: a row of controls (play, a frame back and forward, the
@@ -214,7 +215,29 @@ final class MotionStudio {
         }
         for f in Self.formats { size.addItem(withTitle: "\(f.name) · \(f.width) × \(f.height)") }
         let own = Self.formats.firstIndex { ($0.width, $0.height) == stage }
-        size.selectItem(at: own.map { $0 + size.numberOfItems - Self.formats.count } ?? 0)
+        let shown = own.map { $0 + size.numberOfItems - Self.formats.count } ?? 0
+        // What a change of shape does to what's drawn: fit it, fill with it, or leave it.
+        size.menu?.addItem(.separator())
+        size.menu?.addItem(.sectionHeader(title: String(localized: "When Changing")))
+        for (way, title) in [
+            (StageReframe.fit, String(localized: "Fit")), (.fill, String(localized: "Fill")),
+            (.none, String(localized: "As It Is"))
+        ] {
+            let item = NSMenuItem(title: title, action: #selector(reframeChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = way.rawValue
+            item.state = reframe == way ? .on : .off
+            size.menu?.addItem(item)
+        }
+        size.selectItem(at: shown)
+    }
+
+    /// What a change of the stage's shape does to what's drawn on it (`StageReframe`).
+    private(set) var reframe = StageReframe.fit
+
+    @objc private func reframeChosen(_ item: NSMenuItem) {
+        reframe = (item.representedObject as? String).flatMap(StageReframe.init(rawValue:)) ?? .fit
+        fillFormats()
     }
 
     @objc private func formatChosen() {

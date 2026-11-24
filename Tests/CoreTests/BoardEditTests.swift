@@ -105,3 +105,21 @@ private let board = """
     #expect(BoardEdit.addFontFace("<p>a</p>", family: "Grotesk", file: "G.woff2") == "<style>\(face)</style>\n<p>a</p>")
     #expect(BoardEdit.addFontFace("<p>", family: "x'); }", file: "G.woff2") == nil)
 }
+
+/// A 16:9 stage made 9:16: fitted, its content is framed at its design size and scaled into the middle; filled, it
+/// covers the stage, cropped at the sides; changed again, the same frame is scaled from its design size; as it is,
+/// nothing moves.
+@Test func aStageChangesShapeByFittingOrFilling() {
+    let page = #"<body data-width="1920" data-height="1080"><h1>Hi</h1></body>"#
+    let fit = StageReframe.fit.apply(page, old: (1920, 1080), width: 1080, height: 1920)
+    #expect(
+        fit.contains(
+            #"data-kelp-frame="1920x1080" style="position: absolute; left: 0px; top: 656.25px; width: 1920px; height: 1080px; transform: scale(0.5625)"#
+        ))
+    #expect(fit.contains("<h1>Hi</h1></div>"))
+    let fill = StageReframe.fill.apply(fit, old: (1080, 1920), width: 1080, height: 1920)
+    #expect(
+        fill.contains("left: -1166.67px; top: 0px; width: 1920px")
+            && fill.components(separatedBy: "data-kelp-frame").count == 2)
+    #expect(StageReframe.none.apply(page, old: (1920, 1080), width: 1080, height: 1920) == page)
+}

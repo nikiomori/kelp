@@ -32369,6 +32369,26 @@
           }
         }
       }
+    },
+    "When Changing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При смене"
+          }
+        }
+      }
+    },
+    "As It Is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
