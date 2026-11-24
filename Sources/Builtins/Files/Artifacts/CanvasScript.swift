@@ -196,10 +196,11 @@ enum CanvasScript {
             function tokens(win, doc) {
               const st = win.getComputedStyle(doc.documentElement), probe = doc.createElement('i');
               doc.body.append(probe);
+              // Each token's own value is checked: one that isn't a colour (a gradient, a name not set) is left out.
               const colours = (SYSTEM.color || []).map(name => {
-                probe.style.color = st.getPropertyValue('--' + name).trim();
-                return { name, c: rgb(win.getComputedStyle(probe).color) };
-              }).filter(t => t.c && probe.style.color);
+                probe.style.color = ''; probe.style.color = st.getPropertyValue('--' + name).trim();
+                return probe.style.color ? { name, c: rgb(win.getComputedStyle(probe).color) } : null;
+              }).filter(t => t && t.c);
               probe.remove();
               const first = v => v.split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
               const fonts = (SYSTEM.font || []).map(n => st.getPropertyValue('--font-' + n).trim()).filter(Boolean)
