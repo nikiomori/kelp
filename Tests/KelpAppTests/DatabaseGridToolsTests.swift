@@ -102,3 +102,27 @@ import Testing
         #expect(filters.condition == sql, "\(op)")
     }
 }
+
+/// ⌘Z undoes an unsaved edit, the last first: a cell typed over, a row added, a row marked to be deleted; ⌘⇧Z makes
+/// it again. Rows read anew can't be undone into.
+@MainActor @Test func undoTakesBackUnsavedEdits() throws {
+    let (grid, window) = editableGrid([["a"], ["b"]])
+    defer { withExtendedLifetime(window) {} }
+    let undo = try #require(grid.table.undoManager)
+    undo.groupsByEvent = false   // no events here: each change is a group of its own
+    grid.set(row: 0, column: 0, to: "z")   // as a cell typed over is
+    grid.addRow()
+    grid.table.selectRowIndexes([1], byExtendingSelection: false)
+    grid.deleteSelected()
+    #expect(grid.edits.count == 3)
+    #expect(grid.table.tryToPerform(Selector(("undo:")), with: nil))   // the Edit menu's Undo
+    #expect(grid.edits.deleted.isEmpty && grid.edits.count == 2)
+    undo.undo()
+    #expect(grid.edits.added.isEmpty && grid.edits.value(row: 0, column: 0) == .some("z"))
+    undo.undo()
+    #expect(grid.edits.isEmpty)
+    undo.redo()
+    #expect(grid.edits.value(row: 0, column: 0) == .some("z"))
+    grid.show(columns: ["note"], rows: [["c"]])
+    #expect(!undo.canUndo)
+}

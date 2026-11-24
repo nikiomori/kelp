@@ -19,7 +19,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     private(set) var info: [String: DatabaseSchema.Column] = [:]
     /// The columns of numbers, by index. They and their headers are right-aligned.
     private var numeric: Set<Int> = []
-    var edits = DatabaseEdits()
+    var edits = DatabaseEdits() {
+        didSet { editsChanged(from: oldValue) }   // ⌘Z puts them back
+    }
     var editable = false
     /// What a change did to these rows, when they are the rows of a run that changed something. An update's cells show
     /// what they were, a delete's rows are struck out in red, and an insert's rows are green.
@@ -89,6 +91,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         self.rows = rows
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         edits.clear()
+        forgetUndo()
         cut = nil
         marked = []
         change = nil
