@@ -2,6 +2,7 @@ import Agents
 import Core
 import Foundation
 import GRDB
+import NIOSSL
 import Testing
 
 @testable import Daemon
@@ -119,4 +120,25 @@ import Testing
     #expect(found.first?.database.engine == .postgres && found.first?.database.ssl == "require")
     #expect(found.first?.database.source == ".env" && found.first?.database.name == "app_dev")
     #expect(found.last?.database.host == "localhost" && found.last?.database.database == "local")
+}
+
+/// An address's sslmode is kept as it asks: verify-ca checks the server's certificate, verify-full its name too, which
+/// an IP address can't be checked against (refused, not checked less); require and prefer take any certificate.
+@Test func verifyModesCheckTheServersCertificate() throws {
+    let modes: [(String, String?)] = [
+        ("require", "require"), ("verify-ca", "verify-ca"), ("VERIFY_CA", "verify-ca"), ("verify-full", "verify-full"),
+        ("VERIFY_IDENTITY", "verify-full"), ("prefer", nil), ("disable", "disable")
+    ]
+    for (mode, kept) in modes { #expect(DatabaseAddress.ssl(mode) == kept, "\(mode)") }
+    func checks(_ ssl: String?, _ host: String = "db.example.com") throws -> CertificateVerification {
+        var db = DatabaseInfo(name: "app", engine: .postgres, host: host, port: 5432)
+        db.ssl = ssl
+        return try DatabaseWire.tls(db).certificateVerification
+    }
+    #expect(try checks("verify-full") == .fullVerification)
+    #expect(try checks("verify-ca", "10.0.0.5") == .noHostnameVerification)
+    #expect(try checks("require") == .none)
+    #expect(try checks(nil) == .none)
+    #expect(throws: DatabaseFailure.self) { try checks("verify-full", "10.0.0.5") }
+    #expect(DatabaseWire.requiresTLS(DatabaseInfo(name: "a", engine: .mysql, ssl: "verify-ca")))
 }

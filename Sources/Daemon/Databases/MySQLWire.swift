@@ -2,6 +2,7 @@ import Core
 import Foundation
 import MySQLNIO
 import NIOCore
+import NIOSSL
 import os
 
 // Reads, writes and schema for MySQL and MariaDB, spoken by kelpd itself (MySQLNIO), with a time limit on each query.
@@ -189,19 +190,35 @@ struct MySQLWire: DatabaseRunner {
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
         let connecting = MySQLConnection.connect(
             to: socket, username: db.user ?? "root", database: db.database ?? "", password: databaseConnection.password,
-            tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
-            logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
+            tlsConfiguration: db.ssl == "disable" ? nil : try DatabaseWire.tls(db),
+            serverHostname: db.ssl == "verify-full" ? host : nil, logger: DatabaseWire.logger,
+            on: DatabaseWire.eventLoop
         )
         // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps
         // its socket until the far end closes it. A connection whose handshake ends late is closed then.
         do {
-            return try await DatabaseWire.first(connecting, within: handshake, db) {
+            let conn = try await DatabaseWire.first(connecting, within: handshake, db) {
                 connecting.whenSuccess { late in _ = late.close() }
             }
+            if DatabaseWire.requiresTLS(db) { try await encrypted(conn, db) }
+            return conn
         } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
             // Said apart from a query past its time: nothing ran, so the user knows it's safe to try again.
             throw DatabaseFailure.failed(
                 "\(db.name) took the connection but didn't finish logging in within \(Int(handshake.rounded(.up))) s.")
+        }
+    }
+
+    /// Refuses a connection that went on without TLS where the sslmode requires it. MySQLNIO uses TLS only when the
+    /// server offers it, so it goes on in clear text when the server doesn't (or something on the way took the offer
+    /// out). Limit: by then the login has gone without TLS, the password as MySQL's scramble of it or encrypted to the
+    /// key the server sent; no query has.
+    private static func encrypted(_ conn: MySQLConnection, _ db: DatabaseInfo) async throws {
+        do { _ = try await conn.channel.pipeline.handler(type: NIOSSLClientHandler.self).get() } catch {
+            await DatabaseWire.close { try await conn.close().get() }
+            throw DatabaseFailure.failed(
+                "\(db.name) didn't offer TLS, and its address requires it (sslmode=\(db.ssl ?? "require")): "
+                    + "Kelp closed the connection before any query.")
         }
     }
 
@@ -268,6 +285,7 @@ struct MySQLWire: DatabaseRunner {
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
         if let unreached = DatabaseWire.unreached(error, db) { return unreached }
+        if let uncertified = DatabaseWire.uncertified(error, db) { return uncertified }
         let said = "\(error)"
         if said.contains("using password: NO") { return DatabaseWire.noPassword(db) }
         if said.contains("READ ONLY transaction") { return DatabaseFailure.change }

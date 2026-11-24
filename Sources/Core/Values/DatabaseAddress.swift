@@ -149,12 +149,14 @@ public struct DatabaseAddress: Equatable, Sendable {
 
     // MARK: Pieces
 
-    /// Returns libpq's sslmode as Kelp keeps it: "disable", "require" or nil. The verify-* modes also become "require",
-    /// because the server must offer TLS for them.
+    /// Returns libpq's sslmode as Kelp keeps it: "disable", "require", "verify-ca", "verify-full" or nil. MySQL's
+    /// VERIFY_CA and VERIFY_IDENTITY are the verify modes.
     public static func ssl(_ mode: String?) -> String? {
         switch mode?.lowercased() {
         case "disable", "disabled", "false", "0": "disable"
-        case "require", "required", "verify-ca", "verify-full", "verify_identity", "true", "1": "require"
+        case "require", "required", "true", "1": "require"
+        case "verify-ca", "verify_ca": "verify-ca"
+        case "verify-full", "verify_identity": "verify-full"
         default: nil
         }
     }

@@ -9,8 +9,8 @@ import os
 
 /// Shared parts for speaking Postgres and MySQL from kelpd itself, at an address kelpd reaches (the database's own
 /// address or a forwarded port), so the Mac needs no psql or mysql. Each call opens one connection and closes it after.
-/// Reads run in a read-only transaction, so the server refuses a change (`DatabaseFailure.change`). TLS is used when
-/// the server offers it, without checking the server's certificate, as psql's default `sslmode=prefer` does.
+/// Reads run in a read-only transaction, so the server refuses a change (`DatabaseFailure.change`). TLS is used as the
+/// database's sslmode says (`tls`).
 enum DatabaseWire {
     static let logger: Logger = {
         var logger = Logger(label: "kelp.db")
@@ -18,12 +18,49 @@ enum DatabaseWire {
         return logger
     }()
 
-    /// TLS settings that accept whatever certificate the server shows, because the server is one the user named.
-    static let tls: TLSConfiguration = {
+    /// TLS settings for the database's sslmode, as libpq reads it. verify-ca checks that the server's certificate comes
+    /// from a root the Mac trusts (or ~/.postgresql/root.crt, where psql looks for one), and verify-full checks the
+    /// name in it too, so it needs a name rather than an address. Any other mode takes whatever certificate the server
+    /// shows, as psql's prefer and require do.
+    static func tls(_ db: DatabaseInfo) throws -> TLSConfiguration {
         var config = TLSConfiguration.makeClientConfiguration()
-        config.certificateVerification = .none
+        switch db.ssl {
+        case "verify-full":
+            guard let host = db.host, !isAddress(host) else {
+                throw DatabaseFailure.failed(
+                    "sslmode=verify-full checks the server's name in its certificate, and \(db.host ?? db.name) is an "
+                        + "address: use the server's name, or verify-ca.")
+            }
+            config.certificateVerification = .fullVerification
+        case "verify-ca": config.certificateVerification = .noHostnameVerification
+        default: config.certificateVerification = .none
+        }
+        let root = NSHomeDirectory() + "/.postgresql/root.crt"
+        if db.engine == .postgres, config.certificateVerification != .none, FileManager.default.fileExists(atPath: root)
+        {
+            config.additionalTrustRoots = [.file(root)]
+        }
         return config
-    }()
+    }
+
+    /// Whether the database's sslmode refuses a connection without TLS.
+    static func requiresTLS(_ db: DatabaseInfo) -> Bool { ["require", "verify-ca", "verify-full"].contains(db.ssl) }
+
+    static func isAddress(_ host: String) -> Bool {
+        var v4 = in_addr(), v6 = in6_addr()
+        return inet_pton(AF_INET, host, &v4) == 1 || inet_pton(AF_INET6, host, &v6) == 1
+    }
+
+    /// Says a certificate that failed the check sslmode asked for in those words, rather than as NIOSSL's error.
+    /// Returns nil for any other error.
+    static func uncertified(_ error: any Error, _ db: DatabaseInfo) -> DatabaseFailure? {
+        let said = "\(error)" + ((error as? PSQLError)?.underlying.map { " \($0)" } ?? "")
+        let failed = ["CERTIFICATE_VERIFY_FAILED", "failedToValidateHostname", "unableToValidateCertificate"]
+        guard failed.contains(where: said.contains) else { return nil }
+        return .failed(
+            "\(db.name)'s certificate didn't pass the check sslmode=\(db.ssl ?? "verify-ca") asks for: it isn't from a "
+                + "root this Mac trusts\(db.ssl == "verify-full" ? ", or isn't for \(db.host ?? "this name")" : "").")
+    }
 
     static var eventLoop: any EventLoop { MultiThreadedEventLoopGroup.singleton.any() }
 

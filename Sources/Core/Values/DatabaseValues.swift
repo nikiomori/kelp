@@ -136,8 +136,9 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var host: String?, port: Int?, database: String?, user: String?
     /// The absolute path of a SQLite database's file.
     public var path: String?
-    /// Whether to use TLS to the server, in libpq's words: "disable" or "require". nil or "prefer" means TLS is used
-    /// when the server offers it.
+    /// Whether to use TLS to the server, in libpq's words: "disable", "require", or "verify-ca" and "verify-full",
+    /// which also check the server's certificate (and its name). nil or "prefer" means TLS is used when the server
+    /// offers it.
     public var ssl: String?
     /// A host from ~/.ssh/config that the server is reached through, by a port forwarded over Kelp's shared connection.
     public var ssh: String?

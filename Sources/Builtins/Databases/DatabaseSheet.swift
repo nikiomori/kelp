@@ -214,7 +214,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             db.engine.isFile
             ? db.path ?? ""
             : "\(db.user.map { $0 + " " + String(localized: "on") + " " } ?? "")\(db.host ?? ""):\(db.port ?? 0)"
-        let ssl = db.ssl == "require" ? " · " + String(localized: "SSL required") : ""
+        let ssl =
+            db.ssl == "require"
+            ? " · " + String(localized: "SSL required")
+            : db.ssl?.hasPrefix("verify") == true ? " · " + String(localized: "SSL, certificate checked") : ""
         let key =
             db.engine.isFile
             ? ""

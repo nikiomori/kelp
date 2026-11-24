@@ -225,7 +225,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             db.user = user.stringValue.isEmpty ? nil : user.stringValue
             db.database = database.stringValue.isEmpty ? nil : database.stringValue
             db.ssh = sshOn.state == .on && !ssh.stringValue.isEmpty ? ssh.stringValue : nil
-            db.ssl = sslOn.state == .on ? (ssl.indexOfSelectedItem == 1 ? "disable" : "require") : nil
+            // Required keeps a verify-ca or verify-full read from the address, which also checks the certificate
+            let required = db.ssl?.hasPrefix("verify") == true ? db.ssl : "require"
+            db.ssl = sslOn.state == .on ? (ssl.indexOfSelectedItem == 1 ? "disable" : required) : nil
         }
         db.name = name.stringValue.trimmingCharacters(in: .whitespaces)
         db.access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]

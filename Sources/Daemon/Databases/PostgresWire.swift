@@ -138,10 +138,10 @@ struct PostgresWire: DatabaseRunner {
             databaseConnection.password
             ?? (PgPass.mayUse(for: db, host: host)
                 ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
-        let context = try NIOSSLContext(configuration: DatabaseWire.tls)
+        let context = try NIOSSLContext(configuration: DatabaseWire.tls(db))
         var config = PostgresConnection.Configuration(
             host: host, port: port, username: user, password: password, database: db.database,
-            tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
+            tls: db.ssl == "disable" ? .disable : DatabaseWire.requiresTLS(db) ? .require(context) : .prefer(context))
         config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
         // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
         config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
@@ -197,6 +197,7 @@ struct PostgresWire: DatabaseRunner {
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
         if let unreached = DatabaseWire.unreached(error, db) { return unreached }
+        if let uncertified = DatabaseWire.uncertified(error, db) { return uncertified }
         guard let psql = error as? PSQLError else { return DatabaseFailure.failed("\(error)") }
         if let info = psql.serverInfo {
             if info[.sqlState] == "25006" { return DatabaseFailure.change }
