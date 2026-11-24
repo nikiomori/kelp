@@ -68,6 +68,9 @@ extension DatabaseTab {
     func saveChanges() async -> Bool {
         grid.commitTyping()   // a cell still being typed in is saved with the rest
         guard let name = mode.table, let statements = pending(), !statements.isEmpty else { return !isEdited }
+        guard save.isEnabled else { return false }   // these edits are being saved: a second ⌘S doesn't run them twice
+        save.isEnabled = false
+        defer { save.isEnabled = true }
         if database?.production == true {
             let alert = NSAlert()
             alert.messageText = String(localized: "Change \(address.name)? You marked it Production.")

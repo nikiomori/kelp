@@ -187,12 +187,19 @@ extension DatabaseTab {
         execute(engine.explain + sql)
     }
 
+    /// Runs one statement at a time: Run and Explain wait for its answer, so a second press doesn't run it twice. An
+    /// answer that comes once the tab shows a table or a run isn't put in their grid.
     private func execute(_ sql: String) {
-        guard !sql.isEmpty else { return NSSound.beep() }
+        guard !sql.isEmpty, run.isEnabled else { return NSSound.beep() }
         startReading()
+        run.isEnabled = false
+        explain.isEnabled = false
         Task {
             let result = await query(sql)
+            run.isEnabled = true
+            explain.isEnabled = true
             await rowsWait.settled()
+            guard mode == .query else { return }
             readingEnded()
             guard let result else { return }
             grid.show(columns: result.columns, rows: result.rows)

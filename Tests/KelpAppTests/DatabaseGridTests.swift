@@ -119,3 +119,20 @@ import Testing
     #expect(window.frame.width == 800, "the window grew to \(window.frame.width)")
     #expect(tab.details.view.frame.maxX <= tab.view.bounds.width + 0.5)
 }
+
+/// A statement runs one at a time, and its answer, coming once the tab shows a table, leaves the table's rows and
+/// edits as they are.
+@MainActor @Test func aQuerysLateAnswerStaysOutOfATablesGrid() async throws {
+    let (tab, window) = editableTab([])
+    defer { withExtendedLifetime(window) {} }
+    tab.mode = .query
+    tab.editor.setText("SELECT 1")
+    tab.runQuery()
+    #expect(!tab.run.isEnabled && !tab.explain.isEnabled)
+    tab.mode = .table("orders")   // a table picked while the statement runs (no kelpd here: it fails)
+    tab.sidebar.current = "orders"
+    tab.grid.show(columns: ["note"], rows: [["a"], ["b"]])
+    tab.grid.edits.set(row: 0, column: 0, to: "z", was: "a")
+    #expect(try await waitFor(10) { tab.run.isEnabled })
+    #expect(tab.grid.rows.count == 2 && tab.grid.edits.count == 1)
+}

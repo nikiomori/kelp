@@ -134,6 +134,8 @@ extension DatabaseTab {
         let (result, error) = await app.tryCall(
             DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
         let shown = table != nil && grid.source?.table == table && !grid.columns.isEmpty
+        // The tab may have gone on to show something else meanwhile; then this read's failure isn't said over it.
+        guard table.map({ sidebar.current == $0 }) ?? (mode == .query) else { return result }
         failureBar.show(shown ? error : nil)
         if let error, !shown {
             grid.show(columns: [], rows: [])
@@ -200,7 +202,7 @@ extension DatabaseTab {
         let edits = grid.edits.count
         changes.stringValue =
             edits == 0 ? "" : edits == 1 ? String(localized: "1 change") : String(localized: "\(edits) changes")
-        for v in [save, discard, showSQL] { v.isHidden = edits == 0 }
+        for v in [save, discardButton, showSQL] { v.isHidden = edits == 0 }
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
         if let agent {   // the title stays short; the count is the selection on screen, and in the tooltip
