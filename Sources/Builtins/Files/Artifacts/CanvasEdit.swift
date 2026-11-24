@@ -8,9 +8,7 @@ import Foundation
 /// boards, and shows a board as it was sent for Before;
 /// - the Pick button on each row;
 /// - each board's tweaks, which move the board live and are saved;
-/// - Present (`kelpPresent(true)`), which shows the boards one at a time, each as large as the pane. ← → step through
-/// them and Esc ends.
-/// It sends these to `kelpSync`: `pick`, `tweak`, `fixCheck` and `present` (ended).
+/// Present is `CanvasPresent`'s. It sends these to `kelpSync`: `pick`, `tweak` and `fixCheck`.
 enum CanvasEdit {
     struct Labels: Encodable {
         var pick: String, tweaks: String, check: String, askFix: String, noMarks: String, noIssues: String
@@ -300,6 +298,9 @@ enum CanvasEdit {
             if (m) labelField(Object.assign(at, { x: m.area[0], y: m.area[1] }), m);
           });
           for (const f of frames) f.addEventListener('load', draw);
+          // A board's name: its name row's words, not the ring that shows while the agent writes it.
+          const nameOf = f => ([...(f.closest('.frame')?.querySelector('.name')?.childNodes || [])]
+            .find(n => n.nodeType === 3 && n.textContent.trim())?.textContent || '').split(' · ')[0].trim();
           // An element's data-id, given at its first change by hand when it has none: written into the board at
           // once (`giveID`, found again by its place among the body's elements of its tag), before the change.
           function need(f, e) {
@@ -312,7 +313,7 @@ enum CanvasEdit {
             return id;
           }
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode,
-            hooks, find, inPage, describe, need, tool: () => tool };
+            hooks, find, inPage, describe, need, nameOf, tool: () => tool };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });
@@ -351,57 +352,12 @@ enum CanvasEdit {
               panel.append(line);
             }
           }
-          const slides = [...new Set(frames.map(f => f.dataset.board))].map(light);
-          let at = -1, quiet = null;
-          // A strip at the foot while presenting: where you are, ‹ ›, and how to end; it fades when the pointer rests.
-          const strip = el('div', 'kelp-strip');
-          const back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
-          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
-          const where = el('span', 'kelp-where');
-          back.onclick = () => { at = Math.max(at - 1, 0); present(); };
-          next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); };
-          strip.append(back, where, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));
-          document.body.append(strip);
-          const wake = () => {
-            strip.classList.add('on'); clearTimeout(quiet);
-            quiet = setTimeout(() => strip.classList.remove('on'), 2000);
-          };
-          addEventListener('mousemove', () => { if (at >= 0) wake(); });
-          function present() {
-            slides.forEach((f, i) => f.closest('.frame').classList.toggle('kelp-current', i === at));
-            const f = slides[at];
-            const fits = f && Math.min(innerWidth / f.offsetWidth, (innerHeight - 64) / f.offsetHeight);
-            if (f) f.style.transform = 'scale(' + fits + ')';
-            if (f) {
-              const name = (f.closest('.frame').querySelector('.name')?.firstChild?.textContent || '').split(' · ')[0];
-              where.textContent = name + ' · ' + (at + 1) + ' ' + L.of + ' ' + slides.length;
-              wake();
-            }
-          }
-          window.kelpPresent = on => {
-            at = on ? 0 : -1;
-            document.body.classList.toggle('kelp-present', on);
-            if (!on) for (const f of slides) f.style.transform = '';
-            present();
-          };
-          // While presenting, a board's link shows the board it goes to (`CanvasLinks`); false when not presenting.
-          window.kelpGoTo = board => { const i = slides.findIndex(f => f.dataset.board === board);
-            if (at < 0 || i < 0) return false; at = i; present(); return true; };
-          addEventListener('keydown', e => {
-            if (at < 0) return;
-            if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) at = Math.min(at + 1, slides.length - 1);
-            else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) at = Math.max(at - 1, 0);
-            else if (e.key === 'Escape') { kelpPresent(false); post({ kind: 'present' }); return; }
-            else return;
-            e.preventDefault(); present();
-          });
           // ⌘Z and ⇧⌘Z take back what was changed by hand on the boards; a field being typed in keeps its own.
           addEventListener('keydown', e => {
             const t = e.target, typing = t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName);
             if (!e.metaKey || e.key.toLowerCase() !== 'z' || typing) return;
             e.preventDefault(); post({ kind: 'undo', redo: e.shiftKey });
           });
-          addEventListener('resize', () => { if (at >= 0) present(); });
           addEventListener('resize', draw);
           new ResizeObserver(() => requestAnimationFrame(draw)).observe(document.body);
           draw();

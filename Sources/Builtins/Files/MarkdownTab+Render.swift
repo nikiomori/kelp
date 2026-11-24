@@ -106,6 +106,7 @@ extension MarkdownTab {
                     let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
                     let edit =
                         CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
+                        + CanvasPresent.source(labels: labels)
                         + CanvasAnchors.source(labels: anchors) + CanvasBoardStates.source
                         + CanvasVariants.source(labels: variantLabels)
                     let byHand =

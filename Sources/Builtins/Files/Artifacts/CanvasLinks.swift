@@ -18,8 +18,7 @@ enum CanvasLinks {
           if (document.body.matches('.kelp-motion-page, .kelp-dash')) return;
           const files = [...new Set(K.frames.map(f => f.dataset.board))];
           const base = file => file.split('/').pop().replace(/[.][^.]*$/, '');
-          const titleOf = file => (K.light(file)?.closest('.frame')?.querySelector('.name')?.firstChild?.textContent
-            || base(file)).split(' · ')[0];
+          const titleOf = file => (K.light(file) && K.nameOf(K.light(file))) || base(file);
           const control = 'a, button, [role="button"], [data-link]';
           const target = c => c.dataset.link || (c.getAttribute('href') || '').replace(/^#board:/, '') || null;
           const linked = c => c.hasAttribute('data-link') || (c.getAttribute('href') || '').startsWith('#board:');
