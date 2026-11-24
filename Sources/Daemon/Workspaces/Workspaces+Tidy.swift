@@ -15,7 +15,8 @@ extension Workspaces {
     /// Limit: a remote project's groups aren't looked at, and a branch merged while its agent worked goes only at the
     /// next change of the project's branches, the next read of its pull request, or Kelp's next start.
     /// `someoneLeft` says a session there just ended. Otherwise an agent's empty branch goes only once it is 5 minutes
-    /// old, because its agent starts a moment after its branch.
+    /// old, because its agent starts a moment after its branch. The agent that made it counts as on it while its chat
+    /// is open, wherever that chat is: it works in its branch from its own screen, the branch a mark on its row.
     func tidyBranch(_ id: String, merged pr: GitHub.PullRequest? = nil, someoneLeft: Bool = false) {
         dispatchPrecondition(condition: .onQueue(headQueue))
         Log.store.attempt("tidying a branch group") {
@@ -26,8 +27,9 @@ extension Workspaces {
             else { return }
             // Returns the sessions still in the group, or nil when one of them works or asks. It is called again once
             // git has answered, because a prompt sent or a chat started meanwhile means someone is at work.
+            let maker = workspace.madeBy.map { $0.hasPrefix("typed:") ? String($0.dropFirst(6)) : $0 }
             func look() throws -> [Session]? {
-                let here = try store.sessions().filter { $0.worktreeId == id }.map {
+                let here = try store.sessions().filter { $0.worktreeId == id || $0.id == maker }.map {
                     sessions.existing($0.id)?.snapshot ?? $0
                 }
                 .filter { $0.status != .exited }

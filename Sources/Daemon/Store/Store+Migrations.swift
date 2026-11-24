@@ -302,6 +302,9 @@ extension Store {
         migrator.registerMigration("session.env") { db in   // what `kelp session new --env` set (`Session.env`)
             try db.alter(table: "session") { t in t.add(column: "env", .text) }
         }
+        migrator.registerMigration("session.branchFolder") { db in   // the agent's worktree (`Session.branchFolder`)
+            try db.alter(table: "session") { t in t.add(column: "branchFolder", .text) }
+        }
         return migrator
     }
 }

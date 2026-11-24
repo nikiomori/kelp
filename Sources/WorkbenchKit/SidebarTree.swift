@@ -21,7 +21,8 @@ public struct SidebarItem: Equatable, Sendable {
     /// On a group, the chat that made it (`Worktree.madeBy`, a branch for its helpers), when the group stands right
     /// under that chat's row, a step further in, rather than among the project's groups.
     public var under: String?
-    /// On a chat, the group it made that holds no chats of its own: the chat's own branch, which its row marks.
+    /// On a chat, the branch of its own its row marks: the group it made that holds no chats of its own, or else the
+    /// worktree its agent works in that is no group of Kelp's (`Session.branchKey`).
     public var branch: String?
     /// On a row of a folded project, the chats it holds that the fold hides (agents' ids), shown as their logos.
     public var hidden: [String] = []
@@ -64,9 +65,20 @@ public struct SidebarTree {
                     && !parked.contains($0.id)
             }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
-            return SidebarItem(kind: .workspace(worktree.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })
+            return SidebarItem(
+                kind: .workspace(worktree.id),
+                children: rows.map { chat in
+                    var row = SidebarItem(kind: .agent(chat.id))
+                    row.branch = ownBranch(chat)
+                    return row
+                })
         }
         let live = workspaces.filter { !$0.archived }
+        let groupAt = Set(live.map(\.path))
+        // A worktree the agent's CLI made (`Session.branchFolder`); one that is a group of Kelp's has that group's row.
+        func ownBranch(_ chat: Session) -> String? {
+            chat.branchFolder.flatMap { groupAt.contains($0) ? nil : chat.branchKey }
+        }
         let listed = projects.map { r -> SidebarItem in
             let own = mainWorkspace(of: r, among: live)
             var chats = own.map(workspace)?.children ?? []
@@ -91,7 +103,7 @@ public struct SidebarTree {
             }
             chats = chats.map { chat in
                 var marked = chat
-                if case .agent(let id) = chat.kind { marked.branch = branches[id] }
+                if case .agent(let id) = chat.kind { marked.branch = branches[id] ?? chat.branch }
                 return marked
             }
             let rows = chats.flatMap { chat -> [SidebarItem] in

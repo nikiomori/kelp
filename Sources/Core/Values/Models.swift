@@ -173,6 +173,10 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// `.claude/worktrees/…`). nil while the agent works in `cwd`. Kelp reads the paths the agent prints and the
     /// changes of its last turn in this folder, but a restart still starts in `cwd`.
     public var workDir: String?
+    /// The git worktree of its project, other than the folder it started in, that the agent last worked in: a branch
+    /// of its own that its CLI made (Claude Code's `.claude/worktrees/…`), not one of Kelp's groups. Unlike `workDir`,
+    /// it stays when the agent works in its first folder again. The chat's row shows that branch (`branchKey`).
+    public var branchFolder: String?
     /// How far the session's program has got, from 0 to 100, when the program reports it (the `progress` field of
     /// OSC 7501, `kelp report`, or ConEmu's OSC 9;4).
     public var progress: Int?

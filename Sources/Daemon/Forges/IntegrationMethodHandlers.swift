@@ -82,7 +82,7 @@ extension GitHubBranchPR: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .quiet }
     func handle(_ forges: Forges) throws -> GitHub.PullRequest? {
-        let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
+        let workspace = try forges.store.gitPlace(named: worktreeId), branch = forges.checkedOut(workspace),
             key = workspace.path + "@" + branch
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
         // nil means no PR. When gh can't tell (offline, signed out), it throws and nothing is kept, so the next read
@@ -114,7 +114,7 @@ extension CIRunsList: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Result {
-        let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace)
+        let workspace = try forges.store.gitPlace(named: worktreeId), branch = forges.checkedOut(workspace)
         return Result(
             branch: branch, runs: try CIRuns.runs(cwd: workspace.path, branch: branch),
             workflows: forges.forge(workspace.path) == .gitlab ? [] : CIRuns.dispatchable(repo: workspace.path))
@@ -124,28 +124,28 @@ extension CIJobs: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [CIRuns.Job] {
-        try CIRuns.jobs(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
+        try CIRuns.jobs(cwd: forges.store.gitPlace(named: worktreeId).path, run: run ?? 0)
     }
 }
 extension CILog: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
-        try CIRuns.log(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
+        try CIRuns.log(cwd: forges.store.gitPlace(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFullLog: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
-        try CIRuns.fullLog(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
+        try CIRuns.fullLog(cwd: forges.store.gitPlace(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFailures: Handled {
     static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> CIRuns.Report {
-        let path = try forges.store.worktree(named: worktreeId).path
+        let path = try forges.store.gitPlace(named: worktreeId).path
         if let job { return try CIRuns.report(cwd: path, job: job) }
         return try CIRuns.report(cwd: path, run: run ?? 0, attempt: attempt)
     }
@@ -153,28 +153,28 @@ extension CIFailures: Handled {
 extension CIRerun: Handled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
-        try CIRuns.rerunFailed(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
+        try CIRuns.rerunFailed(cwd: forges.store.gitPlace(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
 extension CIRerunAll: Handled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
-        try CIRuns.rerunAll(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
+        try CIRuns.rerunAll(cwd: forges.store.gitPlace(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
 extension CIRerunJob: Handled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
-        try CIRuns.rerunJob(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
+        try CIRuns.rerunJob(cwd: forges.store.gitPlace(named: worktreeId).path, job: job ?? 0)
         return Done()
     }
 }
 extension CIRunCancel: Handled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
-        try CIRuns.cancel(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
+        try CIRuns.cancel(cwd: forges.store.gitPlace(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
@@ -182,7 +182,7 @@ extension CIDispatch: Handled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.dispatch(
-            cwd: forges.store.worktree(named: worktreeId).path, workflow: workflow, branch: clientRef(branch) ?? "",
+            cwd: forges.store.gitPlace(named: worktreeId).path, workflow: workflow, branch: clientRef(branch) ?? "",
             inputs: inputs ?? [:])
         return Done()
     }

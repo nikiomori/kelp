@@ -207,7 +207,7 @@ extension Daemon {
     private func workspaceFolder(
         _ id: String, _ matters: (String) -> @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
-        guard let worktree = store.look("workspace \(id)", { try $0.worktree(id) }), remotes.of(worktree.path) == nil
+        guard let worktree = store.look("workspace \(id)", { try $0.gitPlace(id) }), remotes.of(worktree.path) == nil
         else { return nil }
         return (worktree.path, matters(worktree.path))
     }
@@ -226,7 +226,7 @@ extension Daemon {
     /// Reads the status and branches at once, then from them the line counts and what the branch holds.
     private func gitRead(_ key: String, first: Bool, memo: BranchMemo) async -> (Data?, TimeInterval?) {
         // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-        let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
+        let worktree = store.look("workspace \(key)") { try $0.gitPlace(key) }
         let remote = worktree.map { remotes.of($0.path) != nil } ?? false
         guard await mayRead(worktree, first: first) else { return (nil, 10) }
         var event: GitEvent

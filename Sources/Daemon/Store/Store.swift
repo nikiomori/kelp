@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import GRDB
+import GitKit
 import os
 
 /// SQLite persistence for repos, worktrees, sessions and diff comments.
@@ -65,6 +66,20 @@ final class Store: Sendable {
         }
     }
     func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
+    /// The folder the git, PR and CI reads take by id: a workspace, or a chat's own branch folder
+    /// (`Session.branchKey`). That one is no workspace and is made up here, for these reads alone, so nothing Kelp does
+    /// to a workspace (close, remove, tidy a merged branch) can reach the agent's folder.
+    func gitPlace(_ id: String) throws -> Worktree? {
+        guard id.hasPrefix(Session.branchKeyPrefix) else { return try worktree(id) }
+        guard let chat = try session(String(id.dropFirst(Session.branchKeyPrefix.count))),
+            let folder = chat.branchFolder, let home = try chat.worktreeId.flatMap(worktree)
+        else { return nil }
+        return Worktree(id: id, repoId: home.repoId, branch: Git.headBranch(folder) ?? "", path: folder)
+    }
+    func gitPlace(named id: String) throws -> Worktree {
+        guard let found = try gitPlace(id) else { throw RPCError.noWorkspace(id) }
+        return found
+    }
     func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
     func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
     /// The sessions these parents started (`parent`), read through that column's index.
