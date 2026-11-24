@@ -147,3 +147,21 @@ private let board = """
     #expect(out.contains(#""note" : "mine""#) && out.contains(#""pages" : 2"#))
     #expect(throws: (any Error).self) { try ArtifactCanvas.editBoards("{", { $0 }) }
 }
+
+/// A dashboard's sources come from canvas.json, their output becomes a figure by its map, and each figure from a
+/// source shows it with where and when it came from.
+@Test func aDashboardsFiguresComeFromItsSources() throws {
+    let json =
+        #"{"boards": [], "sources": {"issues": {"run": "gh issue list --json number", "map": "length"}, "first": {"run": "gh pr list --json title", "map": "0.title"}}}"#
+    let sources = DashboardSource.read(json)
+    #expect(sources.map(\.name) == ["first", "issues"])
+    #expect(try sources[1].value(#"[{"number": 1}, {"number": 2}]"#) == "2")
+    #expect(try sources[0].value(#"[{"title": "Fix <it>"}]"#) == "Fix <it>")
+    #expect(try DashboardSource(name: "x", run: "x", map: "lines").value("a\nb\nc\n") == "3")
+    #expect(throws: (any Error).self) { try sources[1].value("not json") }
+    let board = #"<b data-value data-from="issues" data-source="old">41</b> and <i data-from="issues">40</i>"#
+    #expect(
+        BoardEdit.setFigures(board, from: "issues", value: "42", note: "gh issue list, 10:00")
+            == #"<b data-value data-from="issues" data-source="gh issue list, 10:00">42</b> and <i data-from="issues" data-source="gh issue list, 10:00">42</i>"#
+    )
+}

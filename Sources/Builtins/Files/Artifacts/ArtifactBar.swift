@@ -124,7 +124,7 @@ final class ArtifactBar: NSObject {
         fresh.textColor = .secondaryLabelColor
         fresh.isHidden = true
         refresh.isHidden = true
-        refresh.toolTip = String(localized: "Ask its agent to run the numbers again")
+        refresh.toolTip = String(localized: "Run its sources again, or ask its agent to")
         refresh.onClick = { [weak self] in self?.markdown.askUpdate() }
         present.onClick = { [weak self] in self?.togglePresenting() }
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }

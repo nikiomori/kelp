@@ -118,6 +118,7 @@ extension MarkdownTab {
             onPageMode?(.mark)
         case "changes": onChanges?((body["count"] as? NSNumber)?.intValue ?? 0)
         case "update":
+            if refreshSources() { return true }
             send(
                 "Update \(Artifacts.projectPath(url.path)): run its commands again and bring every figure up to date, "
                     + "its data-source time too.")

@@ -71,6 +71,9 @@ extension Artifacts {
            from. Every figure carries where it came from and when: `<b data-value data-source="gh run list, 11 Nov
            10:00">42</b>`; the check lists one without. The user's Update asks you to run the commands again and bring
            every figure and its time up to date. Kelp shows the boards as the page, one at a time (a switch for more).
+           Declare the read-only commands in canvas.json and Update runs them itself, without you: `"sources":
+           {"issues": {"run": "gh issue list --state open --json number", "map": "length"}}` (map: length, lines,
+           text, or a path like `0.title`), and a figure shows one with `data-from="issues"`.
         """
 
     static func designPart(_ part: String) -> String? {

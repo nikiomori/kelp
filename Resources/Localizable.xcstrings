@@ -32629,6 +32629,56 @@
           }
         }
       }
+    },
+    "Run its sources again, or ask its agent to": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить её источники снова или попросить агента"
+          }
+        }
+      }
+    },
+    "Run this dashboard’s commands?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить команды этого дашборда?"
+          }
+        }
+      }
+    },
+    "Its agent wrote them to read its numbers. Kelp runs them on Update from now on:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их написал агент, чтобы получать числа. Дальше Kelp запускает их по кнопке «Обновить»:"
+          }
+        }
+      }
+    },
+    "Allow and Update": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить и обновить"
+          }
+        }
+      }
+    },
+    "Not updated: %@ (its command failed)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не обновлено: %@ (команда не сработала)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
