@@ -1,11 +1,9 @@
 import CryptoKit
 import Foundation
 
-/// A paired phone. It holds the key this Mac shares with the phone (first the pairing link's, then one the phone sent
-/// when it paired), and the request numbers already seen from it. A request number is the phone's clock in 1/4096 ms
-/// (phone/js/api.js `stamp`) and never repeats, so a request can't be sent twice.
+/// A paired phone. Its device key opens requests and its recent request numbers reject repeats.
 struct PhoneDevice {
-    var key: SymmetricKey
+    let key: SymmetricKey
     var name: String
     var push: PushSubscription?
     /// `last` is the newest request number seen, and `saved` is the newest one written down (`PhoneKept.last`).
@@ -14,6 +12,9 @@ struct PhoneDevice {
     /// shuts out every number that could have been seen, which is up to the newest written down plus a second.
     private(set) var floor: Int64 = 0
     private var seen: Set<Int64> = []
+
+    /// JavaScript represents integer request numbers exactly below this limit.
+    private static let limit: Int64 = 1 << 53
 
     /// How far behind the newest a late request may be: five minutes.
     static let window: Int64 = 5 * 60_000 * 4096
@@ -27,7 +28,8 @@ struct PhoneDevice {
     }
 
     /// Restores a phone that was kept from before this daemon started.
-    init(key: SymmetricKey, kept: PhoneKept) {
+    init?(key: SymmetricKey, kept: PhoneKept) {
+        guard (0..<Self.limit).contains(kept.last) else { return nil }
         self.init(key: key, name: kept.name)
         push = kept.push
         last = kept.last
@@ -38,7 +40,7 @@ struct PhoneDevice {
     /// Returns whether request `number` is new, and counts it as seen if so. It refuses a number that is not whole,
     /// was seen before, is at or under the floor, or is `window` or more behind the newest.
     mutating func admit(_ number: Double) -> Bool {
-        guard number == number.rounded(), number > 0, number < 9_007_199_254_740_992 else { return false }
+        guard number == number.rounded(), number > 0, number < Double(Self.limit) else { return false }
         let value = Int64(number)
         guard value > floor, value > last - Self.window, !seen.contains(value) else { return false }
         seen.insert(value)

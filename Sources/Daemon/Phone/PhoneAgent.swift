@@ -14,9 +14,15 @@ enum PhoneAgent {
     /// Returns the page's record for the session. `name` is the agent's name from its manifest, `project` is the
     /// project's name, and `workspace` is the workspace's `Worktree.displayName`.
     static func from(
-        _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String
+        _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String,
+        questionID: UUID? = nil
     ) -> [String: JSONValue] {
         let waiting = session.status == .waiting
+        var ask: [String: JSONValue] = ["kind": .string("question"), "text": .string(session.summary)]
+        if let questionID, session.asksPermission {
+            ask["kind"] = .string("permission")
+            ask["id"] = .string(questionID.uuidString)
+        }
         return [
             "id": .string(session.id), "title": .string(session.displayTitle),
             "agent": .string(session.agent ?? ""), "agentName": .string(name),
@@ -26,11 +32,7 @@ enum PhoneAgent {
             "unread": .bool(session.unread), "summary": .string(session.summary),
             // The page offers Allow / Deny only for a permission question whose text is shown whole, as Kelp's own
             // banner does. The user answers any other question with text.
-            "ask": waiting
-                ? .object([
-                    "kind": .string(session.asksPermission ? "permission" : "question"),
-                    "text": .string(session.summary)
-                ]) : .null,
+            "ask": waiting ? .object(ask) : .null,
             "running": session.running.map(JSONValue.string) ?? .null,
             "limit": session.limitHit.map {
                 .object(["kind": .string($0.kind), "resets": $0.resets.map(JSONValue.string) ?? .null])

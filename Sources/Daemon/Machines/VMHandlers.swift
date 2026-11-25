@@ -62,11 +62,9 @@ extension VMCreate: AsyncHandled {
                     "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
             }
             let question = Self.question(name, image: image, file: file)
-            ls.askForKelp(question)
             let answer = await asking.asks.permissions.waitForKelp(
-                session, question: question, within: Self.answerWithin,
+                ls, question: question, within: Self.answerWithin,
                 asker: asking.asks.clients.connection(conn)?.peerPID)
-            ls.kelpAsked(question)
             guard answer == "allow" else {
                 throw RPCError.refused(
                     answer == "deny" ? "The user didn't allow making \(name)." : "Nobody answered: \(name) wasn't made."

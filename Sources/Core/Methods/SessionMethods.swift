@@ -88,7 +88,10 @@ public struct SessionChoose: RPCMethod {
     public static let name = "session.choose"
     public typealias Result = Bool
     public var id: String, answer: String, question: String?, run: String?
-    public init(id: String, answer: String, question: String? = nil, run: String? = nil) {
+    /// The instance of the permission shown on the phone. A newer question can have the same text.
+    public var questionID: String?
+    public init(id: String, answer: String, question: String? = nil, run: String? = nil, questionID: String? = nil) {
+        self.questionID = questionID
         self.id = id
         self.answer = answer
         self.question = question
@@ -104,7 +107,12 @@ public struct SessionPermissionWait: InternalMethod {
     public typealias Result = String?
     public static var timeout: TimeInterval? { 620 }
     public var id: String
-    public init(id: String) { self.id = id }
+    /// The system uptime of the PermissionRequest hook this wait belongs to.
+    public var at: TimeInterval?
+    public init(id: String, at: TimeInterval? = nil) {
+        self.id = id
+        self.at = at
+    }
 }
 /// Stores an agent's secret in the login keychain, where it is read when the agent starts. Without `value`, the secret
 /// is deleted.

@@ -11,7 +11,8 @@ import os
 final class PhoneServer: Sendable {
     /// Answers a phone's call, `{device, box}` as the phone sealed it. `events` says where an event stream's lines go
     /// and how the stream ends.
-    typealias Call = @Sendable (_ id: String, _ device: String, _ box: String, _ events: Events) async -> Answer
+    typealias Call =
+        @Sendable (PhoneServer, _ id: String, _ device: String, _ box: String, _ events: Events) async -> Answer
     struct Events: Sendable {
         var write: @Sendable (String) -> Void
         var end: @Sendable () -> Void
@@ -33,7 +34,6 @@ final class PhoneServer: Sendable {
     init(port: UInt16, page: URL?, call: @escaping Call, left: @escaping @Sendable (String) -> Void) throws {
         guard let port = NWEndpoint.Port(rawValue: port) else { throw RPCError.invalidParams("Not a port.") }
         let parameters = NWParameters.tcp
-        parameters.allowLocalEndpointReuse = true
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: port)   // this Mac only
         listener = try NWListener(using: parameters)
         self.page = page
@@ -41,10 +41,14 @@ final class PhoneServer: Sendable {
         self.left = left
     }
 
-    /// Starts listening. `failed` gets the system's words when the port can't be had, as when another program holds it.
-    func start(failed: @escaping @Sendable (String) -> Void) {
+    /// Reports nil once this listener owns the port, or the system error when it cannot serve.
+    func start(changed: @escaping @Sendable (String?) -> Void) {
         listener.stateUpdateHandler = { state in
-            if case .failed(let error) = state { failed(error.localizedDescription) }
+            switch state {
+            case .ready: changed(nil)
+            case .failed(let error), .waiting(let error): changed(error.localizedDescription)
+            default: break
+            }
         }
         listener.newConnectionHandler = { [weak self] connection in self?.serve(connection) }
         listener.start(queue: queue)
@@ -93,7 +97,7 @@ final class PhoneServer: Sendable {
             write: { line in connection.send(content: Data(line.utf8), completion: .contentProcessed { _ in }) },
             end: { connection.cancel() })
         Task {
-            switch await call(id, sent.device, sent.box, events) {
+            switch await call(self, id, sent.device, sent.box, events) {
             case .refused(let status): self.send(connection, PhoneHTTP.response(status, json: ["error": "Refused."]))
             case .box(let box): self.send(connection, PhoneHTTP.response(200, json: ["box": box]))
             case .stream:

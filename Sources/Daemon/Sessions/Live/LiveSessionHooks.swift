@@ -35,27 +35,32 @@ extension LiveSession {
             st.hook(
                 event, trigger: trigger, message: message, asker: asker, question: question, answered: answered,
                 goal: goal, choices: choices)
-            let changed = st.record.summary != said || st.record.awaiting != awaited || st.record.choices != offered
-            emit(st.sync() ?? (changed ? st.record : nil))
+            let changed =
+                event == .waiting || st.record.summary != said || st.record.awaiting != awaited
+                || st.record.choices != offered
+            let snapshot = st.sync() ?? (changed ? st.record : nil)
+            if event == .waiting, asker != nil { st.permissionHookAt = at }
+            emit(snapshot)
         }
     }
 
     /// Asks Kelp's `question` for one of the agent's commands (a database change, `Databases`). The row asks it until
     /// `kelpAsked`, whatever the screen says meanwhile (the command's own spinner), after the questions asked before
     /// it.
-    func askForKelp(_ question: String) {
+    func askForKelp(_ question: String, id: UUID) {
         state.withLock { st in
-            st.kelpQuestions.append(question)
+            st.menuID = UUID()
+            st.kelpQuestions.append((question, id))
             emit(st.sync() ?? st.record)
         }
     }
 
     /// Ends one of Kelp's questions, answered or not. Its command goes on (or has ended), and the row asks the next
     /// question or says what the agent does.
-    func kelpAsked(_ question: String) {
+    func kelpAsked(_ id: UUID) {
         state.withLock { st in
-            guard let index = st.kelpQuestions.firstIndex(of: question) else { return }
-            st.kelpQuestions.remove(at: index)
+            guard let index = st.kelpQuestions.firstIndex(where: { $0.id == id }) else { return }
+            let question = st.kelpQuestions.remove(at: index).text
             if st.kelpQuestions.isEmpty, st.record.summary == question { st.record.summary = "" }
             emit(st.sync() ?? st.record)
         }

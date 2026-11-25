@@ -222,7 +222,7 @@ extension Databases {
         let question = Self.question(
             sql, database: databaseConnection.database.name, changed: trial?.changed,
             held: DatabaseEngines.runner(databaseConnection, off: offloads).holdsAllowed)
-        return await answered(databaseQuery, &run, ls, question, asker: asker)
+        return await answered(databaseQuery, &run, ls, question, asker: asker.pid)
     }
 
     /// Returns the agent's session to ask about a change. Returns nil, and marks the run refused, when there's no
@@ -245,15 +245,13 @@ extension Databases {
     }
 
     /// Asks `question` on the agent's row and waits for the answer. Returns true when the user allowed it and agents
-    /// may still change the database. `asker` is the agent's session and the program its command runs in.
+    /// may still change the database. `asker` is the program waiting for the answer.
     func answered(
         _ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ ls: LiveSession, _ question: String,
-        asker: (session: String?, pid: pid_t?)
+        asker: pid_t?
     ) async -> Bool {
-        ls.askForKelp(question)
         let answer = await permissions.waitForKelp(
-            asker.session ?? "", question: question, within: DatabaseQuery.answerWithin, asker: asker.pid, run: run.id)
-        ls.kelpAsked(question)
+            ls, question: question, within: DatabaseQuery.answerWithin, asker: asker, run: run.id)
         guard answer == "allow" else {
             run.state = .denied
             run.error =

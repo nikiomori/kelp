@@ -11,7 +11,7 @@ extension PhonePair: AsyncHandled {
     func handle(_ phone: PhoneBridge) async throws -> PhoneState { try await phone.pair() }
 }
 extension PhoneUnpair: AsyncHandled {
-    func handle(_ phone: PhoneBridge) async throws -> PhoneState { await phone.unpair(device) }
+    func handle(_ phone: PhoneBridge) async throws -> PhoneState { try await phone.unpair(device) }
 }
 
 extension Methods {

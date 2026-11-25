@@ -6,32 +6,64 @@ import Foundation
 
 extension PhoneBridge {
     /// Starts this Mac's own server on `port`.
-    func serve(_ port: Int) {
+    func serve(_ port: UInt16) {
+        guard port != 0 else {
+            failure = "Set phone.port to a whole number from 1 to 65535."
+            return
+        }
+        guard let page = PhoneHTTP.page else {
+            failure = "This Kelp has no phone page in it."
+            return
+        }
         do {
             let server = try PhoneServer(
-                port: UInt16(clamping: port), page: PhoneHTTP.page,
-                call: { [weak self] id, device, box, events in
-                    await self?.called(id, device: device, box: box, events) ?? .refused(503)
+                port: port, page: page,
+                call: { [weak self] server, id, device, box, events in
+                    await self?.called(on: server, id, device: device, box: box, events) ?? .refused(503)
                 },
                 left: { [weak self] id in Task { await self?.cut([id], telling: false) } })
-            server.start { [weak self] why in Task { await self?.serverFailed(port, why) } }
             self.server = server
-            connected = true
-            if PhoneHTTP.page == nil { failure = "This Kelp has no phone page in it." }
+            server.start { [weak self, weak server] error in
+                guard let server else { return }
+                Task { await self?.serverChanged(server, port: port, error: error) }
+            }
         } catch {
             serverFailed(port, error.localizedDescription)
         }
     }
 
-    private func serverFailed(_ port: Int, _ why: String) {
-        connected = false
-        failure = "Kelp can't serve the phone's page on port \(port): \(why)"
+    private func serverChanged(_ server: PhoneServer, port: UInt16, error: String?) {
+        guard self.server === server else { return }
+        if let error {
+            self.server = nil
+            server.stop()
+            serverFailed(port, error)
+        } else if case .tailscale = way {
+            publishTailscale(port)
+        } else {
+            (connected, failure) = (true, nil)
+        }
+    }
+
+    private func serverFailed(_ port: UInt16, _ error: String) {
+        (connected, tailnet, pairing) = (false, nil, nil)
+        failure = "Kelp can't serve the phone's page on port \(port): \(error)"
+        let previous = following
+        previous?.cancel()
+        following = Task {
+            await previous?.value
+            if !Task.isCancelled { await recoverPublication() }
+            do { try await Task.sleep(for: .seconds(15)) } catch { return }
+            if !Task.isCancelled { serve(port) }
+        }
     }
 
     /// Handles one call that came to this Mac's own server. It refuses the call, answers it sealed, or keeps it open as
     /// an event stream.
-    func called(_ id: String, device: String, box: String, _ events: PhoneServer.Events) async -> PhoneServer.Answer {
-        guard way != nil else { return .refused(503) }
+    func called(on server: PhoneServer, _ id: String, device: String, box: String, _ events: PhoneServer.Events) async
+        -> PhoneServer.Answer
+    {
+        guard self.server === server else { return .refused(503) }
         switch admit(Sent(id: id, device: device, box: box)) {
         case .refused(let status): return .refused(status)
         case .answer(let box): return .box(box)
@@ -49,19 +81,65 @@ extension PhoneBridge {
 
     /// Keeps Tailscale serving the page at this Mac's name in its tailnet, and keeps the phones' streams open
     /// meanwhile. It asks Tailscale again every minute, because Tailscale may have been signed out, or installed since.
-    func followTailscale(_ port: Int) async {
+    func followTailscale(_ port: UInt16) async {
+        let tailscale = tailscale
         while !Task.isCancelled {
-            let served = await PhoneTailscale.serve(port: port, offloads)
-            guard !Task.isCancelled, case .tailscale = way else { return }
+            let served: Result<String, PhoneTailscale.Failed>
+            do { served = try await Slots.elsewhere { tailscale.serve(port) } } catch { break }
+            guard !Task.isCancelled else { break }
             switch served {
-            case .success(let address): (tailnet, failure, connected) = (address, nil, server != nil)
-            case .failure(let why): (tailnet, failure, connected) = (nil, why.message, false)
+            case .success(let address):
+                if tailnet != address { pairing = nil }
+                (tailnet, failure, connected) = (address, nil, true)
+            case .failure(let why): (tailnet, failure, connected, pairing) = (nil, why.message, false, nil)
             }
             tailscaleSteps = served.steps
             for _ in 0..<4 {
-                do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                do { try await Task.sleep(for: .seconds(15)) } catch { break }
                 for stream in streams.values { stream.write("\n") }   // A proxy on the way cuts a silent connection.
             }
+        }
+        await withdrawPublication()
+    }
+
+    /// On launch, even when Phone is off or its listener cannot start, retire the previous process’s background route.
+    func recoverPublication() async {
+        do {
+            guard try !tailscale.owners().isEmpty else {
+                cleanupError = nil
+                return
+            }
+        } catch {
+            retryWithdrawal(error)
+            return
+        }
+        guard beginPublicationWork() else { return }
+        defer { publications.leave() }
+        await withdrawPublication()
+    }
+
+    private func withdrawPublication() async {
+        cleanupRetry?.cancel()
+        let tailscale = tailscale
+        do {
+            let outstanding = try await Slots.elsewhere { try tailscale.withdraw() }
+            cleanupError = nil
+            if outstanding { retryWithdrawal() }
+        } catch { retryWithdrawal(error) }
+    }
+
+    private func retryWithdrawal(_ error: Error? = nil) {
+        if let error {
+            let why = "Couldn’t remove the phone’s Tailscale route: " + error.rpcMessage
+            cleanupError = why
+            Log.session.error("\(why, privacy: .public)")
+        }
+        // A disconnected profile can be selected again while Phone stays off.
+        guard !stopping.withLock({ $0 }) else { return }
+        cleanupRetry?.cancel()
+        cleanupRetry = Task {
+            do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            hear(.reconcile)
         }
     }
 }
@@ -69,7 +147,16 @@ extension PhoneBridge {
 /// Drives Tailscale's own command line, which serves a port of this Mac inside the user's tailnet over HTTPS with a
 /// real certificate. A phone on the same tailnet then reaches the Mac directly. The page gets a port of its own (8443),
 /// so a site that the user already serves at the root of the Mac's name stays theirs.
-enum PhoneTailscale {
+struct PhoneTailscale: Sendable {
+    let store: Store
+    var executable: @Sendable () -> String? = { PhoneTailscale.program }
+    /// A route is owned only if Kelp recorded the intent before publishing it. Keys identify the tailnet host.
+    static let ownersKey = "phone.tailscale.routes"
+
+    func owners() throws -> [String: UInt16] {
+        try store.daemonState(Self.ownersKey, as: [String: UInt16].self) ?? [:]
+    }
+
     struct Failed: Error, Equatable {
         var message: String
         var steps = TailscaleSteps()
@@ -84,7 +171,7 @@ enum PhoneTailscale {
 
     /// Reads this Mac's address in its tailnet from `tailscale status --json`. Returns nil while Tailscale isn't
     /// connected.
-    static func address(status: Data) -> String? {
+    static func address(status: Data, requireRunning: Bool = true) -> String? {
         struct Status: Decodable {
             struct Node: Decodable { var DNSName: String? }
             var BackendState: String?
@@ -94,57 +181,116 @@ enum PhoneTailscale {
             try JSONDecoder().decode(Status.self, from: status)
         }
         guard let status = read,
-            status.BackendState == "Running",
+            !requireRunning || status.BackendState == "Running",
             let name = status.`Self`?.DNSName?.trimmingCharacters(in: ["."]), !name.isEmpty
         else { return nil }
         return "https://\(name):\(httpsPort)"
     }
 
-    /// Has Tailscale serve `port` and returns the address it serves at. On failure it returns the reason, in words for
-    /// Settings.
-    static func serve(port: Int, _ offloads: Slots) async -> Result<String, Failed> {
-        do { return try await offloads.run { served(port) } } catch {
-            return .failure(Failed(message: "Kelp is stopping."))
-        }
-    }
+    enum Route { case available, phone, occupied }
 
-    private static func run(_ program: String, _ arguments: [String]) -> Subprocess.Output? {
-        Log.session.attempt("asking Tailscale") {
-            try Subprocess.run(
-                [program] + arguments, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 15)
-        }
-    }
+    /// Only an exclusively private HTTPS root for our loopback target can be advertised or removed.
+    struct Config: Decodable {
+        var TCP: [String: JSONValue]?, Web: [String: JSONValue]?, AllowFunnel: [String: Bool]?,
+            Foreground: [String: Config]?
 
-    private static func served(_ port: Int) -> Result<String, Failed> {
-        guard let program else { return .failure(Failed(message: "Tailscale isn't installed on this Mac.")) }
-        guard let status = run(program, ["status", "--json"]), let address = address(status: status.stdout) else {
-            return .failure(
-                Failed(
-                    message: "Tailscale isn't connected. Open Tailscale and sign in.",
-                    steps: TailscaleSteps(installed: true)))
-        }
-        let target = "http://127.0.0.1:\(port)"
-        guard let served = run(program, ["serve", "--bg", "--https=\(httpsPort)", target]), served.status == 0,
-            !served.timedOut
-        else {
-            // When the tailnet has no HTTPS certificates, `tailscale serve` prints where to turn them on and waits.
-            return .failure(Failed(message: certificates, steps: TailscaleSteps(installed: true, signedIn: true)))
-        }
-        return .success(address)
-    }
-
-    static let certificates =
-        "Tailscale didn't serve the page. Turn on HTTPS certificates for your tailnet (Tailscale's admin console, "
-        + "DNS), then try again."
-
-    /// Takes the page off the tailnet again.
-    static func stopServing(_ offloads: Slots) {
-        guard let program else { return }
-        Task {
-            do { _ = try await offloads.run { run(program, ["serve", "--https=\(httpsPort)", "off"]) } } catch {
-                Log.session.error("Tailscale still serves the phone's page: Kelp stopped first")
+        func route(host: String, target: String) -> Route {
+            let port = String(PhoneTailscale.httpsPort), hostPort = "\(host):\(port)"
+            if Foreground?.values.contains(where: { $0.route(host: host, target: target) != .available }) == true
+                || AllowFunnel?.contains(where: { $0.key.hasSuffix(":\(port)") && $0.value }) == true
+            {
+                return .occupied
             }
+            let sites = Web?.filter { $0.key.hasSuffix(":\(port)") } ?? [:]
+            guard TCP?[port] != nil || !sites.isEmpty else { return .available }
+            let site = JSONValue.object(["Handlers": .object(["/": .object(["Proxy": .string(target)])])])
+            return TCP?[port] == .object(["HTTPS": .bool(true)]) && sites == [hostPort: site] ? .phone : .occupied
         }
+    }
+
+    private static func route(_ program: String, address: String, target: String) throws -> Route {
+        guard let host = URL(string: address)?.host else { return .occupied }
+        let data = try Subprocess.output([program, "serve", "status", "--json"], cwd: "/", timeLimit: 15)
+        return try JSONDecoder().decode(Config?.self, from: data)?.route(host: host, target: target) ?? .available
+    }
+
+    func serve(_ port: UInt16) -> Result<String, Failed> {
+        guard let program = executable() else {
+            return .failure(Failed(message: "Tailscale isn't installed on this Mac."))
+        }
+        var steps = TailscaleSteps(installed: true)
+        do {
+            let status = try Subprocess.output([program, "status", "--json"], cwd: "/", timeLimit: 15)
+            guard let address = Self.address(status: status) else {
+                return .failure(Failed(message: "Tailscale isn't connected. Open Tailscale and sign in.", steps: steps))
+            }
+            steps.signedIn = true
+            let target = "http://127.0.0.1:\(port)"
+            var owners = try owners()
+            if let previous = owners[address], previous != port {
+                try Self.remove(program, address: address, port: previous)
+                owners.removeValue(forKey: address)
+                try store.setDaemonState(Self.ownersKey, owners)
+            }
+            switch try Self.route(program, address: address, target: target) {
+            case .occupied:
+                if owners.removeValue(forKey: address) != nil {
+                    try store.setDaemonState(Self.ownersKey, owners.isEmpty ? nil : owners)
+                }
+                return .failure(
+                    Failed(message: "Tailscale port \(Self.httpsPort) already serves another site.", steps: steps))
+            case .phone: break   // An exact pre-existing route can be borrowed without taking ownership.
+            case .available:
+                if owners[address] != port {
+                    owners[address] = port
+                    try store.setDaemonState(Self.ownersKey, owners)
+                }
+                let result = try Subprocess.run(
+                    [program, "serve", "--bg", "--https=\(Self.httpsPort)", target], cwd: "/",
+                    env: ProcessInfo.processInfo.environment, timeLimit: 15)
+                if result.timedOut || result.status != 0 {
+                    let output = result.stderr.isEmpty ? result.stdout : result.stderr
+                    let reason =
+                        ProgramError.firstSentence(String(decoding: output, as: UTF8.self))
+                        ?? (result.timedOut
+                            ? "Tailscale timed out publishing the page."
+                            : "Tailscale serve exited with status \(result.status).")
+                    return .failure(Failed(message: reason, steps: steps))
+                }
+                let current = try Subprocess.output([program, "status", "--json"], cwd: "/", timeLimit: 15)
+                guard Self.address(status: current) == address,
+                    try Self.route(program, address: address, target: target) == .phone
+                else {
+                    return .failure(
+                        Failed(message: "Tailscale hasn't confirmed the private phone route.", steps: steps))
+                }
+            }
+            return .success(address)
+        } catch {
+            return .failure(
+                Failed(message: (error as? ProgramError)?.message ?? error.localizedDescription, steps: steps))
+        }
+    }
+
+    /// Returns true if another profile still has a recorded publication. Its config is visible only when selected.
+    func withdraw() throws -> Bool {
+        var owners = try owners()
+        guard !owners.isEmpty else { return false }
+        guard let program = executable() else { throw RPCError.invalidParams("Tailscale isn't installed on this Mac.") }
+        let status = try Subprocess.output([program, "status", "--json"], cwd: "/", timeLimit: 15)
+        guard let address = Self.address(status: status, requireRunning: false), let port = owners[address] else {
+            return true
+        }
+        try Self.remove(program, address: address, port: port)
+        owners.removeValue(forKey: address)
+        try store.setDaemonState(Self.ownersKey, owners.isEmpty ? nil : owners)
+        return !owners.isEmpty
+    }
+
+    private static func remove(_ program: String, address: String, port: UInt16) throws {
+        guard try route(program, address: address, target: "http://127.0.0.1:\(port)") == .phone else { return }
+        _ = try Subprocess.checked(
+            [program, "serve", "--https=\(httpsPort)", "--set-path=/", "off"], cwd: "/", timeLimit: 15)
     }
 }
 

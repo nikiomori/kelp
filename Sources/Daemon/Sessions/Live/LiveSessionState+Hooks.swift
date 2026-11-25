@@ -8,6 +8,7 @@ extension LiveSession.State {
     /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
     mutating func apply(_ report: ProgramStatus.Report) {
         spoke()
+        if report.state == "blocked" { menuID = UUID() }
         detector.program(report.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10)
         lastHookAt = Date()
         // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
@@ -70,6 +71,7 @@ extension LiveSession.State {
             if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
             compactManual = false
         case .waiting:
+            menuID = UUID()
             if let asker { kept.asking[asker, default: 0] += 1 }
             if question { kept.questionOpen = true }
             if let message, !message.isEmpty {

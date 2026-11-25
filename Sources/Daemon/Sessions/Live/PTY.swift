@@ -211,7 +211,7 @@ final class PTY: @unchecked Sendable {   // unchecked: phases are under `phase`,
     deinit { hangUp() }
 
     /// Typing into the program; dropped once it has exited (the fd may be another terminal's by then).
-    func write(_ data: Data) {
+    func write(_ data: Data, guardedBy check: (@Sendable (() -> Int) -> Int?)? = nil) {
         guard phase.withLock({ $0.open }) else { return }
         // A program that stops reading doesn't make the daemon keep whatever is pasted at it: past the limit, it's dropped.
         let room = queued.withLock { count -> Bool in
@@ -227,7 +227,15 @@ final class PTY: @unchecked Sendable {   // unchecked: phases are under `phase`,
             defer { queued.withLock { $0 -= data.count } }
             var rest = data[...]
             while !rest.isEmpty, phase.withLock({ $0.open }) {
-                let sent = rest.withUnsafeBytes { Darwin.write(writeFD, $0.baseAddress, $0.count) }
+                // A permission key can sit behind a paste. Check at the syscall, including after waiting for room.
+                let send = { [rest] in rest.withUnsafeBytes { Darwin.write(self.writeFD, $0.baseAddress, $0.count) } }
+                let sent: Int
+                if let check {
+                    guard let count = check(send) else { return }
+                    sent = count
+                } else {
+                    sent = send()
+                }
                 if sent > 0 {
                     rest = rest.dropFirst(sent)
                     continue

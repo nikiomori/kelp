@@ -129,11 +129,12 @@ extension PhoneBridge {
     /// Sends an event to every phone that listens. Each event is sealed with its stream's number and its place in that
     /// stream.
     func say(_ event: String, _ data: JSONValue) {
+        agentRevision += 1
         for id in Array(streams.keys) {
             guard var stream = streams[id],
                 let line = Self.sealed({
                     let box = try PhoneSeal.seal(
-                        ["event": .string(event), "data": data] as [String: JSONValue],
+                        ["event": .string(event), "data": data, "revision": .int(agentRevision)] as [String: JSONValue],
                         about: "e\(stream.number).\(stream.sent)", key: stream.key)
                     return try JSONEncoder().encode(["box": box])
                 })

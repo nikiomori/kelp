@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phone access recovery</title>
+<!-- Serve the repository on localhost and open this fixture in a disposable browser profile. -->
+<script type="module">
+const phone = '../../Sources/Daemon/Resources/phone/';
+const check = (ok, reason) => { if (!ok) throw Error(reason); };
+const wait = async predicate => {
+  for (let i = 0; i < 200; i++) {
+    if (predicate()) return;
+    await new Promise(done => setTimeout(done, 10));
+  }
+  throw Error('Timed out waiting for ' + predicate);
+};
+const bytes = value => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const encode = data => btoa(String.fromCharCode(...data)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const importKey = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+const text = new TextEncoder();
+async function box(key, about, value) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: text.encode(about) }, key, text.encode(JSON.stringify(value)));
+  return encode([...iv, ...new Uint8Array(cipher)]);
+}
+
+async function run() {
+  const realFetch = window.fetch;
+  const id = encode(crypto.getRandomValues(new Uint8Array(16)));
+  const secret = crypto.getRandomValues(new Uint8Array(32)), invite = await importKey(secret);
+  const link = id + '.' + encode(secret), devices = new Map(), streams = [], lists = [];
+  const agent = title => ({ id: 'agent', status: 'working', title });
+  const project = { id: 'p', name: 'Kelp', color: { light: '#0058b8', dark: '#6cb4ff' } };
+  const tile = () => document.querySelector('.project .tile');
+  let delayList = false, allowPush = true, registrations = 0;
+  const pushKey = Uint8Array.of(3, 2, 1);
+  window.fetch = async (url, options) => {
+    if (url !== '/api/call') return realFetch(url, options);
+    const envelope = JSON.parse(options.body), sealed = bytes(envelope.box);
+    const key = devices.get(envelope.device) ?? invite;
+    const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.slice(0, 12), additionalData: text.encode('q') }, key, sealed.slice(12));
+    const { n, path, body } = JSON.parse(new TextDecoder().decode(clear));
+    if (path === 'pair') {
+      if (devices.size) return new Response(null, { status: 401 });
+      devices.set(envelope.device, await importKey(bytes(body.key)));
+      throw TypeError('Lost response after the Mac accepted the device');
+    }
+    let data;
+    if (path === 'events') {
+      return new Response(new ReadableStream({ start(controller) {
+        let sent = 0;
+        streams.push(async (event, data, revision) => {
+          const encrypted = await box(key, 'e' + n + '.' + sent++, { event, data, revision });
+          controller.enqueue(text.encode(JSON.stringify({ box: encrypted }) + '\n'));
+        });
+      } }));
+    } else if (path === 'agents') {
+      data = delayList ? await new Promise(done => lists.push(done)) : { agents: [], revision: 0 };
+    } else if (path === 'push/key') data = { key: encode(pushKey) };
+    else if (path === 'push/subscribe') {
+      check(body.endpoint === 'new', 'Registered the new subscription');
+      registrations++;
+      if (!allowPush) return new Response(null, { status: 503 });
+    }
+    else throw Error('Unexpected path ' + path);
+    return Response.json({ box: await box(key, 'r' + n, { status: 200, body: data }) });
+  };
+
+  const first = await import(phone + 'js/api.js?enroll');
+  const oldAsk = { kind: 'permission', text: 'Allow the change?' };
+  check(first.agentFrom({ ask: oldAsk }).ask.kind === 'question', 'An older Mac without question IDs cannot offer Allow or Deny');
+  try { await first.pair(link, 'Browser'); throw Error('Missing network failure'); }
+  catch (error) { check(error.status === 0, 'Pairing experienced the lost response'); }
+  const reopened = await import(phone + 'js/api.js?reopen');
+  check(reopened.recovering(), 'A fresh page retained the pending key');
+  await reopened.recoverPair();
+  check(!reopened.recovering() && reopened.paired(id), 'The Mac accepted the saved device key');
+  check(devices.size === 1, 'Recovery kept the same device');
+  try { await reopened.pair(link, 'Duplicate'); throw Error('Expected consumed QR to fail'); }
+  catch (error) { check(error.status === 401, 'Consumed QR refused'); }
+  check(reopened.paired(id) && !reopened.recovering(), 'An unsuccessful pairing keeps the previous device');
+
+  let rotated = 0, sub = { options: { applicationServerKey: Uint8Array.of(9).buffer }, async unsubscribe() { sub = null; } };
+  const pushManager = {
+    async getSubscription() { return sub; },
+    async subscribe({ applicationServerKey }) {
+      check(!sub && String(applicationServerKey) === String(pushKey), 'Rotated the stale VAPID key');
+      rotated++;
+      return sub = { options: { applicationServerKey }, toJSON: () => ({ endpoint: 'new' }) };
+    }
+  };
+  Object.defineProperty(navigator, 'serviceWorker', { value: { register: async () => ({ pushManager }), addEventListener() {} } });
+  Object.defineProperty(window, 'PushManager', { value: class {} });
+  Object.defineProperty(window, 'Notification', { value: { permission: 'granted' } });
+  const html = await realFetch(phone + 'index.html').then(r => r.text());
+  document.body.replaceWith(new DOMParser().parseFromString(html, 'text/html').body);
+  delayList = true;
+  await import(phone + 'app.js');
+  await wait(() => lists.length === 1);
+  await streams[0]('agent', agent('Newer event'), 2);
+  await streams[0]('removed', { id: 'gone' }, 3);
+  lists.shift()({ agents: [agent('Snapshot'), { ...agent('Gone'), id: 'gone' }], projects: [project], revision: 1 });
+  await wait(() => registrations === 1 && document.getElementById('push-toggle').checked);
+  const rows = () => document.querySelector('#groups')?.textContent ?? document.querySelector('#list').textContent;
+  check(tile().style.getPropertyValue('--project-light') === project.color.light &&
+    tile().style.getPropertyValue('--project-dark') === project.color.dark, 'The tile uses the Mac’s colors for both themes');
+  check(rows().includes('Newer event') && !rows().includes('Gone'), 'Snapshot kept newer events and removals');
+  check(rotated === 1 && document.getElementById('push-toggle').checked, 'Push was enabled only after registration');
+
+  dispatchEvent(new Event('online'));
+  await wait(() => lists.length === 1);
+  await streams[1]('agent', agent('Older event'), 2);
+  lists.shift()({ agents: [agent('Current snapshot')], projects: [{ id: 'p', name: 'Kelp' }], revision: 3 });
+  await wait(() => rows().includes('Current snapshot'));
+  check(tile().style.getPropertyValue('--project-light') === '', 'Clearing the project color restores the default tile');
+  await streams[1]('agent', agent('Delayed older event'), 3);
+  await streams[0]('agent', agent('Replaced stream'), 4);
+  await streams[1]('agent', { ...agent('Current event'), id: 'other' }, 4);
+  await wait(() => rows().includes('Current event'));
+  check(rows().includes('Current snapshot') && !rows().includes('Replaced stream') && rotated === 1, 'Only current events and keys survived');
+  await wait(() => registrations === 2);
+  allowPush = false;
+  dispatchEvent(new Event('online'));
+  await wait(() => lists.length === 1);
+  lists.shift()({ agents: [], revision: 4 });
+  await wait(() => registrations === 3 && !document.getElementById('push-toggle').checked);
+  check(sub !== null, 'A browser subscription alone does not show notifications as enabled');
+}
+const result = document.createElement('pre');
+result.id = 'test-result';
+try { await run(); result.textContent = 'PASS'; }
+catch (error) { result.textContent = 'FAIL ' + (error.stack ?? JSON.stringify(error)); }
+document.body.prepend(result);
+</script>

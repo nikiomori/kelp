@@ -65,13 +65,24 @@ extension PhoneBridge {
     func projectsAndKinds() async -> [String: JSONValue] {
         let projects = projects(), kinds = await kinds()
         await findIcons(projects)
+        let colors = ProjectColor.read(
+            Log.session.attempt("reading project colors") {
+                try store.uiState(prefix: ProjectColor.key)[ProjectColor.key]
+            } ?? nil)
         return [
             "projects": .array(
-                projects.map {
-                    .object([
-                        "id": .string($0.id), "name": .string($0.name),
-                        "icon": .bool(iconFiles[$0.path]?.file != nil)
-                    ])
+                projects.map { project in
+                    var fields: [String: JSONValue] = [
+                        "id": .string(project.id), "name": .string(project.name),
+                        "icon": .bool(iconFiles[project.path]?.file != nil)
+                    ]
+                    if let ink = colors[project.id]?.ink {
+                        fields["color"] = .object([
+                            "light": .string(String(format: "#%06x", ink.light)),
+                            "dark": .string(String(format: "#%06x", ink.dark))
+                        ])
+                    }
+                    return .object(fields)
                 }),
             "kinds": .array(
                 kinds.map { kind in

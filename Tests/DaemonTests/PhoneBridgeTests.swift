@@ -3,6 +3,7 @@ import Agents
 import Core
 import CryptoKit
 import Foundation
+import GRDB
 import ImageIO
 import Testing
 
@@ -74,7 +75,8 @@ private func json(_ text: String) throws -> JSONValue {
 /// written down and a second over it.
 @Test func afterARestartNothingPassesThatCouldHaveBeenSeen() throws {
     let key = SymmetricKey(size: .bits256), saved: Int64 = 7_000_000_000_000_000
-    var phone = PhoneDevice(key: key, kept: PhoneKept(name: "A", last: saved, push: nil))
+    #expect(PhoneDevice(key: key, kept: PhoneKept(name: "A", last: .max, push: nil)) == nil)
+    var phone = try #require(PhoneDevice(key: key, kept: PhoneKept(name: "A", last: saved, push: nil)))
     func admit(_ number: Double) -> Bool { phone.admit(number) }
     #expect(!admit(Double(saved)) && !admit(Double(saved + 5)))
     #expect(!admit(Double(saved + PhoneDevice.second)))
@@ -147,16 +149,19 @@ private func json(_ text: String) throws -> JSONValue {
         createdAt: Date(timeIntervalSince1970: 1_800_000_000.25), title: "Fix the flaky sync test",
         summary: "Allow Bash: swift test --filter SyncTests?")
     s.running = "swift build"
+    let questionID = try #require(UUID(uuidString: "915D0701-9BDA-45E6-9F04-FF5DB37F3508"))
     #expect(PhoneAgent.shown(s))
     #expect(
         JSONValue.object(
-            PhoneAgent.from(s, name: "Claude Code", project: "kelp", projectId: "P", workspace: "fix/sync-retry"))
+            PhoneAgent.from(
+                s, name: "Claude Code", project: "kelp", projectId: "P", workspace: "fix/sync-retry",
+                questionID: questionID))
             == (try json(
                 #"""
                 {"id":"S1","title":"Fix the flaky sync test","agent":"claude","agentName":"Claude Code","project":"kelp",
                  "projectId":"P","workspace":"fix/sync-retry","status":"waiting","statusAt":"2027-01-15T08:00:00.250Z","unread":true,
                  "summary":"Allow Bash: swift test --filter SyncTests?",
-                 "ask":{"kind":"permission","text":"Allow Bash: swift test --filter SyncTests?"},
+                 "ask":{"kind":"permission","text":"Allow Bash: swift test --filter SyncTests?","id":"915D0701-9BDA-45E6-9F04-FF5DB37F3508"},
                  "running":"swift build","limit":null,"continueAt":null}
                 """#)))
     // A question cut short is answered where it shows whole, and one that asks no permission by text.
@@ -184,7 +189,7 @@ private func json(_ text: String) throws -> JSONValue {
     #expect(!PhoneAgent.shown(under))
 }
 
-/// A phone as the page is one (phone/js/api.js): it seals each call under the key from its pairing link.
+/// The phone seals its pairing call under the invitation key and its later calls under its device key.
 private struct Phone {
     let bridge: PhoneBridge
     var device = PhoneSeal.random(16).base64URL
@@ -193,6 +198,15 @@ private struct Phone {
         let ask = PhoneBridge.Ask(n: n, method: method, path: path, body: body)
         return PhoneBridge.Sent(id: "c", device: device, box: try PhoneSeal.seal(ask, about: "q", key: key))
     }
+    func paired(_ name: String, n: Double) async throws -> Phone {
+        var phone = self
+        phone.key = SymmetricKey(size: .bits256)
+        let mine = phone.key.withUnsafeBytes { Data($0).base64URL }
+        let reply = try await ask("POST", "pair", .object(["name": .string(name), "key": .string(mine)]), n: n)
+        try #require(reply == PhoneBridge.Reply(status: 200, body: .object(["rekeyed": .bool(true)])))
+        return phone
+    }
+
     /// The call's answer, or the status it was refused with.
     func ask(_ method: String, _ path: String, _ body: JSONValue? = nil, n: Double) async throws -> PhoneBridge.Reply {
         switch await bridge.admit(try sent(method, path, body, n: n)) {
@@ -223,19 +237,23 @@ private struct Phone {
     let text = try #require(state.link)
     let link = try #require(text.wholeMatch(of: /http:\/\/127\.0\.0\.1:9\/#pair=([\w-]{22})\.([\w-]{43})/))
     #expect(try #require(state.linkUntil).timeIntervalSinceNow > 590 && !state.connected)
-    let phone = Phone(bridge: bridge, key: try key(String(link.2)))
+    let invitation = Phone(bridge: bridge, key: try key(String(link.2)))
     var n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
     func next() -> Double {
         n += 1
         return n
     }
 
-    #expect(try await phone.ask("GET", "agents", n: next()).status == -401, "nothing before pairing")
+    #expect(try await invitation.ask("GET", "agents", n: next()).status == -401, "nothing before pairing")
     #expect(
         try await Phone(bridge: bridge, key: SymmetricKey(size: .bits256)).ask("POST", "pair", n: next()).status == -401
     )
-    #expect(try await phone.ask("POST", "pair", .object(["name": .string("Niko’s iPhone")]), n: next()).status == 204)
-    let other = Phone(bridge: bridge, key: phone.key)
+    for body: JSONValue in [.null, .object(["key": .string("bad")]), .object(["key": .string(String(link.2))])] {
+        #expect(try await invitation.ask("POST", "pair", body, n: next()).status == -401)
+    }
+    #expect(try await p.c.call(PhoneStatus()).phones.isEmpty)
+    let phone = try await invitation.paired("Niko’s iPhone", n: next())
+    let other = Phone(bridge: bridge, key: invitation.key)
     #expect(try await other.ask("POST", "pair", n: next()).status == -401, "a pairing key works once")
     let paired = try await p.c.call(PhoneStatus())
     #expect(paired.phones == [PairedPhone(id: phone.device, name: "Niko’s iPhone", push: false)] && paired.link == nil)
@@ -247,7 +265,9 @@ private struct Phone {
     let listed = try await phone.ask("GET", "agents", n: next())
     let agents = try #require(listed.body?["agents"]?.array)
     #expect(agents.map { $0["id"]?.string } == [s.id] && agents.first?["agentName"]?.string == "Menu")
-    #expect(agents.first?["ask"] == .object(["kind": .string("permission"), "text": .string("Allow rm -rf build?")]))
+    let questionID = try #require(agents.first?["ask"]?["id"]?.string)
+    #expect(agents.first?["ask"]?["kind"] == .string("permission"))
+    #expect(agents.first?["ask"]?["text"] == .string("Allow rm -rf build?"))
     #expect(agents.first?["project"]?.string == p.repo.name && listed.body?["mac"]?.string?.isEmpty == false)
     #expect(try await phone.ask("GET", "agents", n: n).status == -409, "the same call twice")
 
@@ -256,15 +276,26 @@ private struct Phone {
     #expect(try await phone.ask("GET", "agents/nobody", n: next()).status == 404)
     #expect(try await phone.ask("GET", "nowhere", n: next()).status == 404)
     #expect(try await phone.ask("POST", "agents/\(s.id)/read", n: next()).status == 204)
-    func choose(_ answer: String, _ question: String) async throws -> JSONValue? {
-        try await phone.ask(
-            "POST", "agents/\(s.id)/choose", .object(["answer": .string(answer), "question": .string(question)]),
-            n: next()
-        ).body?["ok"]
+    func choose(_ answer: String, _ question: String?, _ token: String?) async throws -> JSONValue? {
+        var fields: [String: JSONValue] = ["answer": .string(answer)]
+        fields["question"] = question.map(JSONValue.string)
+        fields["questionID"] = token.map(JSONValue.string)
+        return try await phone.ask("POST", "agents/\(s.id)/choose", .object(fields), n: next()).body?["ok"]
     }
-    #expect(try await choose("allow", "Allow npm test?") == .bool(false), "only the question the phone showed")
-    #expect(try await choose("always", "Allow rm -rf build?") == .bool(false))
-    #expect(try await choose("allow", "Allow rm -rf build?") == .bool(true))
+    #expect(try await choose("allow", nil, questionID) == .bool(false))
+    #expect(try await choose("allow", "Allow rm -rf build?", nil) == .bool(false))
+    #expect(try await choose("allow", "Allow rm -rf build?", UUID().uuidString) == .bool(false))
+    #expect(
+        try await choose("allow", "Allow npm test?", questionID) == .bool(false), "only the question the phone showed")
+    #expect(try await choose("always", "Allow rm -rf build?", questionID) == .bool(false))
+    let live = try #require(p.d.sessions.existing(s.id))
+    live.hook(.working)
+    live.hook(.waiting, message: "Allow rm -rf build?")
+    let repeated = try await phone.ask("GET", "agents/\(s.id)", n: next())
+    let newer = try #require(repeated.body?["ask"]?["id"]?.string)
+    #expect(newer != questionID)
+    #expect(try await choose("allow", "Allow rm -rf build?", questionID) == .bool(false))
+    #expect(try await choose("allow", "Allow rm -rf build?", newer) == .bool(true))
     #expect(try await waitFor(5) { try await p.c.call(SessionRead(id: s.id)).contains("ALLOWED") })
 
     // The page's link and phones are the user's: an agent's program gets none of it, nor watches it.
@@ -299,6 +330,75 @@ private struct Phone {
     #expect(try await back.ask("GET", "agents", n: later).status == 200)
     #expect(try await client(p.root).call(PhoneUnpair(device: phone.device)).phones.isEmpty)
     #expect(try await back.ask("GET", "agents", n: later + 1).status == -401)
+}
+
+/// A failed SQLite write must leave the invitation, the replay checkpoint and an existing pairing retryable.
+@Test func phoneStateChangesOnlyAfterTheWriteSucceeds() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    try #require(try await waitFor { try await c.call(PhoneStatus()).relay != nil })
+    let link = try #require(try await c.call(PhonePair()).link)
+    let invitation = Phone(
+        bridge: d.sessions.phone, key: try key(String(try #require(link.split(separator: ".").last))))
+    let n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    func blockWrites(_ block: Bool) throws {
+        let trigger = """
+            CREATE TRIGGER refuse_phone BEFORE INSERT ON daemonState WHEN NEW.key='phone'
+            BEGIN SELECT RAISE(ABORT,'phone write failed'); END
+            """
+        try d.store.db.write { try $0.execute(sql: block ? trigger : "DROP TRIGGER refuse_phone") }
+    }
+    try blockWrites(true)
+    let body: JSONValue = .object(["key": .string(PhoneSeal.random(32).base64URL)])
+    #expect(try await invitation.ask("POST", "pair", body, n: n).status == -503)
+    let state = try await c.call(PhoneStatus())
+    #expect(state.link == link && state.phones.isEmpty)
+    #expect(try Keychain.find("phone.device.\(invitation.device)") == nil)
+    try blockWrites(false)
+    let phone = try await invitation.paired("Phone", n: n)
+
+    try blockWrites(true)
+    let later = n + Double(PhoneDevice.second) + 1
+    #expect(try await phone.ask("GET", "agents", n: later).status == -503)
+    await #expect(throws: RPCError.self) { _ = try await c.call(PhoneUnpair(device: phone.device)) }
+    #expect(try d.store.daemonState(PhoneRecord.key, as: PhoneRecord.self)?.devices[phone.device]?.last == Int64(n))
+    try blockWrites(false)
+    #expect(try await phone.ask("GET", "agents", n: later).status == 200)
+    #expect(try await phone.ask("GET", "agents", n: later).status == -409)
+    #expect(try await c.call(PhoneUnpair(device: phone.device)).phones.isEmpty)
+    #expect(try await phone.ask("GET", "agents", n: later + 1).status == -401)
+}
+
+@Test func anUnreadablePhoneRecordSurvivesTheLoadError() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    try d.store.setDaemonState(PhoneRecord.key, "unreadable")
+    _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    try #require(try await waitFor { try await c.call(PhoneStatus()).error != nil })
+    #expect(try d.store.daemonState(PhoneRecord.key, as: String.self) == "unreadable")
+    await #expect(throws: RPCError.self) { _ = try await c.call(PhonePair()) }
+}
+
+/// A missing key cannot authenticate or claim its saved id again; the owner can still see and remove the pairing.
+@Test func aMissingDeviceKeyKeepsItsRecordUntilRemoved() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let id = PhoneSeal.random(16).base64URL, phone = PhoneKept(name: "Old phone", last: 123, push: nil)
+    try d.store.setDaemonState(PhoneRecord.key, PhoneRecord(mac: PhoneSeal.random(16).base64URL, devices: [id: phone]))
+    _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    try #require(try await waitFor { try await c.call(PhoneStatus()).relay != nil })
+    let code = try await c.call(PhonePair())
+    #expect(code.phones.map(\.id) == [id])
+    let key = try key(String(try #require(code.link?.split(separator: ".").last)))
+    let invitation = Phone(bridge: d.sessions.phone, device: id, key: key)
+    let n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    let body: JSONValue = .object(["key": .string(PhoneSeal.random(32).base64URL)])
+    #expect(try await invitation.ask("POST", "pair", body, n: n).status == -401)
+    _ = try await Phone(bridge: d.sessions.phone, key: key).paired("New phone", n: n)
+    #expect(try d.store.daemonState(PhoneRecord.key, as: PhoneRecord.self)?.devices[id] == phone)
+    #expect(try await c.call(PhoneUnpair(device: id)).phones.count == 1)
+    #expect(try d.store.daemonState(PhoneRecord.key, as: PhoneRecord.self)?.devices[id] == nil)
 }
 
 /// A square (or `wide`) picture of one colour, as a PNG.
@@ -340,6 +440,7 @@ private func size(_ png: Data) -> [Int] {
     try png(512, 512).write(to: URL(fileURLWithPath: p.repo.path + "/icon.png"))
     let other = try await p.c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
     _ = try await p.c.call(StateSet(key: StateKeys.sidebarOrder, value: .array([.string(other.id)])))   // dragged first
+    _ = try await p.c.call(StateSet(key: ProjectColor.key, value: .object([other.id: .string("teal")])))
     let bridge = p.d.sessions.phone
     _ = try await p.c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
     #expect(try await waitFor { try await p.c.call(PhoneStatus()).relay != nil })
@@ -362,7 +463,10 @@ private func size(_ png: Data) -> [Int] {
     #expect(
         listed.body?["projects"]
             == .array([
-                .object(["id": .string(other.id), "name": .string(other.name), "icon": .bool(false)]),
+                .object([
+                    "id": .string(other.id), "name": .string(other.name), "icon": .bool(false),
+                    "color": .object(["light": .string("#006473"), "dark": .string("#5bd6e6")])
+                ]),
                 .object(["id": .string(p.repo.id), "name": .string(p.repo.name), "icon": .bool(true)])
             ]))
     // Starting agents is off until Settings says so: no kinds for the page's "+", and a start is refused.
@@ -486,9 +590,10 @@ private func size(_ png: Data) -> [Int] {
     _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
     #expect(try await waitFor { try await c.call(PhoneStatus()).relay != nil })
     let link = try #require(try await c.call(PhonePair()).link)
-    let phone = Phone(bridge: d.sessions.phone, key: try key(String(try #require(link.split(separator: ".").last))))
+    let invitation = Phone(
+        bridge: d.sessions.phone, key: try key(String(try #require(link.split(separator: ".").last))))
     let n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
-    #expect(try await phone.ask("POST", "pair", n: n).status == 204)
+    let phone = try await invitation.paired("Phone", n: n)
     let read = try await phone.ask("GET", "agents/\(session.id)", n: n + 1)
     #expect(read.body?["lastReply"]?.string == "The loop.")
     #expect(

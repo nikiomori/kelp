@@ -13,7 +13,7 @@ final class Sessions: Sendable, WorkspaceSessions {
     let wakeLocks = WakeLocks()   // one wake per session, however many clients open it at once; pausing locks too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
-    let permissions = PermissionWaits()   // a permission question's hook, waiting for Allow or Deny
+    let permissions: PermissionWaits   // a permission question's hook, waiting for Allow or Deny
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     /// One round of idle pausing at a time, off the ticker (`busy`), and when the ticker last looked (`idleCheckDue`).
     let pausingIdle = OSAllocatedUnfairLock(initialState: (busy: false, lookedAt: Date.distantPast))
@@ -48,6 +48,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         self.clients = clients
         self.watches = watches
         self.offloads = offloads
+        permissions = PermissionWaits(live: live)
         setup = SessionSetup(
             root: root, socketPath: socketPath, store: store, settings: settings, remotes: remotes,
             agentUsage: agentUsage)
@@ -55,7 +56,7 @@ final class Sessions: Sendable, WorkspaceSessions {
             root: root, live: live, store: store, settings: settings, clients: clients, setup: setup,
             phone: PhoneBridge(
                 store: store, settings: settings, setup: setup, live: live,
-                conversations: agentUsage.conversations, offloads: offloads, root: root))
+                conversations: agentUsage.conversations, offloads: offloads, root: root, permissions: permissions))
         processes = SessionProcesses(live: live, store: store, remotes: remotes, forwards: setup.hostBrowser.forwards)
         turns = Turns(live: live, store: store, remotes: remotes, root: root, offloads: offloads, setup: setup)
         updates = AgentUpdates(live: live, settings: settings)

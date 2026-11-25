@@ -25687,12 +25687,12 @@
         }
       }
     },
-    "The phone opens this Mac by its name in your tailnet, straight from Kelp. Both need Tailscale, signed in to the same account.": {
+    "The phone needs access to this Mac on port 8443 under your Tailscale access rules. Scan a pairing code to use Kelp.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Телефон открывает этот Mac по его имени в вашей сети Tailscale, напрямую из Kelp. На обоих нужен Tailscale с одной учётной записью."
+            "value": "Правила Tailscale должны разрешать телефону доступ к этому Mac по порту 8443. Для подключения к Kelp отсканируйте код сопряжения."
           }
         }
       }
@@ -25777,32 +25777,42 @@
         }
       }
     },
-    "HTTPS certificates are on": {
+    "Tailscale serves this Mac over HTTPS": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "HTTPS-сертификаты включены"
+            "value": "Tailscale публикует страницу этого Mac по HTTPS"
           }
         }
       }
     },
-    "Turn On in Tailscale": {
+    "HTTPS settings": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Включить в Tailscale"
+            "value": "Настройки HTTPS"
           }
         }
       }
     },
-    "Finish Tailscale’s steps above.": {
+    "Set phone.port to a whole number from 1 to 65535.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сначала выполните шаги Tailscale выше."
+            "value": "Укажите для phone.port целое число от 1 до 65535."
+          }
+        }
+      }
+    },
+    "Starting the phone server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускается сервер для телефона…"
           }
         }
       }

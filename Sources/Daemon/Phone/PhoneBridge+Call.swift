@@ -30,61 +30,56 @@ extension PhoneBridge {
     /// Checks a call's envelope: which phone sent it, that its box opens, and that it is new. It then handles pairing,
     /// unpairing and event streams, which need no agent, and passes any other call on as an `ask`.
     func admit(_ sent: Sent) -> Admitted {
+        guard way != nil else { return .refused(503) }
         guard let id = sent.device, let box = sent.box else { return .refused(401) }
-        var device: PhoneDevice, ask: Ask, fresh = false
-        do {
-            if let known = devices[id] {
-                device = known
-                ask = try PhoneSeal.open(box, about: "q", key: known.key)
-            } else {
-                guard let pairing, pairing.until > Date(), id.wholeMatch(of: /[\w-]{16,32}/) != nil else {
-                    return .refused(401)
-                }
-                ask = try PhoneSeal.open(box, about: "q", key: pairing.key)
-                guard ask.path == "pair" else { return .refused(401) }
-                let name = ask.body?["name"]?.string ?? "Phone"
-                device = PhoneDevice(key: pairing.key, name: String(name.prefix(80)))
-                fresh = true
-            }
-        } catch { return .refused(401) }
+        guard var device = devices[id] else { return register(id, box: box) }
+        guard let ask: Ask = try? PhoneSeal.open(box, about: "q", key: device.key) else { return .refused(401) }
         guard device.admit(ask.n) else { return .refused(409) }
-        devices[id] = device
-        if fresh {
-            pairing = nil   // a link pairs one phone only
-            let key = device.key.withUnsafeBytes { Data($0).base64URL }
-            guard
-                Log.session.attempt("keeping a phone's key", { try Keychain.set(key, account: "phone.device.\(id)") })
-                    != nil
-            else {
-                devices[id] = nil
-                return .refused(401)
-            }
+        if device.needsSaving {
+            guard Log.session.attempt("keeping a phone's request number", { try save(device, id: id) }) != nil
+            else { return .refused(503) }
+        } else {
+            devices[id] = device
         }
-        if fresh || device.needsSaving { remember() }
-        let number = Int64(ask.n), key = device.key
-        let done = Self.sealed { try PhoneSeal.seal(Reply(status: 204), about: "r\(number)", key: key) }
-        switch ask.path {
-        case "pair":
-            // The phone sends a key of its own to keep, because the link may stay in an address bar or on a
-            // clipboard. The link's key seals this one answer and opens nothing after it.
-            guard fresh, let mine = ask.body?["key"]?.string.flatMap(Data.init(base64URL:)), mine.count == 32,
-                let rekeyed = Self.sealed({
-                    try PhoneSeal.seal(
-                        Reply(status: 200, body: .object(["rekeyed": .bool(true)])), about: "r\(number)", key: key)
-                }),
-                Log.session.attempt(
-                    "keeping a phone's own key", { try Keychain.set(mine.base64URL, account: "phone.device.\(id)") })
-                    != nil
-            else { return done.map(Admitted.answer) ?? .refused(401) }
-            devices[id]?.key = SymmetricKey(data: mine)
-            return .answer(rekeyed)
-        case "unpair":
-            forget(id)
-            return done.map(Admitted.answer) ?? .refused(401)
-        case "events":
+        let number = Int64(ask.n)
+        switch (ask.method ?? "GET", ask.path) {
+        case (_, "pair"): return .refused(401)
+        case ("POST", "unpair"):
+            guard
+                let done = Self.sealed({ try PhoneSeal.seal(Reply(status: 204), about: "r\(number)", key: device.key) })
+            else { return .refused(500) }
+            guard Log.session.attempt("forgetting a phone", { try forget(id) }) != nil else { return .refused(503) }
+            return .answer(done)
+        case ("GET", "events"):
             return .events(Stream(device: id, key: device.key, number: number))
         default: return .ask(ask, device: id, key: device.key)
         }
+    }
+
+    private func register(_ id: String, box: String) -> Admitted {
+        guard record?.devices[id] == nil, let pairing, pairing.until > Date(), id.wholeMatch(of: /[\w-]{16,32}/) != nil,
+            let ask: Ask = try? PhoneSeal.open(box, about: "q", key: pairing.key),
+            ask.method == "POST", ask.path == "pair",
+            let mine = ask.body?["key"]?.string.flatMap(Data.init(base64URL:)), mine.count == 32,
+            SymmetricKey(data: mine) != pairing.key
+        else { return .refused(401) }
+        let name = ask.body?["name"]?.string ?? "Phone"
+        var device = PhoneDevice(key: SymmetricKey(data: mine), name: String(name.prefix(80)))
+        guard device.admit(ask.n) else { return .refused(409) }
+        let reply = Reply(status: 200, body: .object(["rekeyed": .bool(true)]))
+        guard let answer = Self.sealed({ try PhoneSeal.seal(reply, about: "r\(Int64(ask.n))", key: pairing.key) })
+        else { return .refused(500) }
+
+        let account = "phone.device.\(id)"
+        guard
+            Log.session.attempt("keeping a phone's key", { try Keychain.set(mine.base64URL, account: account) }) != nil
+        else { return .refused(503) }
+        guard Log.session.attempt("keeping a paired phone", { try save(device, id: id) }) != nil else {
+            Keychain.delete(account)
+            return .refused(503)
+        }
+        self.pairing = nil
+        return .answer(answer)
     }
 
     /// Answers what is inside a call. Each path maps to one of the daemon's methods, which is called as the user
@@ -93,10 +88,13 @@ extension PhoneBridge {
         let method = ask.method ?? "GET", path = ask.path ?? "", sent = ask.body
         switch (method, path) {
         case ("GET", "agents"):
-            shown = sessions().filter(PhoneAgent.shown).reduce(into: [:]) { $0[$1.id] = agent($1) }
-            let agents = shown.values.sorted { ($0["statusAt"]?.string ?? "") > ($1["statusAt"]?.string ?? "") }
+            refreshAgents()
+            let agents = shown.values.sorted {
+                ($0["statusAt"]?.string ?? "") > ($1["statusAt"]?.string ?? "")
+            }
             var body: [String: JSONValue] = [
                 "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object)),
+                "revision": .int(agentRevision),
                 "stops": .bool(true)   // This Mac answers `agents/<id>/stop`, so the page shows Stop.
             ]
             // The version of the page that Kelp serves now. A phone that runs an older page (because Kelp updated
@@ -110,8 +108,9 @@ extension PhoneBridge {
         case ("POST", "push/subscribe"), ("DELETE", "push/subscribe"):
             let subscription = method == "POST" ? PushSubscription(sent) : nil
             if method == "POST", subscription == nil { return .failed(400, "Not a push subscription.") }
-            devices[device]?.push = subscription
-            remember()
+            guard var phone = devices[device] else { return .failed(401, "Phone is no longer paired.") }
+            phone.push = subscription
+            do { try save(phone, id: device) } catch { return .failed(503, "Couldn't save this notification setting.") }
             return Reply(status: 204)
         default: break
         }
@@ -136,10 +135,13 @@ extension PhoneBridge {
                 _ = try await call(SessionWrite(id: id, text: "\u{1B}"))
                 return Reply(status: 204)
             case "choose":
-                guard let answer = sent?["answer"]?.string, ["allow", "deny"].contains(answer) else {
+                guard let answer = sent?["answer"]?.string, ["allow", "deny"].contains(answer),
+                    let question = sent?["question"]?.string, !question.isEmpty,
+                    let questionID = sent?["questionID"]?.string, UUID(uuidString: questionID) != nil
+                else {
                     return Reply(status: 200, body: .object(["ok": .bool(false)]))
                 }
-                let chose = SessionChoose(id: id, answer: answer, question: sent?["question"]?.string)
+                let chose = SessionChoose(id: id, answer: answer, question: question, questionID: questionID)
                 return Reply(status: 200, body: .object(["ok": .bool(try await call(chose))]))
             case "reply":
                 guard let text = sent?["text"]?.string else { return .failed(400, "Send {\"text\"}.") }
