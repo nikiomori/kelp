@@ -87,7 +87,7 @@ private func wrapped(_ report: String) -> String { "\u{1B}Ptmux;\u{1B}\u{1B}]750
     let parent = "019f0001-3030-751b-8451-063a514b7b14", child = "019f0002-4033-721c-a711-1c42eaca2641"
     let resumed = "019f0003-176c-7649-8121-a7eda120236e"
     let quoted = #"Check {"session_id":"\#(child)","agent_id":"\#(child)"}"#
-    let day = runner.bin.appendingPathComponent("sessions/2026/11/25")
+    let day = runner.bin.appendingPathComponent(#"Codex "home" \ profile/sessions/2026/11/25"#)
     try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)
     func rollout(_ id: String) -> String {
         day.appendingPathComponent("rollout-2026-11-25T09-05-21-\(id).jsonl").path
@@ -169,6 +169,7 @@ private func wrapped(_ report: String) -> String { "\u{1B}Ptmux;\u{1B}\u{1B}]750
     try check("UserPromptSubmit", payload("UserPromptSubmit", parent), report: "state=working:conv=\(parent)")
     try check("Stop", payload("SubagentStop", parent, agent: child))
     try check("Stop", payload("Stop", parent), report: "state=done:conv=\(parent)")
+    try check("UserPromptSubmit", payload("UserPromptSubmit", empty), report: "state=working")
     try check("UserPromptSubmit", payload("UserPromptSubmit", resumed), report: "state=working:conv=\(resumed)")
     try check("UserPromptSubmit", childPrompt)   // late delivery after /resume
 

@@ -44,20 +44,20 @@ public enum CodexHooks {
 
     /// In 0.171 a child's session_id is the root's and agent_id is its own. 0.133 omits agent_id;
     /// 0.129 also uses the child's own session_id. The rollout's session_meta identifies user threads in all three.
-    /// Both hook inputs are flat, compact JSON; quotes in the prompt and reply are escaped.
+    /// Both hook inputs are flat, compact JSON with escaped quotes in the prompt and reply. Until the rollout
+    /// is written, report only the state so the daemon keeps its last confirmed thread.
     private static func hostTurn(_ event: String, _ state: String) -> String {
         Hooks.hostStart + #"p=$(cat);case "$p" in \{*\}) ;; *) exit 0;; esac;"#
             + #"case "$p" in *\"agent_id\":*|*\"agent_type\":*) exit 0;; esac;"#
             + Hooks.hostField + #"[ "$(f hook_event_name)" = \#(event) ] || exit 0;"#
             + #"id=$(f session_id);printf %s "$id" | LC_ALL=C grep -Eq "^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$" || exit 0;"#
             + #"t=$(printf %s "$p" | sed -nE 's/.*"transcript_path": *"(([^"\\]|\\.)*)".*/\1/p' | sed -E 's/\\(["\\/])/\1/g');"#
-            + #"r=state=\#(state);case "$t" in /*/rollout-*-"$id".jsonl) "#
-            + #"m=;[ -f "$t" ] && m=$(head -n 1 -- "$t" 2>/dev/null);"#
+            + #"thread(){ case "$t" in /*/rollout-*-"$id".jsonl) ;; /*/rollout-*.jsonl) exit 0;; *) return 0;; esac;"#
+            + #"[ -f "$t" ] && IFS= read -r m < "$t" || return 0;case "$m" in *\"type\":\"session_meta\"*) ;; *) return 0;; esac;"#
             + #"case ${m#*\"source\":} in \{\"subagent\":*|\{\"internal\":*) exit 0;; "#
-            + #"\"cli\"*|\"vscode\"*|\"exec\"*|\"mcp\"*|\{\"custom\":*) "#
-            + #"case "$m" in *\"type\":\"session_meta\"*) case ${m#*\"id\":} in \"$id\"*) r=$r:conv=$id;; esac;; esac;; esac;; "#
-            + #"/*/rollout-*.jsonl) exit 0;; esac;tmux set-option -q \#(RemoteHost.statusOption) "$r";"#
-            + Hooks.hostSend
+            + #"\"cli\"*|\"vscode\"*|\"exec\"*|\"mcp\"*|\{\"custom\":*) ;; *) return 0;; esac;"#
+            + #"case ${m#*\"id\":} in \"$id\"*) r=$r:conv=$id;; esac;};r=state=\#(state);thread;"#
+            + #"tmux set-option -q \#(RemoteHost.statusOption) "$r";"# + Hooks.hostSend
     }
 
     /// Codex's name for a hook given on the command line (`<session-flags>`, first group, first handler).
