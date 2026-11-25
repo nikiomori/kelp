@@ -41196,6 +41196,26 @@
           }
         }
       }
+    },
+    "Keep its %lld pages in the project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить её страницы в проекте (%lld)"
+          }
+        }
+      }
+    },
+    "Its folder goes, and with it the pages agents made on this branch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка уйдёт, а с ней и страницы, которые агенты сделали в этой ветке."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

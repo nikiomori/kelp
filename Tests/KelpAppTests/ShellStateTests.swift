@@ -31,6 +31,24 @@ import Testing
         #expect(await WorkspaceActions(rig.app).deleteQuestion(gone) == nil)
         #expect(await WorkspaceActions(rig.app).deleteQuestion(rig.workspace) != nil)
     }
+
+    /// The pages agents made in a workspace are found before its folder goes, so the question can offer to keep them.
+    @Test func aWorkspacesPagesAreFoundBeforeItsFolderGoes() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        for page in ["plan", "deck"] {
+            let folder = rig.workspace.path + "/.kelp/artifacts/" + page
+            try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            try "{}".write(toFile: folder + "/artifact.json", atomically: true, encoding: .utf8)
+        }
+        try "/.kelp/artifacts/\n".write(
+            toFile: rig.workspace.path + "/.git/info/exclude", atomically: true, encoding: .utf8)
+        let pages = await WorkspaceActions(rig.app).pages(in: rig.workspace)
+        #expect(pages.sorted() == [".kelp/artifacts/deck/", ".kelp/artifacts/plan/"])
+        let alert = NSAlert()
+        WorkspaceActions(rig.app).offerKeeping(pages, in: alert)
+        #expect(alert.showsSuppressionButton && alert.suppressionButton?.state == .on)
+    }
 }
 
 /// A key the daemon refuses (trust, written by anyone but Kelp's window) isn't kept: the save says so, and the value

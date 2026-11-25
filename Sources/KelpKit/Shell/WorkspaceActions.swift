@@ -47,8 +47,11 @@ package struct WorkspaceActions {
 
     func delete(_ worktree: Worktree) {
         Task {
-            guard let (alert, work) = await deleteQuestion(worktree), await runSheet(alert) == .alertFirstButtonReturn
-            else { return }
+            let pages = await pages(in: worktree)
+            guard let (alert, work) = await deleteQuestion(worktree) else { return }
+            offerKeeping(pages, in: alert)
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            await keep(pages, of: worktree, if: alert)
             await discard(worktree, work)
         }
     }
@@ -182,7 +185,9 @@ package struct WorkspaceActions {
                         destructive: true)
                 else { return }
             }
-            guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
+            guard await askAboutPages(closing: worktree),
+                await UnsavedChanges.confirm(closing: [worktree.id], in: app)
+            else { return }
             stepAway(from: worktree)
             // If the removal is refused (an agent wrote something at the last moment), go back to what's still there.
             if await app.call(WorktreeRemove(id: worktree.id)) == nil { app.workbench.show(workspace: worktree.id) }
