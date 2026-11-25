@@ -41316,6 +41316,26 @@
           }
         }
       }
+    },
+    "Other Colour…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другой цвет…"
+          }
+        }
+      }
+    },
+    "too faint for text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слишком бледно для текста"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

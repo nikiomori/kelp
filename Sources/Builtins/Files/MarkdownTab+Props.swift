@@ -15,6 +15,7 @@ extension MarkdownTab {
             guard let key = body["key"] as? String, let items = body["items"] as? [[String: Any]] else { return true }
             propMenu(
                 key, items, reset: body["reset"] as? Bool ?? false,
+                against: (body["against"] as? String).flatMap(NSColor.init(css:)),
                 element: (body["board"] as? String).flatMap { b in (body["id"] as? String).map { (b, $0) } })
         case "keyframe": keyframe()
         case "ease":
@@ -33,8 +34,11 @@ extension MarkdownTab {
         return true
     }
 
-    private func propMenu(_ key: String, _ items: [[String: Any]], reset: Bool, element: (String, String)?) {
+    private func propMenu(
+        _ key: String, _ items: [[String: Any]], reset: Bool, against: NSColor? = nil, element: (String, String)?
+    ) {
         let menu = NSMenu()
+        if against != nil { recentColours(menu, key) }   // a colour: the last ones picked first
         let column = NSMenuItem.noteColumn(items.compactMap { $0["title"] as? String })
         var section: String?
         for item in items {
@@ -52,13 +56,18 @@ extension MarkdownTab {
             let made = menu.add(title) { [weak self] in
                 self?.runJS("window.kelpProps?.set(\(Self.js(key)), \(Self.js(value)))")
             }
-            if let detail = item["detail"] as? String, !detail.isEmpty {
+            // A colour says how it reads against the element's ground (or text): 4.5:1 is the least for text.
+            let ratio = against.flatMap { a in
+                (item["swatch"] as? String).flatMap(NSColor.init(css:)).map { Self.contrast($0, a) }
+            }
+            if let detail = (item["detail"] as? String) ?? ratio.map(Self.ratioText), !detail.isEmpty {
                 made.attributedTitle = NSMenuItem.titleWithNote(title, note: detail, column: column)
             }
             made.state = item["on"] as? Bool == true ? .on : .off
             if let swatch = (item["swatch"] as? String).flatMap(NSColor.init(css:)) { made.show(Self.swatch(swatch)) }
         }
         if key == "font", let element { fontItems(menu, element) }
+        if let against { otherColour(menu, key, against: against) }
         if reset {
             menu.addItem(.separator())
             menu.add(String(localized: "Back to the Page’s Own")) { [weak self] in
@@ -127,7 +136,7 @@ extension MarkdownTab {
     }
 
     /// A colour's square for a menu row.
-    private static func swatch(_ color: NSColor) -> NSImage {
+    static func swatch(_ color: NSColor) -> NSImage {
         NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
             let shape = NSBezierPath(
                 roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)

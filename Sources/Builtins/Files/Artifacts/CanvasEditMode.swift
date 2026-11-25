@@ -124,8 +124,12 @@ enum CanvasEditMode {
             // Asks the Mac for the menu of `key`'s choices, at the pointer; the choice comes back to `set`.
             open(key) {
               const at = window.kelpProps.at(); if (!at) return;
+              // What a colour is read against: a text's ground, or a ground's text (for the menu's contrast).
+              let g = at.e; while (g && hex(getComputedStyle(g).backgroundColor) === 'none') g = g.parentElement;
+              const against = key === 'colour' ? (g ? hex(getComputedStyle(g).backgroundColor) : '#ffffff')
+                : key === 'background' ? hex(getComputedStyle(at.e).color) : null;
               K.post({ kind: 'propMenu', key, items: menu(key, at.e), reset: shown(key, at.e).set,
-                board: at.f.dataset.board, id: K.need(at.f, at.e) });
+                board: at.f.dataset.board, id: K.need(at.f, at.e), against });
             }
           };
         """

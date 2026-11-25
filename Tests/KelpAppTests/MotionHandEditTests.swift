@@ -681,3 +681,11 @@ extension OneAtATime {
         #expect(bar.beforeLastTurn == nil, "the first turn has nothing before it")
     }
 }
+
+/// A colour in the menu says how it reads against the element's ground, and when that is too faint for text.
+@MainActor @Test func aColourSaysHowItReads() throws {
+    let black = try #require(NSColor(css: "#000")), white = try #require(NSColor(css: "#ffffff"))
+    #expect(abs(MarkdownTab.contrast(black, white) - 21) < 0.01 && MarkdownTab.contrast(white, white) == 1)
+    #expect(MarkdownTab.ratioText(21) == "21.0:1" && MarkdownTab.ratioText(3).hasPrefix("3.0:1 · "))
+    #expect(MarkdownTab.hex(try #require(NSColor(css: "#0a84ff"))) == "#0a84ff")
+}
