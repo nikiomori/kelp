@@ -339,7 +339,8 @@ extension Daemon {
                     guard remotes.of(worktree.path) != nil else {
                         return (worktree.path, Artifacts.items(root: worktree.path))
                     }
-                    for chat in try store.sessions() where chat.worktreeId == key && chat.agent == Session.claudeAgent {
+                    for chat in try store.sessions()
+                    where chat.worktreeId == key && [Session.claudeAgent, Session.codexAgent].contains(chat.agent) {
                         try sessions.pickUpHostArtifacts(of: chat, in: worktree.path)
                     }
                     return (nil, Artifacts.items(root: worktree.path))

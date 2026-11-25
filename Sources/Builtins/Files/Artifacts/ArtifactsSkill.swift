@@ -28,8 +28,8 @@ extension Builtins {
             - `kelp artifact check <name>` — what Kelp finds wrong on a page it drew (text cut off, contrast,
               sizes, missing files), as text: run it once instead of a screenshot.
             - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
-            - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its
-              link, which opens in their own browser (Kelp's tabs aren't signed in to claude.ai).
+            - ChatGPT Pages and Slides, deployed Sites, Claude Artifacts and Claude Docs join the list by link.
+              Give the user the link. If it isn't listed, use `kelp artifact add <url> --title <title>`.
 
             """
     )
