@@ -36,14 +36,14 @@ function link(text, href) {
     a.target = '_blank';
     return [a];
   }
-  if (!url || url.protocol === 'file:' || /^[A-Za-z]:[\\/]|^[\w.-]+:\d+(?::\d+)?$/.test(href)) {
+  if (!url || url.protocol === 'file:' || /^[A-Za-z]:[\\/]|^[\w.-]*\.[A-Za-z]\w*:\d+(?::\d+)?$/.test(href)) {
     let file = href.split(/[\\/]/).pop();
     try { file = decodeURIComponent(file); } catch { /* Keep a literal percent sign. */ }
     const [, name, location] = file.match(/^(.*?)(:\d+(?::\d+)?|#L\d+(?:-L?\d+)?)?$/s);
     const plain = text.replace(/`/g, '');
     if (name && !plain.includes(name)) label.push(' (', el('code', file), ')');
     else if (location && !plain.replace(/#L(?=\d)/g, ':').endsWith(location.replace('#L', ':'))) label.push(location);
-  }
+  } else if (!text.includes(href)) label.push(` (${href})`);   // mailto:, localhost:3000: shown, never a link
   return label;
 }
 
@@ -95,7 +95,7 @@ export function markdown(source) {
       const margin = item ? item[0].length - line.length : indent;
       for (i++; i < lines.length; i++) {
         const next = lines[i], spaces = next.length - next.trimStart().length;
-        if (lists.length && spaces < next.length && spaces <= lists.at(-1).indent) break;
+        if (lists.length && spaces <= lists.at(-1).indent && ITEM.test(next)) break;   // an unclosed fence
         if (next.trim().startsWith(fence[1])) { i++; break; }
         code.push(lists.length ? next.slice(Math.min(margin, spaces)) : next);
       }
