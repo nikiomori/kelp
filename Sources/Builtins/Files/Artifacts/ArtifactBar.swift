@@ -244,13 +244,11 @@ final class ArtifactBar: NSObject {
         }
     }
 
-    /// Sets the bar up for a dashboard: View and Mark only (there is nothing to change by hand), no Present, and the
+    /// Sets the bar up for a dashboard: View, Mark and Edit as on a design, Present for a meeting, Update, and the
     /// time its figures were drawn.
     private func showDashboard() {
         _ = view   // builds the view, so its controls are set up before this changes them
         markdown.isDashboard = true
-        if modes.segmentCount == 3 { modes.segmentCount = 2 }
-        present.isHidden = true
         refresh.isHidden = false
         if let time = item?.modified {
             fresh.isHidden = false
@@ -333,7 +331,7 @@ final class ArtifactBar: NSObject {
             }
             menu.addItem(.separator())
         }
-        if md.page == .canvas, !md.isDashboard {
+        if md.page == .canvas {
             menu.add(String(localized: "View"), submenu: md.viewMenu())
             menu.addItem(.separator())
         }

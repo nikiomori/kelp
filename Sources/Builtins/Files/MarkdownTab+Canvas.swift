@@ -202,6 +202,7 @@ extension MarkdownTab {
             item.state = canvasLanguage == view ? .on : .off
             item.isEnabled = view == "as" || !editing
         }
+        if isDashboard { return menu }   // a dashboard follows the window's look
         menu.addItem(.separator())
         for (themes, title) in [
             (CanvasPage.Themes.light, String(localized: "Light")), (.dark, String(localized: "Dark")),

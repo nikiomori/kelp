@@ -500,3 +500,16 @@ extension OneAtATime {
         #expect(tab.pendingCheck == "r1")
     }
 }
+
+extension OneAtATime {
+    /// A dashboard's View menu has the languages a design has, but no themes: it follows the window's look.
+    @Test func aDashboardsViewMenuHasNoThemes() {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-dash-view/.kelp/artifacts/numbers/canvas.json")
+        let tab = MarkdownTab(editor: CodeEditor(text: #"{"boards": []}"#, url: url), url: url, app: AppModel())
+        let titles = { tab.viewMenu().items.map(\.title) }
+        #expect(titles().contains("Light"))
+        tab.isDashboard = true
+        #expect(titles().contains("+40%") && !titles().contains("Light"))
+    }
+}
