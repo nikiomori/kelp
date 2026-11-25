@@ -11,22 +11,6 @@ enum CanvasChrome {
         var fit: String, zoomOut: String, zoomIn: String
     }
 
-    /// A glyph for a button on the page, drawn as the window's symbols are, not typed (a font's × ‹ › − + ↑ look unlike
-    /// the symbols beside them): a 12 pt box, a 1.3 pt stroke in the text's colour.
-    enum Glyph: String {
-        case xmark = "M3.5 3.5l5 5M8.5 3.5l-5 5", minus = "M2.5 6h7", plus = "M2.5 6h7M6 2.5v7"
-        case back = "M7.5 2.5 4 6l3.5 3.5", forward = "M4.5 2.5 8 6l-3.5 3.5", up = "M6 9.5v-7M3 5.5l3-3 3 3"
-        /// `exclamationmark.triangle`: what the check found wrong.
-        case warning = "M6 1.6 10.9 10.2H1.1ZM6 4.9v2.3M6 8.7v.01"
-        /// The SVG as a JS string, for a button's `innerHTML`.
-        var js: String {
-            MarkdownTab.js(
-                "<svg class=\"kelp-glyph\" aria-hidden=\"true\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" "
-                    + "fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\" "
-                    + "stroke-linejoin=\"round\"><path d=\"\(rawValue)\"/></svg>")
-        }
-    }
-
     static func source(labels l: Labels, floats: Bool = true) -> String {
         let js: (String) -> String = MarkdownTab.js
         return """
@@ -76,7 +60,7 @@ enum CanvasChrome {
               // The canvas's size: steps down and up, or fitted to the pane.
               const zoom = el('div', 'kelp-float kelp-zoom');
               const out = el('button', 'kelp-ib'), into = el('button', 'kelp-ib');
-              out.innerHTML = \(Glyph.minus.js); into.innerHTML = \(Glyph.plus.js);
+              out.innerHTML = \(PageSymbols.span("minus")); into.innerHTML = \(PageSymbols.span("plus"));
               const shown = el('span', 'kelp-pct'), fit = el('button', 'kelp-pill', \(js(l.fit)));
               out.title = \(js(l.zoomOut)); into.title = \(js(l.zoomIn));
               const steps = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
@@ -204,8 +188,7 @@ enum CanvasChrome {
           color: var(--k-sec);
           font: var(--k-icon) -apple-system, sans-serif; }
         .kelp-ib:hover { background: var(--k-hover); }
-        .kelp-ib .kelp-glyph { display: block; margin: auto; }
-        .kelp-pill .kelp-glyph { vertical-align: -2px; margin-right: 4px; }
+        .kelp-pill [class*="kelp-sym-"] { margin-right: 4px; }
         .kelp-pill { height: 22px; padding: 0 8px; border: 0; border-radius: var(--k-radius-capsule);
           background: var(--k-rest);
           color: var(--k-label); font: inherit; }

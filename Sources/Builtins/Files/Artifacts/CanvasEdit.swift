@@ -98,12 +98,14 @@ enum CanvasEdit {
             const fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth;
             return { x: fr.left + scrollX + c.left * k, y: whole.y, w: c.width * k, h: whole.h };
           }
+          // An element by its name (`title`), not the selector the agent reads (`[data-id=title]`).
+          const named = t => (t || '').replace(/^\\[data-id=["']?(.*?)["']?\\]$/, '$1');
           const hooks = {
             empty: L.noMarks,
             what: m => m.kind === 'area' && !m.area ? (window.kelpMotion ? L.whole : L.wholePage)
               : m.kind === 'area' && m.text ? L.label + ' «' + m.text + '»' : m.kind === 'area' ? L.area
-              : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + m.target : '')
-              : m.target + (m.text ? ' «' + m.text + '»' : ''),
+              : m.kind === 'pen' ? L.pen + (m.target ? ' · ' + named(m.target) : '')
+              : named(m.target) + (m.text ? ' «' + m.text + '»' : ''),
             where(m) {
               const motion = window.kelpMotion;   // a mark on a motion page shows near its second only
               if (m.time != null && motion && Math.abs(motion.time() - m.time) > 0.5) return null;
@@ -178,7 +180,7 @@ enum CanvasEdit {
             const rows = issues.map(t => {
               const r = el('div', 'kelp-row kelp-issue');
               const mark = el('span', 'kelp-mark-warn');
-              mark.innerHTML = \(CanvasChrome.Glyph.warning.js);
+              mark.innerHTML = \(PageSymbols.span("exclamationmark.triangle"));
               r.append(mark, el('span', 'kelp-grow', t)); window.kelpIssueFix?.(t, r);
               return r;
             });

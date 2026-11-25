@@ -144,7 +144,7 @@ enum SlidesPage {
           });
           window.kelpSlides = slides;
           const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
-          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
+          back.innerHTML = \(PageSymbols.span("chevron.left")); next.innerHTML = \(PageSymbols.span("chevron.right"));
           const at2 = el('span', 'kelp-where');
           back.onclick = () => go(at - 1, true); next.onclick = () => go(at + 1, true);
           strip.append(back, at2, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));

@@ -17,25 +17,39 @@ enum PageSymbols {
         // several elements spaced evenly (`CanvasMulti`)
         "distribute.horizontal.center", "distribute.vertical.center",
         // a board's layers: hidden, locked (`CanvasLayers`)
-        "eye", "eye.slash", "lock", "lock.open"
+        "eye", "eye.slash", "lock", "lock.open",
+        // zoom, what the check found, a mark that is a question
+        "minus", "plus", "exclamationmark.triangle", "questionmark"
     ]
 
-    /// The script that adds the symbols' CSS to the page.
-    static func script() -> String {
-        let css = names.compactMap { name in
-            png(name).map { data in
-                ".kelp-sym-\(name.replacingOccurrences(of: ".", with: "-")) { -webkit-mask: url(data:image/png;base64,"
-                    + data.base64EncodedString() + ") center / contain no-repeat; }"
-            }
-        }.joined(separator: "\n")
+    /// Symbol `name` as a span for a button's `innerHTML` (`back.innerHTML = …`), a JS string.
+    nonisolated static func span(_ name: String) -> String {
+        "'<span class=\"kelp-sym-\(name.replacingOccurrences(of: ".", with: "-"))\" aria-hidden=\"true\"></span>'"
+    }
+
+    /// The script that adds the symbols' CSS to the page. Each symbol is also a variable (`--kelp-sym-chevron-down`)
+    /// for CSS that draws one itself (a pop-up's `::after`).
+    static func script() -> String { css }
+
+    /// Drawn once: the symbols are masks, the same in light and dark.
+    private static let css: String = {
+        let masks = names.compactMap { name in
+            png(name).map { (name.replacingOccurrences(of: ".", with: "-"), data: $0.base64EncodedString()) }
+        }
+        let vars = masks.map { "--kelp-sym-\($0.0): url(data:image/png;base64,\($0.data));" }.joined(separator: " ")
+        let rules = masks.map {
+            ".kelp-sym-\($0.0) { -webkit-mask: var(--kelp-sym-\($0.0)) center / contain no-repeat; }"
+        }
+        .joined(separator: "\n")
         let all = """
+            :root { \(vars) }
             [class^="kelp-sym-"], [class*=" kelp-sym-"] { display: inline-block; width: 1em; height: 1em;
               background: currentColor; vertical-align: -0.15em; }
             """
-        let text = MarkdownTab.js(all + "\n" + css)
+        let text = MarkdownTab.js(all + "\n" + rules)
         return "(function(){ const s = document.createElement('style'); s.textContent = \(text);"
             + " document.head.append(s); })();"
-    }
+    }()
 
     /// Symbol `name` drawn black at twice its point size, as PNG.
     private static func png(_ name: String) -> Data? {

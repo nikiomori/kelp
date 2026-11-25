@@ -58,7 +58,8 @@ enum CanvasScript {
               if (!fr.width) continue;   // a board not shown (a dashboard's other view)
               const k = fr.width / m.f.offsetWidth;
               const b = document.createElement('div');
-              b.className = 'kelp-fault'; b.innerHTML = \(CanvasChrome.Glyph.warning.js); b.title = m.text;
+              b.className = 'kelp-fault'; b.title = m.text;
+              b.innerHTML = \(PageSymbols.span("exclamationmark.triangle"));
               b.style.left = (fr.left + scrollX + (r.left + r.width) * k - 8) + 'px';
               b.style.top = (fr.top + scrollY + r.top * k - 8) + 'px';
               markers.append(b);

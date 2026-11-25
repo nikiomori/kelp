@@ -69,7 +69,7 @@ enum MarkColumn {
             const head = el('div', 'kelp-row');
             if (m.state === 'draft') head.append(grip(m, box));
             const what = page ? page.what(m) : '';
-            const who = m.asked ? L.asks.replace('%@', L.agent) + ' · ' : '';
+            const who = m.asked ? L.asks + ' · ' : '';
             head.append(num(m), el('span', 'kelp-grow kelp-what', who + what));
             const where = m.state !== 'done' && page?.status?.(m);   // its element: moved, gone, or (nothing) in place
             if (where) head.append(page.statusChip(m, where));
@@ -104,7 +104,8 @@ enum MarkColumn {
                 if (e.key === 'Enter' && e.metaKey) { take(); send(); }
                 else if (e.key === 'Enter') note.blur();
               });
-              body.append(note, questionToggle(note, m));
+              const line = el('div', 'kelp-noteline');
+              line.append(note, questionToggle(note, m)); body.append(line);
               // About every element like this one (its class), not only it.
               const like = m.kind === 'element' && page?.likeOf?.(m);
               if (like) {

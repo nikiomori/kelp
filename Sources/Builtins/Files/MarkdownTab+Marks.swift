@@ -237,7 +237,8 @@ extension MarkdownTab {
             "working": String(localized: "%@ is working"), "queued": String(localized: "%d queued"),
             "stop": String(localized: "Stop"), "sendTo": String(localized: "Send To…"),
             "asQuestion": String(localized: "A question: the agent answers it and changes nothing"),
-            "asks": String(localized: "%@ asks"), "answer": String(localized: "Your answer"),
+            "asks": pageAuthor == nil ? String(localized: "The agent asks") : String(localized: "\(who) asks"),
+            "answer": String(localized: "Your answer"),
             "next": String(localized: "Next you might ask"), "allLike": String(localized: "All like this"),
             "waiting": String(localized: "Waiting"), "all": String(localized: "All"),
             "noneDone": String(localized: "No mark is done yet.")

@@ -42261,6 +42261,16 @@
           }
         }
       }
+    },
+    "The agent asks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент спрашивает"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

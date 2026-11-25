@@ -28,7 +28,8 @@ extension MarkColumn {
         }
         // ?: the note is a question for the agent, answered without changing the page (a leading "?").
         function questionToggle(note, m) {
-          const b = el('button', 'kelp-ib kelp-ask-toggle', '?');
+          const b = el('button', 'kelp-ib kelp-ask-toggle');
+          b.append(el('span', 'kelp-sym-questionmark'));
           const shown = () => b.classList.toggle('on', note.value.startsWith('?'));
           b.title = L.asQuestion;
           b.onclick = () => {

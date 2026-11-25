@@ -63,6 +63,7 @@ extension MarkColumn {
             .kelp-hint { color: var(--k-sec); font-size: var(--k-text-caption); }
             .kelp-present .kelp-marks { display: none !important; }
             @media print { .kelp-marks { display: none !important; } }
+            .kelp-noteline { display: flex; align-items: center; gap: 4px; }
             .kelp-ask-toggle { flex: none; }
             .kelp-ask-toggle.on { background: var(--k-accent); color: var(--k-on-accent); }
         """

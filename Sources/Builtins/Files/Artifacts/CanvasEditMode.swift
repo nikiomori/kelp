@@ -298,7 +298,7 @@ enum CanvasEditMode {
             if (p && p !== e.ownerDocument.body) {
               const up = K.el('button', 'kelp-ilink', titleOf(p));
               up.onclick = () => choose({ f: at.f, e: p });
-              line.append(up, ' › ');
+              line.append(up, K.el('span', 'kelp-sym-chevron-right kelp-crumb'));
             }
             line.append(nameOf(e));
             return line;
@@ -341,6 +341,7 @@ enum CanvasEditMode {
         .kelp-icrumb { color: var(--k-sec); font-size: var(--k-text-caption); font-weight: 400; margin-top: 1px;
           white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis; }
+        .kelp-crumb { font-size: var(--k-text-micro); margin: 0 3px; color: var(--k-quiet); }
         .kelp-ilink { border: 0; background: none; color: var(--k-sec); font: inherit; padding: 0 2px;
           border-radius: var(--k-radius-xs); }
         .kelp-ilink:hover { background: var(--k-hover); color: var(--k-label); }
@@ -356,9 +357,8 @@ enum CanvasEditMode {
           border-radius: var(--k-radius-sm); background: var(--k-hover); color: var(--k-label);
           font: var(--k-text-row) -apple-system, sans-serif; }
         .kelp-ipop:hover { background: var(--k-sel); }
-        .kelp-ipop::after { content: "⌄"; color: var(--k-sec); font-size: var(--k-text-micro); margin-left: 4px;
-          position: relative;
-          top: -2px; }
+        .kelp-ipop::after { content: ""; flex: none; width: .75em; height: .75em; margin-left: 4px;
+          background: var(--k-sec); -webkit-mask: var(--kelp-sym-chevron-down) center / contain no-repeat; }
         .kelp-itok { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .kelp-ival { color: var(--k-sec); margin-left: auto; padding-left: 6px; font-variant-numeric: tabular-nums; }
         .kelp-iswatch { display: inline-block; width: 12px; height: 12px;

@@ -19,7 +19,8 @@ enum CanvasPresent {
           // A strip at the foot while presenting: where you are, ‹ ›, and how to end; it fades when the pointer rests.
           const strip = el('div', 'kelp-strip');
           const back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
-          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
+          back.innerHTML = \(PageSymbols.span("chevron.left"));
+          next.innerHTML = \(PageSymbols.span("chevron.right"));
           const where = el('span', 'kelp-where');
           back.onclick = () => { at = Math.max(at - 1, 0); present(); moved(); };
           next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); moved(); };
