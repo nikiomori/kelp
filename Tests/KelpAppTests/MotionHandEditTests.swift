@@ -484,3 +484,19 @@ extension OneAtATime {
     #expect(moved == ["b 2.0", "c 3.0", "l 3.2"])
     #expect(MotionTimeline.closing([gaps[0]], scenes).map(\.now.start) == [2, 4])
 }
+
+extension OneAtATime {
+    /// `kelp artifact check` on a motion page waits for the window's next drawing of it, as on a design.
+    @Test func aMotionPageTakesAWaitingCheck() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-motion-check/.kelp/artifacts/launch/motion.html")
+        let app = AppModel()
+        let path = Paths.real(url.path) ?? url.path
+        app.latest(ArtifactCheckEvent.self).byKey[path] = ArtifactCheckEvent(request: "r1", path: path)
+        let tab = MarkdownTab(
+            editor: CodeEditor(text: #"<body data-width="1920" data-height="1080"></body>"#, url: url), url: url,
+            app: app)
+        _ = tab.view
+        #expect(tab.pendingCheck == "r1")
+    }
+}

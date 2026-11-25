@@ -244,7 +244,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
         applyMode()
         rerender()
-        if page == .canvas { followCanvas() }
+        if page == .canvas || page == .motion { followCanvas() }
     }
 
     private let formatting = NSStackView()

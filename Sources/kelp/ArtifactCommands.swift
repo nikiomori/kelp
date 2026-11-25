@@ -2,8 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add|marks|reply|export` handles pages agents make for the user, kept in the
-    /// project's `.kelp/artifacts`.
+    /// `artifact guide|new|list|open|add|check|links|marks|reply|ask|suggest|export|beats|captions` handles pages
+    /// agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -81,9 +81,9 @@ extension Main {
             if let width, !["390", "768", "1280"].contains(width) { fail("--width takes 390, 768 or 1280") }
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
-                artifact.record.file == Artifacts.Kind.design.file
+                [Artifacts.Kind.design.file, Artifacts.Kind.motion.file].contains(artifact.record.file)
             else {
-                fail("artifact check <name of a design> (names: kelp artifact list)")
+                fail("artifact check <name of a design or a motion page> (names: kelp artifact list)")
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
             _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
