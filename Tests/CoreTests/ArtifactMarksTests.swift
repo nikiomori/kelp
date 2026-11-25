@@ -184,4 +184,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
               boards/A.html [data-id=cta] text «Start» → «Go»
               boards/A.html [data-id=sub] font-size none → small
             """)
+    let detailed = ArtifactMarks.message(
+        [marks[0]], edits: [], page: page, name: "home", version: 5, details: [1: #"<h1 class="hero">; 48px 700"#])
+    #expect(detailed.hasSuffix("«Welcome»: bigger\n  (<h1 class=\"hero\">; 48px 700)"))
 }

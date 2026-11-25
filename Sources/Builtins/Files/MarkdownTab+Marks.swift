@@ -99,7 +99,8 @@ extension MarkdownTab {
         let version = sent.marks.first { sending.map(\.id).contains($0.id) }?.rounds.last?.before
         let text = ArtifactMarks.message(
             named, edits: edits, page: Artifacts.projectPath(url.path),
-            name: url.deletingLastPathComponent().lastPathComponent, version: version)
+            name: url.deletingLastPathComponent().lastPathComponent, version: version,
+            details: await markDetails(named))
         await app.call(SessionSend(id: agent.id, text: text, enter: true))
         app.workbench.showBeside(session: agent.id, of: TabURI.file(url.path))   // the page stays where it is
     }

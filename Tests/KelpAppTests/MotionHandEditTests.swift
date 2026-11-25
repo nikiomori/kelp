@@ -630,3 +630,14 @@ extension OneAtATime {
         #expect(labels(bar.bar).contains { $0.hasSuffix("also changed C, D-pricing") })
     }
 }
+
+/// A quote in a doc is found by its first words: its line, and the heading it sits under.
+@Test(
+    arguments: [
+        ("# Plan\n\n## Pricing\n\nWe charge   per\nseat.", "We charge per seat", 5, "Pricing" as String?),
+        ("Intro words here.", "Intro words", 1, nil)
+    ] as [(String, String, Int, String?)])
+func aQuoteIsFoundByItsWords(markdown: String, quote: String, line: Int, heading: String?) throws {
+    let place = try #require(MarkdownTab.place(of: quote, in: markdown))
+    #expect(place.line == line && place.heading == heading)
+}

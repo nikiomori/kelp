@@ -3,9 +3,11 @@ import Foundation
 extension ArtifactMarks {
     /// The message that sends `marks` (drafts about to go) to the agent, with the hand edits waiting. `page` is the
     /// page's path in the project (`.kelp/artifacts/home/canvas.json`), `name` its folder's name, and `version` the
-    /// version they are sent with.
+    /// version they are sent with. `details` says more about some marks, by number: an element's opening tag and its
+    /// look, a quote's line and heading, so the agent finds them without reading the file first.
     public static func message(
-        _ marks: [ArtifactMark], edits: [HandEdit], page: String, name: String, version: Int?
+        _ marks: [ArtifactMark], edits: [HandEdit], page: String, name: String, version: Int?,
+        details: [Int: String] = [:]
     ) -> String {
         let folder = (page as NSString).deletingLastPathComponent
         var lines = [
@@ -39,6 +41,7 @@ extension ArtifactMarks {
             let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
             let note = m.note.isEmpty ? "look at this" : m.note
             lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)
+            if let more = details[m.id] { lines.append("  (\(more))") }
             if let last = m.rounds.last {
                 let said = last.reply.map { "; you said «\($0)»" } ?? ""
                 lines.append("  (before: «\(last.note)»\(said))")
