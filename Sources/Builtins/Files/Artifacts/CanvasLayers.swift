@@ -12,8 +12,58 @@ enum CanvasLayers {
 
     private static let body = """
           const K = window.kelpCanvas, props = window.kelpProps; if (!K || !props) return;
-          const name = e => e.getAttribute('data-id') || e.tagName.toLowerCase()
+          const name = e => e.getAttribute('data-title') || e.getAttribute('data-id') || e.tagName.toLowerCase()
             + (e.classList[0] ? '.' + e.classList[0] : '');
+          // A row's own controls, as on the motion page's lanes: hidden, locked, its name, its place among its kin.
+          const css = e => e.ownerDocument.defaultView.getComputedStyle(e);
+          function toggle(at, n, sym, on, tip, run) {
+            const b = K.el('button', 'kelp-lbtn' + (on ? ' on' : ''));
+            b.append(K.el('span', 'kelp-sym-' + sym.replaceAll('.', '-'))); b.title = tip;
+            b.onclick = ev => { ev.stopPropagation(); run(K.need(at.f, n)); };
+            return b;
+          }
+          function controls(at, n, r) {
+            const board = at.f.dataset.board, hidden = css(n).visibility === 'hidden';
+            const locked = n.getAttribute('data-locked') === 'true';
+            r.append(
+              toggle(at, n, hidden ? 'eye.slash' : 'eye', hidden, L.hideLayer, id => {
+                n.style.visibility = hidden ? '' : 'hidden';
+                K.post({ kind: 'style', board, id, property: 'visibility', value: hidden ? null : 'hidden' });
+              }),
+              toggle(at, n, locked ? 'lock' : 'lock.open', locked, L.lockLayer, id => {
+                if (locked) n.removeAttribute('data-locked'); else n.setAttribute('data-locked', 'true');
+                K.post({ kind: 'attribute', board, id, name: 'data-locked', value: locked ? null : 'true' });
+              }));
+            // A double click names it (data-title); dragged onto a sibling, it stacks just above that one.
+            r.ondblclick = () => {
+              const input = K.el('input', 'kelp-lname'); input.value = name(n);
+              r.firstChild.replaceWith(input); input.focus(); input.select();
+              const done = keep => {
+                const v = input.value.trim();
+                if (keep && v && v !== name(n))
+                  K.post({ kind: 'attribute', board, id: K.need(at.f, n), name: 'data-title', value: v });
+                props.choose(at);
+              };
+              input.onkeydown = ev => {
+                ev.stopPropagation();
+                if (ev.key === 'Enter' || ev.key === 'Escape') done(ev.key === 'Enter');
+              };
+              input.onblur = () => done(true);
+            };
+            r.draggable = true;
+            r.ondragstart = ev => { ev.dataTransfer.setData('text/kelp-layer', ''); window.kelpDragged = n; };
+            r.ondragover = ev => { if (window.kelpDragged?.parentElement === n.parentElement) ev.preventDefault(); };
+            r.ondrop = ev => {
+              ev.preventDefault();
+              const moved = window.kelpDragged; window.kelpDragged = null;
+              if (!moved || moved === n || moved.parentElement !== n.parentElement) return;
+              const kin = [...n.parentElement.children].filter(c => c !== moved);
+              kin.splice(kin.indexOf(n) + 1, 0, moved);   // above it: later in the stack
+              K.post({ kind: 'restyle', board, what: 'stacking', changes: kin.map((c, i) =>
+                ({ id: K.need(at.f, c), props: { position: css(c).position === 'static' ? 'relative' : null,
+                  'z-index': String(i + 1) } })) });
+            };
+          }
           let likeOn = false;
           // The element's first class that other elements share, and how many have it on how many boards.
           function shared(e) {
@@ -47,9 +97,11 @@ enum CanvasLayers {
             const list = K.el('div', 'kelp-layers');
             list.tabIndex = 0;
             for (const { n, depth } of rows.slice(0, 40)) {
-              const r = K.el('div', 'kelp-lrow' + (n === e ? ' on' : ''), name(n));
+              const r = K.el('div', 'kelp-lrow' + (n === e ? ' on' : ''));
+              r.append(K.el('span', 'kelp-lname-text', name(n)));
               r.style.paddingLeft = (6 + depth * 12) + 'px';
               r.onclick = () => props.choose({ f: at.f, e: n });
+              controls(at, n, r);
               list.append(r);
             }
             list.addEventListener('keydown', ev => {
@@ -89,6 +141,13 @@ enum CanvasLayers {
           font-size: var(--k-text-row); white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis; cursor: default; }
         .kelp-lrow:hover { background: var(--k-hover); }
+        .kelp-lrow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+        .kelp-lname-text { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .kelp-lname { flex: 1; min-width: 0; font: inherit; }
+        .kelp-lbtn { width: 18px; height: 18px; border: 0; background: none; color: var(--k-sec); padding: 0;
+          visibility: hidden; border-radius: var(--k-radius-xs); }
+        .kelp-lrow:hover .kelp-lbtn, .kelp-lbtn.on { visibility: visible; }
+        .kelp-lbtn:hover { background: var(--k-hover); }
         .kelp-lrow.on { background: color-mix(in srgb, var(--k-accent) 35%, transparent); }
         .kelp-layers-keys { margin-top: 4px; }
         .kelp-like { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: var(--k-text-caption); }

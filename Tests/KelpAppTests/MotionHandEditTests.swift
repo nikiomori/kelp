@@ -744,3 +744,19 @@ extension OneAtATime {
             try await waitFor(5) { editor.text.contains(#"<h1 data-id="title">Hi</h1><p data-id="text">Text</p>"#) })
     }
 }
+
+extension OneAtATime {
+    /// A layer locked and named from its row is written into the board's file.
+    @Test func aLayerIsLockedAndNamedFromItsRow() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-layer-row/.kelp/artifacts/launch/motion.html")
+        let editor = CodeEditor(
+            text: #"<body data-width="1920" data-height="1080"><div data-id="bg">x</div></body>"#, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        _ = tab.canvasMessage("attribute", ["board": "motion.html", "id": "bg", "name": "data-locked", "value": "true"])
+        #expect(try await waitFor(5) { editor.text.contains(#"data-locked="true""#) })
+        _ = tab.canvasMessage(
+            "attribute", ["board": "motion.html", "id": "bg", "name": "data-title", "value": "Background"])
+        #expect(try await waitFor(5) { editor.text.contains(#"data-title="Background""#) })
+    }
+}

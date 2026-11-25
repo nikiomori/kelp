@@ -41616,6 +41616,26 @@
           }
         }
       }
+    },
+    "Hide or Show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть или показать"
+          }
+        }
+      }
+    },
+    "Lock or Unlock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить или открепить"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

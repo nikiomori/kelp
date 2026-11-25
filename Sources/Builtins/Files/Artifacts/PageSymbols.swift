@@ -15,7 +15,9 @@ enum PageSymbols {
         "text.alignleft", "text.aligncenter", "text.alignright", "chevron.down", "checkmark", "line.3.horizontal",
         "chevron.left", "chevron.right", "diamond.fill",
         // several elements spaced evenly (`CanvasMulti`)
-        "distribute.horizontal.center", "distribute.vertical.center"
+        "distribute.horizontal.center", "distribute.vertical.center",
+        // a board's layers: hidden, locked (`CanvasLayers`)
+        "eye", "eye.slash", "lock", "lock.open"
     ]
 
     /// The script that adds the symbols' CSS to the page.

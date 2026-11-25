@@ -19,6 +19,8 @@ extension MarkdownTab {
             "paddingSides": String(localized: "Padding"), "corners": String(localized: "Corners"),
             "sideTop": String(localized: "top"), "sideRight": String(localized: "right"),
             "sideBottom": String(localized: "bottom"), "sideLeft": String(localized: "left"),
+            // a board's layers (`CanvasLayers`)
+            "hideLayer": String(localized: "Hide or Show"), "lockLayer": String(localized: "Lock or Unlock"),
             // several chosen at once (`CanvasMulti`)
             "multiChosen": String(localized: "%d chosen"), "multiLeft": String(localized: "Line Up Left Edges"),
             "multiCentre": String(localized: "Line Up Centres"), "multiRight": String(localized: "Line Up Right Edges"),
@@ -69,7 +71,8 @@ extension MarkdownTab {
         if rowsMessage(kind, body) { return true }
         guard kind == "attribute" else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String,
-            let name = body["name"] as? String, ["href", "target", "alt", "data-link"].contains(name)
+            let name = body["name"] as? String,
+            ["href", "target", "alt", "data-link", "data-locked", "data-title"].contains(name)   // +a layer
         else { return true }
         let value = body["value"] as? String
         let edit = { (source: String) in
