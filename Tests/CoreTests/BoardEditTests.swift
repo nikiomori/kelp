@@ -371,3 +371,12 @@ private let board = """
     #expect(bar.contains(#"data-kelp-in="wipe 5 linear 1""#))
     #expect(MotionBlocks.add(page, "nothing", id: "x", start: 0, length: 1, stage: (1920, 1080)) == nil)
 }
+
+/// A table written back reads as it was: a cell with the separator, a quote or a line break is quoted; a semicolon
+/// file stays a semicolon file.
+@Test func aTableWrittenBackReadsAsItWas() {
+    let rows = [["name", "note"], ["Ann", "says \"hi\", twice"], ["Bo", "two\nlines"]]
+    #expect(DataRows.parse(DataRows.write(rows)) == rows)
+    #expect(DataRows.write([["a", "b"]], separator: ";") == "a;b\n")
+    #expect(DataRows.separator("a;b\n1;2") == ";" && DataRows.separator("a,b") == ",")
+}

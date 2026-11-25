@@ -11,8 +11,7 @@ public enum DataRows {
         // "\r\n" is one Character in Swift, so lines are made plain first; Excel's CSV UTF-8 starts with a BOM.
         var text = text.replacingOccurrences(of: "\r\n", with: "\n")
         if text.first == "\u{FEFF}" { text.removeFirst() }
-        let head = text.prefix { $0 != "\n" && $0 != "\r" }
-        let split: Character = head.contains(",") || !head.contains(";") ? "," : ";"
+        let split = separator(text)
         var rows: [[String]] = [], row: [String] = [], cell = "", quoted = false
         var chars = Array(text)[...]
         while let c = chars.popFirst() {
@@ -43,6 +42,22 @@ public enum DataRows {
         }
         if !cell.isEmpty || !row.isEmpty { rows.append(row + [cell]) }
         return rows.filter { !$0.allSatisfy(\.isEmpty) }
+    }
+
+    /// What a CSV's cells are split by: commas, or semicolons when its first line has those and no commas.
+    public static func separator(_ text: String) -> Character {
+        let head = text.prefix { $0 != "\n" && $0 != "\r" }
+        return head.contains(",") || !head.contains(";") ? "," : ";"
+    }
+
+    /// `rows` as CSV split by `separator`, a cell quoted when it holds one, a quote or a line break.
+    public static func write(_ rows: [[String]], separator: Character = ",") -> String {
+        rows.map { row in
+            row.map { cell in
+                cell.contains(where: { $0 == separator || $0 == "\"" || $0.isNewline })
+                    ? "\"" + cell.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : cell
+            }.joined(separator: String(separator))
+        }.joined(separator: "\n") + "\n"
     }
 
     /// The CSV files the page's elements take columns of, in the order they first appear.

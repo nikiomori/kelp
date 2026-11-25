@@ -41056,6 +41056,26 @@
           }
         }
       }
+    },
+    "Show the Text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать текст"
+          }
+        }
+      }
+    },
+    "Show as a Table": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать таблицей"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

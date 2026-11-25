@@ -19,6 +19,8 @@ final class FileTab: SavableTab {
     /// The bar shown over the text while the file holds merge conflicts.
     var conflicts: ConflictBar?
     private(set) var markdown: MarkdownTab?
+    /// A CSV file's table (`CSVGrid`), shown instead of its text.
+    private var csv: CSVGrid?
     /// A page an agent made is named by its title, not "doc.md", and its icon shows what kind of page it is.
     private var pageTitle: String?
     private var pageKind: Artifacts.Kind?
@@ -229,6 +231,10 @@ final class FileTab: SavableTab {
                 box.pin(stacked(bars(md.header(else: crumbs), conflictBar), md.view, bar))
             }
             md.attach(bar)
+        } else if ["csv", "tsv"].contains(url.pathExtension.lowercased()) {   // a table to change in place
+            let grid = CSVGrid(editor: codeEditor)
+            csv = grid
+            box.pin(stacked(withTrustBar(crumbs), conflictBar, grid.view, bar))
         } else {
             box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
         }
@@ -238,7 +244,10 @@ final class FileTab: SavableTab {
             bar?.show(cursor: codeEditor?.cursor)
             bar?.show(problem: codeEditor?.problemAtCursor?.message)
         }
-        codeEditor.onChange = { [weak self] t in self?.edited(t) }
+        codeEditor.onChange = { [weak self] t in
+            self?.edited(t)
+            self?.csv?.changed(t)
+        }
         if let kept = backup.text {   // the unsaved text a crash left behind
             if kept == text {
                 backup.drop()
@@ -247,7 +256,10 @@ final class FileTab: SavableTab {
                 edited(kept)
             }
         }
-        codeEditor.contextMenu = { [weak self] m in self?.contextMenu(m) }
+        codeEditor.contextMenu = { [weak self] m in
+            self?.contextMenu(m)
+            self?.csv?.textItems(m)
+        }
         track(owner: self) {   // the editor follows the theme itself; the Markdown preview is redrawn here
             app.themes.editorRevision
         } changed: { [weak self] _ in
