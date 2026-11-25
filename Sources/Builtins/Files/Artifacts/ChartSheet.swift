@@ -3,46 +3,42 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The sheet with a chart's numbers (`ChartData`): its table as a grid whose cells are typed over, the column names
-/// on top, Save writing it into the board.
+/// The sheet with a chart's numbers (`ChartData`): its table on the shared grid (`RowsGrid`), whose cells are typed
+/// over, the column names on top; Save ends it with `.OK`.
 @MainActor
-final class ChartGrid: NSObject, NSTableViewDataSource {
-    private(set) var rows: [[String]]
-    let table = NSTableView()
+final class ChartSheet: NSObject {
+    let grid = RowsGrid(autosave: nil, fits: true)
+    let window = NSPanel(
+        contentRect: NSRect(x: 0, y: 0, width: Metrics.sheetWidth, height: 1), styleMask: [.titled],
+        backing: .buffered, defer: true)
 
     init(_ rows: [[String]]) {
-        self.rows = rows
         super.init()
-        for (i, name) in (rows.first ?? []).enumerated() {
-            let column = NSTableColumn(identifier: .init(String(i)))
-            column.title = name
-            column.isEditable = true
-            column.width = Metrics.alertAccessory / CGFloat(max(rows.first?.count ?? 1, 1)) - Metrics.gap
-            table.addTableColumn(column)
-        }
-        table.dataSource = self
-        table.usesAlternatingRowBackgroundColors = true
+        grid.show(rows)
+        let title = NSTextField.label(
+            String(localized: "The Chart’s Numbers"), font: .ui(TextSize.body, weight: .semibold))
+        let note = NSTextField(
+            wrappingLabelWithString: String(
+                localized: "Type over a number or a name. The agent draws the chart again from them."))
+        note.font = .ui(TextSize.row)
+        note.textColor = .secondaryLabelColor
+        grid.scroll.borderType = .bezelBorder
+        let rowsHigh = CGFloat(min(max(rows.count, 3), 10)) + 1   // the names' head, then up to ten rows
+        grid.area.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.row) * rowsHigh).isActive = true
+        let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.end(.cancel) }
+        cancel.keyEquivalent = "\u{1b}"
+        let save = ClosureButton(title: String(localized: "Save")) { [weak self] in self?.end(.OK) }
+        save.keyEquivalent = "\r"
+        for button in [cancel, save] { button.bezelStyle = .push }
+        let buttons = NSStackView(views: [NSView(), cancel, save])
+        window.contentView = SheetForm.stack(
+            [title, note, grid.area, buttons], wide: [note, grid.area, buttons], width: Metrics.sheetWidth)
+        SheetForm.fit(window)
     }
 
-    func numberOfRows(in _: NSTableView) -> Int { max(rows.count - 1, 0) }
-
-    /// Keeps what is being typed in a cell when Save is pressed before it is finished.
-    func commit() {
-        guard table.editedRow >= 0, table.editedColumn >= 0, let text = table.currentEditor()?.string else { return }
-        tableView(table, setObjectValue: text, for: table.tableColumns[table.editedColumn], row: table.editedRow)
-    }
-
-    func tableView(_: NSTableView, objectValueFor column: NSTableColumn?, row: Int) -> Any? {
-        guard let i = column.flatMap({ Int($0.identifier.rawValue) }), rows.indices.contains(row + 1) else {
-            return nil
-        }
-        return rows[row + 1].indices.contains(i) ? rows[row + 1][i] : ""
-    }
-
-    func tableView(_: NSTableView, setObjectValue value: Any?, for column: NSTableColumn?, row: Int) {
-        guard let i = column.flatMap({ Int($0.identifier.rawValue) }), rows.indices.contains(row + 1) else { return }
-        while rows[row + 1].count <= i { rows[row + 1].append("") }
-        rows[row + 1][i] = value as? String ?? ""
+    private func end(_ code: NSApplication.ModalResponse) {
+        grid.commit()
+        window.sheetParent?.endSheet(window, returnCode: code)
     }
 }
 
@@ -54,22 +50,9 @@ extension MarkdownTab {
             let rows = body["rows"] as? [[String]], rows.count > 1
         else { return }
         Task {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "The Chart’s Numbers")
-            alert.informativeText = String(
-                localized: "Type over a number or a name. The agent draws the chart again from them.")
-            let grid = ChartGrid(rows)
-            let scroll = NSScrollView(
-                frame: NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: Metrics.alertAccessory * 0.6))
-            scroll.documentView = grid.table
-            scroll.hasVerticalScroller = true
-            scroll.borderType = .bezelBorder
-            alert.accessoryView = scroll
-            alert.addButton(withTitle: String(localized: "Save"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            grid.commit()
-            let now = grid.rows
+            let sheet = ChartSheet(rows)
+            guard await runSheet(sheet.window) == .OK else { return }
+            let now = sheet.grid.rows
             guard now != rows else { return }
             let edit = HandEdit(board: board, id: id, what: "chart data", from: nil, to: "\(now.count - 1) rows")
             rewrite(board, edit: { _ in edit }) { ChartData.write($0, id: id, rows: now) }

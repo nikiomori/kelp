@@ -42701,6 +42701,46 @@
           }
         }
       }
+    },
+    "Show As": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать как"
+          }
+        }
+      }
+    },
+    "Delete Rows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить строки"
+          }
+        }
+      }
+    },
+    "No Columns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет колонок"
+          }
+        }
+      }
+    },
+    "Its first line names the columns, separated by commas.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первая строка называет колонки через запятую."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

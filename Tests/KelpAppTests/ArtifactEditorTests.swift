@@ -77,20 +77,24 @@ extension OneAtATime {
     /// sorts what's shown, numbers as numbers, and leaves the file as it is.
     @Test func aCSVIsChangedAsATable() throws {
         _ = NSApplication.shared
-        let url = URL(fileURLWithPath: "/tmp/kelp-csv-grid/sales.csv")
+        let url = URL(fileURLWithPath: "/tmp/kelp-csv-grid/\(UUID().uuidString).csv")   // no widths or order kept
         let editor = CodeEditor(text: "name,sold\nB,10\nA,9\n", url: url)
-        let grid = CSVGrid(editor: editor)
-        let table = try #require(
-            grid.view.subviews.first.flatMap { ($0 as? NSScrollView)?.documentView as? NSTableView })
+        let csv = CSVGrid(editor: editor, path: url.path), grid = csv.grid, table = grid.table
         #expect(table.numberOfRows == 2 && table.tableColumns.map(\.title) == ["name", "sold"])
-        grid.tableView(table, setObjectValue: "11", for: table.tableColumns[1], row: 0)
+        let sold = grid.tableView(table, viewFor: table.tableColumns[1], row: 0) as? NSTextField
+        #expect(sold?.stringValue == "10" && sold?.alignment == .right, "a column of numbers lines up at the right")
+        grid.set("11", row: 1, column: 1)
+        grid.onEdit()
         #expect(editor.text == "name,sold\nB,11\nA,9\n")
         table.sortDescriptors = [NSSortDescriptor(key: "1", ascending: true)]
-        #expect(grid.tableView(table, objectValueFor: table.tableColumns[0], row: 0) as? String == "A")
+        #expect((grid.tableView(table, viewFor: table.tableColumns[0], row: 0) as? NSTextField)?.stringValue == "A")
         #expect(editor.text == "name,sold\nB,11\nA,9\n", "sorting shows; the file stays")
         editor.apply(text: "name,sold\nC,1\n", selection: NSRange(location: 0, length: 0))
-        grid.changed(editor.text)
+        csv.changed(editor.text)
         #expect(table.numberOfRows == 1)
+        csv.modes.selectedSegment = 1
+        csv.modeChosen()
+        #expect(csv.view.subviews.first === editor.view, "Text shows the file's text")
     }
 }
 

@@ -232,8 +232,9 @@ final class FileTab: SavableTab {
             }
             md.attach(bar)
         } else if ["csv", "tsv"].contains(url.pathExtension.lowercased()) {   // a table to change in place
-            let grid = CSVGrid(editor: codeEditor)
+            let grid = CSVGrid(editor: codeEditor, path: path)
             csv = grid
+            bar.show(modes: grid.modes)
             box.pin(stacked(withTrustBar(crumbs), conflictBar, grid.view, bar))
         } else {
             box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
