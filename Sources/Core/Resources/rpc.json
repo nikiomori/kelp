@@ -2238,6 +2238,13 @@
             "description" : "What closing a branch group's folder would lose (nil for other folders). `only` counts the branch's commits that no other branch or remote has. `dirty` means files aren't committed, by the rule its removal follows (a new link doesn't count).",
             "type" : "integer"
           },
+          "repoBranches" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/BranchInfo"
+            },
+            "description" : "Each of `repos`' branches, by name, as its own status read them.",
+            "type" : "object"
+          },
           "repos" : {
             "description" : "The repositories inside a folder that isn't one itself but holds several, by folder name (`RepoKey`); nil for any other folder. Then `changes`, `stats`, `branchFiles`, `only` and `dirty` sum them all up, with each one's paths under its name, and `branches` is nil: each one's own status comes from a watch of its key.",
             "items" : {

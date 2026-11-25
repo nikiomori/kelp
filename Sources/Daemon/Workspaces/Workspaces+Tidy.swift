@@ -35,16 +35,29 @@ extension Workspaces {
                 .filter { $0.status != .exited }
                 return here.contains { [.working, .waiting].contains($0.status) } ? nil : here
             }
-            guard try look() != nil, try !Git.isDirty(workspace.path, remotes: remotes) else { return }
+            // A folder of repositories (`RepoKey`) is each of them: a branch group of one holds a worktree of each.
+            let several = repos(in: repo), checkouts = self.checkouts(workspace, repo)
+            guard try look() != nil, try !checkouts.contains(where: { try Git.isDirty($0.1, remotes: remotes) }) else {
+                return
+            }
             let branch = branchNow(of: workspace, in: repo)
-            let tip = try Git.line(["rev-parse", "HEAD"], cwd: workspace.path, remotes: remotes)
+            let tip = try Git.line(["rev-parse", "HEAD"], cwd: checkouts[0].1, remotes: remotes)
             // Only a branch that did something since the group was made counts as landed, so a branch opened just to
-            // look at, already merged, stays.
-            let moved = try Git.moved(repo: repo.path, branch, since: workspace.createdAt, remotes: remotes)
+            // look at, already merged, stays. In a folder of repositories, every one whose branch did something has
+            // to be in its own base. Limit: there a pull request merged with a squash isn't seen as landed.
+            let moved = try checkouts.filter {
+                try Git.moved(repo: $0.0, branch, since: workspace.createdAt, remotes: remotes)
+            }
             let squashed =
-                moved && pr.map { $0.headRefName == branch && $0.headRefOid != nil && $0.headRefOid == tip } ?? false
+                several.isEmpty && !moved.isEmpty
+                && pr.map { $0.headRefName == branch && $0.headRefOid != nil && $0.headRefOid == tip } ?? false
             let landed =
-                squashed || (moved && Git.isIn(repo: repo.path, branch, base: repo.baseBranch, remotes: remotes))
+                squashed
+                || (!moved.isEmpty
+                    && moved.allSatisfy {
+                        let base = several.isEmpty ? repo.baseBranch : Git.defaultBranch(repo: $0.0, remotes: remotes)
+                        return Git.isIn(repo: $0.0, branch, base: base, remotes: remotes)
+                    })
             guard let here = try look() else { return }
             if landed, !here.isEmpty {
                 try archive(workspace, repo)
@@ -55,7 +68,7 @@ extension Workspaces {
                 // A branch that was there before (the user's, checked out with `--existing`) stays, and only its
                 // folder goes.
                 let theirs =
-                    try !landed && !Git.made(repo: repo.path, branch, at: workspace.createdAt, remotes: remotes)
+                    try !landed && !Git.made(repo: checkouts[0].0, branch, at: workspace.createdAt, remotes: remotes)
                 do {
                     try removeWorkspace(workspace, repo, force: false, dropCommits: squashed, keepBranch: theirs)
                 } catch GitError.refused {

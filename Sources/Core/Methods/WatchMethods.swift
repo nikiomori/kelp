@@ -101,6 +101,8 @@ public struct GitEvent: RPCEvent, Equatable {
     /// any other folder. Then `changes`, `stats`, `branchFiles`, `only` and `dirty` sum them all up, with each one's
     /// paths under its name, and `branches` is nil: each one's own status comes from a watch of its key.
     public var repos: [String]?
+    /// Each of `repos`' branches, by name, as its own status read them.
+    public var repoBranches: [String: BranchInfo]?
     public init(
         worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
         error: String? = nil
@@ -110,6 +112,32 @@ public struct GitEvent: RPCEvent, Equatable {
         self.branches = branches
         self.stats = stats
         self.error = error
+    }
+}
+
+extension GitEvent {
+    /// The branch the folder shows: its own, or in a folder of repositories (`repos`) one that stands for theirs: the
+    /// branch all of them are on (nil when they differ), and the commits all of them have to pull and push. Its
+    /// `upstream` is "" when one of them follows a remote branch, nil when none does.
+    public var shownBranches: BranchInfo? {
+        guard repos != nil, let all = repoBranches.map({ Array($0.values) }), !all.isEmpty else { return branches }
+        let names = Set(all.compactMap(\.current))
+        let following = all.filter { $0.upstream != nil }
+        return BranchInfo(
+            current: names.count == 1 ? names.first : nil, head: nil, local: [], remote: [],
+            upstream: following.isEmpty ? nil : "", ahead: all.reduce(0) { $0 + ($1.ahead ?? 0) },
+            behind: following.reduce(0) { $0 + ($1.behind ?? 0) }, merging: all.contains(where: \.merging))
+    }
+
+    /// How a folder's branch reads: its name, or in a folder of repositories the branch all of them are on and how
+    /// many there are, or how many branches they are on.
+    public var branchTitle: String? {
+        guard let repos else { return branches.map { $0.current ?? $0.head ?? "HEAD" } }
+        let names = Set((repoBranches ?? [:]).values.compactMap(\.current))
+        guard names.count == 1, let name = names.first else {
+            return String(localized: "\(max(names.count, 1)) Branches")
+        }
+        return String(localized: "\(name) · \(repos.count) Repositories")
     }
 }
 

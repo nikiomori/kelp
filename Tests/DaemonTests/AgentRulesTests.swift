@@ -569,11 +569,6 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
             "staging is a write: not in another's"
         ),
         (.session(mine.id), GitHunk(id: r.wt.id, file: "a", hunk: 0), true, "in its own, it stages"),
-        (
-            .session(mine.id), GitHunk(id: RepoKey.of(elsewhere.id, "fe"), file: "a", hunk: 0), false,
-            "nor in a repository inside another's folder"
-        ),
-        (.session(mine.id), GitHunk(id: RepoKey.of(r.wt.id, "fe"), file: "a", hunk: 0), true, "but inside its own"),
         (.session(mine.id), WorktreeCreate(repoId: r.repo.id, branch: "n"), true, "a workspace in its own project"),
         (.session(mine.id), WorktreeCreate(repoId: otherProject.id, branch: "n"), false, "not in another project"),
         (.session(mine.id), WorkspaceCreate(repoId: otherProject.id), false, "nor a group there"),

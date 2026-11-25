@@ -65,7 +65,7 @@ final class Store: Sendable {
             }
             let path = project.path + "/" + nested.name
             return Repo(
-                id: id, name: nested.name, path: path, baseBranch: Git.defaultBranch(repo: path, remotes: .none),
+                id: id, name: nested.name, path: path, baseBranch: Git.defaultBranchFromFiles(path),
                 copyFiles: project.copyFiles)
         }
         return try db.read { try Repo.fetchOne($0, key: id) }
