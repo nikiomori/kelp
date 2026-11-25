@@ -278,7 +278,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                 // `--no-answer` is for an agent that shows its menu only after the hook (Codex), which is answered in
                 // that menu.
                 if hook.hookName == "PermissionRequest", !args.contains("--no-answer"),
-                    let answer = try await connect().call(SessionPermissionWait(id: id))
+                    let answer = try await connect().call(SessionPermissionWait(id: id, at: hook.at))
                 {
                     let decision =
                         answer == "allow"

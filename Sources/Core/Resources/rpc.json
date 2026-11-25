@@ -13384,6 +13384,14 @@
           }
         },
         {
+          "description" : "The instance of the permission shown on the phone. A newer question can have the same text.",
+          "name" : "questionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "run",
           "required" : false,
           "schema" : {
@@ -14183,6 +14191,14 @@
       "name" : "session.permissionWait",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "The system uptime of the PermissionRequest hook this wait belongs to.",
+          "name" : "at",
+          "required" : false,
+          "schema" : {
+            "type" : "number"
+          }
+        },
         {
           "name" : "id",
           "required" : true,

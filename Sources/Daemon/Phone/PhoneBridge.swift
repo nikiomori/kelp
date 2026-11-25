@@ -1,3 +1,4 @@
+import Agents
 import Core
 import CryptoKit
 import Foundation
@@ -21,7 +22,7 @@ actor PhoneBridge {
     typealias Asker = @Sendable (String, JSONValue) async throws -> Data
     /// The news that the daemon sends the bridge through `hear`, taken in the order it happened.
     enum News: Sendable {
-        case started(Asker), settings, session(Session), removed(String), stop
+        case started(Asker), settings, reconcile, session(Session), removed(String), stop
         case push(title: String, body: String, agent: String)
     }
 
@@ -29,6 +30,7 @@ actor PhoneBridge {
     /// `conversations` is where the agents keep their conversations, `offloads` holds the slots for work that waits on
     /// a disk or a program, and `root` is Kelp's home.
     let conversations: Conversations, offloads: Slots, root: URL
+    let permissions: PermissionWaits
     private let news: AsyncStream<News>.Continuation
     /// Whether any phone takes pushes. It sits behind a lock because `ExtensionEvents` asks from its own queue.
     private let pushes = OSAllocatedUnfairLock(initialState: false)
@@ -56,8 +58,8 @@ actor PhoneBridge {
     /// itself, either over Tailscale or at an address the user gives.
     enum Way: Equatable {
         case relay(URL)
-        case tailscale(port: Int)
-        case address(String?, port: Int)
+        case tailscale(port: UInt16)
+        case address(String?, port: UInt16)
         var name: String {
             switch self {
             case .relay: "relay"
@@ -68,17 +70,22 @@ actor PhoneBridge {
     }
     var way: Way?   // nil while Phone is off
     private var relay: Relay?
-    private var following: Task<Void, Never>?
+    var following: Task<Void, Never>?
+    let stopping = OSAllocatedUnfairLock(initialState: false)
+    let publications = DispatchGroup()
+    let tailscale: PhoneTailscale
+    var cleanupRetry: Task<Void, Never>?, cleanupError: String?
     var server: PhoneServer?
     /// This Mac's name in its tailnet once Tailscale serves the page ("https://mac.tail1234.ts.net:8443").
     var tailnet: String?
     /// The Tailscale setup steps as last checked, while Tailscale is the way.
     var tailscaleSteps: TailscaleSteps?
     var connected = false, failure: String?
-    private var record: PhoneRecord?
+    private(set) var record: PhoneRecord?
     var devices: [String: PhoneDevice] = [:]
     var pairing: (key: SymmetricKey, link: String, until: Date)?
     var streams: [String: Stream] = [:]
+    var agentRevision = 0   // Identifies which events have already reached an agents snapshot.
     /// Each agent as the phones were last told of it, by session id.
     var shown: [String: [String: JSONValue]] = [:]
     /// The icon file of each project, keyed by the project's folder, with nil when it has none, and when the file was
@@ -87,8 +94,10 @@ actor PhoneBridge {
 
     init(
         store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable, conversations: Conversations,
-        offloads: Slots, root: URL
+        offloads: Slots, root: URL, permissions: PermissionWaits, tailscale: PhoneTailscale? = nil
     ) {
+        self.tailscale = tailscale ?? PhoneTailscale(store: store)
+        self.permissions = permissions
         self.conversations = conversations
         self.offloads = offloads
         self.root = root
@@ -111,20 +120,50 @@ actor PhoneBridge {
         news.yield(one)
         if case .stop = one { news.finish() }
     }
+    /// Stops at once; the Tailscale route goes in the background, so the daemon saves its sessions meanwhile.
+    nonisolated func stop() {
+        stopping.withLock { $0 = true }
+        hear(.stop)
+    }
+    /// Returns once the Tailscale route `stop` began removing is gone: the process may exit or hand its instance lock
+    /// to another kelpd right after.
+    nonisolated func waitStopped() { publications.wait() }
+
+    func beginPublicationWork() -> Bool {
+        stopping.withLock { stopped in
+            guard !stopped else { return false }
+            publications.enter()
+            return true
+        }
+    }
+
+    func publishTailscale(_ port: UInt16) {
+        guard beginPublicationWork() else { return }
+        following = Task {
+            defer { publications.leave() }
+            await followTailscale(port)
+        }
+    }
+
     nonisolated var takesPushes: Bool { pushes.withLock { $0 } }
 
     private func took(_ one: News) async {
         switch one {
         case .started(let asker):
             self.asker = asker
-            apply()
-        case .settings: apply()
-        case .session(let session): tell(session)
-        case .removed(let id): if shown.removeValue(forKey: id) != nil { say("removed", .object(["id": .string(id)])) }
+            await apply(starting: true)
+        case .settings: await apply()
+        case .reconcile:
+            // The active Tailscale task reconciles its current profile on each check.
+            if case .tailscale = way, server != nil || following != nil { return }
+            await recoverPublication()
+        case .session(let change):
+            if way != nil, let latest = session(change.id) { tell(latest) }
+        case .removed(let id): removedAgent(id)
         case .push(let title, let body, let agent): push(title: title, body: body, agent: agent)
         case .stop:
             asker = nil
-            apply()
+            await apply()
         }
     }
 }
@@ -135,7 +174,7 @@ extension PhoneBridge {
     /// Returns the way that Settings › Phone names. When no way is chosen but a relay's address is set, the way is that
     /// relay, as Kelp 0.14 stored it.
     private func wanted() -> Way? {
-        let port = Int(settings[SettingKeys.phonePort])
+        let port = UInt16(exactly: settings[SettingKeys.phonePort]) ?? 0
         let relay = PhonePush.url(settings[SettingKeys.phoneRelay])
         switch settings[SettingKeys.phoneVia] {
         case "tailscale": return .tailscale(port: port)
@@ -148,29 +187,37 @@ extension PhoneBridge {
 
     /// Brings the bridge in line with Settings › Phone. It runs the relay's connection or this Mac's own server, and
     /// neither once the setting is off or the daemon stops.
-    private func apply() {
+    private func apply(starting: Bool = false) async {
         let want = asker == nil ? nil : wanted()
-        guard want != way else { return }
-        following?.cancel()
+        guard starting || want != way || (want == nil && failure != nil) else { return }
+        cleanupRetry?.cancel()
+        let previous = following, oldServer = server
+        previous?.cancel()
         following = nil
-        server?.stop()
         server = nil
         cut(streams.keys)
-        if case .tailscale = way { PhoneTailscale.stopServing(offloads) }
         (way, relay, connected, failure, pairing, shown, tailnet) = (nil, nil, false, nil, nil, [:], nil)
         tailscaleSteps = nil
-        guard let want, let identity = load() else { return }
+        // Keep the port bound until the previous publication has finished withdrawing.
+        await previous?.value
+        // Stopped before recovery, which keeps a route while a Kelp still answers on its port.
+        oldServer?.stop()
+        if asker != nil { await recoverPublication() }
+        guard let want else { return }
+        guard let identity = load() else {
+            following = Task {
+                if await waitWhileActive(.seconds(15)) { hear(.settings) }
+            }
+            return
+        }
         way = want
-        for session in sessions() where PhoneAgent.shown(session) { shown[session.id] = agent(session) }
+        refreshAgents()
         switch want {
         case .relay(let base):
             let relay = Relay(base: base, mac: identity.mac, secret: identity.secret)
             self.relay = relay
             following = Task { await follow(relay) }
-        case .tailscale(let port):
-            serve(port)
-            following = Task { await followTailscale(port) }
-        case .address(_, let port): serve(port)
+        case .tailscale(let port), .address(_, let port): serve(port)
         }
     }
 
@@ -178,48 +225,59 @@ extension PhoneBridge {
     /// secret. A Mac whose secret is gone (on another keychain, say) is a new Mac to the relay, because the relay knows
     /// an id by the secret that first came with it.
     private func load() -> (mac: String, secret: String)? {
-        let kept = Log.session.attempt("reading the phones") {
-            try store.daemonState(PhoneRecord.key, as: PhoneRecord.self)
-        }
-        if let kept = kept ?? nil, let secret = Keychain.get("phone.mac") {
-            record = kept
-            devices = kept.devices.reduce(into: [:]) { devices, one in
-                guard let key = Keychain.get("phone.device.\(one.key)").flatMap(Data.init(base64URL:)) else { return }
-                devices[one.key] = PhoneDevice(key: SymmetricKey(data: key), kept: one.value)
+        do {
+            let kept = try store.daemonState(PhoneRecord.key, as: PhoneRecord.self)
+            let existing = try Keychain.find("phone.mac")
+            var next = kept ?? PhoneRecord(mac: PhoneSeal.random(16).base64URL)
+            var restored: [String: PhoneDevice] = [:]
+            for (id, phone) in next.devices {
+                // A phone whose key is gone or unreadable can't connect, but stays listed so the user can remove it.
+                guard let text = try Keychain.find("phone.device.\(id)"), let key = Data(base64URL: text),
+                    key.count == 32, let device = PhoneDevice(key: SymmetricKey(data: key), kept: phone)
+                else {
+                    Log.session.error("Paired phone \(id, privacy: .public) has no usable key")
+                    continue
+                }
+                restored[id] = device
             }
-            let takes = devices.values.contains { $0.push != nil }
+            if kept == nil || existing == nil {
+                if kept != nil { next.mac = PhoneSeal.random(16).base64URL }
+                try store.setDaemonState(PhoneRecord.key, next)
+            }
+            let secret = existing ?? PhoneSeal.random(32).base64URL
+            if existing == nil { try Keychain.set(secret, account: "phone.mac") }
+            record = next
+            devices = restored
+            let takes = restored.values.contains { $0.push != nil }
             pushes.withLock { $0 = takes }
-            return (kept.mac, secret)
-        }
-        let fresh = PhoneRecord(mac: PhoneSeal.random(16).base64URL), secret = PhoneSeal.random(32).base64URL
-        guard
-            Log.session.attempt("keeping this Mac's phone secret", { try Keychain.set(secret, account: "phone.mac") })
-                != nil
-        else {
-            failure = "The keychain didn't take this Mac's key."
+            return (next.mac, secret)
+        } catch {
+            record = nil
+            devices = [:]
+            pushes.withLock { $0 = false }
+            failure = "Couldn't load this Mac's paired phones: \(error.rpcMessage)"
             return nil
         }
-        record = fresh
-        devices = [:]
-        remember()
-        return (fresh.mac, secret)
     }
 
-    func remember() {
-        guard var record else { return }
-        record.devices = devices.mapValues(\.kept)
-        self.record = record
-        for id in devices.keys { devices[id]?.wasSaved() }
+    /// Publish one phone's new state only after its replay checkpoint and settings are durable.
+    func save(_ phone: PhoneDevice?, id: String) throws {
+        guard var next = record else { throw RPCError.internalError("The phone bridge is not ready.") }
+        next.devices[id] = phone?.kept
+        try store.setDaemonState(PhoneRecord.key, next)
+        record = next
+        devices[id] = phone
+        devices[id]?.wasSaved()
         let takes = devices.values.contains { $0.push != nil }
         pushes.withLock { $0 = takes }
-        Log.session.attempt("keeping the phones") { try store.setDaemonState(PhoneRecord.key, record) }
     }
 
-    func forget(_ device: String) {
-        guard devices.removeValue(forKey: device) != nil else { return }
-        Keychain.delete("phone.device.\(device)")
-        cut(streams.filter { $0.value.device == device }.keys)
-        remember()
+    func forget(_ id: String) throws {
+        guard let record else { throw RPCError.internalError("The phone bridge is not ready.") }
+        guard record.devices[id] != nil else { return }
+        try save(nil, id: id)
+        cut(streams.filter { $0.value.device == id }.keys)
+        Keychain.delete("phone.device.\(id)")
     }
 }
 
@@ -229,10 +287,13 @@ extension PhoneBridge {
     func state() -> PhoneState {
         if let until = pairing?.until, until < Date() { pairing = nil }
         return PhoneState(
-            relay: relay?.base.absoluteString, connected: connected, error: failure, link: pairing?.link,
+            relay: relay?.base.absoluteString, connected: connected, error: failure ?? cleanupError,
+            link: pairing?.link,
             linkUntil: pairing?.until, via: way?.name, address: address, tailscale: tailscaleSteps,
-            phones: devices.map { PairedPhone(id: $0.key, name: $0.value.name, push: $0.value.push != nil) }
-                .sorted { ($0.name, $0.id) < ($1.name, $1.id) })
+            phones: (record?.devices ?? [:]).map {
+                PairedPhone(id: $0.key, name: $0.value.name, push: devices[$0.key]?.push != nil)
+            }
+            .sorted { ($0.name, $0.id) < ($1.name, $1.id) })
     }
 
     /// Makes a pairing link that carries a key for one phone, good for ten minutes. The phone that seals its "pair"
@@ -255,14 +316,14 @@ extension PhoneBridge {
             switch way {
             case .relay(let base): base.absoluteString
             case .tailscale: tailnet
-            case .address(let address, _): address
+            case .address(let address, _): connected ? address : nil
             case nil: nil
             }
         return found?.trimmingCharacters(in: ["/"])
     }
 
-    func unpair(_ device: String) -> PhoneState {
-        forget(device)
+    func unpair(_ device: String) throws -> PhoneState {
+        try forget(device)
         return state()
     }
 }
@@ -279,9 +340,18 @@ extension PhoneBridge {
 
     static var macName: String { SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac" }
 
-    func sessions() -> [Session] {
-        (Log.session.attempt("reading the sessions") { try store.sessions() } ?? []).map { live[$0.id]?.snapshot ?? $0 }
+    /// Bring all streams up to the snapshot's revision before returning its rows.
+    func refreshAgents() {
+        guard let rows = Log.session.attempt("reading the sessions", { try store.sessions() }) else { return }
+        let present = Set(rows.map(\.id))
+        for id in shown.keys where !present.contains(id) { removedAgent(id) }
+        for row in rows { tell(live[row.id]?.snapshot ?? row) }
     }
+
+    private func removedAgent(_ id: String) {
+        if shown.removeValue(forKey: id) != nil { say("removed", .object(["id": .string(id)])) }
+    }
+
     func session(_ id: String) -> Session? {
         live[id]?.snapshot ?? (Log.session.attempt("reading a session") { try store.session(id) } ?? nil)
     }
@@ -299,65 +369,21 @@ extension PhoneBridge {
             } ?? session.agent ?? ""
         return PhoneAgent.from(
             session, name: name, project: repo?.name ?? "", projectId: repo?.id,
-            workspace: worktree?.displayName ?? "")
+            workspace: worktree?.displayName ?? "",
+            questionId: session.asksPermission
+                ? live[session.id].flatMap { permissions.questionId($0, for: session.summary) } : nil)
     }
 
     /// Handles a saved change to a session. The phones hear of an agent that looks different now, or that is gone.
     private func tell(_ session: Session) {
         guard way != nil else { return }
         guard PhoneAgent.shown(session) else {
-            if shown.removeValue(forKey: session.id) != nil { say("removed", .object(["id": .string(session.id)])) }
+            removedAgent(session.id)
             return
         }
         let agent = agent(session)
         guard shown[session.id] != agent else { return }
         shown[session.id] = agent
         say("agent", .object(agent))
-    }
-}
-
-// MARK: - Push
-
-extension PhoneBridge {
-    /// Returns this Mac's signing key for pushes. The key is made when the first phone asks for it.
-    func vapid() -> P256.Signing.PrivateKey? {
-        if let kept = Keychain.get("phone.vapid").flatMap(Data.init(base64URL:)),
-            let key = Self.sealed({ try P256.Signing.PrivateKey(rawRepresentation: kept) })
-        {
-            return key
-        }
-        let key = P256.Signing.PrivateKey()
-        let kept: Void? = Log.session.attempt("keeping the push key") {
-            try Keychain.set(key.rawRepresentation.base64URL, account: "phone.vapid")
-        }
-        return kept == nil ? nil : key
-    }
-
-    /// Sends a push to every phone that takes pushes. `ExtensionEvents` (PhonePush) decides when to send one and what
-    /// its words may say.
-    private func push(title: String, body: String, agent: String) {
-        let to = devices.compactMapValues(\.push)
-        guard way != nil, !to.isEmpty, let key = vapid() else { return }
-        let waiting = shown.values.filter { $0["status"]?.string == AgentStatus.waiting.rawValue }.count
-        let payload: [String: JSONValue] = [
-            "title": .string(title), "body": .string(body), "agent": .string(agent), "waiting": .int(waiting)
-        ]
-        for (device, subscription) in to {
-            Task {
-                do {
-                    let request = try WebPush.request(try JSONEncoder().encode(payload), to: subscription, vapid: key)
-                    let status = (try await http.data(for: request).1 as? HTTPURLResponse)?.statusCode ?? 0
-                    // A 404 or 410 means the phone took the subscription away.
-                    if status == 404 || status == 410 { unsubscribed(device, from: subscription) }
-                    if status >= 400 { Log.session.error("phone push: its service answered \(status)") }
-                } catch { Log.session.error("phone push: \(error.localizedDescription, privacy: .public)") }
-            }
-        }
-    }
-
-    private func unsubscribed(_ device: String, from subscription: PushSubscription) {
-        guard devices[device]?.push == subscription else { return }
-        devices[device]?.push = nil
-        remember()
     }
 }

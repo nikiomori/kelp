@@ -1,9 +1,17 @@
+import Agents
 import Foundation
 import os
 
 /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
 final class PermissionWaits: Sendable {
-    let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
+    private let live: SessionTable
+    struct HookWait: Sendable {
+        let token: UUID, menuID: UUID?, answer: CheckedContinuation<String?, Never>
+    }
+    let waits = OSAllocatedUnfairLock<[String: HookWait]>(initialState: [:])
+
+    init(live: SessionTable) { self.live = live }
+
     /// Questions Kelp asks on behalf of an agent's commands (such as a database change), by session, oldest first. A
     /// status change doesn't end a question, since the agent's screen changes while the command runs. A question ends
     /// with an answer, the agent's Stop, the end of the command's program (Esc, or a tool's time limit: nobody is left
@@ -19,13 +27,29 @@ final class PermissionWaits: Sendable {
     /// What `waitForKelp` gives when the asking program ended first.
     static let askerGone = "gone"
 
+    /// The wait that owns the question shown on the phone, or the current terminal menu when it has no waiting hook.
+    func questionId(_ session: LiveSession, for question: String) -> UUID? {
+        session.state.withLock { state in
+            guard state.record.asksPermission, state.record.summary == question else { return nil }
+            let id = state.record.id
+            if let asked = state.kelpQuestions.first { return asked.id }
+            guard state.asksOnly(question) else { return nil }
+            let menu = state.menuID
+            return waits.withLock { waits in
+                guard let wait = waits[id], wait.menuID == menu else { return menu }
+                return wait.token
+            }
+        }
+    }
+
     /// Waits for the answer (Allow or Deny) to Kelp's question `question` for `id`. Returns nil when nobody answered,
     /// or `askerGone` when `asker` (the program the command runs in) ended before an answer. `run` is the database run
     /// the question is for, so an answer can name it.
     func waitForKelp(
-        _ id: String, question: String, within seconds: TimeInterval, asker: pid_t? = nil, run: String? = nil
+        _ session: LiveSession, question: String, within seconds: TimeInterval, asker: pid_t? = nil, run: String? = nil
     ) async -> String? {
-        let token = UUID()
+        let token = UUID(), id = session.snapshot.id
+        defer { session.kelpAsked(token) }
         return await withCheckedContinuation { continuation in
             let exit = asker.map { pid in
                 let source = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .global())
@@ -38,6 +62,7 @@ final class PermissionWaits: Sendable {
                 $0[id, default: []].append(
                     KelpWait(question: question, token: token, run: run, answer: continuation, exit: exit))
             }
+            session.askForKelp(question, id: token)
             exit?.activate()
             // If the asker was gone before the watch began, its exit came before the source and won't be seen.
             if let asker, kill(asker, 0) != 0, errno == ESRCH {
@@ -81,10 +106,23 @@ final class PermissionWaits: Sendable {
     }
 
     /// Waits for Allow or Deny for the hook of `id`'s permission question; a newer wait lets the older go unanswered.
-    func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
+    func waitForPermission(_ id: String, at: TimeInterval?, within seconds: TimeInterval) async -> String? {
+        guard let session = live[id] else { return nil }
         let token = UUID()
         return await withCheckedContinuation { continuation in
-            waits.withLock { w in w.updateValue((token, continuation), forKey: id) }?.1.resume(returning: nil)
+            let registered = session.state.withLock { state in
+                if let at, at != state.permissionHookAt || state.record.status != .waiting { return false }
+                return waits.withLockUnchecked { waits in
+                    // An older CLI has no hook timestamp. Its wait is still answerable from the desktop.
+                    if at == nil, let current = waits[id]?.menuID, current == state.menuID { return false }
+                    if at != nil { state.menuID = UUID() }
+                    let wait = HookWait(token: token, menuID: at == nil ? nil : state.menuID, answer: continuation)
+                    waits.updateValue(wait, forKey: id)?.answer.resume(returning: nil)
+                    if state.record.status == .waiting { session.emit(state.record) }
+                    return true
+                }
+            }
+            guard registered else { return continuation.resume(returning: nil) }
             DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
                 self?.answerPermission(id, nil, only: token)
             }
@@ -94,11 +132,12 @@ final class PermissionWaits: Sendable {
     /// Hands `answer` to the hook waiting for `id`'s question (nil means no answer: the question went on some other
     /// way). Returns whether one was waiting.
     @discardableResult
-    func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil) -> Bool {
+    func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil, menuID: UUID? = nil) -> Bool {
         let waiting = waits.withLock { waits -> CheckedContinuation<String?, Never>? in
-            guard let (waitToken, continuation) = waits[id], token == nil || waitToken == token else { return nil }
+            guard let wait = waits[id], token == nil || wait.token == token, menuID == nil || wait.menuID == menuID
+            else { return nil }
             waits[id] = nil
-            return continuation
+            return wait.answer
         }
         waiting?.resume(returning: answer)
         return waiting != nil

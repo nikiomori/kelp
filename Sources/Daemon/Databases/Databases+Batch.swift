@@ -47,7 +47,7 @@ extension Databases {
                 let question =
                     Self.question(statements: statements.count, database: name, changed: run.changed)
                     + (uncounted ? " Kelp can’t count the rows they change." : "")
-                guard await answered(databaseQuery, &run, ls, question, asker: (session, asker.pid)) else {
+                guard await answered(databaseQuery, &run, ls, question, asker: asker.pid) else {
                     throw RPCError.refused(run.error ?? "The user didn't allow it.")
                 }
                 asked = tried

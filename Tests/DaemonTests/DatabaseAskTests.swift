@@ -96,6 +96,32 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     #expect(try count(path, "SELECT count(*) FROM users") == 1)
 }
 
+/// Two identical prompts are distinct waits. A phone's outstanding answer cannot be used on the second one.
+@Test func aPhoneAnswersOnlyTheDisplayedKelpWait() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let workspace = try await firstWorkspace(w)
+    let agent = try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "bot"))
+    let session = try #require(w.d.sessions.existing(agent.id)), permissions = w.d.sessions.permissions
+    let question = "Allow the change?"
+    func shown() -> String? { permissions.questionId(session, for: question)?.uuidString }
+    func decide(_ id: String, _ answer: String) async throws -> Bool {
+        try await w.c.call(SessionChoose(id: agent.id, answer: answer, question: question, questionId: id))
+    }
+    let first = Task { await permissions.waitForKelp(session, question: question, within: 5) }
+    try #require(try await waitFor { shown() != nil })
+    let firstID = try #require(shown())
+    let second = Task { await permissions.waitForKelp(session, question: question, within: 5) }
+    try #require(try await waitFor { session.state.withLock { $0.kelpQuestions.count == 2 } })
+    #expect(try await decide(firstID, "deny"))
+    #expect(await first.value == "deny")
+    let secondID = try #require(shown())
+    #expect(firstID != secondID)
+    #expect(try await !decide(firstID, "allow"))
+    #expect(try await decide(secondID, "deny"))
+    #expect(await second.value == "deny")
+}
+
 /// Two changes asked at once: what shows a change to allow shows the one the row asks (the oldest), and an answer
 /// given for one run's change (the card, the panel, the tab) goes to that change, never to the other one.
 @Test func anAnswerForOneRunGoesToThatChange() async throws {

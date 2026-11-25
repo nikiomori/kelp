@@ -170,10 +170,8 @@ extension UIBrowserAsk: AsyncHandled {
         }
         _ = try await page(["text": .string(question)])
         let asked = Self.rowQuestion(question)
-        ls.askForKelp(asked)
         let answer = await relay.asks.permissions.waitForKelp(
-            session, question: asked, within: Self.wait, asker: relay.asks.clients.connection(conn)?.peerPID)
-        ls.kelpAsked(asked)
+            ls, question: asked, within: Self.wait, asker: relay.asks.clients.connection(conn)?.peerPID)
         let ended = answer ?? "none"
         guard case .object(var shown) = try await page(["ended": .string(ended)]) else { return .null }
         shown["answer"] = .string(ended)

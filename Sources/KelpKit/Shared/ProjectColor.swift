@@ -2,25 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// The colours a project can be given in the menu on its row: `IconTile`'s own hues and two more. None is orange or
-/// red, because beside a row's marks those mean asking and failed. They are kept by name in UIState, and a colour a
-/// later build dropped reads as none.
-package enum ProjectColor: String, CaseIterable {
-    case blue, indigo, purple, pink, teal, yellow, brown
-
-    static let key = "sidebar.colors"
-
-    var hue: IconTile.Hue {
-        switch self {
-        case .blue: IconTile.Hue(dark: 0x6CB4FF, light: 0x0058B8, gray: false)
-        case .indigo: IconTile.Hue(dark: 0x9E9CFF, light: 0x4440C0, gray: false)
-        case .purple: IconTile.Hue(dark: 0xD59CFF, light: 0x8A2BB0, gray: false)
-        case .pink: IconTile.Hue(dark: 0xF49AC1, light: 0xA8246A, gray: false)
-        case .teal: IconTile.Hue(dark: 0x5BD6E6, light: 0x006473, gray: false)
-        case .yellow: IconTile.Hue(dark: 0xE6C75A, light: 0x6E5400, gray: false)
-        case .brown: IconTile.Hue(dark: 0xD2AE88, light: 0x7A5230, gray: false)
-        }
-    }
+extension ProjectColor {
+    var hue: IconTile.Hue { IconTile.Hue(dark: ink.dark, light: ink.light, gray: false) }
 
     /// The colour for text or a mark. It is at least 4.5:1 against the sidebar's window background in light mode, and
     /// 3.5–4.7:1 in dark mode, like the tiles' letters.
@@ -52,15 +35,6 @@ package enum ProjectColor: String, CaseIterable {
         img.cacheMode = .never   // drawn again for each appearance
         img.accessibilityDescription = title
         return img
-    }
-
-    /// Returns the colours as `uiState` keeps them, as id → name.
-    package static func value(_ colors: [String: ProjectColor]) -> JSONValue {
-        .object(colors.mapValues { .string($0.rawValue) })
-    }
-    package static func read(_ json: JSONValue?) -> [String: ProjectColor] {
-        guard case .object(let object)? = json else { return [:] }
-        return object.compactMapValues { $0.string.flatMap(ProjectColor.init) }
     }
 }
 

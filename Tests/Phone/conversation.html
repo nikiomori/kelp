@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="../../Sources/Daemon/Resources/phone/app.css">
 <script type="text/plain" id="api">
 export const on = {};
+export const recovering = () => false;
 export const agentFrom = agent => agent;
 export const events = () => ({
   addEventListener(type, listener) { this[type] = listener; },

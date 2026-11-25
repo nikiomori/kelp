@@ -285,11 +285,9 @@ extension RoutineSet: AsyncHandled {
             }
             let who = try sessions.setup.manifest(routine.agent, command: nil).name
             let question = Self.question(routine, agent: who)
-            ls.askForKelp(question)
             let answer = await sessions.permissions.waitForKelp(
-                session, question: question, within: Self.answerWithin,
+                ls, question: question, within: Self.answerWithin,
                 asker: routines.clients.connection(conn)?.peerPID)
-            ls.kelpAsked(question)
             guard answer == "allow" else {
                 throw RPCError.refused(
                     answer == "deny"

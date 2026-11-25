@@ -82,7 +82,7 @@ extension LiveSession.State {
             let re = Log.session.attempt(
                 "an auto-answer's choice pattern", { try NSRegularExpression(pattern: choose) })
         {
-            steering = (re, Date(), .distantPast, autoAnswers[index].0)
+            steering = (re, Date(), .distantPast, autoAnswers[index].0, nil)
             autoAnswers.remove(at: index)   // closed loop, see steer()
             return nil
         }

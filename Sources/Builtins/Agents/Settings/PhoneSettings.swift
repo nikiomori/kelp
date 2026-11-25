@@ -56,6 +56,7 @@ struct PhoneSettings: View {
             watching.key = ""
             watched = watching
         }
+        if !isOn, let error = state?.error { Text(error).foregroundStyle(Color.textRed) }
         if isOn {
             way
             Section {
@@ -68,7 +69,7 @@ struct PhoneSettings: View {
                 Text("Off: a phone reads, answers, writes to and stops the agents that run, and starts none.")
             }
         }
-        if isOn, let state, state.via != nil {
+        if isOn, let state {
             TitledSection("Pair a Phone") {
                 reached(state)
                 if let link = state.link {
@@ -77,6 +78,8 @@ struct PhoneSettings: View {
                     Button("Show Pairing Code") { Task { await pair() } }.disabled(state.address == nil)
                 }
             }
+        }
+        if isOn, let state, state.via != nil {
             TitledSection("Paired Phones") {
                 if state.phones.isEmpty {
                     EmptyState(String(localized: "No Phone Paired Yet"), symbol: "iphone", lifted: false)
@@ -115,7 +118,7 @@ struct PhoneSettings: View {
     /// The picker for how the phone reaches this Mac: Tailscale, an address of the user's own, or Kelp's relay. Each
     /// choice says what it needs.
     @ViewBuilder private var way: some View {
-        let port = Int(app.settings[SettingKeys.phonePort])
+        let port = UInt16(exactly: app.settings[SettingKeys.phonePort]) ?? 0
         Section {
             Picker(
                 "How the phone reaches this Mac",
@@ -139,15 +142,16 @@ struct PhoneSettings: View {
             case "tailscale":
                 Text(
                     """
-                    The phone opens this Mac by its name in your tailnet, straight from Kelp. Both need Tailscale, \
-                    signed in to the same account.
+                    The phone needs access to this Mac on port 8443 under your Tailscale access rules. \
+                    Scan a pairing code to use Kelp.
                     """)
-            case "address":
+            case "address" where port != 0:
                 Text(
                     """
-                    Kelp serves the phone’s page itself at http://127.0.0.1:\(port). Point your tunnel or proxy \
+                    Kelp serves the phone’s page itself at http://127.0.0.1:\(Int(port)). Point your tunnel or proxy \
                     there and give the HTTPS address the phone opens.
                     """)
+            case "address": Text("Set phone.port to a whole number from 1 to 65535.")
             default:
                 Text(
                     """
@@ -166,8 +170,8 @@ struct PhoneSettings: View {
         step(String(localized: "Signed in to Tailscale"), done: steps.signedIn, next: steps.installed) {
             Text("Open Tailscale and sign in").foregroundStyle(.secondary)
         }
-        step(String(localized: "HTTPS certificates are on"), done: steps.serving, next: steps.signedIn) {
-            link(String(localized: "Turn On in Tailscale"), TailscaleSteps.certificates)
+        step(String(localized: "Tailscale serves this Mac over HTTPS"), done: steps.serving, next: steps.signedIn) {
+            link(String(localized: "HTTPS settings"), TailscaleSteps.certificates)
         }
     }
 
@@ -193,10 +197,10 @@ struct PhoneSettings: View {
         return HStack(spacing: Metrics.gap) {
             // Reached is a filled dot and not reached a ring, as an integration's is; red when it failed.
             StateDot(state.error != nil ? .broken : state.connected && state.address != nil ? .on : .off)
-            if let steps = state.tailscale, !steps.serving {
-                Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // the steps say what's missing
-            } else if let error = state.error {
+            if let error = state.error {
                 Text(error).foregroundStyle(Color.textRed)
+            } else if state.address == nil && !state.connected && via != "relay" {
+                Text("Starting the phone server…").foregroundStyle(.secondary)
             } else if state.address == nil {
                 Text("Give the address the phone opens.").foregroundStyle(.secondary)
             } else if state.connected {
