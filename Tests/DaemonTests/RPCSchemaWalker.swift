@@ -25,6 +25,7 @@ final class SchemaWalker {
                 Data(), .object(["type": .string("string"), "contentEncoding": .string("base64")])
             ),
             ObjectIdentifier(URL.self): (URL(fileURLWithPath: "/"), type("string")),
+            ObjectIdentifier(UUID.self): (UUID(), .object(["type": "string", "format": "uuid"])),
             ObjectIdentifier(JSONValue.self): (JSONValue.null, .object([:])),
             ObjectIdentifier(Done.self): (Done(), type("null"))
         ]

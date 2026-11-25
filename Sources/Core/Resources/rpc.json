@@ -4592,6 +4592,11 @@
             },
             "type" : "array"
           },
+          "codexThread" : {
+            "description" : "The current Codex thread reported by a host hook, kept after the terminal closes or its log is trimmed.",
+            "format" : "uuid",
+            "type" : "string"
+          },
           "command" : {
             "type" : "string"
           },
