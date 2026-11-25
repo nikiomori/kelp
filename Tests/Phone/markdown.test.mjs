@@ -96,9 +96,45 @@ test('a code fence inside a list keeps literal markers and is followed by normal
   assert.equal(nodes[1].children[0].textContent, 'headcell');
 });
 
+test('left-margin lines stay in the fenced code of the first step', () => {
+  const nodes = markdown([
+    '1. Write the file', '   ```text', '   Sample text', '- literal', '     indented',
+    '', 'left margin', '2. literal', '   ```', '2. Read it', '', 'Outside the list',
+  ].join('\n'));
+  assert.deepEqual(tags(nodes), ['ol', 'p']);
+  const [list, outside] = nodes;
+  assert.deepEqual(tags(list.children), ['li', 'li']);
+  const [first, second] = list.children;
+  assert.deepEqual(tags(first.children), ['p', 'pre']);
+  const [paragraph, pre] = first.children;
+  assert.equal(paragraph.textContent, 'Write the file');
+  assert.deepEqual(tags(pre.children), ['code']);
+  assert.equal(pre.textContent, 'Sample text\n- literal\n  indented\n\nleft margin\n2. literal');
+  assert.equal(second.textContent, 'Read it');
+  assert.equal(outside.textContent, 'Outside the list');
+});
+
 test('an unfinished list fence ends when the next sibling starts', () => {
   const [list] = markdown('- ```js\n  code\n    indented\n- next');
   const [first, next] = list.children;
   assert.equal(first.children[0].textContent, 'code\n  indented');
   assert.equal(next.textContent, 'next');
+});
+
+test('an unfinished fence leaves the next step its own fenced block', () => {
+  for (const [second, expected] of [
+    ['2. ```sh', ['second']],
+    ['2. Run it\n   ```sh', ['Run it', 'second']],
+    ['2. Run it\n   ```', ['Run it', 'second']],
+  ]) {
+    const nodes = markdown(['1. ```js', '   first', second, '   second', '   ```'].join('\n'));
+    assert.deepEqual(tags(nodes), ['ol']);
+    const [list] = nodes;
+    assert.deepEqual(tags(list.children), ['li', 'li']);
+    const [first, next] = list.children;
+    assert.deepEqual(tags(first.children), ['pre']);
+    assert.equal(first.textContent, 'first');
+    assert.deepEqual(next.children.map(node => node.textContent), expected);
+    assert.equal(next.children.at(-1).localName, 'pre');
+  }
 });

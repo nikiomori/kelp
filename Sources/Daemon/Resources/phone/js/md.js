@@ -54,6 +54,24 @@ const ROW = /^\s*\|.*\|\s*$/, RULE = /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/;
 const tableAt = (lines, i) => ROW.test(lines[i]) && RULE.test(lines[i + 1] ?? '');
 const cells = (line, tag) => line.trim().slice(1, -1).split('|').map(cell => el(tag, ...inline(cell.trim())));
 
+// After a potential sibling, one bare fence closes the original block. A pair encloses the sibling's code.
+function hasClosingFence(lines, i, marker, indent) {
+  let sibling = false, bareFences = 0;
+  for (; i < lines.length; i++) {
+    const line = lines[i], item = line.match(ITEM);
+    if (item && FENCE.test(item[3])) break;
+    if (item && item[1].length <= indent) {
+      if (bareFences) break;
+      sibling = true;
+    }
+    if (!line.trimStart().startsWith(marker)) continue;
+    if (!/^\s*(?:`{3,}|~{3,})\s*$/.test(line)) break;
+    bareFences++;
+    if (!sibling || bareFences === 2) break;
+  }
+  return bareFences === 1;
+}
+
 export function markdown(source) {
   const lines = source.replace(/\r/g, '').split('\n');
   const root = document.createDocumentFragment();
@@ -92,12 +110,17 @@ export function markdown(source) {
     const fence = line.match(FENCE);
     if (fence) {
       const code = [];
+      const level = lists.at(-1);
       const margin = item ? item[0].length - line.length : indent;
+      let closed = false;
       for (i++; i < lines.length; i++) {
         const next = lines[i], spaces = next.length - next.trimStart().length;
-        if (lists.length && spaces < next.length && spaces <= lists.at(-1).indent) break;
+        if (level && !closed && spaces < next.length && spaces <= level.indent) {
+          closed = hasClosingFence(lines, i, fence[1], level.indent);
+          if (!closed) break;
+        }
         if (next.trim().startsWith(fence[1])) { i++; break; }
-        code.push(lists.length ? next.slice(Math.min(margin, spaces)) : next);
+        code.push(level ? next.slice(Math.min(margin, spaces)) : next);
       }
       parent.append(el('pre', el('code', code.join('\n'))));
       continue;
