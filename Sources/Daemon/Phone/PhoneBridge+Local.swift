@@ -292,19 +292,17 @@ struct PhoneTailscale: Sendable {
         guard let address = Self.address(status: status, requireRunning: false), let port = owners[address] else {
             return true
         }
-        if !leavingLiveKelp || !Self.kelpServes(port) { try Self.remove(program, address: address, port: port) }
+        if try !leavingLiveKelp || !Self.kelpServes(port) { try Self.remove(program, address: address, port: port) }
         owners.removeValue(forKey: address)
         try store.setDaemonState(Self.ownersKey, owners.isEmpty ? nil : owners)
         return !owners.isEmpty
     }
 
     /// Whether a Kelp's phone page answers on `port` of this Mac now.
-    static func kelpServes(_ port: UInt16) -> Bool {
-        do {
-            let page = try Subprocess.output(
-                ["/usr/bin/curl", "-sf", "-m", "2", "http://127.0.0.1:\(port)/"], cwd: "/", timeLimit: 5)
-            return String(decoding: page, as: UTF8.self).contains("id=\"a-retry\"")
-        } catch { return false }
+    static func kelpServes(_ port: UInt16) throws -> Bool {
+        let page = try Subprocess.run(
+            ["/usr/bin/curl", "-sf", "-m", "2", "http://127.0.0.1:\(port)/"], cwd: "/", env: [:], timeLimit: 5)
+        return page.status == 0 && String(decoding: page.stdout, as: UTF8.self).contains("id=\"a-retry\"")
     }
 
     private static func remove(_ program: String, address: String, port: UInt16) throws {

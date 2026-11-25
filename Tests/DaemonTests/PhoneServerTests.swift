@@ -193,7 +193,7 @@ private func phoneBridge(_ daemon: Daemon, program: URL) -> PhoneBridge {
         port: port, page: PhoneHTTP.page, call: { _, _, _, _, _ in .refused(503) }, left: { _ in })
     defer { other.stop() }
     other.start { _ in }
-    try #require(try await waitFor { PhoneTailscale.kelpServes(port) })
+    try #require(try await waitFor { try PhoneTailscale.kelpServes(port) })
     let tailscale = PhoneTailscale(store: daemon.store, executable: { program.path })
     _ = try tailscale.serve(port).get()
     let route = folder.appendingPathComponent("route"), served = try Data(contentsOf: route)
