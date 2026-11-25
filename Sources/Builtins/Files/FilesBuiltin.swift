@@ -24,18 +24,31 @@ extension Builtins {
 
     /// A command for a button on the bar over the agent's page in front (`ArtifactBar.button(for:)`), enabled while
     /// the button shows there and can be pressed; elsewhere it beeps.
-    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String) -> CommandSpec {
+    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String, key: String? = nil)
+        -> CommandSpec
+    {
         let button: @MainActor () -> NSControl? = {
             (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar?.button(for: id)
         }
         return CommandSpec(
-            id: id, title: title, enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
+            id: id, title: title, key: key,
+            enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
         ) { _ in
             guard let control = button(), !control.isHiddenOrHasHiddenAncestor, control.isEnabled else {
                 return NSSound.beep()
             }
             control.sendAction(control.action, to: control.target)
         }
+    }
+
+    /// View, Mark or Edit on the agent's page in front, as its bar's switch does.
+    fileprivate static func artifactMode(
+        _ app: AppModel, _ mode: MarkdownTab.CanvasMode, _ title: String, key: String
+    ) -> CommandSpec {
+        let bar = { @MainActor in (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar }
+        return CommandSpec(
+            id: "artifact.\(mode)", title: title, key: key, enabled: { bar()?.canChoose(mode) ?? false }
+        ) { _ in bar()?.choose(mode) }
     }
 
     /// The project whose Disk Usage tab is in front.
@@ -68,8 +81,11 @@ extension Builtins {
                 },
                 // What the bar over an agent's page does, as its buttons do.
                 artifactCommand(app, "artifact.present", "Artifact: Present"),
-                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version"),
-                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version"),
+                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version", key: "ctrl+cmd+left"),
+                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version", key: "ctrl+cmd+right"),
+                artifactMode(app, .view, "Artifact: View", key: "opt+cmd+1"),
+                artifactMode(app, .mark, "Artifact: Mark", key: "opt+cmd+2"),
+                artifactMode(app, .edit, "Artifact: Edit", key: "opt+cmd+3"),
                 artifactCommand(app, "artifact.showLatest", "Artifact: Show Latest"),
                 artifactCommand(app, "artifact.restore", "Artifact: Restore"),
                 artifactCommand(app, "artifact.update", "Artifact: Update"),

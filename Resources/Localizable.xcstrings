@@ -41216,6 +41216,36 @@
           }
         }
       }
+    },
+    "Artifact: View": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: просмотр"
+          }
+        }
+      }
+    },
+    "Artifact: Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: пометки"
+          }
+        }
+      }
+    },
+    "Artifact: Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: правка"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

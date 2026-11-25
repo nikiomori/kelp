@@ -247,6 +247,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: clip)
         }
         applyMode()
+        restorePlace()
         rerender()
         if [.canvas, .motion, .markdown, .slides].contains(page) { followCanvas() }   // what `kelp artifact check` asks
     }
@@ -342,6 +343,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     private var positioned = false
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        keepPlace()   // the page opens here next time
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         if !positioned, split.bounds.width > 700 {

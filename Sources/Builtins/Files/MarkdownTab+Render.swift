@@ -168,7 +168,7 @@ extension MarkdownTab {
             let was =
                 (try? await web.evaluateJavaScript("[window.scrollY, window.kelpAt ?? 0]", contentWorld: Self.world))
                 as? [Double] ?? [0, 0]
-            let scrollY = was.first ?? 0, slide = Int(was.last ?? 0)
+            let scrollY = web.url == nil ? keptPlace.y : was.first ?? 0, slide = Int(was.last ?? 0)   // first: as left
             guard !Task.isCancelled else { return }
             // In Split, the preview goes to the block being edited; otherwise it goes back to where it was.
             let place =

@@ -134,7 +134,9 @@ extension MarkdownTab {
             send(
                 "Update \(Artifacts.projectPath(url.path)): run its commands again and bring every figure up to date, "
                     + "its data-source time too.")
-        case "zoom": canvasZoom = body["value"] as? Double
+        case "zoom":
+            canvasZoom = body["value"] as? Double
+            keepPlace()
         case "source": modeSegment = 1
         case "fixCheck": sendCheck()
         case "fixCanvas":

@@ -598,3 +598,20 @@ extension OneAtATime {
         #expect(cards(tab.view) == 1)
     }
 }
+
+extension OneAtATime {
+    /// An agent's page opens at the zoom it was left at; the place is kept by the page, not by the tab.
+    @Test func aPageOpensAtTheZoomItWasLeftAt() {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-place/.kelp/artifacts/home/canvas.json")
+        let app = AppModel()
+        app.uiState["artifacts.place:.kelp/artifacts/home/canvas.json"] = .object(["zoom": .double(0.5), "y": .int(120)]
+        )
+        let tab = MarkdownTab(editor: CodeEditor(text: #"{"boards": []}"#, url: url), url: url, app: app)
+        #expect(tab.keptPlace.zoom == 0.5 && tab.keptPlace.y == 120)
+        tab.restorePlace()
+        #expect(tab.canvasZoom == 0.5)
+        let other = URL(fileURLWithPath: "/tmp/kelp-place/notes.md")
+        #expect(MarkdownTab(editor: CodeEditor(text: "", url: other), url: other, app: app).keptPlace.zoom == nil)
+    }
+}

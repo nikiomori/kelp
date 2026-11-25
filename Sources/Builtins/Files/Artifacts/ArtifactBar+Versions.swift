@@ -22,6 +22,18 @@ extension ArtifactBar {
 
     /// The bar's buttons that commands repeat (`Builtins.files`), by command id. A command runs only while its button
     /// shows on the page in front and can be pressed (Present still counts while a narrow pane keeps it in ⋯).
+    /// Whether the switch offers `mode` (a dashboard and a review have fewer, an older version none).
+    func canChoose(_ mode: MarkdownTab.CanvasMode) -> Bool {
+        !modes.isHidden && modes.isEnabled && mode.rawValue < modes.segmentCount
+    }
+
+    /// The switch set to `mode`, as a click on it does.
+    func choose(_ mode: MarkdownTab.CanvasMode) {
+        guard canChoose(mode) else { return NSSound.beep() }
+        modes.selectedSegment = mode.rawValue
+        markdown.setCanvasMode(mode)
+    }
+
     func button(for id: String) -> NSControl? {
         switch id {
         case "artifact.present": present
