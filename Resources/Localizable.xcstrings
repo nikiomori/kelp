@@ -41106,6 +41106,36 @@
           }
         }
       }
+    },
+    "Share…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться…"
+          }
+        }
+      }
+    },
+    "Copy as Picture": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать как картинку"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the picture: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать картинку: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -346,3 +346,22 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
         try FileManager.default.copyItem(at: out, to: URL(fileURLWithPath: "/tmp/kmr-shots/pptx-shapes"))
     }
 }
+
+/// A board copied as a picture is on the pasteboard as PNG, at twice its size.
+@MainActor @Test func aBoardIsCopiedAsAPicture() async throws {
+    _ = NSApplication.shared
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "kelp-copy-\(UUID().uuidString)/.kelp/artifacts/c")
+    try FileManager.default.createDirectory(
+        at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent().deletingLastPathComponent()) }
+    try "<p>Hi</p>".write(to: folder.appendingPathComponent("boards/a.html"), atomically: true, encoding: .utf8)
+    let canvas = #"{"boards": [{"file": "boards/a.html", "w": 300, "h": 200}]}"#
+    let url = folder.appendingPathComponent("canvas.json")
+    let tab = MarkdownTab(editor: CodeEditor(text: canvas, url: url), url: url, app: AppModel())
+    NSPasteboard.general.clearContents()
+    tab.copyBoard("boards/a.html")
+    #expect(try await waitFor(10) { NSPasteboard.general.data(forType: .png) != nil })
+    let rep = try #require(NSPasteboard.general.data(forType: .png).flatMap(NSBitmapImageRep.init(data:)))
+    #expect(rep.pixelsWide == 600 && rep.pixelsHigh == 400)
+}

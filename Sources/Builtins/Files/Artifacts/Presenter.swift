@@ -240,6 +240,7 @@ extension MarkdownTab {
                 break
             }
             let menu = NSMenu(), page = Artifacts.projectPath(url.path)
+            menu.add(String(localized: "Copy as Picture")) { [weak self] in self?.copySlide(n - 1) }
             menu.add(String(localized: "Variations of This Slide")) { [weak self] in
                 self?.send(
                     "Other layouts on \(page): write three other layouts of slide \(n) (line \(line)) as slides right "

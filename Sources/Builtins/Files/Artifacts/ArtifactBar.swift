@@ -351,6 +351,9 @@ final class ArtifactBar: NSObject {
         if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
         exportItems(menu)
         menu.addItem(.separator())
+        if md.page != .motion {   // a video is shared from its export
+            menu.add(String(localized: "Share…")) { [weak self] in self.map { md.share(from: $0.more) } }
+        }
         menu.add(String(localized: "Rename…")) {
             ArtifactActions.rename(app, page: path, title: self.item?.title ?? "")
         }

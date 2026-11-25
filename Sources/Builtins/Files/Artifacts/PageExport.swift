@@ -106,8 +106,10 @@ extension MarkdownTab {
         }
     }
 
-    /// Exports the page as `format` into `to`, and shows it in Finder; a failure is a banner.
-    func export(_ format: PageExport, to: URL, editable: Bool = false) async {
+    /// Exports the page as `format` into `to`, and shows it in Finder unless `reveal` is off; a failure is a banner.
+    @discardableResult func export(_ format: PageExport, to: URL, editable: Bool = false, reveal: Bool = true) async
+        -> Bool
+    {
         do {
             switch format {
             case .png: try await exportBoards(into: to)
@@ -124,9 +126,11 @@ extension MarkdownTab {
             case .docx: try exportWord(to)
             case .md: try exportMarkdown(to)
             }
-            NSWorkspace.shared.activateFileViewerSelecting([to])
+            if reveal { NSWorkspace.shared.activateFileViewerSelecting([to]) }
+            return true
         } catch {
             Banner.show(String(localized: "Couldn’t export: \(error.localizedDescription)"), style: .error)
+            return false
         }
     }
 

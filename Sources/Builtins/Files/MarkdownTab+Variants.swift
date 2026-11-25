@@ -17,6 +17,7 @@ extension MarkdownTab {
                 self?.send(Self.variations(of: board, page: page, like: nil))
             }
             menu.addItem(.separator())
+            menu.add(String(localized: "Copy as Picture")) { [weak self] in self?.copyBoard(board) }
             menu.add(String(localized: "Duplicate Board")) { [weak self] in self?.duplicateBoard(board) }
             menu.add(String(localized: "Remove Board")) { [weak self] in self?.removeBoard(board) }
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
