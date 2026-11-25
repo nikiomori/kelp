@@ -5447,6 +5447,40 @@
         ],
         "type" : "object"
       },
+      "SessionHistory.Change" : {
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/AgentStatus"
+          }
+        },
+        "required" : [
+          "at",
+          "status"
+        ],
+        "type" : "object"
+      },
+      "SessionHistory.Entry" : {
+        "properties" : {
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SessionHistory.Change"
+            },
+            "type" : "array"
+          },
+          "session" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "changes",
+          "session"
+        ],
+        "type" : "object"
+      },
       "SessionRole" : {
         "description" : "The job Kelp started a session for (`Session.role`). A `reviewer` session reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text meant for \"the agent\" never go to it.",
         "enum" : [
@@ -13808,6 +13842,31 @@
           "$ref" : "#/components/schemas/Session"
         }
       }
+    },
+    {
+      "description" : "Returns the status changes of every session that changed since `since`, oldest first, read from the trail the daemon keeps beside each session's history (`session.trail`). The Agents Overview draws each chat's day from them and sums the week. A session lists the status it had at `since` as its first change, at `since`; one with no change since then isn't listed.",
+      "name" : "session.history",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "since",
+          "required" : true,
+          "schema" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SessionHistory.Entry"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Sent by a running agent's hooks (`kelp hook`): `event`, plus what Claude Code's hook payload says.",

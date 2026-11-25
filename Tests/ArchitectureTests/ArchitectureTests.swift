@@ -229,7 +229,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: a right-click menu's item shows its command's key as it stands (`showKey`), so Send to Agent teaches ⌥⌘↩
     // in the editor, the diff and the terminal.
     // +1: a tab's own answer to ⌥⌘↩ (`sendSelectionToAgent`), "nothing selected" by default.
-    #expect(declared == 390, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
+    // Agents Overview puts a chat in review or done by it.
+    #expect(declared == 392, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

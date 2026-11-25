@@ -48,6 +48,11 @@ extension PRsEvent: Pushed {
         return read.prs ?? []
     }
 }
+/// The pull request of a folder's branch: Git's marks and cards, and the Agents Overview's stages.
+extension PREvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .pr }
+}
 extension CIEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .ci }
