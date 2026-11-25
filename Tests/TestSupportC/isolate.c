@@ -46,6 +46,8 @@ static void mask_defaults(void) {
         : CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFArrayRef none = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
     CFDictionarySetValue(masked, CFSTR("agents.available"), none);
+    // No window or sheet animations: they draw past the see-through windows of unseen.c.
+    CFDictionarySetValue(masked, CFSTR("NSAutomaticWindowAnimationsEnabled"), kCFBooleanFalse);
     ((void (*)(id, SEL, CFStringRef))objc_msgSend)(defaults, sel_registerName("removeVolatileDomainForName:"), domain);
     ((void (*)(id, SEL, CFDictionaryRef, CFStringRef))objc_msgSend)(
         defaults, sel_registerName("setVolatileDomain:forName:"), masked, domain);
