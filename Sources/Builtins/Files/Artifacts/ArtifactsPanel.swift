@@ -20,8 +20,6 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         case item(ArtifactItem, earlier: [ArtifactItem])
     }
     private static let seenKey = "artifacts.seen"
-    /// The filter field shows once the panel has more than this many pages.
-    private static let filterFrom = 12
 
     let app: AppModel
     let table = KeyTable()
@@ -155,13 +153,13 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         count = items.count
         let find = search.stringValue.trimmingCharacters(in: .whitespaces)
         let project = app.projectName(app.worktree(app.workbench.workspaceId)?.repoId)
-        let found = items.filter { find.isEmpty || title($0, project).localizedCaseInsensitiveContains(find) }
+        let found = items.filter { find.isEmpty || words($0, project).localizedCaseInsensitiveContains(find) }
         // Rows move only within one workspace's list: another workspace's pages are a new list.
         let places = listed == app.workbench.workspaceId ? table.rowPlaces(rowKey) : [:]
         let old = Set(rows.indices.compactMap(rowKey))
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         listed = app.workbench.workspaceId
-        filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
+        filterBar.isHidden = count == 0 && find.isEmpty
         if let failed, kept == nil {
             empty.showError(String(localized: "Couldn’t Read the Pages"), text: failed, buttons: [tryAgain])
         } else {

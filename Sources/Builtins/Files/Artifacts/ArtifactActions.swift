@@ -34,3 +34,12 @@ enum ArtifactActions {
         }
     }
 }
+
+extension ArtifactsPanel {
+    /// What the filter finds a page by: its title, its kind and the agent that made it ("slides", "Codex").
+    func words(_ item: ArtifactItem, _ project: String?) -> String {
+        let kind = Artifacts.Kind(rawValue: item.type).map(ArtifactStart.title) ?? item.type
+        let agent = item.session.flatMap(app.session)?.agent.map { app.catalog.name($0) } ?? ""
+        return [title(item, project), kind, item.type, agent].joined(separator: " ")
+    }
+}

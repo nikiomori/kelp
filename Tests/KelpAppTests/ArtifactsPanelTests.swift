@@ -110,3 +110,12 @@ extension OneAtATime {
     #expect(try await waitFor(10) { panel.failureBar.shown == "disk I/O error" })
     #expect(panel.rows.count == 2)
 }
+
+/// The filter finds a page by its kind too, in either language's word for it, not only by its title.
+@MainActor @Test func theFilterFindsAPageByItsKind() {
+    let panel = ArtifactsPanel(app: AppModel(builtins: []))
+    let deck = ArtifactItem(
+        slug: "q3", type: "slides", title: "Q3 review", created: 0, target: "/p/.kelp/artifacts/q3/slides.md")
+    let words = panel.words(deck, nil)
+    #expect(words.contains("Q3 review") && words.contains("slides") && words.contains(ArtifactStart.title(.slides)))
+}
