@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import Foundation
 import ImageIO
 import TestSupport
@@ -572,5 +573,28 @@ extension OneAtATime {
         MarkdownTab.loaded.removeObject(forKey: tab)
         tab.links.webViewWebContentProcessDidTerminate(tab.web)
         #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
+    }
+}
+
+extension OneAtATime {
+    /// Edit › Find with the page focused shows the find card over the page, not a beep.
+    @Test func findOnThePageShowsItsFindCard() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-page-find/notes.md")
+        let tab = MarkdownTab(editor: CodeEditor(text: "# Notes\n\nfind me", url: url), url: url, app: AppModel())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: false)
+        window.contentViewController = tab
+        #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
+        window.makeFirstResponder(tab.web)
+        let find = NSMenuItem(
+            title: "Find…", action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: "f")
+        find.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
+        #expect(
+            NSApp.sendAction(find.action!, to: nil, from: find)
+                || window.firstResponder?.tryToPerform(find.action!, with: find) == true)
+        func cards(_ v: NSView) -> Int { (v is FindCard ? 1 : 0) + v.subviews.map(cards).reduce(0, +) }
+        #expect(cards(tab.view) == 1)
     }
 }
