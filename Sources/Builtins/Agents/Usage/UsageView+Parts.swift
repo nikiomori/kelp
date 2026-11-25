@@ -38,7 +38,9 @@ extension UsageView {
         let pace: Bool
         /// The kinds of the limits that have a bar in the sidebar's foot.
         let bars: [String]
-        /// Shows or hides a limit's bar in the foot.
+        /// Whether another agent stays in the foot if this one leaves it: then the eye on its last bar hides the agent.
+        let others: Bool
+        /// Shows or hides a limit's bar in the foot, or the agent on its last bar.
         let toggle: (Line) -> Void
         /// Each limit gets its own bar, so the one that's running out shows at a glance.
         var body: some View {
@@ -106,16 +108,17 @@ extension UsageView {
             .padding(12)
         }
 
-        /// The eye that shows or hides the limit's bar in the sidebar's foot, struck through while hidden. The last bar
-        /// can't be hidden: Hide Plan Limits hides the foot.
+        /// The eye that shows or hides the limit's bar in the sidebar's foot, struck through while hidden. On the
+        /// agent's last bar it hides the agent, as the foot's menu does; on the last agent's it can't (Hide Plan Limits
+        /// hides the foot).
         private func eye(_ line: Line) -> some View {
             let on = bars.contains(line.kind)
-            let last = on && bars.count == 1
+            let last = on && bars.count == 1 && !others
             let verb = on ? String(localized: "Hide in Sidebar") : String(localized: "Show in Sidebar")
             return Button {
                 toggle(line)
             } label: {
-                // Dimmed when it's the last bar: drawn .primary it looked live and swallowed the click.
+                // Dimmed when it can't act: drawn .primary it looked live and swallowed the click.
                 Image(systemName: on ? "eye" : "eye.slash").font(.symbol())
                     .foregroundStyle(last ? .tertiary : on ? .primary : .secondary)
             }
