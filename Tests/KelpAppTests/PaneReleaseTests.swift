@@ -3,10 +3,33 @@ import Core
 import Foundation
 import TestSupport
 import Testing
+import WorkbenchKit
 
 @testable import BuiltinAgents
 @testable import KelpApp
 @testable import KelpKit
+
+/// An agent's terminal offers Send Selection to Agent, with its key, as a shell's does, so one agent's error goes to
+/// another; with nothing selected there is no item and ⌥⌘↩ has nothing to send.
+@MainActor @Test func anAgentsTerminalSendsItsSelectionToAnotherAgent() {
+    _ = testHome
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()
+    for (id, agent) in [("a", "codex"), ("s", Session.shellAgent)] {
+        let pane = PaneView(session: Session(id: id, cwd: "/", command: agent, agent: agent, status: .idle), app: app)
+        let menu = NSMenu()
+        pane.addSend(to: menu, selection: "error: call can throw")
+        let send = menu.items.first
+        #expect(send?.title == "Send Selection to Agent")
+        #expect(
+            send.map { KeyBindings.display(KeySpec(key: $0.keyEquivalent, mods: .init($0.keyEquivalentModifierMask))) }
+                == "⌥⌘↩")
+        let none = NSMenu()
+        pane.addSend(to: none, selection: "")
+        #expect(none.items.isEmpty)
+        #expect(!pane.sendSelectionToAgent())
+    }
+}
 
 /// A terminal out of sight lets go of its surface after a while, Pause idle agents off or not (only sooner when it's
 /// on); it isn't "Session ended" meanwhile, and shown again it attaches anew. All in one main-actor turn: the attach's

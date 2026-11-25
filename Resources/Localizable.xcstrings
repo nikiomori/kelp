@@ -12930,6 +12930,16 @@
         }
       }
     },
+    "No other agent on this screen. Start one with %@, then send again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране нет другого агента. Запустите его (%@) и отправьте снова."
+          }
+        }
+      }
+    },
     "No changes": {
       "localizations": {
         "ru": {

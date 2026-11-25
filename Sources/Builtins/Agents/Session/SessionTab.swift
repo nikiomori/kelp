@@ -52,6 +52,7 @@ final class SessionTab: TabContent {
         }
     }
     func focus() { pane.focus() }
+    func sendSelectionToAgent() -> Bool { pane.sendSelectionToAgent() }
 
     /// Closing the tab ends the session. It asks first only when something would stop: a working agent, what a
     /// finished agent left running, or a program running in a terminal. An idle shell, or a finished agent with

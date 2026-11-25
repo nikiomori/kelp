@@ -347,9 +347,7 @@ final class PaneView: NSView {
         ).target = terminal
         menu.addItem(.separator())
         let shell = app.session(sessionId)?.isTerminal == true
-        if shell, let text = terminal.selection, !text.isEmpty {   // hands a build's error to the agent without a copy
-            menu.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
-        }
+        addSend(to: menu, selection: terminal.selection)
         menu.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
         if shell { menu.add(String(localized: "Clear")) { _ = terminal.perform(action: "clear_screen") } }
         if embedded { return menu }

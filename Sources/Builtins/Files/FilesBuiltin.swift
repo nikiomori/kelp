@@ -203,7 +203,8 @@ extension Builtins {
                 cmd("editor.foldLevel2", "Fold Level 2") { CodeEditor.focused?.foldAll(level: 2) },
                 cmd("editor.foldLevel3", "Fold Level 3") { CodeEditor.focused?.foldAll(level: 3) },
                 // ⌥⌘↩ hands what the tab in front has selected to the agent: a file's or a diff's lines as "path:12-30"
-                // (the agent reads the file itself), typed into its prompt without pressing Return.
+                // (the agent reads the file itself), a terminal's text to another agent, typed into its prompt without
+                // pressing Return.
                 cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
                     if app.workbench.focusedContent?.sendSelectionToAgent() != true { NSSound.beep() }
                 },
