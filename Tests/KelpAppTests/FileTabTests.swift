@@ -97,7 +97,10 @@ extension AppOfItsOwn {
             tab.contextMenu(menu)
             return Dictionary(
                 menu.items.filter { !$0.keyEquivalent.isEmpty }.map {
-                    ($0.title, KeyBindings.display(KeySpec(key: $0.keyEquivalent, mods: .init($0.keyEquivalentModifierMask))))
+                    (
+                        $0.title,
+                        KeyBindings.display(KeySpec(key: $0.keyEquivalent, mods: .init($0.keyEquivalentModifierMask)))
+                    )
                 }, uniquingKeysWith: { a, _ in a })
         }
         #expect(keys() == ["Send to Agent": "⌥⌘↩", "Copy Path and Line": "⌥⇧⌘C", "Toggle Comment": "⌘/"])
@@ -342,6 +345,7 @@ extension AppOfItsOwn {
         #expect(tab.badge == nil && tab.terminalGrid == nil)
         tab.goTo(line: 3)
         #expect(file.editor?.cursor?.line == 3)
+        #expect(tab.sendSelectionToAgent())   // ⌥⌘↩: a file always has its path to hand over
         #expect(await tab.close())   // nothing edited: closes without asking
     }
 

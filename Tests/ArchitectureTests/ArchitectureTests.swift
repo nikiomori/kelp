@@ -225,7 +225,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // (`Session.interrupted`) and continues them in the sidebar's order (`inSidebarOrder`).
     // +1: a right-click menu's item shows its command's key as it stands (`showKey`), so Send to Agent teaches ⌥⌘↩
     // in the editor, the diff and the terminal.
-    #expect(declared == 385, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: a tab's own answer to ⌥⌘↩ (`sendSelectionToAgent`), "nothing selected" by default.
+    #expect(declared == 386, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -241,8 +242,10 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         let t = String(l)
         return declaration.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil
     }
-    #expect(requirements.count <= 14, "\(requirements)")
-    #expect(requirements.count >= 14, "fewer now: lower the ceiling")
+    // 15: ⌥⌘↩ hands the selection of whatever tab is in front to an agent (`sendSelectionToAgent`): a file's, a diff's
+    // and a terminal's each answer it, and the command can't know their kinds.
+    #expect(requirements.count <= 15, "\(requirements)")
+    #expect(requirements.count >= 15, "fewer now: lower the ceiling")
 }
 
 /// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.

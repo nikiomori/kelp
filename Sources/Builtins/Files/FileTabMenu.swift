@@ -30,7 +30,9 @@ extension FileTab {
         }
         // The items that are commands show their keys, so the menu teaches ⌥⌘↩ and the rest.
         let keyed = { (id: String, item: NSMenuItem) in app.extensions.showKey(id, on: item) }
-        keyed("editor.sendToAgent", menu.add(String(localized: "Send to Agent")) { [weak self] in self?.sendToAgent() })
+        keyed(
+            "editor.sendToAgent",
+            menu.add(String(localized: "Send to Agent")) { [weak self] in self?.sendSelectionToAgent() })
         keyed(
             "editor.copyReference",
             menu.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) })
@@ -45,8 +47,9 @@ extension FileTab {
 
     /// Types "path:12-30" (the selected lines, else the file alone) into the agent's prompt without pressing Return.
     /// The agent reads the file itself.
-    func sendToAgent() {
+    @discardableResult func sendSelectionToAgent() -> Bool {
         FileActions(app).sendToAgent(path, lines: selectedText?.isEmpty == false ? selectedLines : nil)
+        return true
     }
 
     func showProblems() {
