@@ -111,6 +111,11 @@ enum PageMarks {
             post({ kind: 'mode', value: 'mark' }); window.kelpMark(true);
             if (t) add(t);
           });
+          // A task list's boxes tick on the page and in the Markdown (`task`).
+          for (const box of root.querySelectorAll('input[data-task]')) {
+            box.disabled = false;
+            box.onchange = () => post({ kind: 'task', line: +box.dataset.task, done: box.checked });
+          }
           window.kelpMark = v => K.setOn(v);
           addEventListener('kelp-slide', () => K.draw());
           K.draw();

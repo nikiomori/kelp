@@ -71,6 +71,21 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(h.contains(#"<li class="task-list-item"><input type="checkbox" disabled> todo</li>"#))
     #expect(h.contains(#"<li class="task-list-item"><input type="checkbox" disabled checked> done</li>"#))
     #expect(h.contains(#"<li>plain</li>"#))
+    let marked = MarkdownHTML.render("# Plan\n\n- [ ] todo\n- [x] done", marking: true)
+    #expect(
+        marked.contains(#"<input type="checkbox" disabled data-task="3">"#), "an agent's page says each task's line")
+}
+
+/// A task ticked on the page ticks its line in the Markdown; a line that holds no task is left as it is.
+@Test(arguments: [
+    ("- [ ] todo", 1, true, "- [x] todo"),
+    ("  1. [x] done", 1, false, "  1. [ ] done"),
+    ("intro\n* [ ] b", 2, true, "intro\n* [x] b"),
+    ("- [ ] todo", 2, true, "- [ ] todo"),
+    ("plain [ ] text", 1, true, "plain [ ] text")
+])
+func aTaskTickedOnThePageTicksItsLine(text: String, line: Int, done: Bool, after: String) {
+    #expect(MarkdownTasks.set(text, line: line, done: done) == after)
 }
 
 @Test func tablesWithAlignment() {

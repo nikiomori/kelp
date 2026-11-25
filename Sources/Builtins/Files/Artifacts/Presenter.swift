@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import Markdown
 import WebKit
 
 /// Slides presented with notes: the room sees the slide as large as it goes (on a second screen, a window over all
@@ -255,6 +256,12 @@ extension MarkdownTab {
             Task { _ = await saveFile?() }
         case "slideAt":
             if let at = (body["at"] as? NSNumber)?.intValue { Presenter.follow(self, at: at) }
+        case "task":
+            guard let line = (body["line"] as? NSNumber)?.intValue, let done = body["done"] as? Bool else { break }
+            let next = MarkdownTasks.set(editor.text, line: line, done: done)
+            guard next != editor.text else { break }
+            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
+            Task { _ = await saveFile?() }
         case "notes":
             guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
             let next = SlideNotes.set(editor.text, line: line, text: text)
