@@ -37,6 +37,14 @@ extension DatabaseInfo.Engine {
         return "X'" + value.dropFirst(2) + "'"
     }
 
+    /// Whether a value is only Kelp's stand-in for bytes it doesn't show whole: a long MySQL or Postgres binary value
+    /// (its first bytes as 0x… or \x…, then "… (N bytes)") or a SQLite blob ("<N bytes>"). Written back it would put
+    /// that text in place of the bytes, so a row's edit, copy or INSERT leaves the column out.
+    public static func standIn(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return value.wholeMatch(of: /(?:0x|\\x)[0-9a-f]*… \(\d+ bytes\)|<\d+ bytes>/) != nil
+    }
+
     /// Whether a MySQL column of this type holds bytes: BINARY, VARBINARY, BIT or a BLOB.
     static func bytes(_ type: String) -> Bool {
         let type = type.lowercased()

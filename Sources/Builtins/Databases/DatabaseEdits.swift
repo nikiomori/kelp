@@ -87,13 +87,16 @@ struct DatabaseEdits: Equatable {
         let deletes = deleted.sorted().filter { rows.indices.contains($0) }.map { "DELETE FROM \(name)" + one($0) }
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
-            let set = changed.keys.sorted().map { column in
-                "\(Self.name(columns[column], engine)) = \(literal(changed[column] ?? nil, column))"
+            let set = changed.keys.sorted().filter { !DatabaseInfo.Engine.standIn(changed[$0] ?? nil) }.map {
+                "\(Self.name(columns[$0], engine)) = \(literal(changed[$0] ?? nil, $0))"
             }
+            guard !set.isEmpty else { return nil }
             return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
         }
         let inserts = added.compactMap { row -> String? in
-            let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
+            let given = row.indices.filter {
+                row[$0] != nil && !DatabaseInfo.Engine.standIn(row[$0]) && columns.indices.contains($0)
+            }
             guard !given.isEmpty else { return Self.defaults(name, engine) }
             return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
                 + ") VALUES (" + given.map { literal(row[$0], $0) }.joined(separator: ", ") + ")"

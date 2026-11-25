@@ -50,6 +50,14 @@ import Testing
     #expect(DatabaseInfo.Engine.mysql.literal("0x41", type: "blob") == "X'41'")
     #expect(DatabaseInfo.Engine.mysql.literal("hello", type: "varbinary(9)") == "'hello'")
     #expect(DatabaseInfo.Engine.postgres.literal("0x41", type: "bytea") == "'0x41'")
+    // A value shown only in part (a long blob) isn't written back: a copied row leaves it out, a pasted cell too
+    var copied = DatabaseEdits()
+    copied.add(["0x00ff", "0.1", "0x0102… (100 bytes)"])
+    copied.set(row: 0, column: 2, to: "<9 bytes>", was: "a")
+    #expect(
+        copied.statements(
+            table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: ["id"], rows: rows,
+            types: ["id": "binary(2)", "v": "blob"]) == ["INSERT INTO `t` (`id`, `f`) VALUES (X'00ff', '0.1')"])
 }
 
 @Test func aDatabaseTabsAddressNamesItsWorkspaceDatabaseAndRun() {
@@ -87,9 +95,10 @@ import Testing
         ])
     var blank = DatabaseEdits()
     blank.add([nil])
-    #expect(blank.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
-        "INSERT INTO `t` () VALUES ()"
-    ])
+    #expect(
+        blank.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
+            "INSERT INTO `t` () VALUES ()"
+        ])
     #expect(blank.statements(table: "t", engine: .appwrite, columns: ["v"], primary: [], rows: []).isEmpty)
     // A key the result doesn't hold in full is no key: the row is found by all its values.
     #expect(
@@ -128,6 +137,12 @@ import Testing
     let json = ResultText.json(columns, rows)
     #expect(json.contains(#""id" : 1"#) && json.contains(#""note" : null"#) && json.contains(#""k" : 1"#))
     #expect(ResultText.insert(["id"], [["1"]], table: "t", engine: .sqlite) == #"INSERT INTO "t" ("id") VALUES ('1');"#)
+    #expect(
+        ResultText.insert(["id", "b"], [["1", "\\x0102… (70 bytes)"]], table: "t", engine: .postgres)
+            == #"INSERT INTO "t" ("id") VALUES ('1');"#)
+    #expect(
+        ResultText.insert(["b"], [["0x41"]], table: "t", engine: .mysql, types: ["blob"])
+            == "INSERT INTO `t` (`b`) VALUES (X'41');")
 }
 
 /// Number columns stand right, found by their type ("interval" starts with "int", "point" ends with it: neither is

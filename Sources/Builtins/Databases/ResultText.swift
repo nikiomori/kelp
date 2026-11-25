@@ -31,7 +31,7 @@ enum ResultText {
         case .csv: csv(columns, rows)
         case .json: json(columns, rows, types: types)
         case .markdown: markdown(columns, rows)
-        case .insert: insert(columns, rows, table: from.table ?? "t", engine: from.engine ?? .postgres)
+        case .insert: insert(columns, rows, table: from.table ?? "t", engine: from.engine ?? .postgres, types: types)
         }
     }
 
@@ -112,11 +112,17 @@ enum ResultText {
         return ([head, rule] + rows.map { "| " + $0.map(cell).joined(separator: " | ") + " |" }).joined(separator: "\n")
     }
 
-    static func insert(_ columns: [String], _ rows: [[String?]], table: String, engine: DatabaseInfo.Engine) -> String {
-        let names = columns.map { DatabaseEdits.name($0, engine) }.joined(separator: ", ")
-        return rows.map { row in
-            "INSERT INTO \(DatabaseEdits.name(table, engine)) (\(names)) VALUES ("
-                + row.map { engine.literal($0) }.joined(separator: ", ") + ");"
+    /// A value Kelp shows only the start of is left out (`DatabaseInfo.Engine.standIn`), and `types` write MySQL's
+    /// bytes as bytes.
+    static func insert(
+        _ columns: [String], _ rows: [[String?]], table: String, engine: DatabaseInfo.Engine, types: [String?] = []
+    ) -> String {
+        rows.map { row in
+            let given = row.indices.filter { columns.indices.contains($0) && !DatabaseInfo.Engine.standIn(row[$0]) }
+            return "INSERT INTO \(DatabaseEdits.name(table, engine)) ("
+                + given.map { DatabaseEdits.name(columns[$0], engine) }.joined(separator: ", ") + ") VALUES ("
+                + given.map { engine.literal(row[$0], type: types.indices.contains($0) ? types[$0] ?? "" : "") }
+                .joined(separator: ", ") + ");"
         }.joined(separator: "\n")
     }
 }
