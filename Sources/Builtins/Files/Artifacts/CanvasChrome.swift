@@ -88,6 +88,48 @@ enum CanvasChrome {
               zoom.append(out, shown, into, el('span', 'kelp-sep'), fit);
               addEventListener('kelp-zoom', () => { shown.textContent = Math.round(now() * 100) + '%'; });
               document.body.append(zoom);
+              // Keys as in design tools: ⌘+ ⌘− step, ⌘9 fits, ⇧2 brings the chosen element into view, large.
+              const typing = t => t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+              const scaleOf = f => f.getBoundingClientRect().width / f.offsetWidth;
+              function bringIn(at) {
+                const r = at.e.getBoundingClientRect();
+                const fits = Math.min(innerWidth / r.width, innerHeight / r.height) * 0.6;
+                set(Math.min(4, now() * fits / scaleOf(at.f)));
+                requestAnimationFrame(() => {
+                  const b = at.e.getBoundingClientRect(), g = at.f.getBoundingClientRect(), k = scaleOf(at.f);
+                  scrollBy(g.left + (b.left + b.width / 2) * k - innerWidth / 2,
+                    g.top + (b.top + b.height / 2) * k - innerHeight / 2);
+                });
+              }
+              addEventListener('keydown', e => {
+                if (typing(e.target)) return;
+                const key = e.metaKey && !e.altKey ? { '=': into, '+': into, '-': out, '9': fit }[e.key] : null;
+                if (key) { e.preventDefault(); return key.click(); }
+                const at = e.shiftKey && !e.metaKey && e.code === 'Digit2' && window.kelpProps?.at?.();
+                if (at) { e.preventDefault(); bringIn(at); }
+              });
+              // Space held: the canvas moves with the pointer (not in Mark, where Space shows Before, nor presenting).
+              let panning = null;
+              const ownSpace = () => window.kelpCanvas?.mode?.() === 'mark'
+                || document.body.classList.contains('kelp-present');
+              addEventListener('keydown', e => {
+                if (e.code !== 'Space' || typing(e.target) || panning || ownSpace()) return;
+                e.preventDefault(); panning = { at: null }; document.body.style.cursor = 'grab';
+              });
+              addEventListener('keyup', e => {
+                if (e.code !== 'Space') return;
+                panning = null; document.body.style.cursor = '';
+              });
+              addEventListener('mousedown', e => {
+                if (!panning) return;
+                panning.at = [e.clientX, e.clientY]; e.preventDefault(); e.stopPropagation();
+              }, true);
+              addEventListener('mousemove', e => {
+                if (!panning?.at) return;
+                scrollBy(panning.at[0] - e.clientX, panning.at[1] - e.clientY);
+                panning.at = [e.clientX, e.clientY];
+              }, true);
+              addEventListener('mouseup', () => { if (panning) panning.at = null; }, true);
             })();
             """
     }
