@@ -70,7 +70,7 @@ extension Databases {
             run.ms = ms
             let result = Self.result(run.id, statements, changed, ms: ms)
             note(databaseQuery.worktreeId, run, result: result)
-            if changes { turnChanged(run) }
+            if changes { await turnChanged(run) }
             return result
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
     }
@@ -81,7 +81,8 @@ extension Databases {
     private func changesInATurn(_ statements: [String], _ databaseConnection: DatabaseConnection, session: String?)
         async -> Bool
     {
-        guard let session, currentTurn(session) != nil else { return false }   // only a turn keeps what they change
+        // Only a turn keeps what they change
+        guard let session, await currentTurn(session) != nil else { return false }
         for sql in statements {
             guard ["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb(sql)),
                 SQLText.mayTryAsRead(sql, databaseConnection.database.engine)

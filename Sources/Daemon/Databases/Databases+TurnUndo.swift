@@ -102,7 +102,18 @@ extension Databases {
                         try connection(kept.worktreeId, kept.name, agent: false)
                     }
                     guard let live = target.database.database else { throw DatabaseFailure.failed("no database") }
-                    try await maintenance(target, [Self.dropSQL(live), Self.renameSQL(aside, to: live)])
+                    let temp = Self.templateName("redo-" + undone, kept.name)
+                    do {
+                        try await Self.swap(aside, for: live, temp: temp) { try await maintenance(target, [$0]) }
+                    } catch let stranded as Stranded {
+                        // Neither holds the copy's name now: neither is dropped later as the undo's spare
+                        Log.store.attempt("keeping \(aside) from being dropped") {
+                            try turnKeeps.change(undone) { all in
+                                (all[index].template, all[index].cannot) = (nil, stranded.why)
+                            }
+                        }
+                        throw stranded
+                    }
                 }
             } catch {
                 Log.store.error("putting \(kept.name) back as the undo found it: \(error)")
@@ -112,6 +123,27 @@ extension Databases {
         // What couldn't go back stays kept until the next undo drops it
         if failed.isEmpty { FileManager.default.removeIfAny(turnKeeps.folder(undone)) }
         return failed
+    }
+
+    /// A swap that couldn't put the copy's name back (`swap`).
+    struct Stranded: Error { var why: String }
+
+    /// Puts the Postgres database `aside` in the place of `live`, `run`ning each statement. `live` is named `temp`
+    /// first and dropped once `aside` has its name, so a step that fails names it back, leaving both as they were.
+    /// When even that fails, it throws `Stranded`.
+    static func swap(_ aside: String, for live: String, temp: String, _ run: (String) async throws -> Void)
+        async throws
+    {
+        try await run(renameSQL(live, to: temp))
+        do { try await run(renameSQL(aside, to: live)) } catch {
+            do { try await run(renameSQL(temp, to: live)) } catch {
+                throw Stranded(why: "\(live) is named \(temp) on its server, and the undo's state \(aside).")
+            }
+            throw error
+        }
+        do { try await run(dropSQL(temp)) } catch {
+            Log.store.error("dropping \(temp), \(live) as it was before a redo: \(error)")
+        }
     }
 
     // MARK: What the sheet says

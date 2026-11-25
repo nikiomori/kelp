@@ -91,7 +91,7 @@ extension Databases {
                     let rows = try await DatabaseEngines.write(target, saying, allowed: asked, off: offloads)
                     run.state = .done
                     let sent = finish(databaseQuery, &run, rows, started: started, agent: forAgent, tried: tried)
-                    turnChanged(run)
+                    await turnChanged(run)
                     return sent
                 } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
             }

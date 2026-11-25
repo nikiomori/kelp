@@ -107,7 +107,7 @@ private func orders(_ path: String) throws -> [String] {
 }
 
 /// Statements sent together that write from inside a query (`WITH … DELETE`) are kept with the turn as a change, as
-/// one such statement is.
+/// one such statement is, also in the turn's first moment, before its snapshot is listed.
 @Test func aTurnKeepsSeveralStatementsThatWriteInsideAQuery() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])
     defer { w.d.stop() }
@@ -121,11 +121,11 @@ private func orders(_ path: String) throws -> [String] {
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let live = try #require(w.d.sessions.existing(s.id))
     live.noteTurn(.working)
-    #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
-    let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
     let sql = "WITH old AS (SELECT 1) DELETE FROM orders WHERE id = 1; SELECT count(*) FROM orders"
     _ = try await w.d.workspaces.databases.query(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: sql), origin: s.id)
+    #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
+    let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
     #expect(w.d.sessions.turns.databases.kept(turn.id).first?.runs.count == 1)
 }
 
@@ -253,4 +253,57 @@ func theSheetSaysWhatTheAgentDid(runs: [String: Int], said: String?) {
     #expect(keeps.kept("t2").map(\.template) == [nil, "kelp_t2_w2"])
     #expect(keeps.kept("t1").first?.cannot == "Its branch's copy was removed.")
     #expect(keeps.takeTemplates(of: "app_fix", in: "w1").isEmpty)
+}
+
+/// Two first changes of a turn at once both try to copy a branch's Postgres copy: a copy made is listed over the
+/// other's failure only while no change is kept with that, since one made after a change isn't as the turn found it.
+@Test(
+    arguments: [
+        ([], "kelp_t", ["kelp_t"], true),
+        (["cannot"], "kelp_t", ["kelp_t"], true),
+        (["cannot", "ran"], "kelp_t", ["cannot"], false),
+        (["kelp_t"], nil, ["kelp_t"], false)
+    ] as [([String], String?, [String], Bool)])
+func aTurnsPostgresCopyIsListedOnlyBeforeItsFirstChange(had: [String], made: String?, listed: [String], kept: Bool) {
+    let run = DatabaseRun(
+        id: "r", database: "app_fix", sql: "UPDATE a SET x = 1", session: "s", at: Date(), state: .done)
+    var all = had.first.map { first in
+        [
+            KeptDatabase(
+                worktreeId: "w", name: "app_fix", engine: .postgres, template: first == "cannot" ? nil : first,
+                cannot: first == "cannot" ? "busy" : nil, runs: had.contains("ran") ? [run] : [])
+        ]
+    } ?? []
+    var copy = KeptDatabase(worktreeId: "w", name: "app_fix", engine: .postgres, template: made)
+    if made == nil { copy.cannot = "busy" }
+    #expect(Databases.keep(copy, in: &all) == kept)
+    #expect(all.map { $0.template ?? "cannot" } == listed)
+    #expect(all.first?.runs.count == (had.contains("ran") ? 1 : 0))
+}
+
+/// Redo puts the undo's state (`kelp_u`) back in place of a branch's Postgres copy: whichever step fails, the copy
+/// keeps its name and what it held; when even naming it back fails, neither is dropped and Kelp says where they are.
+@Test(
+    arguments: [
+        ([], ["app_fix": "undone"], false),
+        ([0], ["app_fix": "now", "kelp_u": "undone"], false),
+        ([1], ["app_fix": "now", "kelp_u": "undone"], false),
+        ([2], ["app_fix": "undone", "kelp_t": "now"], false),
+        ([1, 2], ["kelp_t": "now", "kelp_u": "undone"], true)
+    ] as [([Int], [String: String], Bool)])
+func aRedoNeverLeavesAPostgresCopyWithoutItsName(failing: [Int], left: [String: String], stranded: Bool) async {
+    var dbs = ["app_fix": "now", "kelp_u": "undone"], step = 0
+    func run(_ sql: String) throws {
+        defer { step += 1 }
+        guard !failing.contains(step) else { throw DatabaseFailure.failed("busy") }
+        let names = sql.matches(of: /"([^"]+)"/).map { String($0.output.1) }
+        if sql.hasPrefix("DROP") { dbs[names[0]] = nil } else { (dbs[names[1]], dbs[names[0]]) = (dbs[names[0]], nil) }
+    }
+    do {
+        try await Databases.swap("kelp_u", for: "app_fix", temp: "kelp_t") { try run($0) }
+        #expect(failing.isEmpty || failing == [2])
+    } catch {
+        #expect((error is Databases.Stranded) == stranded)
+    }
+    #expect(dbs == left)
 }

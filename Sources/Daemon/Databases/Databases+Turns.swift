@@ -11,8 +11,8 @@ struct TurnDatabase: Sendable, Equatable {
 
 extension Databases {
     /// Keeps the workspace's SQLite and DuckDB files on this Mac as the turn `key` begins.
-    /// Limit: the clone is taken after the turn's snapshot of the files, so a change in the moment between is kept as
-    /// part of what the turn found.
+    /// Limit: the clone is taken after the turn's snapshot of the files, so a change by the project's code in the
+    /// moment between is kept as part of what the turn found (a `kelp db` change waits for it: `currentTurn`).
     func keepFiles(_ key: String, worktreeId: String) {
         // A remote project's files are on its host, where no SQLite file is looked for: none is found here
         let files = (Log.store.attempt("listing the turn's databases") { try connections(worktreeId) } ?? [])
@@ -35,10 +35,12 @@ extension Databases {
         }
     }
 
-    /// The turn the agent `session` is in now, or nil between turns.
-    func currentTurn(_ session: String) -> String? {
-        guard let started = live[session]?.turnStarted,
-            let mark = (Log.store.attempt("reading the turns") { try store.turns(session: session) })?.first,
+    /// The turn the agent `session` is in now, or nil between turns. A turn that just began is waited for: it is listed
+    /// once its snapshot is taken (or isn't, in a folder without git).
+    func currentTurn(_ session: String) async -> String? {
+        guard let agent = live[session], let started = agent.turnStarted else { return nil }
+        await agent.turnWorkDone()
+        guard let mark = (Log.store.attempt("reading the turns") { try store.turns(session: session) })?.first,
             mark.at >= started
         else { return nil }
         return mark.id
@@ -54,8 +56,9 @@ extension Databases {
     /// of it. When Postgres can't copy it (something is connected to it), that is kept too, for the undo to say.
     func turnChanging(_ session: String?, _ target: DatabaseConnection, _ worktreeId: String) async {
         let db = target.database
-        guard let session, Self.keepsAsTemplate(db), let key = currentTurn(session), let live = db.database,
-            !turnKeeps.kept(key).contains(where: { $0.name == db.name && $0.template != nil })
+        // Once a change ran without a copy, none is taken later in the turn: it wouldn't be as the turn found it
+        guard let session, Self.keepsAsTemplate(db), let live = db.database, let key = await currentTurn(session),
+            !turnKeeps.kept(key).contains(where: { $0.name == db.name })
         else { return }
         var kept = KeptDatabase(worktreeId: worktreeId, name: db.name, engine: .postgres)
         let template = Self.templateName(key, db.name)
@@ -68,21 +71,30 @@ extension Databases {
                 "Postgres couldn't copy it before the turn's first change (\(why))."
                 + (why.contains("other users") ? " Nothing may be connected to it then, such as a dev server." : "")
         }
-        Log.store.attempt("keeping \(db.name) for the turn") {
-            try turnKeeps.change(key) { all in
-                // Two changes at once both try; a copy made wins over the other's failure
-                if let at = all.firstIndex(where: { $0.name == kept.name }) {
-                    if kept.template != nil { all[at] = kept }
-                } else {
-                    all.append(kept)
-                }
-            }
+        let listed =
+            Log.store.attempt("keeping \(db.name) for the turn") {
+                var listed = false
+                try turnKeeps.change(key) { listed = Self.keep(kept, in: &$0) }
+                return listed
+            } ?? false
+        if !listed { await dropTemplates([kept]) }
+    }
+
+    /// Lists `kept` with its turn's `all`, and says whether it was. Two first changes at once both try to copy: a copy
+    /// made wins over the other's failure while no change is kept with that, else it is spare.
+    static func keep(_ kept: KeptDatabase, in all: inout [KeptDatabase]) -> Bool {
+        guard let at = all.firstIndex(where: { $0.name == kept.name }) else {
+            all.append(kept)
+            return true
         }
+        guard kept.template != nil, all[at].template == nil, all[at].runs.isEmpty else { return false }
+        all[at] = kept
+        return true
     }
 
     /// After an agent's change: it is kept with the turn, for the undo to say what the turn did.
-    func turnChanged(_ run: DatabaseRun) {
-        guard let session = run.session, run.state == .done, let key = currentTurn(session) else { return }
+    func turnChanged(_ run: DatabaseRun) async {
+        guard let session = run.session, run.state == .done, let key = await currentTurn(session) else { return }
         Log.store.attempt("keeping a change with its turn") {
             try turnKeeps.change(key) { all in
                 if let at = all.firstIndex(where: { $0.name == run.database }) { all[at].runs.append(run) }
