@@ -77,6 +77,11 @@ import Testing
         decided: ["#1 bigger"])
     #expect(turned.hasPrefix("Make .kelp/artifacts/home-2/motion.html from .kelp/artifacts/home/canvas.json"))
     #expect(turned.hasSuffix("Decisions already made on it: #1 bigger."))
+    let like = ArtifactStart.brief(
+        like: ".kelp/artifacts/q3/canvas.json", page: ".kelp/artifacts/q4/canvas.json", kind: .design)
+    #expect(
+        like.contains("copy its files into .kelp/artifacts/q4 first") && like.hasSuffix("to: "), "the user says what")
+    #expect(ArtifactStart.brand.contains("svg") && ArtifactStart.kinds["svg"] == nil, "a logo makes a design system")
 }
 
 /// A rehearsal tells the agent the length aimed at and taken, each slide's time, and which ran long (over half again

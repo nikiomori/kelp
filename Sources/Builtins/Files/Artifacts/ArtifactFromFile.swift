@@ -47,6 +47,14 @@ enum ArtifactStart {
         """
     }
 
+    /// What the agent is asked for `page`, a new page of `kind` like `source` (any page is a template): its files
+    /// copied, its look and parts kept; the user finishes the line with what the new one is about.
+    static func brief(like source: String, page: String, kind: Artifacts.Kind) -> String {
+        "Make \(page) like \(source) (`kelp artifact guide \(kind.rawValue)`): copy its files into "
+            + "\((page as NSString).deletingLastPathComponent) first, keep its look, layout and parts, and change its "
+            + "content to: "
+    }
+
     /// What the agent is asked for `page`, a new page of `kind` made from `source`.
     static func brief(turning source: String, into page: String, kind: Artifacts.Kind, decided: [String]) -> String {
         var lines = [
@@ -157,6 +165,22 @@ extension MarkdownTab {
             app.workbench.starter?.newAgent(nil, prompt: brief)
         }
     }
+
+    /// ⋯ › Another Like This: a new page of this kind, which the agent makes from this one's files once the user says
+    /// what it is about (the line waits in its prompt).
+    func anotherLikeThis() {
+        let root = Self.projectRoot(of: url.path)
+        guard let listed = ArtifactBar.listed(url.path, in: app) else { return }
+        let kind = listed.kind
+        Task {
+            guard
+                let page = await app.call(ArtifactNew(kind: kind, title: listed.title + " 2", cwd: root, session: nil))
+            else { return }
+            let line = ArtifactStart.brief(
+                like: Artifacts.projectPath(url.path), page: Artifacts.projectPath(page), kind: kind)
+            app.workbench.starter?.newAgent(nil, prompt: line, draft: true)
+        }
+    }
 }
 
 extension ArtifactBar {
@@ -166,6 +190,9 @@ extension ArtifactBar {
         menu.addItem(.sectionHeader(title: String(localized: "Make from This")))
         for kind in ArtifactStart.choices where kind != own {
             menu.add(ArtifactStart.title(kind)) { [weak markdown] in markdown?.turnInto(kind) }
+        }
+        if own != nil {
+            menu.add(String(localized: "Another Like This…")) { [weak markdown] in markdown?.anotherLikeThis() }
         }
     }
 }

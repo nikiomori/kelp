@@ -40876,6 +40876,16 @@
           }
         }
       }
+    },
+    "Another Like This…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё одну такую…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
