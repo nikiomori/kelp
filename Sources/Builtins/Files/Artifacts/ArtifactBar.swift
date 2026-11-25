@@ -63,7 +63,12 @@ final class ArtifactBar: NSObject {
     /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
-        [weak self] in self?.showMore()
+        [weak self] in
+        guard let self else { return }
+        Task { @MainActor in
+            await self.markdown.loadPublished()
+            self.showMore()
+        }   // its link may be new
     }
     var item: ArtifactItem?
     /// The page's own record, read from artifact.json when the artifacts list doesn't have the page. `pageKind` comes

@@ -61,6 +61,7 @@ extension ArtifactBar {
             menu.add(String(localized: "For Each Row of Its Table…")) { [weak markdown] in markdown?.exportEachRow() }
         }
         menu.add(String(localized: "Build in Code…")) { [weak markdown] in markdown?.buildInCode() }
+        markdown.publishItems(menu)
         turnItems(menu)
     }
 }

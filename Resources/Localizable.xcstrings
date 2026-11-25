@@ -41006,6 +41006,46 @@
           }
         }
       }
+    },
+    "Publish…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Опубликовать…"
+          }
+        }
+      }
+    },
+    "Open Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть ссылку"
+          }
+        }
+      }
+    },
+    "Update the Published Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить опубликованную страницу"
+          }
+        }
+      }
+    },
+    "Bring In Its Comments": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забрать комментарии"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

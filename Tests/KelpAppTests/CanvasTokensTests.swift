@@ -82,6 +82,22 @@ import Testing
     #expect(
         like.contains("copy its files into .kelp/artifacts/q4 first") && like.hasSuffix("to: "), "the user says what")
     #expect(ArtifactStart.brand.contains("svg") && ArtifactStart.kinds["svg"] == nil, "a logo makes a design system")
+
+}
+
+/// Publishing goes through the page's agent, which writes the link where ⋯ finds it; comments come back as marks on
+/// a canvas (an element to put them on) and as suggestions on a doc.
+@MainActor @Test func aPageIsPublishedAndItsCommentsBroughtInByItsAgent() {
+    let page = ".kelp/artifacts/home/canvas.json"
+    #expect(
+        MarkdownTab.publish(page, link: ".kelp/artifacts/home/published.txt").contains(
+            "into .kelp/artifacts/home/published.txt"))
+    let link = "https://claude.ai/artifact/abc"
+    #expect(MarkdownTab.comments(page, link: link, canvas: true).contains("kelp artifact ask home <data-id"))
+    #expect(
+        MarkdownTab.comments(".kelp/artifacts/plan/doc.md", link: link, canvas: false).contains(
+            "kelp artifact suggest plan"))
+    #expect(MarkdownTab.republish(page, link: link).contains("the same link"))
 }
 
 /// A rehearsal tells the agent the length aimed at and taken, each slide's time, and which ran long (over half again
