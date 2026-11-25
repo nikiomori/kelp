@@ -5,7 +5,7 @@ import Testing
 @testable import AgentData
 
 @discardableResult
-private func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
+func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
     let u = dir.appendingPathComponent(name)
     try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
     var d = Data()
@@ -21,7 +21,7 @@ private func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
 
 private func date(_ s: String) -> Date { JSONL.date(s) ?? .distantPast }
 
-private func user(_ content: Any, _ ts: String, sid: String = "s1", meta: Bool = false) -> [String: Any] {
+func user(_ content: Any, _ ts: String, sid: String = "s1", meta: Bool = false) -> [String: Any] {
     [
         "type": "user", "sessionId": sid, "cwd": "/work/demo", "timestamp": ts, "isMeta": meta,
         "message": ["role": "user", "content": content]

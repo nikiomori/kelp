@@ -218,7 +218,7 @@ final class LiveSession: Sendable {
             st.ring = Data(st.ring.suffix(Self.ringLimit))
         }
         st.logSize += chunk.count
-        let said = (st.record.summary, st.record.progress, st.record.limitHit)
+        let said = (st.record.summary, st.record.progress, st.record.limitHit, st.record.codexThread)
         var heard = Heard(probe: st.readReports(text, chunk), topic: st.readTopic(text, chunk))
         // The chunk without escapes, once, for the two readers that want it.
         let plain = st.interruptArmed != nil || (!st.sawURL && st.wantsURL) ? StatusDetector.stripANSI(text) : ""
@@ -235,7 +235,9 @@ final class LiveSession: Sendable {
         heard.attached = st.attached
         heard.id = st.record.id
         heard.trimLog = st.logSize > Self.logLimit
-        emit(st.sync() ?? (said != (st.record.summary, st.record.progress, st.record.limitHit) ? st.record : nil))
+        let changed = st.sync()
+        let now = (st.record.summary, st.record.progress, st.record.limitHit, st.record.codexThread)
+        emit(changed ?? (said != now ? st.record : nil))
         return heard
     }
 

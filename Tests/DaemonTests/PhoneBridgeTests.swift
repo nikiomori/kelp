@@ -147,6 +147,7 @@ private func json(_ text: String) throws -> JSONValue {
         createdAt: Date(timeIntervalSince1970: 1_800_000_000.25), title: "Fix the flaky sync test",
         summary: "Allow Bash: swift test --filter SyncTests?")
     s.running = "swift build"
+    s.progress = 37
     #expect(PhoneAgent.shown(s))
     #expect(
         JSONValue.object(
@@ -157,7 +158,7 @@ private func json(_ text: String) throws -> JSONValue {
                  "projectId":"P","workspace":"fix/sync-retry","status":"waiting","statusAt":"2027-01-15T08:00:00.250Z","unread":true,
                  "summary":"Allow Bash: swift test --filter SyncTests?",
                  "ask":{"kind":"permission","text":"Allow Bash: swift test --filter SyncTests?"},
-                 "running":"swift build","limit":null,"continueAt":null}
+                 "running":"swift build","progress":37,"limit":null,"continueAt":null}
                 """#)))
     // A question cut short is answered where it shows whole, and one that asks no permission by text.
     s.summary = "Allow Bash: swift test --filter…?"
@@ -166,10 +167,12 @@ private func json(_ text: String) throws -> JSONValue {
     #expect(PhoneAgent.from(s, name: "", project: "", workspace: "")["ask"]?["kind"]?.string == "question")
 
     s.status = .paused
+    s.progress = nil
     s.title = ""
     s.limitHit = LimitHit(kind: "5-hour", resets: nil)
     s.continueAt = Date(timeIntervalSince1970: 1_800_003_600)
     let paused = PhoneAgent.from(s, name: "Claude Code", project: "", workspace: "")
+    #expect(paused["progress"] == .null)
     #expect(paused["status"]?.string == "hibernated" && paused["title"]?.string == "claude" && paused["ask"] == .null)
     #expect(paused["limit"] == (try json(#"{"kind":"5-hour","resets":null}"#)))
     #expect(paused["continueAt"]?.string == "2027-01-15T09:00:00.000Z")

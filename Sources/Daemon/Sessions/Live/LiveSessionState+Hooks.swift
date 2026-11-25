@@ -32,7 +32,13 @@ extension LiveSession.State {
         record.progress = report.progress
         // After /clear or /resume on a host, the conversation a wake brings back is the one the agent is in now
         // (`Sessions.follow`).
-        if let conv = report.conv, report.id == nil { record.argv = agent.following(record.argv, conversation: conv) }
+        if let conv = report.conv, report.id == nil {
+            if record.agent == Session.codexAgent, record.tmux != nil {
+                if let id = UUID(uuidString: conv) { record.codexThread = id }
+            } else {
+                record.argv = agent.following(record.argv, conversation: conv)
+            }
+        }
     }
 
     /// Applies a hook event the agent sent: its new status, and what a compaction or a question shows on the session's
