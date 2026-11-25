@@ -16,7 +16,8 @@ public enum Captions {
         }
     }
 
-    public static let looks = ["box", "plain", "outline", "highlight"], places = ["bottom", "top", "middle"]
+    public static let looks = ["box", "plain", "outline", "highlight", "bold", "pill", "serif", "quiet"],
+        places = ["bottom", "top", "middle"]
 
     /// The cues of an SRT or a WebVTT file, in order; their tags and cue settings left out.
     public static func parse(_ text: String) -> [Cue] {
@@ -132,6 +133,15 @@ public enum Captions {
         case "plain": face = "color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6)"
         case "outline": face = "color: #fff; -webkit-text-stroke: \(max(2, size / 16))px #000; paint-order: stroke fill"
         case "highlight": face = "color: #111; background: #ffd60a; padding: .1em .4em; border-radius: .2em"
+        case "bold":
+            face =
+                "color: #ffd60a; text-transform: uppercase; font-weight: 900; letter-spacing: .02em; "
+                + "-webkit-text-stroke: \(max(2, size / 12))px #000; paint-order: stroke fill"
+        case "pill": face = "color: #111; background: #fff; padding: .2em .8em; border-radius: 999px"
+        case "serif":
+            face = "color: #fff; font-family: Georgia, serif; font-style: italic; text-shadow: 0 2px 10px #000"
+        case "quiet":
+            face = "color: rgba(255,255,255,.9); background: rgba(0,0,0,.4); padding: .15em .45em; font-weight: 500"
         default: face = "color: #fff; background: rgba(0,0,0,.65); padding: .2em .5em; border-radius: .25em"
         }
         let css = """

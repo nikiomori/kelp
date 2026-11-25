@@ -40886,6 +40886,126 @@
           }
         }
       }
+    },
+    "Insert Block": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить блок"
+          }
+        }
+      }
+    },
+    "Name Plate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плашка с именем"
+          }
+        }
+      }
+    },
+    "Title Card": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Титр"
+          }
+        }
+      }
+    },
+    "Quote": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цитата"
+          }
+        }
+      }
+    },
+    "Big Number": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Большое число"
+          }
+        }
+      }
+    },
+    "Section Title": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заголовок раздела"
+          }
+        }
+      }
+    },
+    "Progress Bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полоса прогресса"
+          }
+        }
+      }
+    },
+    "Call to Action": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Призыв"
+          }
+        }
+      }
+    },
+    "End Card": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Финальная карточка"
+          }
+        }
+      }
+    },
+    "Pill": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Капсула"
+          }
+        }
+      }
+    },
+    "Serif": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С засечками"
+          }
+        }
+      }
+    },
+    "Quiet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тихий"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -346,3 +346,28 @@ private let board = """
     #expect(
         DataRows.name(["Ольга / Иванова"], index: 3) == "Ольга  Иванова" && DataRows.name([""], index: 3) == "row-3")
 }
+
+/// Each caption look draws differently: no two write the same style.
+@Test func everyCaptionLookIsItsOwn() throws {
+    let page = Captions.write("<html><head></head><body></body></html>", cues: [.init(start: 0, end: 1, text: "hi")])
+    let styles = try Captions.looks.map { look in
+        let out = try #require(Captions.setLook(page, look + " bottom 48"))
+        return String(try #require(out.firstMatch(of: /<style id="kelp-captions">[\s\S]*?<\/style>/)).output)
+    }
+    #expect(Set(styles).count == Captions.looks.count)
+}
+
+/// A block goes in at the time asked, as one element with its entrance and exit written into the page's motion style;
+/// the progress bar fills over the block's whole length.
+@Test func aMotionBlockGoesInAtTheTimeAskedWithItsEntrance() throws {
+    let page = "<html><head></head><body data-width=\"1920\" data-height=\"1080\"></body></html>"
+    for name in MotionBlocks.names {
+        let out = try #require(MotionBlocks.add(page, name, id: "b", start: 2, length: 4, stage: (1920, 1080)))
+        let tag = try #require(BoardEdit.element(out, id: "b"))
+        #expect(tag.contains(#"data-start="2" data-duration="4""#), "\(name)")
+        #expect(out.contains("<style id=\"kelp-motion\">") && out.contains("[data-id='b']"), "\(name)")
+    }
+    let bar = try #require(MotionBlocks.add(page, "progress", id: "p", start: 1, length: 5, stage: (1080, 1920)))
+    #expect(bar.contains(#"data-kelp-in="wipe 5 linear 1""#))
+    #expect(MotionBlocks.add(page, "nothing", id: "x", start: 0, length: 1, stage: (1920, 1080)) == nil)
+}

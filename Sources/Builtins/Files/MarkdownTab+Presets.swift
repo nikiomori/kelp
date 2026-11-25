@@ -58,4 +58,33 @@ extension MarkdownTab {
             board: pageFile, id: id, what: which == .entrance ? "entrance" : "exit", from: nil, to: choice.preset)
         rewritePage(edit) { MotionPresets.set($0, id: id, which, choice) }
     }
+
+    /// The ready parts a motion page takes at the playhead (`MotionBlocks`), four seconds each.
+    func blocksMenu() -> NSMenu {
+        let menu = NSMenu()
+        for name in MotionBlocks.names {
+            menu.add(Self.blockTitle(name)) { [weak self] in
+                guard let self else { return }
+                let id = BoardEdit.freeID(editor.text, name), start = motionStudio.at
+                let stage = MotionPage.size(editor.text)
+                rewritePage(HandEdit(board: pageFile, id: id, what: "added", from: nil, to: name)) {
+                    MotionBlocks.add($0, name, id: id, start: start, length: 4, stage: stage)
+                }
+            }
+        }
+        return menu
+    }
+
+    static func blockTitle(_ name: String) -> String {
+        switch name {
+        case "name": String(localized: "Name Plate")
+        case "title": String(localized: "Title Card")
+        case "quote": String(localized: "Quote")
+        case "figure": String(localized: "Big Number")
+        case "section": String(localized: "Section Title")
+        case "progress": String(localized: "Progress Bar")
+        case "action": String(localized: "Call to Action")
+        default: String(localized: "End Card")
+        }
+    }
 }
