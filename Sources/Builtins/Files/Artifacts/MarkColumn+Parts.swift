@@ -20,5 +20,22 @@ extension MarkColumn {
           };
           return g;
         }
+        // The agent's question, and its choices (`kelp artifact ask … --choice`), a line each: a click answers and
+        // sends.
+        function asked(m, body) {
+          const [question, ...choices] = m.asked.split('\\n• ');
+          body.append(el('div', 'kelp-said', question));
+          const row = el('div', 'kelp-row kelp-choices');
+          for (const c of choices) {
+            const b = el('button', 'kelp-pill', c);
+            b.onclick = () => {
+              const d = by('draft').find(d => d.id === m.id);
+              if (d) d.note = c;
+              keep(); send();
+            };
+            row.append(b);
+          }
+          if (choices.length) body.append(row);
+        }
         """
 }

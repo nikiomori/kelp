@@ -71,7 +71,8 @@ public enum MotionBlocks {
             return "<div \(own("Call to Action", box, "pop"))>Try it today</div>"
         case "end":
             let box =
-                "inset: 0; display: grid; place-content: center; text-align: center; background: var(--bg, #000); \(ink)"
+                "inset: 0; display: grid; place-content: center; text-align: center; "
+                + "background: var(--bg, #000); \(ink)"
             return "<div \(own("End Card", box, "fade"))>"
                 + "<div style=\"font-size: \(px(110)); font-weight: 800\">Thanks</div>"
                 + "<div style=\"font-size: \(px(40)); opacity: .7\">example.com</div></div>"

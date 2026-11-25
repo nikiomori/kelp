@@ -1,5 +1,5 @@
-/// The artifacts' own ways of touching files that `theAppDoesntTouchProjectFiles` allows: exports written where the user
-/// picked, a video's leftovers, a doc's linked files looked for. Kept apart, as the artifact tab's exports grew.
+/// The artifacts' own ways of touching files that `theAppDoesntTouchProjectFiles` allows: exports written where the
+/// user picked, a video's leftovers, a doc's linked files looked for. Kept apart, as the artifact tab's exports grew.
 let artifactPagesTouchFiles: [String: (Int, String)] = [
     "Builtins/Files/MarkdownTab+Motion.swift": (2, "a video's half taken away on Cancel, a failed mix's leftover"),
     "Builtins/Files/Artifacts/MotionMovie.swift": (1, "a video written over the file picked in a save panel"),
