@@ -40,10 +40,13 @@ extension ArtifactActions {
         if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
     }
 
-    /// What Artifacts Overview adds to a page's menu: pin it, and move it to its archive or back.
+    /// What Artifacts Overview adds to a page's menu: pin it, tag it, and move it to its archive or back.
     struct Keeping {
         var pinned: Bool, archived: Bool
+        /// The page's tags, and every tag in use.
+        var tags: [String], allTags: [String]
         var pin: @MainActor () -> Void, archive: @MainActor () -> Void
+        var tag: @MainActor (String) -> Void, newTag: @MainActor () -> Void
     }
 
     /// A page's menu, the same in the Artifacts panel and Artifacts Overview: open it, look at it, the chat that made
@@ -68,7 +71,10 @@ extension ArtifactActions {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
         }
         menu.addItem(.separator())
-        if let keeping { menu.add(keeping.pinned ? String(localized: "Unpin") : String(localized: "Pin"), keeping.pin) }
+        if let keeping {
+            menu.add(keeping.pinned ? String(localized: "Unpin") : String(localized: "Pin"), keeping.pin)
+            addTags(to: menu, keeping)
+        }
         if item.url == nil {
             menu.add(String(localized: "Rename…")) { rename(app, page: item.target, title: item.title) }
             if keeping != nil { addExport(to: menu, app, item) }
@@ -86,6 +92,18 @@ extension ArtifactActions {
                 keeping.archive)
         }
         if item.url == nil { menu.add(String(localized: "Move to Trash")) { trash(app, page: item.target) } }
+    }
+
+    /// Tags ›: every tag in use, ticked where the page has it, then New Tag….
+    private static func addTags(to menu: NSMenu, _ keeping: Keeping) {
+        let tags = NSMenu()
+        for tag in keeping.allTags {
+            tags.add(tag) { keeping.tag(tag) }
+            tags.items.last?.state = keeping.tags.contains(tag) ? .on : .off
+        }
+        if !keeping.allTags.isEmpty { tags.addItem(.separator()) }
+        tags.add(String(localized: "New Tag…"), keeping.newTag)
+        menu.addItem(withTitle: String(localized: "Tags"), action: nil, keyEquivalent: "").submenu = tags
     }
 
     /// Export ›, with what the page's own ⋯ exports. The page opens beside to be drawn, and is written where the user

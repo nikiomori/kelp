@@ -6,8 +6,8 @@ import KelpKit
 /// One page on Artifacts Overview's grid: its picture (a grey fill until it is drawn, or for a page with none), its
 /// title in bold until it is opened, and one quiet line. The line says what the panel's second line says when there
 /// is news (the agent writing it, marks to check, a review's answers), and otherwise the page's project and when it
-/// last changed. A page on claude.ai carries Claude's mark, as its row in the panel does. The card lights up under the
-/// pointer and takes the selection's colour when chosen.
+/// last changed. Its tags come between the two, on their colours. A page on claude.ai carries Claude's mark, as its
+/// row in the panel does. The card lights up under the pointer and takes the selection's colour when chosen.
 @MainActor
 final class OverviewCard: NSCollectionViewItem {
     private let picture = PictureView()
@@ -15,12 +15,15 @@ final class OverviewCard: NSCollectionViewItem {
     private let name = NSTextField.label("", font: .ui(TextSize.row))
     private let line = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let mark = NSImageView()
+    private let tags = NSStackView()
     private var shown: OverviewPage?
 
-    /// How tall a card of `width` is: the picture at the panel card's proportions, then the title and its line.
+    /// How tall a card of `width` is: the picture at the panel card's proportions, then the title, the tags and the
+    /// line. Every card leaves room for tags, so the cards of a row line up.
     static func height(width: CGFloat) -> CGFloat {
         let size = ArtifactCard.size
         return ceil(width * size.height / size.width) + Metrics.gap + TextSize.of(Metrics.rowTwoLine)
+            + TextSize.of(Metrics.countCapsule) + Metrics.lineGap
     }
 
     override func loadView() {
@@ -42,7 +45,8 @@ final class OverviewCard: NSCollectionViewItem {
         let under = NSStackView(views: [mark, line])
         under.spacing = Metrics.lineGap
         under.detachesHiddenViews = true
-        let words = NSStackView(views: [title, under])
+        tags.detachesHiddenViews = true
+        let words = NSStackView(views: [title, tags, under])
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
@@ -77,6 +81,8 @@ final class OverviewCard: NSCollectionViewItem {
         let when = shortAgo(Date(timeIntervalSince1970: page.time))
         line.stringValue = note?.text ?? "\(model.projectName(page.repo)) · \(when)"
         line.textColor = note?.waits == true ? .textOrange : .secondaryLabelColor
+        tags.setViews([TagCapsule.line(item.tags ?? [], styles: model.styles)], in: .leading)
+        tags.isHidden = item.tags?.isEmpty != false
         mark.image = item.url == nil ? nil : app.catalog.icon(Session.claudeAgent, size: Metrics.iconSmall)
         mark.isHidden = mark.image == nil
         mark.toolTip = String(localized: "On claude.ai: opens in your browser")

@@ -43,6 +43,7 @@ final class OverviewController: NSViewController {
         labels: [String(localized: "Grid"), String(localized: "List")], name: String(localized: "View"), target: self,
         action: #selector(viewChosen))
     private lazy var failureBar = FailureBar { [weak self] in self?.readAgain() }
+    private lazy var changeBar = AgentChangeBar(model: model)
     private let empty = EmptyStateView()
     private let loading = LoadingView(rows: false, rowHeight: Metrics.row)
     private var shown = false
@@ -80,10 +81,14 @@ final class OverviewController: NSViewController {
         for scroll in [grid.scroll, list.scroll] { content.pin(scroll) }
         empty.place(in: content)
         loading.place(in: content)
-        let column = NSStackView(views: [failureBar, content])
+        let column = NSStackView(views: [failureBar, changeBar, content])
         column.orientation = .vertical
         column.spacing = 0
-        failureBar.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true
+        column.alignment = .width   // the bars and the pages as wide as the column
+        column.distribution = .fill
+        // The bars are as tall as what they say; the pages take the rest.
+        for bar in [failureBar, changeBar] { bar.setHuggingPriority(.defaultHigh, for: .vertical) }
+        content.setContentHuggingPriority(.init(1), for: .vertical)
         let body = NSStackView(views: [sourceScroll, rule, column])
         body.spacing = 0
         body.alignment = .height
@@ -91,6 +96,10 @@ final class OverviewController: NSViewController {
         root.orientation = .vertical
         root.spacing = 0
         root.alignment = .width
+        // The bar keeps its height and the body takes the rest: a stack's default gravity left the body at its
+        // fitting height, a few rows tall, until something laid the window out again.
+        root.distribution = .fill
+        body.setHuggingPriority(.init(1), for: .vertical)
         view = root
 
         grid.onOpen = { [weak self] in self?.open($0) }
@@ -115,7 +124,8 @@ final class OverviewController: NSViewController {
         super.viewDidLoad()
         track(owner: self) { [model] in
             Values(
-                model.pages, model.source, model.find, model.pinned, model.archived, model.waiting, model.failures)
+                model.pages, model.source, model.find, model.pinned, model.styles, model.changesSeen, model.waiting,
+                model.failures)
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -158,11 +168,11 @@ final class OverviewController: NSViewController {
             ? "" : String(localized: "\(pages.count) pages · \(projects) projects")
         sources.show(pages)
         let shown = OverviewPages.shown(
-            pages, in: model.source, pinned: model.pinned, archived: model.archived, find: model.find,
-            words: model.words)
+            pages, in: model.source, pinned: model.pinned, find: model.find, words: model.words)
         grid.show(OverviewPages.sections(shown, pinned: model.pinned, source: model.source, now: Date()))
         list.show(shown)
         failureBar.show(model.failures.isEmpty ? nil : model.failures.joined(separator: "; "))
+        changeBar.show(model.agentChange)
         if !pages.isEmpty || !model.waiting { loading.show(nil) }
         empty.show(emptyTitle(pages: pages, shown: shown), symbol: "doc.richtext", text: emptyText(pages: pages))
     }
@@ -175,6 +185,7 @@ final class OverviewController: NSViewController {
         case .waiting: String(localized: "Nothing Waits for You")
         case .pinned: String(localized: "No Pinned Pages")
         case .archive: String(localized: "The Archive Is Empty")
+        case .tag: String(localized: "No Pages with This Tag")
         default: String(localized: "No Pages")
         }
     }
@@ -234,5 +245,64 @@ final class OverviewController: NSViewController {
                 guard let self else { return }
                 quickLook.toggle(page.item, title: model.title(page))
             }, keeping: model.keeping(page))
+    }
+}
+
+/// Over the pages, what an agent last did to them, until the user closes it: "Claude archived 7 pages and tagged 23",
+/// Show (those pages), Undo (puts them back as they were) and ✕.
+@MainActor
+final class AgentChangeBar: NSStackView {
+    private let model: OverviewModel
+    private let face = NSImageView()
+    private let line = NSTextField.label("", font: .ui(TextSize.caption))
+    private var change: OverviewAgentChange?
+
+    init(model: OverviewModel) {
+        self.model = model
+        super.init(frame: .zero)
+        line.lineBreakMode = .byTruncatingTail
+        line.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let show = TextButton(
+            String(localized: "Show"),
+            onClick: { [weak self] in
+                if let change = self?.change { self?.model.source = .changed(by: change.session) }
+            })
+        let undo = TextButton(
+            String(localized: "Undo"),
+            onClick: { [weak self] in
+                if let change = self?.change { self?.model.undo(change) }
+            })
+        let close = IconButton(.symbol("xmark"), tip: String(localized: "Close")) { [weak self] in
+            if let change = self?.change { self?.model.dismiss(change) }
+        }
+        for button in [show, undo, close] as [NSView] {
+            button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        setViews([face, line, NSView(), show, undo, close], in: .leading)
+        spacing = Metrics.gap
+        edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
+        isHidden = true
+    }
+    @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+
+    func show(_ change: OverviewAgentChange?) {
+        self.change = change
+        if let change {
+            let session = model.app.session(change.session)
+            let agent = session?.agent.map { model.app.catalog.name($0) } ?? String(localized: "An agent")
+            face.image = session?.agent.flatMap { model.app.catalog.icon($0, size: Metrics.iconSmall) }
+            line.stringValue = Self.text(agent: agent, change)
+        }
+        guard isHidden != (change == nil) else { return }
+        crossfade()
+        isHidden = change == nil
+    }
+
+    /// "Claude: 1 page archived, 2 pages tagged", each count in its own words so each takes its plural.
+    static func text(agent: String, _ change: OverviewAgentChange) -> String {
+        var parts: [String] = []
+        if change.archived > 0 { parts.append(String(localized: "\(change.archived) pages archived")) }
+        if change.tagged > 0 { parts.append(String(localized: "\(change.tagged) pages tagged")) }
+        return "\(agent): " + parts.joined(separator: ", ")
     }
 }

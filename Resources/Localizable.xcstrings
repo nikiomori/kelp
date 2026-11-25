@@ -21,12 +21,126 @@
         }
       }
     },
+    "%lld pages archived": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld page archived"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pages archived"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страница в архиве"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы в архиве"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страниц в архиве"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы в архиве"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pages tagged": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld page tagged"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pages tagged"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страница с тегом"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы с тегом"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страниц с тегом"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы с тегом"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld pages · %lld projects": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Страниц: %1$lld · проектов: %2$lld"
+          }
+        }
+      }
+    },
+    "Add Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить тег"
           }
         }
       }
@@ -51,12 +165,92 @@
         }
       }
     },
+    "Changed by the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменено агентом"
+          }
+        }
+      }
+    },
+    "Edit Tag “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить тег «%@»"
+          }
+        }
+      }
+    },
+    "Edit Tag…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить тег…"
+          }
+        }
+      }
+    },
+    "Emoji": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эмодзи"
+          }
+        }
+      }
+    },
+    "Emoji & Symbols…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эмодзи и символы…"
+          }
+        }
+      }
+    },
+    "Gray": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый"
+          }
+        }
+      }
+    },
+    "Green": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зелёный"
+          }
+        }
+      }
+    },
     "Grid": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Сетка"
+          }
+        }
+      }
+    },
+    "How the tag looks on cards and rows. The pages keep only its name.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как тег выглядит на карточках и в строках. Страницы хранят только его имя."
           }
         }
       }
@@ -101,6 +295,26 @@
         }
       }
     },
+    "New Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый тег"
+          }
+        }
+      }
+    },
+    "New Tag…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый тег…"
+          }
+        }
+      }
+    },
     "No Pages": {
       "localizations": {
         "ru": {
@@ -121,6 +335,16 @@
         }
       }
     },
+    "No Pages with This Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет страниц с этим тегом"
+          }
+        }
+      }
+    },
     "No Pinned Pages": {
       "localizations": {
         "ru": {
@@ -137,6 +361,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ничего не ждёт вас"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оранжевый"
           }
         }
       }
@@ -251,6 +485,16 @@
         }
       }
     },
+    "Red": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красный"
+          }
+        }
+      }
+    },
     "Reviews to answer, marks to check and agents’ questions show here.": {
       "localizations": {
         "ru": {
@@ -277,6 +521,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Источники"
+          }
+        }
+      }
+    },
+    "Symbol": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок"
+          }
+        }
+      }
+    },
+    "Tag %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тег %@"
+          }
+        }
+      }
+    },
+    "Tags": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Теги"
           }
         }
       }
@@ -357,6 +631,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ждёт вас"
+          }
+        }
+      }
+    },
+    "What the page is about, in a word or two.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О чём страница, в одно-два слова."
           }
         }
       }

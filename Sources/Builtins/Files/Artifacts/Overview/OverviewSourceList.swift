@@ -4,10 +4,11 @@ import DesignKit
 import KelpKit
 
 /// The column of sources on the left of Artifacts Overview, as Finder's sidebar is: every page, those waiting for the
-/// user, the pinned and the archived ones, then each project with pages and each kind of page. A row says how many
-/// pages it holds; Waiting for You says it in orange while something waits. Choosing a row shows its pages.
+/// user, the pinned and the archived ones, then each project with pages, each kind of page and each tag. A row says
+/// how many pages it holds; Waiting for You says it in orange while something waits. Choosing a row shows its pages; a
+/// tag's menu dresses it (Edit Tag…).
 @MainActor
-final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     enum Row: Equatable {
         case heading(String)
         case source(OverviewSource)
@@ -24,6 +25,22 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
         table.dataSource = self
         table.delegate = self
         table.setAccessibilityLabel(String(localized: "Sources"))
+        table.menu = NSMenu()
+        table.menu?.delegate = self
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        guard rows.indices.contains(table.clickedRow), case .source(.tag(let tag)) = rows[table.clickedRow] else {
+            return
+        }
+        let model = self.model
+        menu.add(String(localized: "Edit Tag…")) {
+            Task {
+                guard let style = await TagEditor.ask(tag, style: model.styles[tag]) else { return }
+                model.setStyle(style == TagStyle() ? nil : style, for: tag)
+            }
+        }
     }
 
     /// Lists the sources for `pages`, keeping the chosen one chosen.
@@ -37,8 +54,9 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
             next += [.heading(String(localized: "Projects"))] + shownProjects.map { .source(.project($0)) }
         }
         if !kinds.isEmpty { next += [.heading(String(localized: "Kinds"))] + kinds.map { .source(.kind($0)) } }
-        counts = OverviewPages.counts(
-            pages, next.compactMap(\.source), pinned: model.pinned, archived: model.archived)
+        let tags = OverviewPages.tags(pages)
+        if !tags.isEmpty { next += [.heading(String(localized: "Tags"))] + tags.map { .source(.tag($0)) } }
+        counts = OverviewPages.counts(pages, next.compactMap(\.source), pinned: model.pinned)
         rows = next
         table.reloadData()
         if let at = rows.firstIndex(of: .source(model.source)), table.selectedRow != at {
@@ -95,6 +113,8 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
         case .archive: String(localized: "Archive")
         case .project(let repo): model.projectName(repo)
         case .kind(let kind): Artifacts.Kind(rawValue: kind).map(ArtifactStart.title) ?? String(localized: "Pages")
+        case .tag(let tag): tag
+        case .changed: String(localized: "Changed by the Agent")
         }
     }
 
@@ -107,6 +127,12 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
             ProjectIcon.show(path, in: view, app: model.app)
             return view
         }
+        if case .tag(let tag) = source, let emoji = model.styles[tag]?.emoji {
+            let label = NSTextField.label(emoji, font: .ui(TextSize.row))
+            label.alignment = .center
+            label.widthAnchor.constraint(equalToConstant: 16).isActive = true
+            return label
+        }
         let symbol: String =
             switch source {
             case .all: "doc.richtext"
@@ -115,10 +141,16 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
             case .archive: "archivebox"
             case .kind(let kind): ArtifactCells.symbol(kind)
             case .project: "folder"
+            case .tag(let tag): model.styles[tag]?.symbol ?? "number"
+            case .changed: "arrow.uturn.backward"
             }
         view.image = .symbol(symbol)
         view.symbolConfiguration = .chrome()
-        view.contentTintColor = .secondaryLabelColor
+        if case .tag(let tag) = source {
+            view.contentTintColor = model.styles[tag]?.color?.ns ?? .secondaryLabelColor
+        } else {
+            view.contentTintColor = .secondaryLabelColor
+        }
         view.imageScaling = .scaleNone
         return view
     }

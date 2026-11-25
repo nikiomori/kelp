@@ -118,6 +118,7 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
                 mark.toolTip = String(localized: "On claude.ai: opens in your browser")
                 views.append(mark)
             }
+            if let tags = item.tags, !tags.isEmpty { views.append(TagCapsule.line(tags, styles: model.styles)) }
             if let note = ArtifactActions.note(item, app) {
                 views.append(
                     NSTextField.label(

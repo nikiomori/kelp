@@ -11,11 +11,17 @@ private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
 private func page(
     _ title: String, repo: String = "kelp", type: String = "page", hoursAgo: Double = 1, points: Int? = nil,
-    answered: Int? = nil, check: Int = 0, asked: Int? = nil
+    answered: Int? = nil, check: Int = 0, asked: Int? = nil, tags: [String]? = nil, archived: Bool? = nil,
+    changedBy: String? = nil, before: Bool? = nil
 ) -> OverviewPage {
     var item = ArtifactItem(
         slug: title, type: type, title: title, created: now.timeIntervalSince1970 - hoursAgo * 3600,
         target: "/\(repo)/\(title)", points: points, answered: answered)
+    item.tags = tags
+    item.archived = archived
+    item.agentChange = changedBy.map {
+        ArtifactAgentChange(session: $0, at: now.timeIntervalSince1970 - hoursAgo * 3600, tags: nil, archived: before)
+    }
     if check > 0 || asked != nil {
         var marks = ArtifactMarkCounts(sent: 0, check: check)
         marks.asked = asked
@@ -37,15 +43,17 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     #expect(OverviewPages.waits(page.item) == waits)
 }
 
-/// Each source lists its pages newest first; an archived page shows only under Archive, and the filter finds by words.
+/// Each source lists its pages newest first; an archived page shows only under Archive (and the change that archived
+/// it), and the filter finds by words, with `#tag` for a tag.
 @Test func overviewSourcesFilterPages() {
     let pages = [
-        page("Sidebar", hoursAgo: 3), page("Review", type: "review", hoursAgo: 1, points: 3, answered: 0),
-        page("Calculator", repo: "kuarka", hoursAgo: 2), page("Old", hoursAgo: 90)
+        page("Sidebar", hoursAgo: 3, tags: ["design"]),
+        page("Review", type: "review", hoursAgo: 1, points: 3, answered: 0, tags: ["design", "review"]),
+        page("Calculator", repo: "kuarka", hoursAgo: 2), page("Old", hoursAgo: 90, archived: true, changedBy: "s")
     ]
-    let pinned: Set = ["/kelp/Sidebar"], archived: Set = ["/kelp/Old"]
+    let pinned: Set = ["/kelp/Sidebar"]
     func titles(_ source: OverviewSource, find: String = "") -> [String] {
-        OverviewPages.shown(pages, in: source, pinned: pinned, archived: archived, find: find).map(\.item.title)
+        OverviewPages.shown(pages, in: source, pinned: pinned, find: find).map(\.item.title)
     }
     #expect(titles(.all) == ["Review", "Calculator", "Sidebar"])
     #expect(titles(.waiting) == ["Review"])
@@ -53,11 +61,28 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     #expect(titles(.archive) == ["Old"])
     #expect(titles(.project("kelp")) == ["Review", "Sidebar"])
     #expect(titles(.kind("review")) == ["Review"])
+    #expect(titles(.tag("design")) == ["Review", "Sidebar"])
+    #expect(titles(.changed(by: "s")) == ["Old"])
     #expect(titles(.all, find: "calc") == ["Calculator"])
+    #expect(titles(.all, find: "#Review") == ["Review"])
+    #expect(titles(.all, find: "#design side") == ["Sidebar"])
 
-    let counts = OverviewPages.counts(pages, [.all, .waiting, .archive], pinned: pinned, archived: archived)
+    let counts = OverviewPages.counts(pages, [.all, .waiting, .archive], pinned: pinned)
     #expect(counts == [.all: 3, .waiting: 1, .archive: 1])
     #expect(OverviewPages.projects(pages) == ["kelp", "kuarka"])
+    #expect(OverviewPages.tags(pages) == ["design", "review"])
+}
+
+/// The bar offers the latest agent's change, counting what it archived and what it only tagged, until the user closes
+/// it; an older chat's change isn't counted in.
+@Test func overviewOffersTheLastAgentsChange() {
+    let pages = [
+        page("A", hoursAgo: 1, archived: true, changedBy: "s2"), page("B", hoursAgo: 2, tags: ["x"], changedBy: "s2"),
+        page("C", hoursAgo: 3, archived: true, changedBy: "s2", before: true), page("D", hoursAgo: 5, changedBy: "s1")
+    ]
+    let change = OverviewPages.agentChange(pages, seen: 0)
+    #expect(change.map { [$0.session, "\($0.archived)", "\($0.tagged)"] } == ["s2", "1", "2"])
+    #expect(OverviewPages.agentChange(pages, seen: change?.at ?? 0) == nil)
 }
 
 /// The pinned pages lead in their own section; the rest fall under the panel's days. Under Pinned itself there is no
@@ -112,14 +137,14 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
 
     let controller = OverviewController(model: OverviewModel(app: app))
     let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 1200, height: 760), styleMask: [.titled], backing: .buffered,
+        contentRect: NSRect(x: 0, y: 0, width: 1200, height: 900), styleMask: [.titled], backing: .buffered,
         defer: true)
     window.appearance = NSAppearance(named: .aqua)
     window.contentView = controller.view
     controller.viewDidAppear()
     #expect(controller.model.source == .project(rig.project.id))
     #expect(try await waitFor(10) { controller.grid.sections.flatMap(\.pages).count == 4 })
-    #expect(OverviewPages.shown(controller.model.pages, in: .waiting, pinned: [], archived: []).count == 1)
+    #expect(OverviewPages.shown(controller.model.pages, in: .waiting, pinned: []).count == 1)
 
     controller.model.source = .all
     let sidebar = try #require(controller.model.pages.first { $0.item.title.hasPrefix("Sidebar") })
@@ -129,16 +154,45 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
         controller.grid.sections.flatMap(\.pages).count == 5,
         "\(controller.grid.sections.map { ($0.title, $0.pages.map { "\($0.item.title)@\($0.worktree)" }) })")
     #expect(controller.list.pages.map(\.id).sorted() == controller.grid.sections.flatMap(\.pages).map(\.id).sorted())
-    #expect(try await waitFor(30) { controller.model.pictures.images.count == 5 })
+    // A window on screen is laid out every frame; this one, never shown, only when asked.
+    #expect(
+        try await waitFor(30) {
+            controller.view.layoutSubtreeIfNeeded()
+            return controller.model.pictures.images.count == 5
+        })
 
-    guard let dir = ProcessInfo.processInfo.environment["KELP_SHOT"] else { return }
+    // An agent tags two pages and archives one through the daemon: the tags show, the bar offers its change, and Undo
+    // puts the archived page back.
+    let model = controller.model
+    let calculator = try #require(model.pages.first { $0.item.title.hasPrefix("Savings") })
+    let review = try #require(model.pages.first { $0.item.type == "review" })
+    model.setStyle(TagStyle(emoji: "🎨", color: .blue), for: "design-system")
+    for (page, archive) in [(sidebar, false), (review, false), (calculator, true)] {
+        let folder = try #require(model.folder(page))
+        _ = await app.call(
+            ArtifactChange(
+                folder: folder, add: page.item.type == "review" ? ["review", "design-system"] : ["design-system"],
+                archived: archive ? true : nil, session: "agent-1"))
+    }
+    #expect(try await waitFor(10) { model.agentChange?.archived == 1 && model.agentChange?.tagged == 2 })
+    #expect(model.tags == ["design-system", "review"])
+    #expect(controller.grid.sections.flatMap(\.pages).count == 4)
+
+    if let dir = ProcessInfo.processInfo.environment["KELP_SHOT"] { try shoot(controller, window, to: dir) }
+    model.undo(try #require(model.agentChange))
+    #expect(try await waitFor(10) { model.pages.allSatisfy { $0.item.archived != true && $0.item.tags == nil } })
+    #expect(model.agentChange == nil)
+}
+
+/// Writes pictures of the overview's grid and list.
+@MainActor private func shoot(_ controller: OverviewController, _ window: NSWindow, to dir: String) throws {
     for (name, list) in [("artifacts-grid", false), ("artifacts-list", true)] {
         controller.grid.scroll.isHidden = list
         controller.list.scroll.isHidden = !list
         let view = controller.view
         for _ in 0..<3 {   // the grid lays out at its width a turn after it shows
             view.layoutSubtreeIfNeeded()
-            await mainActorTurns()
+            RunLoop.main.run(until: Date())
         }
         let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.cacheDisplay(in: view.bounds, to: rep)

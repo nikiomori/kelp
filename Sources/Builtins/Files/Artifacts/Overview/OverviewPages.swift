@@ -10,11 +10,18 @@ struct OverviewPage: Equatable, Sendable {
 }
 
 /// What the overview's column of sources picks: every page, those waiting for the user, the pinned or archived ones,
-/// one project's, or one kind's.
+/// one project's, one kind's, one tag's, or the pages an agent's last change touched (the bar's Show).
 enum OverviewSource: Hashable, Sendable {
     case all, waiting, pinned, archive
     case project(String)
     case kind(String)
+    case tag(String)
+    case changed(by: String)
+}
+
+/// An agent's change still to undo: which chat, when its last step was, and how many pages it archived and tagged.
+struct OverviewAgentChange: Equatable {
+    var session: String, at: Double, archived: Int, tagged: Int
 }
 
 /// The overview's lists, worked out from the pages and what the user pinned or archived. Archived pages show only under
@@ -27,12 +34,11 @@ enum OverviewPages {
         return marks.check > 0 || (marks.asked ?? 0) > 0
     }
 
-    /// Whether `page` belongs to `source`.
-    static func belongs(_ page: OverviewPage, to source: OverviewSource, pinned: Set<String>, archived: Set<String>)
-        -> Bool
-    {
-        let away = archived.contains(page.id)
+    /// Whether `page` belongs to `source`. Archived pages belong only to Archive, and to the change that archived them.
+    static func belongs(_ page: OverviewPage, to source: OverviewSource, pinned: Set<String>) -> Bool {
+        let away = page.item.archived == true
         switch source {
+        case .changed(let session): return page.item.agentChange?.session == session
         case .archive: return away
         case _ where away: return false
         case .all: return true
@@ -40,37 +46,53 @@ enum OverviewPages {
         case .pinned: return pinned.contains(page.id)
         case .project(let repo): return page.repo == repo
         case .kind(let kind): return page.item.type == kind
+        case .tag(let tag): return page.item.tags?.contains(tag) == true
         }
     }
 
-    /// The pages of `source` whose words hold `find`, newest first.
+    /// The pages of `source` whose words hold `find`, newest first. A `#word` in `find` asks for that tag.
     static func shown(
-        _ pages: [OverviewPage], in source: OverviewSource, pinned: Set<String>, archived: Set<String>,
-        find: String = "", words: (OverviewPage) -> String = { $0.item.title }
+        _ pages: [OverviewPage], in source: OverviewSource, pinned: Set<String>, find: String = "",
+        words: (OverviewPage) -> String = { $0.item.title }
     ) -> [OverviewPage] {
-        let find = find.trimmingCharacters(in: .whitespaces)
-        return pages.filter {
-            belongs($0, to: source, pinned: pinned, archived: archived)
-                && (find.isEmpty || words($0).localizedCaseInsensitiveContains(find))
+        let parts = find.split(separator: " ")
+        let tags = parts.filter { $0.hasPrefix("#") }.compactMap { Artifacts.tag(String($0)) }
+        let text = parts.filter { !$0.hasPrefix("#") }.joined(separator: " ")
+        return pages.filter { page in
+            belongs(page, to: source, pinned: pinned)
+                && tags.allSatisfy { page.item.tags?.contains($0) == true }
+                && (text.isEmpty || words(page).localizedCaseInsensitiveContains(text))
         }
         .sorted { $0.time > $1.time }
     }
 
     /// How many pages each of `sources` holds.
-    static func counts(
-        _ pages: [OverviewPage], _ sources: [OverviewSource], pinned: Set<String>, archived: Set<String>
-    ) -> [OverviewSource: Int] {
+    static func counts(_ pages: [OverviewPage], _ sources: [OverviewSource], pinned: Set<String>)
+        -> [OverviewSource: Int]
+    {
         var counts: [OverviewSource: Int] = [:]
-        for source in sources {
-            counts[source] = pages.count(where: { belongs($0, to: source, pinned: pinned, archived: archived) })
-        }
+        for source in sources { counts[source] = pages.count(where: { belongs($0, to: source, pinned: pinned) }) }
         return counts
+    }
+
+    /// The last agent's change still to undo, newer than `seen` (when the user closed the bar): what the latest chat
+    /// to change pages did, counted over every page it changed.
+    static func agentChange(_ pages: [OverviewPage], seen: Double) -> OverviewAgentChange? {
+        let changed = pages.compactMap { page in page.item.agentChange.map { (page.item, $0) } }
+        guard let last = changed.max(by: { $0.1.at < $1.1.at })?.1, last.at > seen else { return nil }
+        let mine = changed.filter { $0.1.session == last.session }
+        let archived = mine.count(where: { $0.0.archived == true && $0.1.archived != true })
+        return OverviewAgentChange(
+            session: last.session, at: last.at, archived: archived, tagged: mine.count - archived)
     }
 
     /// The projects and kinds that have pages, most pages first, so the column lists only sources with something in
     /// them.
     static func projects(_ pages: [OverviewPage]) -> [String] { byCount(pages.map(\.repo)) }
     static func kinds(_ pages: [OverviewPage]) -> [String] { byCount(pages.map(\.item.type)) }
+    static func tags(_ pages: [OverviewPage]) -> [String] {
+        byCount(pages.filter { $0.item.archived != true }.flatMap { $0.item.tags ?? [] })
+    }
 
     private static func byCount(_ keys: [String]) -> [String] {
         var counts: [String: Int] = [:]
