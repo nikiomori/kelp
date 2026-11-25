@@ -91,3 +91,12 @@ func aCanvasIsADeckWhenEveryBoardIsASlide(sizes: [(Int, Int?)], deck: Bool) {
     #expect(try Artifacts.saved(json) == [2: "Approved \"v1\""] && Artifacts.saved(nil).isEmpty)
     #expect(throws: (any Error).self) { try Artifacts.saved("{") }
 }
+
+/// The boards a turn changed: those whose text differs, and those it added or took away.
+@Test func aSnapshotSaysWhichBoardsChanged() {
+    let before = CanvasSnapshot(
+        canvas: "{}", boards: ["boards/A.html": "a", "boards/B.html": "b", "boards/C.html": "c"])
+    let after = CanvasSnapshot(
+        canvas: "{}", boards: ["boards/A.html": "a", "boards/B.html": "B!", "boards/D.html": "d"])
+    #expect(after.changed(since: before) == ["boards/B.html", "boards/C.html", "boards/D.html"])
+}

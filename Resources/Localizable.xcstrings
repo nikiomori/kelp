@@ -41246,6 +41246,16 @@
           }
         }
       }
+    },
+    "also changed %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё изменено: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

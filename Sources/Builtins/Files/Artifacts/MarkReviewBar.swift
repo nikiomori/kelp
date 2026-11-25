@@ -49,7 +49,8 @@ final class MarkReviewBar {
     /// Shows where the check is: `count` marks wait, `at` is shown with what was asked of it and the agent's answer
     /// (`said`), and whether Before shows (and can, on a canvas).
     func show(
-        count: Int, at: Int, before: (shown: Bool, can: Bool), who: String?, said: (note: String, reply: String)
+        count: Int, at: Int, before: (shown: Bool, can: Bool), who: String?, said: (note: String, reply: String),
+        elsewhere: [String] = []
     ) {
         _ = bar
         bar.isHidden = count == 0
@@ -59,6 +60,10 @@ final class MarkReviewBar {
         label.stringValue =
             said.note.isEmpty
             ? String(localized: "\(agent) finished its turn") : "“\(said.note)” → " + answer
+        if !elsewhere.isEmpty {   // what the turn changed that no mark asked for
+            let names = elsewhere.map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
+            label.stringValue += "  ·  " + String(localized: "also changed \(names.joined(separator: ", "))")
+        }
         label.toolTip = said.note.isEmpty ? nil : said.note + "\n\n" + answer
         position.stringValue = String(localized: "\(at + 1) of \(count)")
         self.before.isHidden = !before.can

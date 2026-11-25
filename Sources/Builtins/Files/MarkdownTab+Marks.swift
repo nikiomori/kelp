@@ -175,11 +175,13 @@ extension MarkdownTab {
     /// Called when the daemon changed the marks (a turn ended, an agent answered). With `redraw`, the page is drawn
     /// again, because marks to check bring the boards as they were sent; otherwise the page takes the marks in place.
     func marksChanged(redraw: Bool) {
-        if redraw { return rerender() }
         let notes = url.deletingLastPathComponent().appendingPathComponent(ArtifactMarks.file).path
         Task {
             guard let file = await app.quiet(FilesRead(path: notes)) else { return }
-            runJS("window.kelpMarks?.set(\(Self.js(ArtifactMarks.read(Data(file.text.utf8)))))")
+            let marks = ArtifactMarks.read(Data(file.text.utf8))
+            await findChangedElsewhere(marks)   // the check bar says what else the turn changed
+            if redraw { return rerender() }
+            runJS("window.kelpMarks?.set(\(Self.js(marks)))")
         }
     }
 

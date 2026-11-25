@@ -10,7 +10,9 @@ extension ArtifactMarks {
         let folder = (page as NSString).deletingLastPathComponent
         var lines = [
             "Marks on \(page)\(version.map { " (version \($0))" } ?? ""). Change only what each mark points at; "
-                + "if you can't or won't, say why with `kelp artifact reply \(name) <#> \"…\"`."
+                + "leave the other boards, kit.css and the design system's tokens as they are, and ask first "
+                + "(`kelp artifact reply`) when a mark needs them changed. If you can't or won't, say why with "
+                + "`kelp artifact reply \(name) <#> \"…\"`."
         ]
         for m in marks {
             var what = [m.board]

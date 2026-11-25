@@ -615,3 +615,18 @@ extension OneAtATime {
         #expect(MarkdownTab(editor: CodeEditor(text: "", url: other), url: other, app: app).keptPlace.zoom == nil)
     }
 }
+
+extension OneAtATime {
+    /// The check bar says what else the agent's turn changed, by the boards' names.
+    @Test func theCheckBarSaysWhatElseTheTurnChanged() throws {
+        _ = NSApplication.shared
+        let bar = MarkReviewBar(act: { _ in })
+        bar.show(
+            count: 1, at: 0, before: (false, true), who: "Codex", said: ("bigger", "done"),
+            elsewhere: ["boards/C.html", "boards/D-pricing.html"])
+        func labels(_ v: NSView) -> [String] {
+            ((v as? NSTextField).map { [$0.stringValue] } ?? []) + v.subviews.flatMap(labels)
+        }
+        #expect(labels(bar.bar).contains { $0.hasSuffix("also changed C, D-pricing") })
+    }
+}

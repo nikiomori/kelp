@@ -166,7 +166,9 @@ private let page = ".kelp/artifacts/home/canvas.json"
     #expect(
         ArtifactMarks.message(marks, edits: edits, page: page, name: "home", version: 5) == """
             Marks on .kelp/artifacts/home/canvas.json (version 5). Change only what each mark points at; \
-            if you can't or won't, say why with `kelp artifact reply home <#> "…"`.
+            leave the other boards, kit.css and the design system's tokens as they are, and ask first \
+            (`kelp artifact reply`) when a mark needs them changed. If you can't or won't, say why with \
+            `kelp artifact reply home <#> "…"`.
             #1 boards/A.html [data-id=title] «Welcome»: bigger
             #2 boards/A.html area 321,63,223,185 (picture: .kelp/artifacts/home/marks/2.png): a real screen
             #3 again boards/B.html pen near [data-id=cta] (picture: .kelp/artifacts/home/marks/3.png): look at this

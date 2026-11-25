@@ -85,6 +85,11 @@ public struct CanvasSnapshot: Codable, Equatable, Sendable {
         self.boards = boards
     }
 
+    /// The boards whose text differs from `before`'s (or that one of them lacks), in order.
+    public func changed(since before: CanvasSnapshot) -> [String] {
+        Set(boards.keys).union(before.boards.keys).filter { boards[$0] != before.boards[$0] }.sorted()
+    }
+
     /// Returns the canvas `json` with its boards as they are in `folder` now.
     public static func live(json: String, folder: URL) -> CanvasSnapshot {
         var boards: [String: String] = [:]
