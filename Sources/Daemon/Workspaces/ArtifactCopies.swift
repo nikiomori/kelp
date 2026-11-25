@@ -3,11 +3,9 @@ import Foundation
 
 // Kelp's copies of pages on a service, whole enough to open without the network: the files `publish_files` sent
 // beside the page, the files the agent uploaded (`upload_asset`, kept by their id in the project's `.blobs`), and the
-// copy that links them from the page's own folder (`offline.html`), which a preview tab may read.
+// copy that links them from the page's own folder (`offline.html`), which its tab reads.
 
 extension Artifacts {
-    /// The copy a preview tab opens without the network.
-    static let offlineCopy = "offline.html"
     /// Names in an artifact's folder that are Kelp's own: a file the agent sent under one of them isn't kept.
     private static let ownNames: Set<String> = [
         "artifact.json", pageCopy, offlineCopy, ArtifactMarks.file, "versions", "_blob", "boards"

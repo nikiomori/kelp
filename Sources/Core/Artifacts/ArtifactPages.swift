@@ -89,6 +89,9 @@ extension Artifacts {
         return answer.firstMatch(of: /\\?"slug\\?"\s*:\s*\\?"([A-Za-z0-9-]{8,})/).map { String($0.output.1) }
     }
 
+    /// The copy of a page on a service that opens without the network, beside `pageCopy` (`artifact.offline`).
+    public static let offlineCopy = "offline.html"
+
     /// Kelp's copy of a page that lives on a service, kept in the artifact's folder.
     public static let pageCopy = "page.html"
 

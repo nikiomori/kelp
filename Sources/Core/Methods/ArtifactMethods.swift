@@ -192,7 +192,7 @@ public struct ArtifactKeepAssets: RPCMethod {
 }
 
 /// Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and
-/// styles beside it, linked from there. Returns that file, which a preview tab shows.
+/// styles beside it, linked from there. Returns that file, which opens in a page's tab.
 public struct ArtifactOffline: InternalMethod {
     public static let name = "artifact.offline"
     public typealias Result = String

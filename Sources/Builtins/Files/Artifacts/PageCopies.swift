@@ -15,20 +15,20 @@ enum Reach {
     }
 }
 
-/// Kelp's copies of pages on a service: opening one in a preview tab, whole (its pictures and styles beside it), and
+/// Kelp's copies of pages on a service: opening one in a page's tab, whole (its pictures and styles beside it), and
 /// what the lists say of it.
 @MainActor
 enum PageCopies {
     /// Whether the page has a copy on this Mac to open.
     static func has(_ item: ArtifactItem) -> Bool { item.url != nil && item.copy != nil }
 
-    /// Opens the copy that works without the network in a preview tab. The daemon writes it first, beside the copy.
+    /// Opens the copy that works without the network in a page's tab. The daemon writes it first, beside the copy.
     static func open(_ app: AppModel, _ item: ArtifactItem) {
         guard let copy = item.preview else { return }
         let folder = (copy as NSString).deletingLastPathComponent
         Task {
             guard let offline = await app.call(ArtifactOffline(folder: folder)) else { return }
-            app.workbench.open("preview:" + offline)
+            app.workbench.open(offline)   // an agent's page of HTML, read in its own tab
         }
     }
 

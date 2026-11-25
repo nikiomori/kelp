@@ -251,3 +251,12 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
         }
     }
 }
+
+/// The copy that opens without the network is an agent's page, read in the page's own tab: it needs no other built-in
+/// (a preview tab is the Browser's, which may be off).
+@MainActor @Test func theOfflineCopyOpensAsAPage() {
+    let copy = "/p/.kelp/artifacts/plan/" + Artifacts.offlineCopy
+    #expect(ArtifactBar.isPage(copy))
+    #expect(MarkdownTab.Page(URL(fileURLWithPath: copy)) == .html)
+    #expect(!ArtifactBar.isPage("/p/.kelp/artifacts/plan/notes.html"))
+}
