@@ -10,11 +10,10 @@ enum CanvasMulti {
 
     private static let body = """
           const K = window.kelpCanvas; if (!K) return;
-          const sheet = K.el('style'); sheet.textContent = STYLE; document.head.append(sheet);
+          const on = (type, run, capture) => window.addEventListener?.(type, run, capture);   // not in a test's stub
           let group = [], first = null, timer = null;   // the chosen ones besides the first; that one
           const bar = K.el('div', 'kelp-float kelp-multi'), count = K.el('span', 'kelp-multi-n');
           const marks = K.el('div', 'kelp-also-layer');
-          document.body.append(bar, marks);
           const all = () => first ? [first, ...group] : [];
           const css = e => e.ownerDocument.defaultView.getComputedStyle(e);
           const moved = e => {
@@ -35,6 +34,10 @@ enum CanvasMulti {
             button('distribute.horizontal.center', L.multiAcross, () => spread('x')),
             button('distribute.vertical.center', L.multiDown, () => spread('y')));
           function draw() {
+            if (!bar.isConnected) {   // put on the page the first time it's needed
+              const sheet = K.el('style'); sheet.textContent = STYLE;
+              document.head.append(sheet); document.body.append(bar, marks);
+            }
             marks.replaceChildren(...group.map(g => {
               const b = K.box(g.f, g.e), d = K.el('div', 'kelp-also');
               Object.assign(d.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
@@ -72,7 +75,7 @@ enum CanvasMulti {
               return axis === 'x' ? [g, x + d, y] : [g, x, y + d];
             }), 'spaced');
           }
-          addEventListener('kelp-chosen', ev => {
+          on('kelp-chosen', ev => {
             // Another element chosen, or the board drawn again after a change: the group starts again from it.
             group = []; first = ev.detail;
             draw();
@@ -86,7 +89,7 @@ enum CanvasMulti {
             if (i >= 0) group.splice(i, 1); else group.push(hit);
             draw();
           }, true);
-          addEventListener('keydown', ev => {
+          on('keydown', ev => {
             if (K.mode() !== 'edit' || !group.length) return;
             const t = ev.target;
             if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
@@ -108,8 +111,8 @@ enum CanvasMulti {
             clearTimeout(timer);
             timer = setTimeout(() => write(all().map(g => [g, ...moved(g.e)]), 'moved'), 500);
           }, true);
-          addEventListener('kelp-zoom', draw);
-          addEventListener('resize', draw);
+          on('kelp-zoom', draw);
+          on('resize', draw);
         """
 
     static let style = """
