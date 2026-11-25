@@ -103,7 +103,7 @@ enum CanvasMotionKeys {
             const kind = /^linear[(]/.test(now) ? (now.split(',').length > 22 ? 'wiggle' : 'spring') : 'curve';
             const s = K.el('div', 'kelp-isec');
             const head = K.el('div', 'kelp-ititle', L.easing + ' · ' + Math.round(curve.at) + '%');
-            const seg = K.el('span', 'kelp-iseg kelp-cv-seg');
+            const seg = K.el('span', 'kelp-seg kelp-fill kelp-cv-seg');
             for (const [k, name] of [['curve', L.curve], ['spring', L.spring], ['wiggle', L.wiggle]]) {
               const b = K.el('button', k === kind ? 'on' : '', name);
               const first = { curve: 'ease-in-out', spring: spring(0.5), wiggle: wiggle(3, 0.12) }[k];
@@ -136,7 +136,7 @@ enum CanvasMotionKeys {
             const keys = keysOf(e); if (!keys) return [];
             const t = window.kelpMotion.time(), p = place(keys, t);
             const times = keys.frames.map(f => keys.delay + keys.duration * f.at / 100);
-            const nav = K.el('span', 'kelp-iseg');
+            const nav = K.el('span', 'kelp-step');
             const go = d => {
               const next = d < 0 ? times.filter(x => x < t - 0.01).pop() : times.find(x => x > t + 0.01);
               if (next != null) window.kelpMotion.seek(next);
@@ -145,7 +145,7 @@ enum CanvasMotionKeys {
             const steps = [['chevron-left', () => go(-1), ''],
               ['diamond-fill', () => K.post({ kind: 'keyframe' }), on ? 'on' : ''], ['chevron-right', () => go(1), '']];
             for (const [glyph, run, cls] of steps) {
-              const b = K.el('button', cls); b.append(K.el('span', 'kelp-sym-' + glyph)); b.onclick = run;
+              const b = K.el('button', 'kelp-ib ' + cls); b.append(K.el('span', 'kelp-sym-' + glyph)); b.onclick = run;
               nav.append(b);
             }
             const seg = keys.frames.filter(f => f.at <= p + 0.01).pop() || keys.frames[0];
@@ -234,7 +234,7 @@ enum CanvasMotionKeys {
             pair.append(field('fade-in', e.dataset.fadeIn || 0, 's'), field('fade-out', e.dataset.fadeOut || 0, 's'));
             // Quieter under the other sounds (a voice), by so many decibels; brought to a loudness at export.
             const choice = (name, now, options) => {
-              const seg = K.el('span', 'kelp-iseg');
+              const seg = K.el('span', 'kelp-seg kelp-fill');
               for (const [v, t] of options) {
                 const b = K.el('button', String(now || 0) === v ? 'on' : '', t);
                 b.onclick = () => K.post({ kind: 'soundProp', id, name, value: v });
@@ -265,7 +265,7 @@ enum CanvasMotionKeys {
             speed.onkeydown = ev => ev.stopPropagation();
             speed.onchange = () => K.post({ kind: 'soundProp', id, name: 'rate',
               value: String(Math.max(0.25, Math.min(4, parseFloat(speed.value) || 1))) });
-            const loop = K.el('span', 'kelp-iseg');
+            const loop = K.el('span', 'kelp-seg kelp-fill');
             for (const [v, t] of [['', L.no], ['true', L.yes]]) {
               const b = K.el('button', (e.dataset.loop || '') === v ? 'on' : '', t);
               b.onclick = () => K.post({ kind: 'soundProp', id, name: 'loop', value: v || '0' });

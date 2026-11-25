@@ -42251,6 +42251,16 @@
           }
         }
       }
+    },
+    "Thin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкая"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

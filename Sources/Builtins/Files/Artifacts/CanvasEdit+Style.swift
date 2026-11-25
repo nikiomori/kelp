@@ -32,10 +32,6 @@ extension CanvasEdit {
         .kelp-panel.open { display: flex; }
         .kelp-panel label { display: flex; gap: 6px; align-items: center; }
         .kelp-panel input[type=color] { width: 22px; height: 18px; border: 0; padding: 0; background: none; }
-        .kelp-tseg { display: inline-flex; border-radius: 999px; background: var(--k-rest); padding: 1px; }
-        .kelp-tseg button { border: 0; background: none; color: inherit; font: inherit; padding: 1px 7px;
-          border-radius: 999px; }
-        .kelp-tseg button.on { background: var(--k-card); box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
         .kelp-strip { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: none;
           align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: var(--k-radius-capsule);
           opacity: 0; background: var(--k-hud); color: var(--k-on-hud);

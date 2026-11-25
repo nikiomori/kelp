@@ -224,7 +224,7 @@ enum CanvasEditMode {
           }
           // Left, centre, right: three buttons, the one set on.
           function align(e) {
-            const now = css(e).textAlign, seg = K.el('span', 'kelp-iseg');
+            const now = css(e).textAlign, seg = K.el('span', 'kelp-seg kelp-fill');
             for (const value of ['left', 'center', 'right']) {
               const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '');
               b.append(K.el('span', 'kelp-sym-text-align' + value));
@@ -364,12 +364,13 @@ enum CanvasEditMode {
         .kelp-iswatch { display: inline-block; width: 12px; height: 12px;
           border-radius: var(--k-radius-xs); margin-right: 6px;
           vertical-align: -2px; box-shadow: inset 0 0 0 1px var(--k-sep); }
-        .kelp-iseg { display: flex; gap: 2px; height: 20px; padding: 1px; border-radius: 5px;
-          background: var(--k-hover); }
-        .kelp-iseg button { flex: 1; border: 0; border-radius: var(--k-radius-xs); background: none;
-          color: var(--k-sec);
-          font-size: var(--k-text-row); }
-        .kelp-iseg button.on { background: var(--k-sel); color: var(--k-label); }
+        .kelp-seg.kelp-fill { display: flex; }
+        .kelp-seg.kelp-fill button { flex: 1 1 auto; min-width: 0; padding: 0 3px; overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap; }
+        .kelp-step { display: flex; align-items: center; gap: 2px; }
+        .kelp-step > span { flex: 1; text-align: center; font-variant-numeric: tabular-nums; }
+        .kelp-ib.on { color: var(--k-accent); }
         .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .kelp-ipair.kelp-isides { grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px;

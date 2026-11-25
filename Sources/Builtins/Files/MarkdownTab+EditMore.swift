@@ -13,7 +13,7 @@ extension MarkdownTab {
             "tracking": String(localized: "Letter Spacing"), "tight": String(localized: "Tight"),
             "edgeNone": String(localized: "None"), "wide": String(localized: "Wide"),
             "edges": String(localized: "Edges"), "border": String(localized: "Border"),
-            "shadow": String(localized: "Shadow"), "hairline": String(localized: "Hairline"),
+            "shadow": String(localized: "Shadow"), "hairline": String(localized: "Thin"),
             "accentLine": String(localized: "Accent"), "small": String(localized: "Small"),
             "medium": String(localized: "Medium"), "large": String(localized: "Large"),
             "paddingSides": String(localized: "Padding"), "corners": String(localized: "Corners"),

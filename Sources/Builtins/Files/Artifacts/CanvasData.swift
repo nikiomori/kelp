@@ -73,12 +73,13 @@ enum CanvasData {
               { kind: 'rowsTable', board, id }));
             if (file) row(L.field, pop(col || '—', { kind: 'rowsField', board, id, file, columns: table?.[0] || [] }));
             if (file && count()) {
-              const seg = K.el('span', 'kelp-iseg');
+              const seg = K.el('span', 'kelp-step');
               const step = d => { at = Math.max(1, Math.min(count(), at + d)); apply(); props.redraw(); };
-              const back = K.el('button'), next = K.el('button');
+              const back = K.el('button', 'kelp-ib'), next = K.el('button', 'kelp-ib');
               back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
               back.onclick = () => step(-1); next.onclick = () => step(1);
-              seg.append(back, K.el('button', 'on', at + ' / ' + count()), next);
+              back.disabled = at <= 1; next.disabled = at >= count();
+              seg.append(back, K.el('span', '', at + ' / ' + count()), next);
               row(L.row, seg);
             }
             return [s];

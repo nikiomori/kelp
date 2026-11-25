@@ -29,7 +29,7 @@ enum CanvasEditMore {
           // Buttons, one per choice (a word, or an SF Symbol's name after "sym:", and its name as the tip), the one
           // `now` is on.
           function seg(choices, now, pick) {
-            const s = K.el('span', 'kelp-iseg');
+            const s = K.el('span', 'kelp-seg kelp-fill');
             for (const [value, glyph, tip] of choices) {
               const b = K.el('button', value === now ? 'on' : '');
               if (glyph.startsWith('sym:')) b.append(K.el('span', 'kelp-sym-' + glyph.slice(4).replaceAll('.', '-')));

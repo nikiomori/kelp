@@ -342,7 +342,7 @@ enum CanvasEdit {
                 c.oninput = () => set(t, c.value, false); c.onchange = () => set(t, c.value, true);
                 line.append(c);
               } else {
-                const seg = el('span', 'kelp-tseg');
+                const seg = el('span', 'kelp-seg');
                 for (const o of t.options) {
                   const b = el('button', o === t.value ? 'on' : '', o);
                   b.onclick = () => {
