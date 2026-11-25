@@ -325,6 +325,8 @@ extension AppOfItsOwn {
         bar?.followBaseline(versions: [.init(n: 1, at: 0, label: "a"), .init(n: 2, at: 1, label: "b")], live: false)
         (tab, bar) = (nil, nil)
         #expect(closed == nil)
+        let page = ArtifactItem(slug: "home", type: "doc", title: "Home", created: 0, target: url.path)
+        rig.app.land(ArtifactsEvent(worktree: rig.workspace.id, items: [page]))   // what the bar watches changes too
         try await waitFor { gone == nil }   // the read answered, and the bar let go
     }
 }

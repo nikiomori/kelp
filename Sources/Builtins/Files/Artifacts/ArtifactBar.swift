@@ -164,12 +164,13 @@ final class ArtifactBar: NSObject {
         markdown.onCheck = { [weak self] in self?.show(check: $0) }
         nameFromRecord()
         watched.key = workspace
-        track(owner: self) { [app, workspace] in
+        // Both end with the tab, not the bar: a read still waiting keeps the bar after the tab, and `update` reads it.
+        track(owner: markdown) { [app, workspace] in
             app.latest(ArtifactsEvent.self, workspace ?? "")?.items
         } changed: { [weak self] _ in
             self?.update()
         }
-        track(owner: self) { [app] in
+        track(owner: markdown) { [app] in
             app.sessions.map { "\($0.id)\($0.status)\($0.title)" }
         } changed: { [weak self] _ in
             self?.update()
