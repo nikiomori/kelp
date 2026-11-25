@@ -262,6 +262,18 @@ extension MarkdownTab {
             guard next != editor.text else { break }
             editor.apply(text: next, selection: NSRange(location: 0, length: 0))
             Task { _ = await saveFile?() }
+        case "retext":
+            guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
+            guard
+                let next = MarkdownRetext.set(
+                    editor.text, line: line, end: (body["end"] as? NSNumber)?.intValue, words: text)
+            else {
+                rerender()   // the page shows the file's words again
+                Banner.show(String(localized: "That one has formatting, a list or a quote in it: change it in Edit."))
+                break
+            }
+            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
+            Task { _ = await saveFile?() }
         case "notes":
             guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
             let next = SlideNotes.set(editor.text, line: line, text: text)

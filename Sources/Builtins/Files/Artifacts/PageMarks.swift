@@ -111,6 +111,34 @@ enum PageMarks {
             post({ kind: 'mode', value: 'mark' }); window.kelpMark(true);
             if (t) add(t);
           });
+          // A paragraph or a heading is typed over where it is (double click; Return keeps it, Esc puts it back) while
+          // Mark is off; the Markdown changes at its lines (`retext`), or Kelp says to change it in the source.
+          const placeOf = el => { let at = null, after = null;
+            for (const m of document.querySelectorAll('[data-line]')) {
+              if (m.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) at = m; else if (!after) after = m;
+            }
+            return [at && +at.dataset.line, after && +after.dataset.line]; };
+          document.addEventListener('dblclick', e => {
+            const el = !K.on && e.target.closest?.('p, h1, h2, h3, h4, h5, h6');
+            if (!el || !root.contains(el) || el.closest('li, blockquote, td, th, .kelp-col')) return;
+            const [line, end] = placeOf(el); if (!line) return;
+            e.preventDefault(); e.stopImmediatePropagation();
+            const was = el.textContent;
+            el.contentEditable = 'plaintext-only'; el.focus();
+            const done = keep => {   // the listeners go first: leaving editing blurs, which would end it twice
+              el.removeEventListener('keydown', key); el.removeEventListener('blur', blur);
+              el.removeAttribute('contenteditable');
+              const now = el.textContent.trim();
+              if (!keep || now === was.trim()) { el.textContent = was; return; }
+              post({ kind: 'retext', line, end, text: now });
+            };
+            const key = k => {
+              if (k.key === 'Enter' && !k.shiftKey) { k.preventDefault(); done(true); }
+              else if (k.key === 'Escape') { k.preventDefault(); done(false); }
+            };
+            const blur = () => done(true);
+            el.addEventListener('keydown', key); el.addEventListener('blur', blur);
+          }, true);
           // A task list's boxes tick on the page and in the Markdown (`task`).
           for (const box of root.querySelectorAll('input[data-task]')) {
             box.disabled = false;

@@ -41046,6 +41046,16 @@
           }
         }
       }
+    },
+    "That one has formatting, a list or a quote in it: change it in Edit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В нём есть оформление, список или цитата: поменяйте это в Edit."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
