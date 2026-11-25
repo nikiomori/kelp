@@ -70,7 +70,7 @@ extension ArtifactAdd: Handled {
 
 /// Returns the folder whose artifacts a command run in `cwd` means. That is the workspace that holds `cwd`, preferring
 /// `session`'s own workspace as `IDE.workspace` picks. Otherwise it is `cwd` itself, as for a chat outside any project.
-private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
+func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
     var isFolder: ObjCBool = false
     guard cwd.hasPrefix("/"), FileManager.default.fileExists(atPath: cwd, isDirectory: &isFolder), isFolder.boolValue
     else { throw RPCError.invalidParams("not a folder: \(cwd)") }
@@ -134,7 +134,8 @@ extension Methods {
     static let artifactMethods: [any Answered.Type] = [
         ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
         ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
-        ArtifactRename.self, ArtifactRoundCost.self, ArtifactChange.self
+        ArtifactRename.self, ArtifactRoundCost.self, ArtifactChange.self, ArtifactKeepAssets.self,
+        ArtifactOffline.self
     ]
 }
 

@@ -171,6 +171,35 @@ public struct ArtifactChange: RPCMethod {
     }
 }
 
+/// Keeps the files an agent uploaded for its pages (`upload_asset`, from its hook), by their id on the service, in the
+/// project that holds `cwd`: Kelp's copies of the pages show them without the network. Returns how many were kept.
+public struct ArtifactKeepAssets: RPCMethod {
+    public static let name = "artifact.keepAssets"
+    public typealias Result = Int
+    public struct Asset: Codable, Equatable, Sendable {
+        public var path: String, id: String
+        public init(path: String, id: String) {
+            self.path = path
+            self.id = id
+        }
+    }
+    public var cwd: String, session: String?, assets: [Asset]
+    public init(cwd: String, session: String?, assets: [Asset]) {
+        self.cwd = cwd
+        self.session = session
+        self.assets = assets
+    }
+}
+
+/// Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and
+/// styles beside it, linked from there. Returns that file, which a preview tab shows.
+public struct ArtifactOffline: InternalMethod {
+    public static let name = "artifact.offline"
+    public typealias Result = String
+    public var folder: String
+    public init(folder: String) { self.folder = folder }
+}
+
 /// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the
 /// user answers in its note; the answer comes with the user's next marks. Returns the mark's number.
 public struct ArtifactAsk: RPCMethod {

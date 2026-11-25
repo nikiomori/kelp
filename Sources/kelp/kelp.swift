@@ -290,6 +290,10 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                         ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
                     print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":"# + decision + "}}")
                 }
+                if ev == "command", let payload = hookPayload, let uploaded = Artifacts.uploaded(hook: payload) {
+                    await keepUploads(
+                        uploaded, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                }
                 if ev == "command", let payload = hookPayload, let page = Artifacts.published(hook: payload) {
                     await notePublished(
                         page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id,

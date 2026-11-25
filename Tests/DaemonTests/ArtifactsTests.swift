@@ -288,11 +288,60 @@ private func tempRoot() throws -> URL {
         .obj(["as": "project/Main.dc.html", "path": .string(board.path)])
     ])
     let canvas = try #require(Artifacts.published(hook: hook("publish_files", .obj(["files": files]))))
-    #expect(canvas.type == "design" && canvas.page == .file(board.path))
+    #expect(canvas.type == "design" && canvas.page?.file == board.path)
+    #expect(canvas.page?.others == ["project/canvas.json": "/nowhere/canvas.json"])
     _ = try Artifacts.addNative(
         url: url, title: canvas.title, type: canvas.type, root: root.path, session: nil, page: canvas.page)
     #expect(Artifacts.items(root: root.path).first { $0.url == url }?.type == "design")
     #expect(try String(contentsOfFile: copy, encoding: .utf8) == "<div>board</div>")
+}
+
+/// A copy opens whole without the network: the files sent beside the page are kept where they're served from, the
+/// uploaded ones by their id, and the offline copy links them from the page's folder. Until a picture it uses is here,
+/// the copy says it misses some; a file sent under one of Kelp's names, or out of the folder, isn't kept.
+@Test func artifactCopiesOpenWithoutTheNetwork() throws {
+    let root = try tempRoot(), url = "https://claude.ai/artifact/off"
+    let sent = root.appendingPathComponent("sent")
+    try FileManager.default.createDirectory(at: sent, withIntermediateDirectories: true)
+    for (name, text) in [("site.css", "p{}"), ("logo.png", "PNG"), ("evil.json", "{}")] {
+        try text.write(to: sent.appendingPathComponent(name), atomically: true, encoding: .utf8)
+    }
+    let html = #"<link href="css/site.css" rel="stylesheet"><img src="/_blob/abc123"><img src='/_blob/def456'>"#
+    try html.write(to: sent.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+    var page = PublishedPage.file(sent.appendingPathComponent("index.html").path)
+    page.others = [
+        "css/site.css": sent.appendingPathComponent("site.css").path,
+        "artifact.json": sent.appendingPathComponent("evil.json").path,
+        "../out.css": sent.appendingPathComponent("site.css").path
+    ]
+    let folder = try #require(
+        try Artifacts.addNative(url: url, title: "Off", type: "page", root: root.path, session: nil, page: page))
+    #expect(Artifacts.record(in: folder)?.title == "Off")   // the record wasn't overwritten
+    #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("css/site.css").path))
+    let outside = folder.deletingLastPathComponent().appendingPathComponent("out.css")
+    #expect(!FileManager.default.fileExists(atPath: outside.path))
+    func copy() -> ArtifactCopy? { Artifacts.items(root: root.path).first?.copy }
+    #expect(copy() == .partial)
+
+    let upload: JSONValue = .obj([
+        "hook_event_name": "PostToolUse", "tool_name": "mcp__claude-artifacts__upload_asset",
+        "tool_input": .obj([
+            "files": .array([
+                .obj(["path": .string(sent.appendingPathComponent("logo.png").path)]),
+                .obj(["path": .string(sent.appendingPathComponent("logo.png").path)])
+            ])
+        ]),
+        "tool_response": .string(#"{"assets":[{"url":"/_blob/abc123"},{"url":"/_blob/def456"}]}"#)
+    ])
+    let assets = try #require(Artifacts.uploaded(hook: upload)).map {
+        ArtifactKeepAssets.Asset(path: $0.path, id: $0.id)
+    }
+    #expect(try Artifacts.keepAssets(assets, root: root.path) == 2)
+    #expect(copy() == .full)
+    let offline = try ArtifactOffline(folder: folder.path).handle(NoService())
+    let text = try String(contentsOfFile: offline, encoding: .utf8)
+    #expect(text.contains(#"src="_blob/abc123""#) && text.contains("src='_blob/def456'") && !text.contains("/_blob/"))
+    #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("_blob/abc123").path))
 }
 
 /// A page published before Kelp kept copies gets one from its chat's transcript: the calls whose answer names it,

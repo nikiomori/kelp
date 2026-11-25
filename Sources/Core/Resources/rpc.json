@@ -574,6 +574,14 @@
         ],
         "type" : "object"
       },
+      "ArtifactCopy" : {
+        "description" : "How whole Kelp's copy of a page on a service is: everything it uses is on this Mac, or some pictures or styles are missing (the agent uploaded them before Kelp kept them). No copy at all is nil.",
+        "enum" : [
+          "full",
+          "partial"
+        ],
+        "type" : "string"
+      },
       "ArtifactCost.Spent" : {
         "properties" : {
           "calls" : {
@@ -612,6 +620,10 @@
           },
           "changed" : {
             "type" : "boolean"
+          },
+          "copy" : {
+            "$ref" : "#/components/schemas/ArtifactCopy",
+            "description" : "For a page on a service: how whole Kelp's copy of it is. nil when there is no copy."
           },
           "created" : {
             "description" : "Seconds since 1970, like `modified`.",
@@ -673,6 +685,21 @@
           "target",
           "title",
           "type"
+        ],
+        "type" : "object"
+      },
+      "ArtifactKeepAssets.Asset" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "id",
+          "path"
         ],
         "type" : "object"
       },
@@ -4398,6 +4425,13 @@
           "html" : {
             "description" : "The whole page (`publish_version`).",
             "type" : "string"
+          },
+          "others" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "The other files `publish_files` sent beside the page (its CSS, scripts, pictures): where each is served, and the file on this Mac that holds it. They are kept with the copy, so it opens whole without the network.",
+            "type" : "object"
           }
         },
         "required" : [
@@ -7700,6 +7734,43 @@
       "x-internal" : true
     },
     {
+      "description" : "Keeps the files an agent uploaded for its pages (`upload_asset`, from its hook), by their id on the service, in the project that holds `cwd`: Kelp's copies of the pages show them without the network. Returns how many were kept.",
+      "name" : "artifact.keepAssets",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "assets",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactKeepAssets.Asset"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "cwd",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "integer"
+        }
+      }
+    },
+    {
       "description" : "Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases nothing. Returns whether a version was kept.",
       "name" : "artifact.keepRestored",
       "paramStructure" : "by-name",
@@ -7835,6 +7906,27 @@
           "type" : "string"
         }
       }
+    },
+    {
+      "description" : "Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and styles beside it, linked from there. Returns that file, which a preview tab shows.",
+      "name" : "artifact.offline",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "folder",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns whether it was renamed.",

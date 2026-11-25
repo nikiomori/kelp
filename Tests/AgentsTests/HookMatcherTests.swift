@@ -33,6 +33,7 @@ import Testing
         if AgentCommand(hook: failure) != nil { #expect(try matches(Hooks.commandTools, tool), "\(tool) failing") }
     }
     #expect(Artifacts.published(hook: payload("PostToolUse", "mcp__claude-artifacts__publish_version")) != nil)
+    #expect(try matches(Hooks.endsActedOn, "mcp__claude-artifacts__upload_asset"))   // its files are kept
     for tool in ["EnterWorktree", "ExitWorktree"] { #expect(try matches(Hooks.endsActedOn, tool)) }   // its new cwd
     for tool in [
         "Read", "Grep", "Glob", "WebFetch", "Task", "Agent", "BashOutput", "mcp__claude-artifacts__read_artifact"

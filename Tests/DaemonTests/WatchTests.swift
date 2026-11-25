@@ -635,6 +635,12 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     try await touch("Bash", .obj(["command": "kelp artifact reply doc 2 \"done\""]))
     #expect(try await waitFor(10) { page()?.target == doc && page()?.doing == .answering })
     #expect(SessionHook.page(of: .obj(["hook_event_name": "PreToolUse", "tool_name": "Bash"])) == nil)
+    // What the agent uploads for its pages is kept in the project, by its id.
+    let picture = artifacts.appendingPathComponent("web/picture.png")
+    try Data("PNG".utf8).write(to: picture)
+    let asset = ArtifactKeepAssets.Asset(path: picture.path, id: "ab12")
+    #expect(try await w.c.call(ArtifactKeepAssets(cwd: wt.path, session: s.id, assets: [asset])) == 1)
+    #expect(FileManager.default.fileExists(atPath: Artifacts.blobs(root: wt.path).appendingPathComponent("ab12").path))
     _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))
     #expect(try await waitFor(10) { heard.events(Session.self).last { $0.id == s.id }.map { $0.page == nil } == true })
 }

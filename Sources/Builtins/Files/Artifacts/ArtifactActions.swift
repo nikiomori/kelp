@@ -37,6 +37,8 @@ extension ArtifactActions {
     /// refuses any other scheme too).
     static func open(_ app: AppModel, _ item: ArtifactItem) {
         guard item.url != nil else { return app.workbench.open(item.target) }
+        // Without the network the browser can't load it: Kelp's copy opens instead.
+        if Reach.offline, PageCopies.has(item) { return PageCopies.open(app, item) }
         if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
     }
 
@@ -57,6 +59,7 @@ extension ArtifactActions {
         quickLook: @escaping @MainActor () -> Void, earlier: [ArtifactItem] = [], keeping: Keeping? = nil
     ) {
         menu.add(item.url == nil ? String(localized: "Open") : String(localized: "Open in Browser")) { open(item) }
+        if PageCopies.has(item) { menu.add(String(localized: "Open Copy on This Mac")) { PageCopies.open(app, item) } }
         if item.preview != nil { menu.add(String(localized: "Quick Look"), quickLook) }
         if !earlier.isEmpty {
             let versions = NSMenu()

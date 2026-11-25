@@ -85,8 +85,10 @@ extension Artifacts {
         item.agentChange = artifactRecord.agentChange
         guard artifactRecord.url == nil else {
             item.modified = artifactRecord.updated?.timeIntervalSince1970
-            let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path
+            let folder = dir(root: root).appendingPathComponent(slug)
+            let copy = folder.appendingPathComponent(pageCopy).path
             item.preview = fileStat(copy) == nil ? nil : copy
+            item.copy = copyState(folder: folder, root: root)
             return item
         }
         item.preview = target
@@ -269,6 +271,7 @@ extension Artifacts {
     /// applied. When there is no copy yet, edits write nothing.
     static func keepPage(_ page: PublishedPage?, in folder: URL) throws {
         let copy = folder.appendingPathComponent(pageCopy)
+        if let others = page?.others { try keepOthers(others, in: folder) }
         if let html = page?.html {
             try Data(html.utf8).write(to: copy, options: .atomic)
         } else if let path = page?.file {

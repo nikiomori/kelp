@@ -10,7 +10,7 @@ import KelpKit
 @MainActor
 final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     enum Column: String, CaseIterable {
-        case name, kind, project, changed
+        case name, kind, project, copy, changed
     }
 
     let table = KeyTable()
@@ -54,9 +54,10 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             case .name: String(localized: "Name")
             case .kind: String(localized: "Kind")
             case .project: String(localized: "Project")
+            case .copy: String(localized: "Offline Copy")
             case .changed: String(localized: "Changed")
             }
-        made.width = column == .name ? 360 : 130
+        made.width = column == .name ? 360 : column == .copy ? 90 : 130
         made.minWidth = column == .name ? 160 : 70
         // A name sorts from A first, a time from the newest: what a first click on each is after.
         made.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: column != .changed)
@@ -85,6 +86,7 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             case .name: model.title($0)
             case .kind: Artifacts.Kind(rawValue: $0.item.type).map(ArtifactStart.title) ?? $0.item.type
             case .project: model.projectName($0.repo)
+            case .copy: PageCopies.state($0.item)
             case .changed: String(format: "%020.3f", $0.time)
             }
         }
@@ -134,11 +136,12 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             cell.spacing = Metrics.gap
             cell.toolTip = item.title
             return cell
-        case .kind, .project, .changed:
+        case .kind, .project, .copy, .changed:
             let text: String =
                 switch column {
                 case .kind: Artifacts.Kind(rawValue: item.type).map(ArtifactStart.title) ?? String(localized: "Page")
                 case .project: model.projectName(page.repo)
+                case .copy: PageCopies.state(item)
                 default:
                     Date(timeIntervalSince1970: page.time).formatted(date: .abbreviated, time: .shortened)
                 }

@@ -385,6 +385,16 @@
         }
       }
     },
+    "No Images": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без картинок"
+          }
+        }
+      }
+    },
     "No Pages": {
       "localizations": {
         "ru": {
@@ -425,12 +435,42 @@
         }
       }
     },
+    "No copy on this Mac: it opens once you're online": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копии на этом Mac нет: страница откроется, когда появится сеть"
+          }
+        }
+      }
+    },
     "Nothing Waits for You": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Ничего не ждёт вас"
+          }
+        }
+      }
+    },
+    "Offline Copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копия без сети"
+          }
+        }
+      }
+    },
+    "Open Copy on This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть копию на этом Mac"
           }
         }
       }
@@ -1115,6 +1155,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Список машин над лимитами планов."
+          }
+        }
+      }
+    },
+    "Whole": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полная"
           }
         }
       }

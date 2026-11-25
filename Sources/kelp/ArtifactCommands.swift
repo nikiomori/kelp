@@ -232,6 +232,18 @@ extension Main {
         }
     }
 
+    /// Called from `kelp hook command` after `upload_asset`: keeps the uploaded files, so Kelp's copies of the pages
+    /// show them without the network. This never fails the hook either.
+    static func keepUploads(_ files: [(path: String, id: String)], cwd: String, session: String) async {
+        do {
+            let assets = files.map { ArtifactKeepAssets.Asset(path: $0.path, id: $0.id) }
+            _ = try await connect().call(ArtifactKeepAssets(cwd: cwd, session: session, assets: assets))
+        } catch {
+            let why = (error as? RPCError)?.message ?? error.localizedDescription
+            FileHandle.standardError.write(Data("kelp: couldn't keep the uploaded files: \(why)\n".utf8))
+        }
+    }
+
     /// Opens `url` in the user's default browser, which is signed in to the service the page is on.
     static func openInBrowser(_ url: String) {
         let process = Process()

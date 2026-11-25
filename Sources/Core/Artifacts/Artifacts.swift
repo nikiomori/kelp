@@ -66,6 +66,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     public var marks: ArtifactMarkCounts?
     /// The record's tags, archive and an agent's last change to them (`ArtifactRecord`).
     public var tags: [String]?, archived: Bool?, agentChange: ArtifactAgentChange?
+    /// For a page on a service: how whole Kelp's copy of it is. nil when there is no copy.
+    public var copy: ArtifactCopy?
 
     public init(
         slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
