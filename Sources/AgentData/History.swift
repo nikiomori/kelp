@@ -87,7 +87,7 @@ public enum ClaudeHistory {
             case "summary": summary = object["summary"] as? String ?? summary
             case "custom-title": custom = object["customTitle"] as? String ?? custom
             case "ai-title": aiTitle = object["aiTitle"] as? String ?? aiTitle
-            case "last-prompt": lastPrompt = object["lastPrompt"] as? String ?? lastPrompt
+            case "last-prompt": lastPrompt = (object["lastPrompt"] as? String).flatMap(JSONL.typed) ?? lastPrompt
             case "assistant": count += 1
             case "user":
                 count += 1
@@ -336,8 +336,7 @@ enum JSONL {
         return (value as? String).flatMap(CIRuns.date)
     }
 
-    /// Returns the text a human typed: a string or the text blocks of a content array, skipping injected `<tag>` and
-    /// AGENTS.md blocks.
+    /// Returns the first user text in a string or content array, skipping generated context and AGENTS.md blocks.
     /// A slash command with arguments counts as "/name args".
     static func promptText(_ content: Any?) -> String? {
         let texts: [String] =
@@ -347,21 +346,31 @@ enum JSONL {
         return texts.lazy.compactMap(typed).first
     }
 
-    /// Returns what a person typed, or nil for what a program put under the person's name (`<system-reminder>`, a
-    /// command's output, Codex's AGENTS.md and environment, an interruption). A slash command with arguments reads
-    /// "/name args".
+    private static let generatedTags: Set<Substring> = [
+        "environment_context", "user_instructions", "turn_aborted", "subagent_notification", "user_shell_command",
+        "user_action", "skill", "codex_internal_context", "agent_message_board_notification", "image_resize_notice",
+        "system-reminder", "task-notification", "teammate-message", "artifact-content-authored-by-others",
+        "command-name", "command-message", "command-args", "local-command-caveat", "local-command-stdout",
+        "local-command-stderr", "bash-input", "bash-stdout", "bash-stderr", "ide_opened_file", "ide_selection"
+    ]
+
+    /// Skips leading transcript wrappers. User text can follow a wrapper in the same block or start with markup itself.
     static func typed(_ raw: String) -> String? {
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-            let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-            !args.allSatisfy(\.isWhitespace)
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)[...]
+        while let tag = text.prefixMatch(of: /<([\w-]+)(?=[>\s])/),
+            generatedTags.contains(tag.1) || text.hasPrefix("<kelp from=\"")
         {
-            return "\(name) \(args)"
+            if tag.1.hasPrefix("command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
+                let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
+                !args.allSatisfy(\.isWhitespace)
+            {
+                return "\(name) \(args)"
+            }
+            guard let end = text.range(of: "</\(tag.1)>") else { return nil }
+            text = text[end.upperBound...].drop(while: \.isWhitespace)
         }
-        let notTyped =
-            text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md")
-            || text.hasPrefix("[Request interrupted")
-        return notTyped ? nil : text
+        guard !text.isEmpty, !text.hasPrefix("# AGENTS.md"), !text.hasPrefix("[Request interrupted") else { return nil }
+        return String(text)
     }
 
     static func clip(_ text: String, _ length: Int = 80) -> String {
