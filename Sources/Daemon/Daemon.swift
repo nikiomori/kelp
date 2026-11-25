@@ -260,6 +260,7 @@ public final class Daemon: Sendable {
         Interruptions.markWorking(sessions.live.all, AgentManifest.load(dir: Paths.agents(in: root)))
         sessions.pauseAll()
         Sessions.waitGone(probes)
+        sessions.phone.waitStopped()
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()
@@ -287,6 +288,7 @@ public final class Daemon: Sendable {
         sessions.phone.stop()
         let handover = Handover(socket: socket, lock: dup(previous.instanceLock), sessions: sessions.handOver())
         Sessions.waitGone(agentUsage.openProbes.endAll())   // probes end here: their agents would be left behind
+        sessions.phone.waitStopped()
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()

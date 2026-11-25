@@ -109,6 +109,26 @@ private func phoneBridge(_ daemon: Daemon, program: URL) -> PhoneBridge {
     #expect(try daemon.store.daemonState(PhoneTailscale.ownersKey, as: [String: UInt16].self) == nil)
 }
 
+/// A slow Tailscale doesn't hold up the daemon's stop, which saves the sessions before it waits for the route to go.
+@Test func stoppingThePhoneDoesntWaitForTailscale() async throws {
+    let folder = tmp(), program = try tailscaleFixture(folder), block = folder.appendingPathComponent("block")
+    let (fd, port) = try boundPort()
+    close(fd)
+    let daemon = try Daemon(root: tmp()), phone = phoneBridge(daemon, program: program)
+    _ = try daemon.settings.set(SettingKeys.phonePort.key, .int(port))
+    _ = try daemon.settings.set(SettingKeys.phoneVia.key, .string("tailscale"))
+    try Data().write(to: block)
+    phone.hear(.started { _, _ in Data() })
+    let started = folder.appendingPathComponent("started").path
+    try #require(try await waitFor { FileManager.default.fileExists(atPath: started) })
+    phone.stop()
+    #expect(FileManager.default.fileExists(atPath: block.path), "stop returned with the route still being made")
+    try FileManager.default.removeItem(at: block)
+    await Task.detached { phone.waitStopped() }.value
+    let route = try String(contentsOf: folder.appendingPathComponent("route"), encoding: .utf8)
+    #expect(route.trimmingCharacters(in: .whitespacesAndNewlines) == "{}", "waitStopped returned once the route went")
+}
+
 @Test(arguments: [true, false]) func aRestartWithdrawsItsOldRouteEvenWhenThePhonePortIsOccupied(enabled: Bool)
     async throws
 {

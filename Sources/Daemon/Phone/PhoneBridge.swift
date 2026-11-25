@@ -120,12 +120,14 @@ actor PhoneBridge {
         news.yield(one)
         if case .stop = one { news.finish() }
     }
-    /// The process may exit or hand its instance lock to another kelpd immediately after stop returns.
+    /// Stops at once; the Tailscale route goes in the background, so the daemon saves its sessions meanwhile.
     nonisolated func stop() {
         stopping.withLock { $0 = true }
         hear(.stop)
-        publications.wait()
     }
+    /// Returns once the Tailscale route `stop` began removing is gone: the process may exit or hand its instance lock
+    /// to another kelpd right after.
+    nonisolated func waitStopped() { publications.wait() }
 
     func beginPublicationWork() -> Bool {
         stopping.withLock { stopped in
