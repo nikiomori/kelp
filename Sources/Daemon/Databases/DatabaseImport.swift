@@ -39,7 +39,7 @@ extension Databases {
     {
         let wanted = Set(databaseImport.ids)
         let had = try library()
-        var taken = Set(had.map(\.name)), denied = false
+        var taken = Set(had.map(\.name)), mended: Set<String> = [], denied = false
         var outcome = ImportOutcome(imported: [], withPasswords: 0, later: 0, denied: false, skipped: [])
         for entry in ImportReaders.read(databaseImport.source, home: home, file: databaseImport.file)
         where wanted.contains(entry.imported.id) {
@@ -60,8 +60,10 @@ extension Databases {
             // macOS asks the user then.
             if password == nil, let item = entry.keychain { db.passwordIn = item }
             // A database imported before (an older Kelp kept it without its password) is mended in place, under its
-            // old name.
-            if let old = had.first(where: { Self.sameAddress($0, db) }) {
+            // old name. Each is mended once: two connections at one address, whose users aren't known, are two.
+            let left = had.filter { !mended.contains($0.name) && Self.sameAddress($0, db) }
+            if let old = left.first(where: { $0.user == db.user }) ?? left.first {
+                mended.insert(old.name)
                 db.name = old.name
                 db.access = old.access
                 db.environment = old.environment

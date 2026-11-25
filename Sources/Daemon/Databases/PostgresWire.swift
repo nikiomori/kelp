@@ -131,26 +131,18 @@ struct PostgresWire: DatabaseRunner {
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
     ) async throws -> T {
-        let db = databaseConnection.database
-        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
-        let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
-        let password =
-            databaseConnection.password
-            ?? (PgPass.mayUse(for: db, host: host)
-                ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
-        let context = try NIOSSLContext(configuration: DatabaseWire.tls)
-        var config = PostgresConnection.Configuration(
-            host: host, port: port, username: user, password: password, database: db.database,
-            tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
-        config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
-        // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
-        config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
+        let db = databaseConnection.database, name = applicationName()
+        let config = try configuration(databaseConnection, name: name)
         let conn: PostgresConnection
         do {
             conn = try await PostgresConnection.connect(
                 on: DatabaseWire.eventLoop, configuration: config, id: 1, logger: DatabaseWire.logger
             ).get()
         } catch { throw failure(error, db) }
+        // A Stop closes the connection (`within`), which leaves the statement running on the server: it is cancelled
+        // there too, found by the connection's own name
+        let stop = DatabaseStop.current, token = stop?.on { Task { await cancel(name, databaseConnection) } }
+        defer { stop?.off(token) }
         do {
             let result = try await DatabaseWire.within(
                 seconds, db, close: { await DatabaseWire.close { try await conn.close() } }
@@ -163,6 +155,57 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
+    /// A connection's own application_name, "kelp/<uuid>", by which a Stop finds its statement on the server.
+    static func applicationName() -> String { "kelp/" + UUID().uuidString.lowercased() }
+
+    /// The statement that cancels what the connection named `name` runs, the name bound as $1.
+    static func cancelQuery(_ name: String) -> PostgresQuery {
+        "SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE application_name = \(name)"
+    }
+
+    /// Cancels on the server the statement of the connection named `name`, from a short connection of its own. Out of
+    /// the Stop's task, which would close this one too. A failure goes to the log.
+    private static func cancel(_ name: String, _ databaseConnection: DatabaseConnection) async {
+        let db = databaseConnection.database
+        await DatabaseStop.$current.withValue(nil) {
+            do {
+                let conn = try await PostgresConnection.connect(
+                    on: DatabaseWire.eventLoop, configuration: configuration(databaseConnection), id: 2,
+                    logger: DatabaseWire.logger
+                ).get()
+                defer { Task { await DatabaseWire.close { try await conn.close() } } }
+                _ = try await DatabaseWire.within(
+                    DatabaseTimes.kill, db, close: { await DatabaseWire.close { try await conn.close() } }
+                ) { try await conn.query(cancelQuery(name), logger: DatabaseWire.logger).collect() }
+            } catch {
+                Log.store.error("cancelling \(db.name)'s stopped statement on the server: \(error)")
+            }
+        }
+    }
+
+    /// The connection's settings: TLS as the sslmode says, checked against the server's own name when it is reached
+    /// through a forwarded port. `name` is its application_name.
+    static func configuration(_ databaseConnection: DatabaseConnection, name: String = "kelp") throws
+        -> PostgresConnection.Configuration
+    {
+        let db = databaseConnection.database
+        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
+        let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
+        let password =
+            databaseConnection.password
+            ?? (PgPass.mayUse(for: db, host: host)
+                ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
+        let context = try NIOSSLContext(configuration: DatabaseWire.tls(db, name: databaseConnection.serverName))
+        var config = PostgresConnection.Configuration(
+            host: host, port: port, username: user, password: password, database: db.database,
+            tls: db.ssl == "disable" ? .disable : DatabaseWire.requiresTLS(db) ? .require(context) : .prefer(context))
+        config.options.tlsServerName = databaseConnection.serverName
+        config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
+        // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
+        config.options.additionalStartupParameters = [("application_name", name), ("TimeZone", "UTC")]
+        return config
+    }
+
     private static func run(_ conn: PostgresConnection, _ sql: String) async throws {
         _ = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger).collect()
     }
@@ -171,23 +214,23 @@ struct PostgresWire: DatabaseRunner {
     /// are counted up to `countLimit`.
     static func rows(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
         let sequence = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger)
-        var result = DatabaseRows(columns: sequence.columns.map(\.name))
+        var texts = PostgresTexts(rows: DatabaseRows(columns: sequence.columns.map(\.name)))
         for try await row in sequence {
-            result.add(row.map(PostgresText.text))
-            if result.total >= DatabaseEngines.countLimit { break }
+            texts.add(Array(row))
+            if texts.rows.total >= DatabaseEngines.countLimit { break }
         }
-        return result
+        return try await texts.finish(on: conn)
     }
 
     /// Runs a statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it returned.
     /// Up to `keep` rows are kept as they come, and the rest are only counted.
     static func command(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
-        let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
+        let kept = OSAllocatedUnfairLock(initialState: PostgresTexts())
         let metadata = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger) { row in
-            let names = row.map(\.columnName), values = row.map(PostgresText.text)
-            kept.withLock { $0.add(columns: names, values) }
+            kept.withLock { $0.add(Array(row)) }
         }.get()
-        var result = kept.withLock { $0 }
+        var texts = kept.withLock { $0 }
+        var result = try await texts.finish(on: conn)
         result.changed = metadata.rows ?? (["SELECT", "SHOW"].contains(metadata.command) ? nil : 0)
         return result
     }
@@ -197,6 +240,7 @@ struct PostgresWire: DatabaseRunner {
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
         if let unreached = DatabaseWire.unreached(error, db) { return unreached }
+        if let uncertified = DatabaseWire.uncertified(error, db) { return uncertified }
         guard let psql = error as? PSQLError else { return DatabaseFailure.failed("\(error)") }
         if let info = psql.serverInfo {
             if info[.sqlState] == "25006" { return DatabaseFailure.change }

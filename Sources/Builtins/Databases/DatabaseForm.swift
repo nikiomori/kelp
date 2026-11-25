@@ -10,7 +10,9 @@ import KelpKit
 /// may be down for now.
 @MainActor
 final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
-    private unowned let sheet: DatabaseSheet
+    /// Weak, because a check or a save can answer after the sheet has closed and gone; the answer then lands nowhere.
+    private weak var sheet: DatabaseSheet?
+    private let app: AppModel, worktreeId: String
     private let engine: DatabaseInfo.Engine
     private let editing: DatabaseInfo?, container: String?
     private let host = NSTextField(), port = NSTextField(), user = NSTextField(), password = NSSecureTextField()
@@ -45,6 +47,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         preset: EnginePreset? = nil, library: Bool = false
     ) {
         self.sheet = sheet
+        app = sheet.app
+        worktreeId = sheet.worktreeId
         self.preset = preset
         self.inLibrary = library
         engine = address.database.engine
@@ -52,12 +56,12 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         self.container = container
         fresh = editing == nil && address.database.name.isEmpty
         super.init()
-        build(address)
+        build(address, in: sheet)
     }
 
     // MARK: Building
 
-    private func build(_ address: DatabaseAddress) {
+    private func build(_ address: DatabaseAddress, in sheet: DatabaseSheet) {
         let db = address.database
         let title = NSTextField(labelWithString: editing?.name ?? preset?.name ?? engine.displayName)
         title.font = .ui(TextSize.body, weight: .semibold)
@@ -125,7 +129,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         parts.append(separator)
 
         place.segmentCount = 2
-        let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
+        let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
         place.setLabel(String(localized: "This Project (\(project))"), forSegment: 0)
         place.setLabel(String(localized: "All My Databases"), forSegment: 1)
         place.selectedSegment = inLibrary ? 1 : 0
@@ -136,8 +140,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         for (i, access) in DatabaseInfo.Access.allCases.enumerated() {
             agents.setLabel(DatabaseLook.title(access), forSegment: i)
         }
-        let defaultAccess = DatabaseInfo.Access(rawValue: sheet.app.settings[SettingKeys.databaseAccess]) ?? .ask
-        agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: editing?.access ?? defaultAccess) ?? 2
+        let defaultAccess = DatabaseInfo.Access(rawValue: app.settings[SettingKeys.databaseAccess]) ?? .ask
+        agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: editing?.access ?? defaultAccess) ?? 0
         agents.target = self
         agents.action = #selector(changed)
         stage.target = self
@@ -200,7 +204,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         ssl.isHidden = sslOn.state == .off
         sslRow.arrangedSubviews.last?.isHidden = sslOn.state == .on
         changed()
-        sheet.fit()
+        sheet?.fit()
     }
 
     // MARK: What it says
@@ -221,7 +225,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             db.user = user.stringValue.isEmpty ? nil : user.stringValue
             db.database = database.stringValue.isEmpty ? nil : database.stringValue
             db.ssh = sshOn.state == .on && !ssh.stringValue.isEmpty ? ssh.stringValue : nil
-            db.ssl = sslOn.state == .on ? (ssl.indexOfSelectedItem == 1 ? "disable" : "require") : nil
+            // Required keeps a verify-ca or verify-full read from the address, which also checks the certificate
+            let required = db.ssl?.hasPrefix("verify") == true ? db.ssl : "require"
+            db.ssl = sslOn.state == .on ? (ssl.indexOfSelectedItem == 1 ? "disable" : required) : nil
         }
         db.name = name.stringValue.trimmingCharacters(in: .whitespaces)
         db.access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
@@ -261,7 +267,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         whyRow?.isHidden = why.stringValue.isEmpty   // hides the grid's row, or its gap would stay
         let access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
         agentsWhy.stringValue =
-            picked == .production && access != .hidden && access != .read
+            picked == .production && access.atMost(.read) != access
             ? String(localized: "Production: agents only read it, whatever is picked here.")
             : DatabaseLook.meaning(access)
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
@@ -269,9 +275,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     }
 
     @objc private func stageClicked() {
-        let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 3
+        let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 0
         if DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)] == .staging, agents.selectedSegment == free {
-            agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 2
+            agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 0
         }
         changed()
     }
@@ -299,8 +305,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             guard let self, !Task.isCancelled else { return }
             self.status.stringValue = String(localized: "Connecting to \(db.host ?? db.name)…")
             self.status.textColor = .secondaryLabelColor
-            let answer = await self.sheet.app.tryCall(
-                DatabaseCheck(worktreeId: self.sheet.worktreeId, database: db, password: secret))
+            let answer = await self.app.tryCall(
+                DatabaseCheck(worktreeId: self.worktreeId, database: db, password: secret))
             guard !Task.isCancelled else { return }
             if let found = answer.value {
                 let through = db.ssh.map { String(localized: "through \($0) · ") } ?? ""
@@ -316,15 +322,16 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 self.status.stringValue = answer.error ?? String(localized: "It doesn’t answer.")
                 self.status.textColor = .textRed
             }
-            self.sheet.fit()
+            self.sheet?.fit()
         }
     }
 
     // MARK: Buttons
 
     @objc private func chooseFile() {
+        guard let window = sheet?.window else { return }
         let open = NSOpenPanel()
-        open.beginSheetModal(for: sheet.window) { [weak self] response in
+        open.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let url = open.url, let self else { return }
             self.path.stringValue = url.path
             if !self.nameTyped { self.name.stringValue = self.suggestedName }
@@ -339,21 +346,21 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let library = place.selectedSegment == 1
         add.isEnabled = false
         Task {
-            let answer = await sheet.app.tryCall(
+            let answer = await app.tryCall(
                 DatabaseSave(
-                    worktreeId: sheet.worktreeId, database: db,
+                    worktreeId: worktreeId, database: db,
                     password: secret.isEmpty && (editing != nil || container != nil) ? nil : secret, library: library,
                     container: secret.isEmpty ? container : nil, adding: editing == nil))
             if answer.value != nil {
-                sheet.end()
+                sheet?.end()
             } else {
                 status.stringValue = answer.error ?? ""
                 status.textColor = .textRed
                 add.isEnabled = true
-                sheet.fit()
+                sheet?.fit()
             }
         }
     }
 
-    @objc private func backed() { sheet.showStart() }
+    @objc private func backed() { sheet?.showStart() }
 }

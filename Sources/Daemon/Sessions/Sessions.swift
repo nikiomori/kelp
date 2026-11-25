@@ -57,7 +57,7 @@ final class Sessions: Sendable, WorkspaceSessions {
                 store: store, settings: settings, setup: setup, live: live,
                 conversations: agentUsage.conversations, offloads: offloads, root: root))
         processes = SessionProcesses(live: live, store: store, remotes: remotes, forwards: setup.hostBrowser.forwards)
-        turns = Turns(live: live, store: store, remotes: remotes)
+        turns = Turns(live: live, store: store, remotes: remotes, root: root, offloads: offloads, setup: setup)
         updates = AgentUpdates(live: live, settings: settings)
     }
 

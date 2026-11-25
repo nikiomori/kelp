@@ -1102,6 +1102,40 @@
         ],
         "type" : "object"
       },
+      "ChangeRisk" : {
+        "description" : "What makes an agent's change worth a second look before Allow (`QueryResult.risk`): the card that asks says it in a line of its own. Only these kinds have one; a plain change has none, so the line isn't read past.",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ChangeRisk.Kind"
+          },
+          "table" : {
+            "description" : "The table (or what is dropped) as the statement names it, quotes included.",
+            "type" : "string"
+          },
+          "values" : {
+            "description" : "How many rows (or a column's values that aren't NULL) go, when Kelp counted them.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "kind",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "ChangeRisk.Kind" : {
+        "enum" : [
+          "noWhere",
+          "drop",
+          "truncate",
+          "dropColumn",
+          "noUndo"
+        ],
+        "type" : "string"
+      },
       "ChangedEvent" : {
         "description" : "Sent when projects or workspaces changed, so clients read the lists again. The params are just the word. It is still sent for clients that read lists, while the changed records themselves come as `event.repo`, `event.worktree` and `event.removed`.",
         "enum" : [
@@ -1441,6 +1475,74 @@
         ],
         "type" : "object"
       },
+      "DatabaseComparison" : {
+        "description" : "How a branch's copy of a database differs from the database it copies (`db.diff`), table by table: the columns and the number of rows. The rows themselves aren't compared.",
+        "properties" : {
+          "branch" : {
+            "type" : "string"
+          },
+          "copy" : {
+            "description" : "The copy's name, the name of the database it copies, and the branch the copy is for.",
+            "type" : "string"
+          },
+          "original" : {
+            "type" : "string"
+          },
+          "tables" : {
+            "description" : "Every table of either, by name.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseComparison.Table"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "branch",
+          "copy",
+          "original",
+          "tables"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table" : {
+        "properties" : {
+          "change" : {
+            "$ref" : "#/components/schemas/DatabaseComparison.Table.Change"
+          },
+          "columns" : {
+            "description" : "The columns that differ: \"+ paid_at TEXT\", \"− note TEXT\", \"total INTEGER → REAL\".",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "description" : "The table's rows in the copy and in the original; nil where it isn't, or they couldn't be counted.",
+            "type" : "integer"
+          },
+          "was" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "change",
+          "columns",
+          "name"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table.Change" : {
+        "enum" : [
+          "same",
+          "changed",
+          "added",
+          "dropped"
+        ],
+        "type" : "string"
+      },
       "DatabaseHealth" : {
         "properties" : {
           "name" : {
@@ -1523,7 +1625,7 @@
             "type" : "string"
           },
           "ssl" : {
-            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\" or \"require\". nil or \"prefer\" means TLS is used when the server offers it.",
+            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\", \"require\", or \"verify-ca\" and \"verify-full\", which also check the server's certificate (and its name). nil or \"prefer\" means TLS is used when the server offers it.",
             "type" : "string"
           },
           "user" : {
@@ -1539,9 +1641,10 @@
         "type" : "object"
       },
       "DatabaseInfo.Access" : {
-        "description" : "What agents may do with the database: not see it, read it, change it once the user allows each change, or change it freely.",
+        "description" : "What agents may do with the database: not see it, see only its structure (tables, columns, row counts: no rows), read it, change it once the user allows each change, or change it freely. Each allows what the one before it does, and more.",
         "enum" : [
           "hidden",
+          "structure",
           "read",
           "ask",
           "free"
@@ -1567,6 +1670,47 @@
           "production"
         ],
         "type" : "string"
+      },
+      "DatabaseMigrations" : {
+        "description" : "A database's migrations, read from the table its migration tool keeps (Rails' schema_migrations, Prisma's _prisma_migrations…) and the tool's folder in the project, so the ones not applied yet show. Kelp only reads them.",
+        "properties" : {
+          "all" : {
+            "description" : "Every migration either side knows of, oldest first.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseMigrations.Migration"
+            },
+            "type" : "array"
+          },
+          "table" : {
+            "description" : "The tool's table, as the schema names it. The tab lists it under Migrations instead of among the tables.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "all",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "DatabaseMigrations.Migration" : {
+        "properties" : {
+          "applied" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "description" : "The migration's version or number (\"20261122\", \"0003\") and the rest of its name (\"add_paid_at\").",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "applied",
+          "id",
+          "name"
+        ],
+        "type" : "object"
       },
       "DatabaseRun" : {
         "description" : "A statement run on a project's database, either by an agent (`session`) or by the user.",
@@ -1634,6 +1778,10 @@
             },
             "type" : "array"
           },
+          "migrations" : {
+            "$ref" : "#/components/schemas/DatabaseMigrations",
+            "description" : "The migrations, when the database has a migration tool's table (read with the whole schema only)."
+          },
           "tables" : {
             "items" : {
               "$ref" : "#/components/schemas/DatabaseSchema.Table"
@@ -1658,7 +1806,7 @@
             "type" : "boolean"
           },
           "references" : {
-            "description" : "\"users.id\" for a foreign key.",
+            "description" : "\"users.id\" for a foreign key, with the table's schema where it has one (\"auth.users.id\").",
             "type" : "string"
           },
           "type" : {
@@ -1732,6 +1880,13 @@
               "$ref" : "#/components/schemas/DatabaseInfo"
             },
             "type" : "array"
+          },
+          "migrations" : {
+            "additionalProperties" : {
+              "type" : "integer"
+            },
+            "description" : "How many migrations each database hasn't applied, by name, for those whose schema was read since kelpd started (`DatabaseSchema.migrations`).",
+            "type" : "object"
           },
           "runs" : {
             "items" : {
@@ -3943,6 +4098,10 @@
           "ms" : {
             "type" : "integer"
           },
+          "risk" : {
+            "$ref" : "#/components/schemas/ChangeRisk",
+            "description" : "What makes an asked change's trial worth a second look (no WHERE, a DROP…), for the card that asks. nil for a plain change, and on every other result."
+          },
           "rows" : {
             "items" : {
               "items" : {
@@ -5085,8 +5244,33 @@
         ],
         "type" : "object"
       },
+      "SessionTurnUndo.Database" : {
+        "description" : "One database the undo puts back: its file's name or its own (\"shop.sqlite\"), what the turn did to it, as in \"Claude Code changed it 3 times in this turn: 214 rows of orders.\" (nil when only the project's code changed it), and why it can't go back, when it can't (someone was connected to the Postgres copy). The files still go.",
+        "properties" : {
+          "cannot" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name"
+        ],
+        "type" : "object"
+      },
       "SessionTurnUndo.Plan" : {
         "properties" : {
+          "databases" : {
+            "description" : "The databases the turn changed that go back with the files: a SQLite or DuckDB file, or a branch's own Postgres copy, as Kelp kept them when the turn began (or before its first change). nil when there are none.",
+            "items" : {
+              "$ref" : "#/components/schemas/SessionTurnUndo.Database"
+            },
+            "type" : "array"
+          },
           "files" : {
             "items" : {
               "type" : "string"
@@ -7739,6 +7923,27 @@
       "x-internal" : true
     },
     {
+      "description" : "Stops the user's statement that runs under `id` (`DatabaseQuery.cancelId`) in the database, not only its wait: SQLite is interrupted, a client program is ended, and a server's connection is closed (MySQL's `KILL QUERY` too). The statement's call then fails with `stopped`. A statement that already ended is left as it is.",
+      "name" : "db.cancel",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Connects with what the sheet says and reports what is there: the server's version, its tables and its other databases. It throws the server's own words when it can't connect. A nil `password` uses the one kept for `database.name`, if any. `versionOnly` reads only the version (for a tab's capsule) on one connection, without counting tables or listing databases.",
       "name" : "db.check",
       "paramStructure" : "by-name",
@@ -7853,6 +8058,33 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "Compares a branch's copy of a database (`DatabaseInfo.copy`) with the database it copies: each table's columns and number of rows. `database` names the copy; nil means the workspace's only copy. Agents compare only what they may read.",
+      "name" : "db.diff",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseComparison"
+        }
+      }
     },
     {
       "description" : "Brings the connections `ids` of `source` into All my projects as copies, which Import Again reads again. With `passwords`, the passwords are taken now, from the app's file or its keychain (macOS asks for each). Without it, a password in another app's keychain is read when the database is first opened (`DatabaseInfo.passwordIn`). With `useHere`, the databases are also used in the workspace's project.",
@@ -7997,6 +8229,14 @@
       "name" : "db.query",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "A name the caller gives this run, by which `db.cancel` stops it.",
+          "name" : "cancelId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
         {
           "name" : "database",
           "required" : true,
@@ -12513,7 +12753,7 @@
       }
     },
     {
-      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once.",
+      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once. `run` is the database run (`DatabaseRun.id`) whose change was shown: the answer goes to that change's question alone.",
       "name" : "session.choose",
       "paramStructure" : "by-name",
       "params" : [
@@ -12533,6 +12773,13 @@
         },
         {
           "name" : "question",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "run",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -13765,7 +14012,7 @@
       }
     },
     {
-      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are.",
+      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The databases the turn changed (`Plan.databases`) go back with the files. With `apply`, `databases` names those the sheet listed (their `Plan.databases` names): only those go back, so one that changed since isn't put back unasked. nil puts back each the turn changed, as found now.",
       "name" : "session.turnUndo",
       "paramStructure" : "by-name",
       "params" : [
@@ -13774,6 +14021,16 @@
           "required" : false,
           "schema" : {
             "type" : "boolean"
+          }
+        },
+        {
+          "name" : "databases",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {

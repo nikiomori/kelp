@@ -3,20 +3,6 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The grid's table: Space shows the row, and ⌫ marks the selected rows to be deleted.
-final class GridTable: NSTableView {
-    var onSpace: () -> Void = {}
-    var onDelete: () -> Void = {}
-
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 49 where event.modifierFlags.isDisjoint(with: [.command, .option, .control]): onSpace()
-        case 51, 117: onDelete()
-        default: super.keyDown(with: event)
-        }
-    }
-}
-
 /// Rows as a grid. Each result column is a column, with a key's mark in its header and its type in the header's
 /// tooltip when the table is known. NULL shows in grey, numbers in digits that line up, and stripes only where there
 /// are rows. A table's rows can be edited, with a primary key or without one (a view's can't): cells typed over, rows
@@ -33,7 +19,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     private(set) var info: [String: DatabaseSchema.Column] = [:]
     /// The columns of numbers, by index. They and their headers are right-aligned.
     private var numeric: Set<Int> = []
-    var edits = DatabaseEdits()
+    var edits = DatabaseEdits() {
+        didSet { editsChanged(from: oldValue) }   // ⌘Z puts them back
+    }
     var editable = false
     /// What a change did to these rows, when they are the rows of a run that changed something. An update's cells show
     /// what they were, a delete's rows are struck out in red, and an insert's rows are green.
@@ -44,8 +32,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var orders: [(column: String, ascending: Bool)] = []
     /// Called when an edit was made or undone, or the selection changed.
     var onChange: () -> Void = {}
-    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they come).
-    var onSort: () -> Void = {}
+    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they come)
+    /// and the order they were in.
+    var onSort: (_ was: [(column: String, ascending: Bool)]) -> Void = { _ in }
     /// Called when a foreign key's arrow is clicked, with the column and its value to follow.
     var onFollow: (_ column: String, _ value: String) -> Void = { _, _ in }
     /// The rows' height and the cells' font, as Settings › Databases sets them.
@@ -60,6 +49,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var source: (table: String, engine: DatabaseInfo.Engine)?
     /// The most rows a table shows.
     static let shown = 1000
+    /// How many rows the result had, when it had more than are shown (and so copied or exported).
+    var cut: Int?
 
     override init() {
         super.init()
@@ -75,6 +66,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.menu?.delegate = self
         table.headerView?.menu = NSMenu()
         table.headerView?.menu?.delegate = self
+        table.onCopy = { [weak self] in self?.copySelection() }
+        table.onPaste = { [weak self] in self?.pasteFromClipboard() }
+        table.onOpen = { [weak self] in self?.openSelected() }
+        table.opensInSheet = { [weak self] row, column in self?.opensInSheet(row: row, column: column) ?? false }
+        table.target = self
+        table.doubleAction = #selector(openClicked)
         scroll.documentView = table
         area.pin(scroll)
         scroll.hasVerticalScroller = true
@@ -86,11 +83,20 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// How many rows are shown: those read, then those added.
     var count: Int { rows.count + edits.added.count }
 
-    func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = []) {
+    /// Shows these rows. `keeping` keeps the columns' widths and which are hidden, when the columns are the same: the
+    /// same table read again (another page, order or filter, or after Save).
+    func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = [], keeping: Bool = false) {
+        let kept =
+            keeping && columns == self.columns
+            ? Dictionary(
+                table.tableColumns.map { ($0.identifier.rawValue, (width: $0.width, hidden: $0.isHidden)) },
+                uniquingKeysWith: { a, _ in a }) : [:]
         self.columns = columns
         self.rows = rows
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         edits.clear()
+        forgetUndo()
+        cut = nil
         marked = []
         change = nil
         numeric = Set(
@@ -103,7 +109,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         let index = NSTableColumn(identifier: .init("#"))
         // As wide as the last row's number, in the numbers' own face.
         let digit = ("0" as NSString).size(withAttributes: [.font: NSFont.uiDigits(TextSize.caption)]).width
-        index.width = CGFloat(max(2, String(rows.count).count)) * digit + 18
+        index.width = CGFloat(max(2, String(rows.count).count) + 2) * digit + 18   // and a mark: • − +
         index.title = ""
         table.addTableColumn(index)
         for (i, name) in columns.enumerated() {
@@ -114,10 +120,15 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             let fk = self.info[name]?.references == nil ? 0 : 3
             column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * charWidth + 18))
             column.minWidth = 40
+            if let look = kept[String(i)] {
+                column.width = look.width
+                column.isHidden = look.hidden
+            }
             table.addTableColumn(column)
         }
         indicate()
         table.reloadData()
+        scroll.isHidden = columns.isEmpty   // no header over an empty state
     }
 
     /// The column's header: its name, and a key's mark for a primary key. The type, NOT NULL and what the column
@@ -164,7 +175,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             return
         }
         let name = columns[columnIndex], adding = NSEvent.modifierFlags.contains(.option)
-        let was = orders.first { $0.column == name }
+        let before = orders, was = orders.first { $0.column == name }
         if !adding { orders.removeAll { $0.column != name } }
         switch was {
         case let order? where order.ascending: orders = orders.map { $0.column == name ? (name, false) : $0 }
@@ -172,7 +183,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         case nil: orders.append((name, true))
         }
         indicate()
-        onSort()
+        onSort(before)
     }
 
     /// Makes the column as wide as its widest value on screen, within reason.
@@ -207,6 +218,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         guard let column = Int(id) else {   // the row's number column (an agent's mark is the row view's)
             let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
             field.attributedStringValue = number(row, new: new)
+            field.setAccessibilityLabel(rowName(row))
             field.alignment = .right
             return field
         }
@@ -273,13 +285,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and orange if edited.
     private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
         let new = row >= rows.count
+        field.stringValue = Self.text(value, new: new)
         if let value {
-            field.stringValue = value.replacingOccurrences(of: "\n", with: "⏎")
             field.font = font
             field.alignment = numeric.contains(column) ? .right : .left
             field.toolTip = value.count > 40 ? value : nil
         } else {
-            field.stringValue = new ? String(localized: "DEFAULT") : "NULL"
             field.font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
             field.textColor = .tertiaryLabelColor
         }
@@ -302,17 +313,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
     }
 
-    private func number(_ row: Int, new: Bool) -> NSAttributedString {
-        // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.
-        NSAttributedString(
-            string: new ? "+" : String(row + 1),
-            attributes: [
-                .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor,
-                .paragraphStyle: Self.aligned(.right)
-            ])
-    }
-
-    private static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {
+    static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
         style.lineBreakMode = .byTruncatingTail
@@ -322,6 +323,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Whether a type is a number type, by its first word: "integer", "double precision", "numeric(10,2)", "int
     /// unsigned", "REAL". "interval" and "point" are not.
     nonisolated static func isNumber(_ type: String) -> Bool {
+        guard !type.hasSuffix("]") else { return false }   // an array of numbers ("integer[]")
         let word = type.lowercased().prefix { $0.isLetter || $0.isNumber }
         return [
             "int", "integer", "int2", "int4", "int8", "smallint", "bigint", "tinyint", "mediumint", "float", "float4",
@@ -330,22 +332,6 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) { onChange() }
-
-    /// When an edit ends, it is kept unless it is the value that was read (an empty field over NULL is no change).
-    func controlTextDidEndEditing(_ notification: Notification) {
-        guard let field = notification.object as? NSTextField else { return }
-        let row = table.row(for: field), column = field.tag
-        let typed = field.stringValue
-        if row >= rows.count {
-            edits.setAdded(row - rows.count, column: column, to: typed.isEmpty || typed == "default" ? nil : typed)
-        } else {
-            guard rows.indices.contains(row), rows[row].indices.contains(column) else { return }
-            let old = rows[row][column]
-            let value: String? = old == nil && typed.isEmpty || typed == "NULL" && old == nil ? nil : typed
-            edits.set(row: row, column: column, to: value, was: old)
-        }
-        changed(rows: [row])
-    }
 
     func changed(rows: IndexSet? = nil) {
         if let rows {
@@ -357,6 +343,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     func discard() {
+        discardTyping()
         edits.clear()
         changed()
     }

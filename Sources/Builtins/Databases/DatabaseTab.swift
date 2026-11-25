@@ -36,10 +36,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let name: DatabaseTabName
     var title: String { name.title }
     static func title(_ address: DatabaseURI) -> String {
-        address.table.map { "\($0) · \(address.name)" } ?? address.name
+        address.compare.map { "\(address.name) ↔ \($0)" } ?? address.table.map { "\($0) · \(address.name)" }
+            ?? address.name
     }
     var icon: NSImage? { .symbol(DatabaseLook.symbol) }
-    var isEdited: Bool { !grid.edits.isEmpty }
+    /// Edits made, or a cell being typed in that would change.
+    var isEdited: Bool { !grid.edits.isEmpty || grid.typing }
 
     let app: AppModel
     let address: DatabaseURI
@@ -68,10 +70,15 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         labels: [String(localized: "Data"), String(localized: "Structure")],
         name: String(localized: "Show"))
     let sqlText = NSTextField(wrappingLabelWithString: "")
+    /// The table's indexes, a block of their own under its columns in Structure.
+    let indexesText = NSTextField(wrappingLabelWithString: "")
+    lazy var indexesBox = indexesBlock()
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
     /// Keeps the query typed in the editor for the database once typing pauses (`keepDraft`).
     let draft = Debounce()
     let status = NSTextField(labelWithString: "")
+    /// "1–200 of 1,240 rows" in the foot, apart from the rest of the status so it stays whole as the foot fills.
+    let rowCount = NSTextField(labelWithString: "")
     let changes = NSTextField(labelWithString: "")
     let askBar = FillStack()
     let askText = NSTextField(labelWithString: "")
@@ -85,18 +92,22 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// The page of a table's rows that is shown, and how many rows a page holds.
     var page = 0
     static let pageSize = 200
-    /// How many rows the table has with the filter on, once they were counted.
-    var counted: Int?
+    /// How many rows the table has with the filter on, once they were counted, and the table and filter counted.
+    var counted: (rows: Int, of: String)?
     /// The read in progress. It is shown only past a second, so a quick read doesn't flicker.
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
+    /// Where Run is while a statement or a read runs past a second; it and ⌘. stop it in the database (`running`).
+    lazy var stopButton = NSButton(title: String(localized: "Stop"), target: self, action: #selector(stopRunning))
+    /// The name of the statement or read in progress, by which `db.cancel` stops it.
+    var running: String?
     /// Explain is a bar's worded button, the grey plate, beside Run, the one main action in the system's accent.
     lazy var explain = TextButton(String(localized: "Explain"), target: self, action: #selector(explainQuery))
     lazy var saveQuery = NSButton(title: String(localized: "Save Query…"), target: self, action: #selector(keepQuery))
     lazy var save = NSButton(title: String(localized: "Save"), target: self, action: #selector(saveEdits))
     lazy var showSQL = NSButton(title: String(localized: "Show SQL"), target: self, action: #selector(showEdits))
-    lazy var discard = NSButton(
+    lazy var discardButton = NSButton(
         title: String(localized: "Discard…"), target: self, action: #selector(discardEdits))
     lazy var ask = NSButton(title: "", target: self, action: #selector(askAgent))
     lazy var previous = IconButton(.symbol("chevron.left"), tip: String(localized: "Previous Rows")) { [weak self] in
@@ -106,6 +117,9 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         self?.turn(1)
     }
     lazy var addRow = ClosureButton(title: String(localized: "Add Row")) { [weak self] in self?.grid.addRow() }
+    lazy var undoChange = ClosureButton(title: String(localized: "Undo This Change…")) { [weak self] in
+        self?.undoShownRun()
+    }
     lazy var columnsButton = ClosureButton(title: String(localized: "Columns")) { [weak self] in self?.columnsMenu() }
     lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Refresh")) { [weak self] in
         self?.refresh()
@@ -166,6 +180,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     func close() async -> Bool {
         keepDraft()
+        keepLook()
+        grid.commitTyping()
         return isEdited ? await settleEdits() : true
     }
 
@@ -191,14 +207,20 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
                 button.bezelColor = .controlAccentColor
             }
         }
-        let center = NSStackView(views: [askBar, top, failureBar, filters.view, sqlBox, rows, foot])
+        let center = NSStackView(views: [askBar, top, failureBar, filters.view, sqlBox, rows, indexesBox, foot])
         center.orientation = .vertical
         center.spacing = 0
         center.detachesHiddenViews = true
-        for v in [askBar, top, failureBar, filters.view, sqlBox, rows, foot] {
+        for v in [askBar, top, failureBar, filters.view, sqlBox, rows, indexesBox, foot] {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         rows.setContentHuggingPriority(.defaultLow, for: .vertical)
+        // A bar narrower than its controls cuts them at its end rather than widening the tab, so the details take
+        // their width from the rows and never push the window past its size. Its labels shorten first.
+        let clips = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.windowSizeStayPut.rawValue - 1)
+        for bar in [askBar, top.stack, filters.view, sqlBox, indexesBox, foot.stack] {
+            bar.setClippingResistancePriority(clips, for: .horizontal)
+        }
         // The list and the details keep their width as the window changes, and the rows take the rest. The user can
         // drag the list's width, which is kept per Mac. The details stay closed until a row is picked.
         whole.isVertical = true
@@ -225,7 +247,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders". A click opens the
     /// database's menu.
-    private func capsuleBar() -> NSView {
+    private func capsuleBar() -> Bar {
         capsule.font = .ui(TextSize.caption, weight: .medium)
         capsule.textColor = .secondaryLabelColor
         capsule.lineBreakMode = .byTruncatingMiddle
@@ -245,36 +267,49 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         save.toolTip = app.extensions.hint(String(localized: "Save Changes"), "databases.save")
         run.keyEquivalent = "\r"
         run.keyEquivalentModifierMask = .command
+        stopButton.keyEquivalent = "."   // the button's own, as Save's ⌘S: Run's Stop has ⌘. everywhere else
+        stopButton.keyEquivalentModifierMask = .command
+        stopButton.toolTip = String(localized: "Stop the Statement") + " (⌘.)"
+        stopButton.setContentHuggingPriority(.required, for: .horizontal)
+        stopButton.isHidden = true
         return Bar.content(
-            [capsuleButton], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleButton)
+            [capsuleButton], [run, stopButton, explain, reload, filterToggle, copyAs, detailsToggle],
+            stretching: capsuleButton)
     }
 
-    private func footBar() -> NSView {
+    private func footBar() -> Bar {
         part.selectedSegment = 0
         part.controlSize = .small
         part.target = self
         part.action = #selector(partChanged)
         part.setContentHuggingPriority(.required, for: .horizontal)
         // Inside a page a worded button is the system's small bordered one, so it reads as a button before a hover.
-        for button in [addRow, columnsButton, discard, showSQL, ask, saveQuery, save] {
+        for button in [addRow, columnsButton, discardButton, showSQL, ask, saveQuery, save, undoChange] {
             button.bezelStyle = .push
             button.controlSize = .small
         }
         save.keyEquivalent = "s"
         save.keyEquivalentModifierMask = .command
-        status.font = .uiDigits(TextSize.caption)
-        status.textColor = .secondaryLabelColor
-        status.alignment = .center
-        status.lineBreakMode = .byTruncatingTail
+        for label in [rowCount, status] {
+            label.font = .uiDigits(TextSize.caption)
+            label.textColor = .secondaryLabelColor
+            label.lineBreakMode = .byTruncatingTail
+        }
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        rowCount.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         changes.font = .uiDigits(TextSize.caption, weight: .medium)
         changes.textColor = .textOrange
         busy.style = .spinning
         busy.controlSize = .small
         busy.isDisplayedWhenStopped = false
-        return Bar.foot(
-            [part, addRow, busy, status],
-            [changes, showSQL, discard, save, ask, saveQuery, columnsButton, previous, next])
+        let bar = Bar.foot(
+            [part, addRow, busy, rowCount, status],
+            [changes, showSQL, discardButton, save, ask, undoChange, saveQuery, columnsButton, previous, next])
+        bar.stack.setCustomSpacing(0, after: rowCount)   // the status goes on from the count after a " · "
+        // Where the edits' buttons leave too little room, Columns and Show SQL (both in the menus too) go before the
+        // count is cut.
+        for button in [columnsButton, showSQL] { bar.stack.setVisibilityPriority(.detachOnlyIfNecessary, for: button) }
+        return bar
     }
 
     private func buildAskBar() {
@@ -304,7 +339,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     private func wire() {
         grid.density = app.settings[SettingKeys.databaseDensity]
         grid.onChange = { [weak self] in self?.footChanged() }
-        grid.onSort = { [weak self] in self?.sorted() }
+        grid.onSort = { [weak self] was in self?.sorted(was: was) }
         grid.onFilter = { [weak self] column, op, value in self?.filters.add(column: column, op: op, value: value) }
         grid.onFollow = { [weak self] column, value in self?.followKey(column, value) }
         grid.table.onSpace = { [weak self] in
@@ -338,49 +373,22 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let table = mode.table != nil, data = table && part.selectedSegment == 0
         part.isHidden = !table
         filterToggle.isHidden = !data
-        if !data { filters.view.isHidden = true }
+        if !data {
+            filters.view.isHidden = true
+            rowCount.stringValue = ""
+        }
         for v in [previous, next, columnsButton] as [NSView] { v.isHidden = !data }
         addRow.isHidden = !data || !grid.editable
         reload.isHidden = mode.isRun
-        run.isHidden = mode != .query
+        run.isHidden = mode != .query || !stopButton.isHidden
         explain.isHidden = mode != .query
         saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun
+        indexesBox.isHidden = !table || data || current?.indexes.isEmpty != false
         editor.view.isHidden = mode != .query
         // Until something is picked, the tab is named by its address, because a query isn't what the tab opens on.
         name.title = mode == .query && !chosen ? Self.title(address) : Self.title(address.name, showing: mode)
         capsuleChanged()
         footChanged()
     }
-
-    // MARK: Loading
-
-    func loadTables() async {
-        let first = schema.tables.isEmpty && version == nil
-        if first { connecting() }
-        let (read, error) = await app.tryCall(
-            DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
-        reading?.cancel()
-        await loading.settled()
-        loading.show(nil)
-        guard let read else {
-            if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
-            failureBar.show(error ?? String(localized: "It doesn’t answer."))   // what shows stays, under the line
-            return
-        }
-        failureBar.show(nil)
-        whole.isHidden = false
-        gate.show(nil)
-        if version == nil { Task { await askVersion() } }   // after, so macOS asks for a password once, not twice
-        schema = read
-        sidebar.schema = read
-        let named = address.table.flatMap { name in tables.first { $0.name == name } }
-        if mode == .query, address.run == nil, !chosen,
-            let first = named ?? tables.first(where: { $0.kind != "view" })
-        {
-            mode = .table(first.name)
-            await showTable(first.name)
-        }
-    }
-
 }

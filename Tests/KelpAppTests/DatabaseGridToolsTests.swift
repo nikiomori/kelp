@@ -1,0 +1,186 @@
+import AppKit
+import Core
+import DesignKit
+import TestSupport
+import Testing
+
+@testable import BuiltinDatabases
+@testable import KelpKit
+
+/// A statement that runs past a second shows Stop where Run is, with ⌘.; once it ends, Run is back.
+@MainActor @Test func stopTakesRunsPlaceWhileAStatementRuns() async throws {
+    let (tab, window) = editableTab([])
+    defer { withExtendedLifetime(window) {} }
+    #expect(try await waitFor { !tab.failureBar.isHidden })   // the tab's own first read is over (no kelpd here)
+    tab.mode = .query
+    tab.arrange()
+    tab.running = "r1"
+    tab.startReading()
+    #expect(tab.stopButton.isHidden && !tab.run.isHidden)   // a quick statement changes nothing
+    #expect(try await waitFor(5) { !tab.stopButton.isHidden })
+    #expect(tab.run.isHidden && tab.stopButton.keyEquivalent == ".")
+    tab.arrange()
+    #expect(tab.run.isHidden)
+    tab.running = nil
+    tab.readingEnded()
+    #expect(tab.stopButton.isHidden && !tab.run.isHidden)
+}
+
+/// A table's rows take no edits while they are read again, because the answer replaces them: edits made meanwhile
+/// would be dropped unasked. Once the read is over, they take edits again.
+@MainActor @Test func rowsBeingReadAgainTakeNoEdits() async throws {
+    let (tab, window) = editableTab([["a"]])
+    defer { withExtendedLifetime(window) {} }
+    #expect(try await waitFor { !tab.failureBar.isHidden })   // the tab's own first read is over (no kelpd here)
+    #expect(tab.grid.editable)
+    tab.startReading("orders")
+    #expect(!tab.grid.editable && tab.addRow.isHidden)
+    tab.grid.table.editColumn(1, row: 0, with: nil, select: true)
+    #expect(!(window.firstResponder is NSTextView))   // the cell can't be typed in
+    tab.readingEnded()
+    #expect(tab.grid.editable)
+    #expect(DatabaseTab.order([("a", true)]) != DatabaseTab.order([("a", false)]))
+}
+
+/// ⌘C copies the selected rows as TSV with their header, or the one cell looked at as its value; ⌘V puts TSV into
+/// the cells from there on as edits, saving nothing: the header line is left out, NULL is NULL, and a line past the
+/// rows adds one.
+@MainActor @Test func copyAndPasteGoThroughTheGrid() {
+    let (grid, window) = editableGrid([])
+    defer { withExtendedLifetime(window) {} }
+    grid.source = ("orders", .sqlite)
+    grid.show(columns: ["id", "note"], rows: [["1", "a"], ["2", nil]])
+    grid.table.selectRowIndexes([0, 1], byExtendingSelection: false)
+    grid.table.copy(nil)
+    #expect(NSPasteboard.general.string(forType: .string) == "id\tnote\n1\ta\n2\tNULL")
+    grid.table.lookedAt = (1, 1)
+    grid.table.selectRowIndexes([1], byExtendingSelection: false)
+    grid.table.copy(nil)
+    #expect(NSPasteboard.general.string(forType: .string) == "NULL")
+    grid.table.selectRowIndexes([0], byExtendingSelection: false)   // the cell looked at is another row's now
+    copyText("id\tnote\n1\tz\n2\tNULL\n3\tnew\n")
+    grid.table.paste(nil)
+    #expect(grid.edits.value(row: 0, column: 1) == .some("z") && grid.edits.added == [["3", "new"]])
+    #expect(grid.edits.count == 2 && grid.count == 3)
+}
+
+/// A table's columns are kept as they were left, per database and table: another tab opening it later reads its rows
+/// in that order, and gives its columns those widths and hides the same ones.
+@MainActor @Test func aTablesColumnsAreKeptForTheNextTab() async throws {
+    let (tab, window) = editableTab([])
+    defer { withExtendedLifetime(window) {} }
+    #expect(try await waitFor { !tab.failureBar.isHidden })   // the tab's own first read is over (no kelpd here)
+    tab.grid.show(columns: ["id", "note"], rows: [["1", "a"]])
+    tab.grid.table.tableColumns[1].width = 211
+    tab.grid.table.tableColumns[2].isHidden = true
+    tab.grid.orders = [("note", false)]
+    #expect(await tab.close())
+    let other = DatabaseTab(uri: "db:w1/shop", app: tab.app)
+    await other.leave(to: .table("orders"))
+    #expect(DatabaseTab.order(other.grid.orders) == ["note DESC"])
+    other.grid.show(columns: ["note", "id", "added"], rows: [])
+    other.grid.apply(try #require(other.keptLook("orders")))
+    #expect(other.grid.table.tableColumns[2].width == 211 && !other.grid.table.tableColumns[2].isHidden)
+    #expect(other.grid.table.tableColumns[1].isHidden && !other.grid.table.tableColumns[3].isHidden)
+    #expect(other.keptLook("customers") == nil)
+}
+
+/// The filter's conditions as SQL, each as the engine quotes it: ≥, ≤, between two values (one alone filters
+/// nothing yet), and is empty for '' (NULL isn't empty).
+@MainActor @Test func filterConditionsBecomeTheirSQL() {
+    let cases: [(DatabaseFilters.Condition, String, String, String)] = [
+        (.atLeast, "10", "", #""total" >= '10'"#),
+        (.atMost, "10", "", #""total" <= '10'"#),
+        (.between, "1", "5", #""total" BETWEEN '1' AND '5'"#),
+        (.between, "1", "", ""),
+        (.isEmpty, "", "", #""total" = ''"#)
+    ]
+    for (op, value, to, sql) in cases {
+        let filters = DatabaseFilters()
+        filters.use(columns: ["total"], engine: .postgres)
+        filters.add(column: "total", op: op, value: value, to: to)
+        #expect(filters.condition == sql, "\(op)")
+    }
+}
+
+/// ⌘Z undoes an unsaved edit, the last first: a cell typed over, a row added, a row marked to be deleted; ⌘⇧Z makes
+/// it again. Rows read anew can't be undone into.
+@MainActor @Test func undoTakesBackUnsavedEdits() throws {
+    let (grid, window) = editableGrid([["a"], ["b"]])
+    defer { withExtendedLifetime(window) {} }
+    let undo = try #require(grid.table.undoManager)
+    undo.groupsByEvent = false   // no events here: each change is a group of its own
+    grid.set(row: 0, column: 0, to: "z")   // as a cell typed over is
+    grid.addRow()
+    grid.table.selectRowIndexes([1], byExtendingSelection: false)
+    grid.deleteSelected()
+    #expect(grid.edits.count == 3)
+    #expect(grid.table.tryToPerform(Selector(("undo:")), with: nil))   // the Edit menu's Undo
+    #expect(grid.edits.deleted.isEmpty && grid.edits.count == 2)
+    undo.undo()
+    #expect(grid.edits.added.isEmpty && grid.edits.value(row: 0, column: 0) == .some("z"))
+    undo.undo()
+    #expect(grid.edits.isEmpty)
+    undo.redo()
+    #expect(grid.edits.value(row: 0, column: 0) == .some("z"))
+    grid.show(columns: ["note"], rows: [["c"]])
+    #expect(!undo.canUndo)
+}
+
+/// JSON is indented as it is written: numbers, escapes and the keys' order stay.
+@Test func jsonIsIndentedAsWritten() {
+    #expect(
+        JSONText.pretty(#"{"b":1.50,"a":[1, {}, "x,\"y"], "c": []}"#) == """
+            {
+              "b": 1.50,
+              "a": [
+                1,
+                {},
+                "x,\\"y"
+              ],
+              "c": []
+            }
+            """)
+    #expect(JSONText.pretty("12") == nil && JSONText.pretty("{nope") == nil)
+}
+
+extension OneAtATime {
+    /// A value with line breaks, or JSON, opens in a sheet rather than in its cell; Set makes the text, real line
+    /// breaks and all, the cell's edit. ⌥↩ opens any cell there; Cancel changes nothing.
+    @Test func aLongValueOpensInASheet() async throws {
+        let (grid, window) = editableGrid([["a\nb"], [#"{"k":1}"#], ["plain"]])
+        window.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { window.orderOut(nil) }
+        #expect(grid.opensInSheet(row: 0, column: 0) && grid.opensInSheet(row: 1, column: 0))
+        #expect(!grid.opensInSheet(row: 2, column: 0))
+        grid.table.editColumn(1, row: 0, with: nil, select: true)
+        #expect(!(window.firstResponder is NSTextView))   // not typed in, where it would show ⏎
+        func sheetText() async throws -> NSTextView {
+            #expect(try await waitFor(10) { window.attachedSheet != nil })
+            func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+            let content = try #require(window.attachedSheet?.contentView)
+            return try #require(all(content).compactMap { $0 as? NSTextView }.first)
+        }
+        grid.openValue(row: 0, column: 0)
+        let text = try await sheetText()
+        #expect(text.string == "a\nb" && text.isEditable)
+        text.string = "a\nc"
+        let set = try #require(window.attachedSheet)
+        window.endSheet(set, returnCode: .alertFirstButtonReturn)   // Set
+        #expect(try await waitFor { grid.edits.value(row: 0, column: 0) == .some("a\nc") })
+        grid.table.lookedAt = (2, 0)
+        grid.table.selectRowIndexes([2], byExtendingSelection: false)
+        let optionReturn = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: .option, timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        grid.table.keyDown(with: optionReturn)
+        let plain = try await sheetText()
+        #expect(plain.string == "plain")
+        let cancel = try #require(window.attachedSheet)
+        window.endSheet(cancel, returnCode: .alertSecondButtonReturn)   // Cancel
+        #expect(try await waitFor { window.attachedSheet == nil })
+        #expect(grid.edits.count == 1)
+    }
+}

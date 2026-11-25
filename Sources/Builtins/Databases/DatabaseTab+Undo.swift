@@ -7,6 +7,17 @@ import KelpKit
 /// that will run. It works only while the rows are as the change left them; when they changed since, nothing is
 /// written over.
 extension DatabaseTab {
+    /// Whether a run is an agent's change that can be put back: one that finished and changed rows.
+    static func undoable(_ run: DatabaseRun) -> Bool {
+        run.session != nil && run.state == .done && (run.changed ?? 0) > 0
+    }
+
+    /// Undo This Change… under a run shown in the tab: the sidebar's item, without its menu.
+    func undoShownRun() {
+        guard case .run(let id) = mode, let run = record(id), Self.undoable(run) else { return NSSound.beep() }
+        undo(run)
+    }
+
     func undo(_ run: DatabaseRun) {
         let worktree = address.worktree, name = address.name, engine = engine
         let who = run.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "the agent")

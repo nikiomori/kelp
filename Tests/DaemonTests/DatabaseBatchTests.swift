@@ -80,6 +80,24 @@ private func several(_ worktree: String, _ sql: String) -> DatabaseQuery {
     #expect(try count(path, "SELECT count(*) FROM users") == 0)
 }
 
+/// Statements asked about together carry the first risky one's line: a DROP after a read is said, its rows counted.
+@Test func severalStatementsSayTheFirstRiskyOnesLine() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    _ = try batchDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let asked = Task {
+        try await w.d.workspaces.databases.query(several(wt.id, "SELECT 1; DROP TABLE users"), origin: agent.id)
+    }
+    #expect(try await waitFor { try summary(w, agent.id).hasPrefix("Allow 2 statements") })
+    let run = try #require(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first)
+    let tried = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: run.id))
+    #expect(tried?.risk == ChangeRisk(kind: .drop, table: "users", values: 1))
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary(w, agent.id))))
+    _ = try? await asked.value
+}
+
 /// The tables changed while it was asked: what the user allowed isn't what it would change now, so none of it runs.
 @Test func statementsThatWouldChangeOtherRowsNowArentRun() async throws {
     let w = try await world(agents: [bot])

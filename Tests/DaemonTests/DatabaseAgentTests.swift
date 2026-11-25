@@ -25,10 +25,64 @@ import Testing
     #expect(w.d.sessions.setup.hasDatabases(worktreeId: branch.id))
 }
 
+/// An agent that sees only a database's structure isn't shown which migrations ran (the migrations table's rows); the
+/// user's own read is.
+@Test func structureOnlyLeavesTheMigrationsOut() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let dir = (wt.path as NSString).appendingPathComponent("db")
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let queue = try DatabaseQueue(path: (dir as NSString).appendingPathComponent("shop.sqlite3"))
+    try await queue.write { db in
+        try db.execute(sql: "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY)")
+        try db.execute(sql: "INSERT INTO schema_migrations VALUES ('20261122')")
+    }
+    try queue.close()
+    var shop = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    shop.access = .structure
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
+    let dbs = w.d.workspaces.databases
+    #expect(try await dbs.schema(wt.id, "shop", table: nil, agent: true).migrations == nil)
+    #expect(try await dbs.schema(wt.id, "shop", table: nil, agent: false).migrations != nil)
+}
+
 /// What Kelp puts after an agent's statement starts a line of its own: a trailing `-- comment` doesn't swallow it.
 @Test func whatKelpAddsToAStatementOutlivesItsLastComment() {
     #expect(SQLText.returning("UPDATE t SET a = 1 -- fix") == "UPDATE t SET a = 1 -- fix\nRETURNING *")
     #expect(MySQLRun.counted("DELETE FROM t # old").hasPrefix("DELETE FROM t # old\n;"))
+    #expect(MySQLRun.script(["SELECT 1 -- note"]).hasPrefix("SELECT 1 -- note\n;\n"))
+}
+
+/// psql in a container gets each statement as a `-c`, which it sends as it is (its own `\!` unread), so the count it
+/// keeps (`:ROW_COUNT`) is the statement's; only Kelp's own script, which reads that count, goes on stdin (`-f -`).
+@Test func psqlGetsTheStatementsAsArguments() {
+    let statement = #"UPDATE t SET a = 1 \! touch /tmp/x"#
+    #expect(
+        PostgresRun.arguments(["BEGIN", statement], then: "\\echo x")
+            == ["-c", "BEGIN", "-c", "\\echo " + PostgresRun.marker, "-c", statement, "-f", "-"])
+    #expect(PostgresRun.arguments(["SELECT 1"], then: nil) == ["-c", "SELECT 1"])
+}
+
+/// The mysql client's rows keep a row of one empty value (an empty line), and a container that has only `mariadb`
+/// (MariaDB 11's images) runs that.
+@Test func mysqlsBatchOutputKeepsEmptyRowsAndFindsMariaDB() throws {
+    #expect(MySQLRun.section("v\n\nx\n").rows == [[""], ["x"]])
+    #expect(MySQLRun.section("").columns.isEmpty)
+    let bin = tmp().appendingPathComponent("bin-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: bin) }
+    let mariadb = bin.appendingPathComponent("mariadb")
+    try "#!/bin/sh\necho mariadb \"$@\"\n".write(to: mariadb, atomically: true, encoding: .utf8)
+    chmod(mariadb.path, 0o755)
+    let ran = Process(), out = Pipe()
+    ran.executableURL = URL(fileURLWithPath: "/bin/sh")
+    ran.arguments = Array(MySQLRun.client.dropFirst()) + ["--batch"]
+    ran.environment = ["PATH": bin.path + ":/usr/bin:/bin"]
+    ran.standardOutput = out
+    try ran.run()
+    ran.waitUntilExit()
+    #expect(String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) == "mariadb --batch\n")
 }
 
 /// The built-ins that run a query given as text are refused to agents as what they'd run would be: a text check can't

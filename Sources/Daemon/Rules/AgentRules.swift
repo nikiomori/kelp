@@ -167,11 +167,18 @@ private struct FenceCheck {
         // A database tab reads its tables and rows as the user, and `kelp shot` hands the agent the picture. So an
         // agent opens a tab only of a database it may read itself (`Databases.connection`: what `db.list` gives it).
         // That excludes an address from the project's files that the user hasn't opened yet, which the tab would have
-        // kelpd dial. A refusal from `connection` says why.
+        // kelpd dial, and a database whose structure only agents see, whose rows the tab shows. A refusal says why.
         if let tab = (method as? UIOpen).flatMap({ DatabaseTabURI.parts($0.uri) }) {
-            do { _ = try databases.connection(tab.worktree, tab.name, agent: true) } catch let error as RPCError
-                where !error.isRefusal
-            {
+            do {
+                if try databases.connection(tab.worktree, tab.name, agent: true).database.agentAccess == .structure {
+                    throw RPCError.refused("\(tab.name) shows agents its structure only: a tab would show its rows.")
+                }
+                // A comparison tab reads the original too (`db.diff` as the user), so the agent must be allowed to read
+                // it, as `kelp db diff` checks
+                if tab.query?.hasPrefix("compare=") == true {
+                    _ = try databases.pair(tab.worktree, tab.name, agent: true)
+                }
+            } catch let error as RPCError where !error.isRefusal {
                 throw RPCError.refused("An agent opens a tab only of a database it may use: `kelp db list` says which.")
             }
         }

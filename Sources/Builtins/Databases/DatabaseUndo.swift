@@ -89,11 +89,12 @@ enum DatabaseUndo {
         at.map { row.indices.contains($0) ? row[$0] : nil }
     }
 
-    /// The condition that the column holds this value: "note" = 'x', or "note" IS NULL.
+    /// The condition that the column holds this value as Kelp shows it (`DatabaseInfo.Engine.shows`: Postgres's json
+    /// and xml have no "=").
     private static func holds(
         _ column: Int, _ value: String?, _ result: QueryResult, _ engine: DatabaseInfo.Engine
     ) -> String {
-        engine.quoted(result.columns[column]) + (value == nil ? " IS NULL" : " = " + engine.literal(value))
+        engine.shows(engine.quoted(result.columns[column]), value)
     }
 
     /// The condition that finds the row with this key: "id" = '10' AND "day" = '2026-02-01'.

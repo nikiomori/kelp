@@ -10,7 +10,9 @@ import KelpKit
 /// connections land in All my projects.
 @MainActor
 final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDelegate {
-    private unowned let sheet: DatabaseSheet
+    /// Weak, because reading or importing can answer after the sheet has closed and gone.
+    private weak var sheet: DatabaseSheet?
+    private let app: AppModel, worktreeId: String
     private let source: ImportSource, file: String?
     private let table = NSTableView()
     private let passwords = NSButton(), useHere = NSButton()
@@ -24,14 +26,16 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
 
     init(sheet: DatabaseSheet, source: ImportSource, file: String?) {
         self.sheet = sheet
+        app = sheet.app
+        worktreeId = sheet.worktreeId
         self.source = source
         self.file = file
         super.init()
-        build()
+        build(in: sheet)
         Task { await load() }
     }
 
-    private func build() {
+    private func build(in sheet: DatabaseSheet) {
         let title = NSTextField(labelWithString: String(localized: "Import from \(source.name)"))
         title.font = .ui(TextSize.body, weight: .semibold)
         let icon = NSImageView(image: DatabaseLook.appIcon(source.id))
@@ -65,7 +69,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         // when its database is first opened, not all at once now.
         passwords.state = source.passwords == "file" ? .on : .off
         passwords.isEnabled = source.passwords != "none"
-        let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
+        let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
         useHere.setButtonType(.switch)
         useHere.title = String(localized: "Let \(project)’s agents use them now (others read only)")
         useHere.state = .off
@@ -83,8 +87,8 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     private func load() async {
         empty.show(nil)
         loading.wait(String(localized: "Reading \(source.name)’s connections…"))
-        let answer = await sheet.app.tryCall(
-            DatabaseImportRead(worktreeId: sheet.worktreeId, source: source.id, file: file))
+        let answer = await app.tryCall(
+            DatabaseImportRead(worktreeId: worktreeId, source: source.id, file: file))
         await loading.settled()
         loading.show(nil)
         rows = answer.value ?? []
@@ -172,9 +176,9 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
             : String(localized: "Importing…")
         status.textColor = .secondaryLabelColor
         Task {
-            let answer = await sheet.app.tryCall(
+            let answer = await app.tryCall(
                 DatabaseImport(
-                    worktreeId: sheet.worktreeId, source: source.id, file: file,
+                    worktreeId: worktreeId, source: source.id, file: file,
                     ids: rows.map(\.id).filter(chosen.contains),
                     passwords: passwords.state == .on, useHere: useHere.state == .on))
             if let outcome = answer.value {
@@ -212,7 +216,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
             lines.append(String(localized: "\(rest) without passwords: Kelp asks for each when you open it."))
         }
         if useHere.state == .on {
-            let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
+            let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
             lines.append(String(localized: "\(project)’s agents can use them: read only where they’re Production."))
         } else {
             lines.append(
@@ -232,10 +236,10 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         let heading = NSStackView(views: [icon, title])
         heading.spacing = Metrics.gapWide
         let view = SheetForm.stack([heading, text, buttons], wide: [text, buttons], width: DatabaseSheet.width)
-        sheet.show(view, first: close)
+        sheet?.show(view, first: close)
     }
 
-    @objc private func finished() { sheet.end() }
+    @objc private func finished() { sheet?.end() }
 
-    @objc private func backed() { sheet.showStart() }
+    @objc private func backed() { sheet?.showStart() }
 }

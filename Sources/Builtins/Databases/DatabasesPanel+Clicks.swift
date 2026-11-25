@@ -26,7 +26,7 @@ extension DatabasesPanel {
             app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
             return
         case .use: return showUseMenu(at: index)
-        case .problem, .project: return
+        case .problem, .migrations, .project: return
         }
         turning = rows[index].key
         table.crossfade(Motion.base)   // a fold's rows fade out or in, because there are too many to move one by one
@@ -35,7 +35,7 @@ extension DatabasesPanel {
 
     func answer(_ run: DatabaseRun, allow: Bool) {
         guard let sid = run.session else { return }
-        Notifications.answer(app, sid, allow ? "allow" : "deny", question: app.session(sid)?.summary)
+        Notifications.answer(app, sid, allow ? "allow" : "deny", question: app.session(sid)?.summary, run: run.id)
     }
 
     func start(_ db: DatabaseInfo) {
@@ -101,7 +101,7 @@ extension DatabasesPanel {
             }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
-        case .problem: break
+        case .problem, .migrations: break
         case .project, .use: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         }
     }

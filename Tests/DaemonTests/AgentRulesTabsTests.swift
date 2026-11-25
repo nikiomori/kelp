@@ -24,9 +24,17 @@ import Testing
     _ = try dbs.save(wt.id, DatabaseInfo(name: "db", engine: .sqlite, path: "/tmp/x.db"), password: nil)
     _ = try dbs.save(
         wt.id, DatabaseInfo(name: "prod", engine: .postgres, host: "db.example.com", access: .hidden), password: nil)
+    _ = try dbs.save(
+        wt.id, DatabaseInfo(name: "seen", engine: .sqlite, path: "/tmp/y.db", access: .structure), password: nil)
     try "DATABASE_URL=postgres://app@pg.example.com:5432/app\n".write(
         toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
-    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).map(\.name).sorted() == ["app", "db", "prod"])
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).map(\.name).sorted() == ["app", "db", "prod", "seen"])
+    // Two branch copies: one of a database agents use, one of the hidden one.
+    for (copy, of) in [("db_copy", "db"), ("prod_copy", "prod")] {
+        var info = DatabaseInfo(name: copy, engine: .sqlite, path: "/tmp/\(copy).db")
+        info.copy = BranchCopy(of: of, worktreeId: wt.id, at: Date())
+        _ = try dbs.save(wt.id, info, password: nil)
+    }
     try expectRows(
         w.d,
         [
@@ -43,7 +51,20 @@ import Testing
                 "nor one of its own workspace that's hidden from agents"
             ),
             (own, UIOpen(uri: "DB:" + wt.id + "/prod"), false, "however its scheme is spelled"),
+            (
+                own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "seen")), false,
+                "nor one that shows agents its structure only, since the tab shows its rows"
+            ),
+            (own, DatabaseSchemaRead(worktreeId: wt.id, database: "seen"), true, "whose tables it reads"),
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "none")), false, "nor one that isn't there"),
+            (
+                own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db_copy", compare: "db")), true,
+                "a copy's comparison with what it copies"
+            ),
+            (
+                own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "prod_copy", compare: "prod")), false,
+                "but not with an original hidden from agents, which the tab reads as the user"
+            ),
             (
                 own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "app")), false,
                 "nor an address from the project's files, which the tab would have kelpd dial"
@@ -63,6 +84,8 @@ import Testing
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db")), true, "its own workspace's it opens"),
             (own, DatabaseSchemaRead(worktreeId: wt.id, database: "db"), true, "and reads its tables"),
             (own, DatabaseSchemaRead(worktreeId: elsewhere.id, database: "db"), false, "not another workspace's"),
+            (own, DatabaseDiff(worktreeId: wt.id), true, "and compares its branch's copy"),
+            (own, DatabaseDiff(worktreeId: elsewhere.id), false, "not another workspace's copy"),
             (own, UIOpen(uri: "file:///tmp/a.txt", worktreeId: wt.id), true, "and a file"),
             (
                 own, UIOpen(uri: "file:///tmp/a.txt"), false,

@@ -82,3 +82,15 @@ private func list(_ w: World, _ worktree: Worktree) async throws -> [DatabaseInf
     _ = try await w.c.call(WorktreeRemove(id: branch.id, force: true))
     #expect(try await waitFor { try kept().isEmpty })
 }
+
+/// A branch's copy is the agents' to change, unless the original keeps its rows from them: hidden stays hidden, and
+/// structure only stays structure only, since the copy holds the same rows.
+@Test func aCopyKeepsAgentsFromRowsTheOriginalKeepsThemFrom() {
+    let rows: [(DatabaseInfo.Access, DatabaseInfo.Access)] = [
+        (.hidden, .hidden), (.structure, .structure), (.read, .free), (.ask, .free), (.free, .free)
+    ]
+    for (original, copy) in rows {
+        let made = Databases.asCopy(DatabaseInfo(name: "shop", engine: .sqlite, access: original), of: "shop", for: "w")
+        #expect(made.access == copy, "\(original)")
+    }
+}

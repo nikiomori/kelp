@@ -21,23 +21,43 @@ extension DatabaseFind {
         }
     }
 
-    /// Fills in `${VAR}`, `${VAR:-default}`, `${VAR-default}` and `$VAR` from `env`, as compose does.
-    static func interpolated(_ value: String, _ env: [String: String]) -> String {
-        value.replacing(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/) { match in
-            let name = String(match.output.1 ?? match.output.3 ?? "")
-            return env[name].flatMap { $0.isEmpty ? nil : $0 } ?? String(match.output.2 ?? "")
+    /// Fills in `${VAR}`, `${VAR:-default}`, `${VAR-default}`, `${VAR:+other}`, `$VAR` and `$$` from `env`, as compose
+    /// does. Returns nil when a `${VAR:?message}` (or `${VAR?message}`) isn't set, because compose wouldn't start.
+    static func interpolated(_ value: String, _ env: [String: String]) -> String? {
+        var missing = false
+        let filled = value.replacing(
+            /\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?[-?+])([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/
+        ) { match -> String in
+            guard let name = match.output.1 ?? match.output.4 else { return "$" }
+            let set = env[String(name)], op = match.output.2 ?? "", word = String(match.output.3 ?? "")
+            let given = op.hasPrefix(":") ? set.flatMap { $0.isEmpty ? nil : $0 } : set
+            switch op.last {
+            case "-": return given ?? word
+            case "?":
+                missing = missing || given == nil
+                return given ?? ""
+            case "+": return given == nil ? "" : word
+            default: return set ?? ""
+            }
         }
+        return missing ? nil : filled
     }
 
     /// Finds the services of a postgres or mysql image, with their published port and the user, password and
-    /// database from their `environment`.
-    static func compose(_ text: String, source: String, env vars: [String: String] = [:]) -> [FoundDatabase] {
+    /// database from their `environment` and `env_file`. `file` reads a file by its path in the project.
+    static func compose(
+        _ text: String, source: String, env vars: [String: String] = [:], file: (String) -> String? = { _ in nil }
+    ) -> [FoundDatabase] {
         var found: [FoundDatabase] = []
+        let folder = (source as NSString).deletingLastPathComponent
         for service in services(text) {
             guard let engine = service.values["image"].flatMap(DatabaseInfo.Engine.init(image:)) else { continue }
             guard let inner = engine.defaultPort else { continue }
-            let env = service.env.mapValues { interpolated($0, vars) }
-            let port = service.ports.compactMap { published(interpolated($0, vars), inner: inner) }.first
+            // The container's environment: its env_file first, then `environment`, which wins.
+            let given = service.envFiles.compactMap { inProject(folder, $0).flatMap(file) }.map(variables)
+                .reduce(into: [:]) { $0.merge($1) { $1 } }.merging(service.env) { $1 }
+            let env = given.compactMapValues { interpolated($0, vars) }
+            let port = service.ports.compactMap { interpolated($0, vars).flatMap { published($0, inner: inner) } }.first
             var user: String?, password: String?, database: String?
             if engine == .postgres {
                 user = env["POSTGRES_USER"] ?? "postgres"
@@ -59,18 +79,24 @@ extension DatabaseFind {
         return found
     }
 
+    /// The path in the project of a file a compose file in `folder` names, or nil for one outside the project.
+    static func inProject(_ folder: String, _ path: String) -> String? {
+        let full = ((folder as NSString).appendingPathComponent(path) as NSString).standardizingPath
+        return path.hasPrefix("/") || path.hasPrefix("~") || full.split(separator: "/").contains("..") ? nil : full
+    }
+
     struct Service {
         var name: String
         var values: [String: String] = [:]
-        var ports: [String] = []
+        var ports: [String] = [], envFiles: [String] = []
         var env: [String: String] = [:]
     }
 
     /// Reads the `services:` block line by line. A service sits at the first indent under the block, and the
-    /// service's keys sit under the service.
+    /// service's keys sit at the first indent under the service, however many spaces that is.
     static func services(_ text: String) -> [Service] {
-        var services: [Service] = [], inServices = false, serviceIndent = -1, section = ""
-        for raw in text.split(whereSeparator: \.isNewline) {
+        var services: [Service] = [], inServices = false, serviceIndent = -1, keyIndent = -1, section = ""
+        for raw in expandingAnchors(text).split(whereSeparator: \.isNewline) {
             let line = String(raw)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
@@ -85,34 +111,45 @@ extension DatabaseFind {
             if indent == serviceIndent {
                 services.append(Service(name: String(trimmed.dropLast(trimmed.hasSuffix(":") ? 1 : 0))))
                 section = ""
+                keyIndent = -1
                 continue
             }
             guard indent > serviceIndent, !services.isEmpty else { continue }
-            let last = services.count - 1
-            if trimmed.hasPrefix("- ") {
-                let item = unquoted(String(trimmed.dropFirst(2)))
-                if section == "ports" { services[last].ports.append(item) }
-                if section == "environment", let eq = item.firstIndex(of: "=") {
-                    services[last].env[String(item[..<eq])] = unquoted(String(item[item.index(after: eq)...]))
-                }
-                continue
-            }
-            guard let colon = trimmed.firstIndex(of: ":") else { continue }
-            let key = String(trimmed[..<colon]), value = unquoted(String(trimmed[trimmed.index(after: colon)...]))
-            if indent == serviceIndent + 2 || section.isEmpty {
-                section = value.isEmpty ? key : ""
-                // Read a flow list on the key's own line, such as ports: ["5433:5432", "8080:80"]
-                if key == "ports", value.hasPrefix("[") {
-                    services[last].ports += value.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-                        .split(separator: ",").map { unquoted($0.trimmingCharacters(in: .whitespaces)) }
-                } else if !value.isEmpty {
-                    services[last].values[key] = value
-                }
-            } else if section == "environment" {
-                services[last].env[key] = value
-            }
+            if keyIndent < 0 { keyIndent = indent }
+            read(trimmed, key: indent == keyIndent, section: &section, into: &services[services.count - 1])
         }
         return services
+    }
+
+    /// Reads one line under a service: one of its keys, or a line in its `ports`, `environment` or `env_file`.
+    private static func read(_ trimmed: String, key atKey: Bool, section: inout String, into service: inout Service) {
+        if trimmed.hasPrefix("- ") {
+            let item = unquoted(String(trimmed.dropFirst(2)))
+            if section == "ports" { service.ports.append(item) }
+            if section == "environment", let eq = item.firstIndex(of: "=") {
+                service.env[String(item[..<eq])] = unquoted(String(item[item.index(after: eq)...]))
+            }
+            // `- path: db.env` is the long form of `- db.env`.
+            if section == "env_file" { service.envFiles.append(unquoted(item.replacing(/^path:/, with: ""))) }
+            return
+        }
+        guard let colon = trimmed.firstIndex(of: ":") else { return }
+        let key = String(trimmed[..<colon]), value = unquoted(String(trimmed[trimmed.index(after: colon)...]))
+        if atKey {
+            section = value.isEmpty ? key : ""
+            // A flow list on the key's own line, such as ports: ["5433:5432", "8080:80"], or a single env_file.
+            if key == "ports" || key == "env_file" {
+                let items =
+                    value.hasPrefix("[")
+                    ? value.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).split(separator: ",")
+                        .map { unquoted($0.trimmingCharacters(in: .whitespaces)) } : value.isEmpty ? [] : [value]
+                if key == "ports" { service.ports += items } else { service.envFiles += items }
+            } else if !value.isEmpty {
+                service.values[key] = value
+            }
+        } else if section == "environment" {
+            service.env[key] = value
+        }
     }
 
     /// Returns the port on this Mac that a `ports:` entry publishes the container's port `inner` on. Entries look like

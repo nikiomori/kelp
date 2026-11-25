@@ -11,7 +11,7 @@ import KelpKit
 final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     enum Row {
         case section(String, count: Int, open: Bool)
-        case table(DatabaseSchema.Table), function(String)
+        case table(DatabaseSchema.Table), function(String), migration(DatabaseMigrations.Migration)
         case newQuery, saved(SavedQuery), run(DatabaseRun)
     }
     struct SavedQuery: Codable, Equatable {
@@ -19,7 +19,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     let view = NSView()
-    private let part = CapsuleSegments(
+    let part = CapsuleSegments(
         labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")],
         name: String(localized: "Show"))
     private let search = NSSearchField()
@@ -76,6 +76,11 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             guard let self else { return }
             activate(list.selectedRow)
         }
+        list.onDelete = { [weak self] in   // ⌫ forgets a saved query, after asking
+            guard let self, rows.indices.contains(list.selectedRow), case .saved(let query) = rows[list.selectedRow]
+            else { return NSSound.beep() }
+            askToForget(query)
+        }
         list.setDraggingSourceOperationMask(.copy, forLocal: false)
         schemaPicker.controlSize = .small
         schemaPicker.target = self
@@ -104,6 +109,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     // MARK: What it lists
+
+    /// The section of the migrations the schema read found (`DatabaseSchema.migrations`), under Tables.
+    static let migrations = String(localized: "Migrations")
+    /// A Rails version is the time it was made, "20261122093015": the row shows its day, the name says the rest.
+    static func day(_ id: String) -> String {
+        id.count == 14 && id.allSatisfy(\.isNumber) ? String(id.prefix(8)) : id
+    }
 
     /// Lists "public" and the other schemas, read from the tables' "schema.name", with the default one first.
     private func schemasChanged() {
@@ -144,9 +156,14 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let functions = (schema.functions ?? []).filter { find.isEmpty || $0.lowercased().contains(find) }
                 .sorted(by: ordered)
             let views = inSchema.filter { $0.kind == "view" && fits($0) }.sorted { ordered($0.name, $1.name) }
-            let tables = inSchema.filter { $0.kind != "view" && fits($0) }.sorted { ordered($0.name, $1.name) }
+            let tables = inSchema.filter { $0.kind != "view" && $0.name != schema.migrations?.table && fits($0) }
+                .sorted { ordered($0.name, $1.name) }
+            let migrations = (schema.migrations?.all ?? []).filter {
+                find.isEmpty || "\($0.id) \($0.name)".lowercased().contains(find)
+            }
             for (title, items) in [
                 (String(localized: "Tables"), tables.map(Row.table)),
+                (Self.migrations, migrations.map(Row.migration)),
                 (String(localized: "Views"), views.map(Row.table)),
                 (String(localized: "Functions"), functions.map(Row.function))
             ] where !items.isEmpty {
@@ -206,7 +223,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         switch rows[row] {
         case .section(let title, let count, let open):
-            let heading = SectionHeading(title, count: count, open: open)
+            let left = title == Self.migrations ? schema.migrations?.notApplied.count ?? 0 : 0
+            let note = NSTextField.label(
+                String(localized: "\(left) not applied"), font: .ui(TextSize.caption), color: .secondaryLabelColor)
+            note.lineBreakMode = .byTruncatingTail   // in a narrow column the note gives way, not the title
+            note.toolTip = String(localized: "\(DatabaseMigrations.count(left)) not applied")
+            note.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
+            let heading = SectionHeading(title, count: count, open: open, trailing: left > 0 ? [note] : [])
             if turning == title, let chevron = heading.chevron {   // turns from where it pointed once laid out
                 turning = nil
                 Task { chevron.turn(from: open ? .pi / 2 : -.pi / 2) }
@@ -227,6 +250,15 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let label = NSTextField.label(name, font: .uiMono(TextSize.caption))
             label.lineBreakMode = .byTruncatingMiddle
             return line([symbol("function"), label, NSView()], inset: Metrics.inset + Metrics.indentStep)
+        case .migration(let migration):   // ✓ applied, ○ not yet: Kelp only shows them
+            let label = NSTextField.label(
+                [Self.day(migration.id), migration.name].filter { !$0.isEmpty }.joined(separator: " "),
+                font: .uiMono(TextSize.caption))
+            label.lineBreakMode = .byTruncatingTail   // the day reads first, the name gives way
+            label.toolTip = "\(migration.id) \(migration.name)"
+            let mark = symbol(migration.applied ? "checkmark.circle" : "circle")
+            mark.toolTip = migration.applied ? String(localized: "Applied") : String(localized: "Not applied")
+            return line([mark, label, NSView()], inset: Metrics.inset + Metrics.indentStep)
         case .newQuery:
             return line(
                 [symbol("plus"), NSTextField.label(String(localized: "New Query"), font: .ui(TextSize.row)), NSView()],
@@ -290,7 +322,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case .newQuery: onNewQuery()
         case .saved(let query): onSaved(query)
         case .run(let run): onRun(run, NSEvent.modifierFlags.contains(.option))
-        case .function: break
+        case .function, .migration: break
         }
     }
 
@@ -307,6 +339,17 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 }
 
 extension DatabaseSidebar: NSMenuDelegate {
+    func askToForget(_ query: SavedQuery) {
+        Task {
+            guard
+                await confirm(
+                    String(localized: "Forget \(query.name)?"), detail: String(localized: "This can’t be undone."),
+                    action: String(localized: "Forget"), destructive: true)
+            else { return }
+            onForget(query)
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard rows.indices.contains(list.clickedRow) else { return }
@@ -322,20 +365,10 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(query) }
             menu.add(String(localized: "Copy SQL")) { copyText(query.sql) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Forget…")) { [weak self] in
-                Task {
-                    guard
-                        await confirm(
-                            String(localized: "Forget \(query.name)?"),
-                            detail: String(localized: "This can’t be undone."),
-                            action: String(localized: "Forget"), destructive: true)
-                    else { return }
-                    self?.onForget(query)
-                }
-            }
+            menu.add(String(localized: "Forget…")) { [weak self] in self?.askToForget(query) }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
-            if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change can be put back
+            if DatabaseTab.undoable(run) {
                 menu.add(String(localized: "Undo This Change…")) { [weak self] in self?.onUndo(run) }
             }
             menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }

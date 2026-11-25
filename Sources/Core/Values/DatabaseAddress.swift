@@ -49,7 +49,7 @@ public struct DatabaseAddress: Equatable, Sendable {
     }
 
     static func url(_ text: String) throws(Problem) -> DatabaseAddress {
-        var text = text
+        var text = withoutDriver(text)
         if text.hasPrefix("jdbc:") { text.removeFirst(5) }
         let scheme = String(text.prefix { $0 != ":" }).lowercased()
         if ["sqlite", "sqlite3", "file", "duckdb"].contains(scheme) {
@@ -73,15 +73,17 @@ public struct DatabaseAddress: Equatable, Sendable {
         let host = parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"   // postgres:///app uses libpq's default
         let query = Dictionary(
             (parts.queryItems ?? []).map { ($0.name.lowercased(), $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
-        let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).removingPercentEncoding
-        let user = (parts.user ?? query["user"])?.removingPercentEncoding
+        // URLComponents' user, password, path and query values are decoded already: decoding again would read
+        // "100%25" as "100%" and then fail on it.
+        let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let user = parts.user ?? query["user"]
         var db = DatabaseInfo(
-            name: database.flatMap { $0.isEmpty ? nil : $0 } ?? host, engine: engine, host: host,
+            name: database.isEmpty ? host : database, engine: engine, host: host,
             port: parts.port ?? engine.defaultPort,
-            database: database?.isEmpty == false ? database : nil,
+            database: database.isEmpty ? nil : database,
             user: user)
         db.ssl = ssl(query["sslmode"] ?? query["ssl-mode"] ?? query["ssl"])
-        return DatabaseAddress(database: db, password: (parts.password ?? query["password"])?.removingPercentEncoding)
+        return DatabaseAddress(database: db, password: parts.password ?? query["password"])
     }
 
     /// Reads libpq's key=value form: `host=db port=5432 dbname=app user=app password='it''s'`.
@@ -147,14 +149,21 @@ public struct DatabaseAddress: Equatable, Sendable {
 
     // MARK: Pieces
 
-    /// Returns libpq's sslmode as Kelp keeps it: "disable", "require" or nil. The verify-* modes also become "require",
-    /// because the server must offer TLS for them.
+    /// Returns libpq's sslmode as Kelp keeps it: "disable", "require", "verify-ca", "verify-full" or nil. MySQL's
+    /// VERIFY_CA and VERIFY_IDENTITY are the verify modes.
     public static func ssl(_ mode: String?) -> String? {
         switch mode?.lowercased() {
         case "disable", "disabled", "false", "0": "disable"
-        case "require", "required", "verify-ca", "verify-full", "verify_identity", "true", "1": "require"
+        case "require", "required", "true", "1": "require"
+        case "verify-ca", "verify_ca": "verify-ca"
+        case "verify-full", "verify_identity": "verify-full"
         default: nil
         }
+    }
+
+    /// Drops the driver SQLAlchemy names after a "+" in the scheme: postgresql+psycopg://… is postgresql://….
+    public static func withoutDriver(_ url: String) -> String {
+        url.replacing(/^([A-Za-z][A-Za-z0-9]*)\+[A-Za-z0-9_]+:/, maxReplacements: 1) { "\($0.1):" }
     }
 
     /// Returns the value of a line like `DATABASE_URL=…` or `export DATABASE_URL="…"`.

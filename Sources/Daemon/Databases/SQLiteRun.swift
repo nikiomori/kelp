@@ -14,7 +14,25 @@ struct SQLiteRun: DatabaseRunner {
         config.readonly = readOnly
         config.busyMode = .timeout(5)
         config.label = "kelp.db"
-        return try DatabaseQueue(path: path, configuration: config)
+        let queue = try DatabaseQueue(path: path, configuration: config)
+        if !readOnly, let stop = DatabaseStop.current {
+            queue.add(transactionObserver: StopRollsBack(stop: stop), extent: .databaseLifetime)
+        }
+        return queue
+    }
+
+    /// Rolls back what the user stopped instead of committing it, even where the Stop came before the statement ran,
+    /// which SQLite's interrupt misses (and between a batch's statements).
+    private final class StopRollsBack: TransactionObserver {
+        let stop: DatabaseStop
+        init(stop: DatabaseStop) { self.stop = stop }
+        func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool { false }
+        func databaseDidChange(with event: DatabaseEvent) {}
+        func databaseWillCommit() throws {
+            if stop.stopped { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
+        }
+        func databaseDidCommit(_ db: Database) {}
+        func databaseDidRollback(_ db: Database) {}
     }
 
     /// Each call is stopped when its time runs out (`interrupt`, from another thread), so a runaway join or UPDATE
@@ -136,7 +154,10 @@ struct SQLiteRun: DatabaseRunner {
         let stop = DispatchWorkItem { queue.interrupt() }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
         defer { stop.cancel() }
-        do { return try body() } catch let error as DatabaseError where error.resultCode == .SQLITE_INTERRUPT {
+        do { return try DatabaseStop.during({ queue.interrupt() }, body) } catch let error as DatabaseError
+            where error.resultCode == .SQLITE_INTERRUPT
+        {
+            if DatabaseStop.current?.stopped == true { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
             throw DatabaseFailure.failed("It took more than \(Int(timeout)) s.")
         }
     }
@@ -192,9 +213,7 @@ struct SQLiteRun: DatabaseRunner {
                                         && !(rowid && column.primaryKeyIndex > 0
                                             && column.type.uppercased() == "INTEGER"),
                                     primary: column.primaryKeyIndex > 0,
-                                    references: keys.first { $0.originColumns.contains(column.name) }.map {
-                                        $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
-                                    })
+                                    references: Self.reference(keys, column.name))
                             }
                             let count = try Self.counted(queue, db, name, until: until)
                             return DatabaseSchema.Table(
@@ -208,6 +227,16 @@ struct SQLiteRun: DatabaseRunner {
                 }
             }
         }
+    }
+
+    /// The table and column a column refers to, "users.id": a key of several columns maps each to its own.
+    static func reference(_ keys: [ForeignKeyInfo], _ column: String) -> String? {
+        for key in keys {
+            guard let at = key.originColumns.firstIndex(of: column), key.destinationColumns.indices.contains(at)
+            else { continue }
+            return key.destinationTable + "." + key.destinationColumns[at]
+        }
+        return nil
     }
 
     /// Counts a table's rows, or returns nil once `until` has passed (before counting starts, or while it counts).
