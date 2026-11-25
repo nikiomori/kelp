@@ -9,12 +9,17 @@ final class DatabaseStop: Sendable {
     @TaskLocal static var current: DatabaseStop?
 
     private struct State {
-        var stopped = false, next = 0
+        var stopped = false, next = 0, said = DatabaseCancel.stopped
         var actions: [Int: @Sendable () -> Void] = [:]
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     var stopped: Bool { state.withLock { $0.stopped } }
+    /// What the stopped call says: `DatabaseCancel.stopped`, or what a Stop that only ends the wait leaves (`leaves`).
+    var said: String { state.withLock { $0.said } }
+
+    /// Says that a Stop of what runs now only ends Kelp's wait for it, and what it leaves running.
+    func leaves(_ said: String) { state.withLock { $0.said = said } }
 
     /// Stops what runs now, and whatever starts after.
     func stop() {
@@ -43,11 +48,11 @@ final class DatabaseStop: Sendable {
         state.withLock { _ = $0.actions.removeValue(forKey: token) }
     }
 
-    /// Runs `body` with `action` as the way the current Stop ends it. A run stopped before it starts doesn't start.
+    /// Runs `body` with `action` as the way the current Stop ends it. A run stopped before it starts doesn't start,
+    /// however close to its start the Stop came (SQLite ignores an interrupt before its statement runs).
     static func during<T>(_ action: @escaping @Sendable () -> Void, _ body: () throws -> T) throws -> T {
         guard let stop = current else { return try body() }
-        guard !stop.stopped else { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
-        let token = stop.on(action)
+        guard let token = stop.on(action) else { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
         defer { stop.off(token) }
         return try body()
     }
@@ -77,8 +82,8 @@ extension Databases {
         let stop = DatabaseStop()
         stops.withLock { $0[id] = stop }
         defer { stops.withLock { _ = $0.removeValue(forKey: id) } }
-        do { return try await DatabaseStop.$current.withValue(stop) { try await body() } } catch where stop.stopped {
-            throw RPCError.invalidParams(DatabaseCancel.stopped)
+        do { return try await DatabaseStop.$current.withValue(stop) { try await body() } } catch  where stop.stopped {
+            throw RPCError.invalidParams(stop.said)
         }
     }
 

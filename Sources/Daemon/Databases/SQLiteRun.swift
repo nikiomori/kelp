@@ -14,7 +14,25 @@ struct SQLiteRun: DatabaseRunner {
         config.readonly = readOnly
         config.busyMode = .timeout(5)
         config.label = "kelp.db"
-        return try DatabaseQueue(path: path, configuration: config)
+        let queue = try DatabaseQueue(path: path, configuration: config)
+        if !readOnly, let stop = DatabaseStop.current {
+            queue.add(transactionObserver: StopRollsBack(stop: stop), extent: .databaseLifetime)
+        }
+        return queue
+    }
+
+    /// Rolls back what the user stopped instead of committing it, even where the Stop came before the statement ran,
+    /// which SQLite's interrupt misses (and between a batch's statements).
+    private final class StopRollsBack: TransactionObserver {
+        let stop: DatabaseStop
+        init(stop: DatabaseStop) { self.stop = stop }
+        func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool { false }
+        func databaseDidChange(with event: DatabaseEvent) {}
+        func databaseWillCommit() throws {
+            if stop.stopped { throw DatabaseFailure.failed(DatabaseCancel.stopped) }
+        }
+        func databaseDidCommit(_ db: Database) {}
+        func databaseDidRollback(_ db: Database) {}
     }
 
     /// Each call is stopped when its time runs out (`interrupt`, from another thread), so a runaway join or UPDATE

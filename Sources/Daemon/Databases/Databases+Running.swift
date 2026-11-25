@@ -180,7 +180,7 @@ extension Databases {
     func failed(_ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
         run.state = .failed
         // A statement the user stopped fails however its engine ended it (a closed connection, a killed client)
-        run.error = DatabaseStop.current?.stopped == true ? DatabaseCancel.stopped : failure.message
+        run.error = DatabaseStop.current.flatMap { $0.stopped ? $0.said : nil } ?? failure.message
         note(databaseQuery.worktreeId, run)
         return RPCError.invalidParams(run.error ?? failure.message)
     }

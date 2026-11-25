@@ -153,19 +153,13 @@ struct PostgresRun: DatabaseRunner {
         timeout: TimeInterval
     ) throws -> [String] {
         let db = databaseConnection.database
-        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "psql", secret: "PGPASSWORD")
-        var argv =
-            client + [
-                "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
-                "-d", db.database ?? "postgres"
-            ]
-        if let user = db.user { argv += ["-U", user] }
-        argv += arguments(commands, then: script)
-        let env = DatabaseEngines.environment([
-            // UTC, as the wire runner uses (`PostgresText`), so a row found by its values compares the same text
-            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": databaseConnection.password, "PGTZ": "UTC"
-        ])
-        let out = try DatabaseStop.program(argv, env: env, stdin: Data((script ?? "").utf8), timeLimit: timeout)
+        let settings = ["PGCONNECT_TIMEOUT", "PGAPPNAME", "PGPASSWORD", "PGTZ"]
+        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "psql", pass: settings)
+        var psql = client + ["-X", "-w", "-h", host, "-p", String(port), "-d", db.database ?? "postgres"]
+        if let user = db.user { psql += ["-U", user] }
+        let out = try program(
+            psql, ["--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1"] + arguments(commands, then: script),
+            password: databaseConnection.password, stdin: Data((script ?? "").utf8), timeout: timeout)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             throw failure(String(decoding: out.stderr, as: UTF8.self))
@@ -174,6 +168,38 @@ struct PostgresRun: DatabaseRunner {
         return String(decoding: out.stdout, as: UTF8.self).components(separatedBy: marker + "\n").dropFirst().map {
             $0
         }
+    }
+
+    /// Runs `psql` with `arguments`, its session named "kelp/<uuid>". A Stop ends the docker client, which leaves psql
+    /// running in the container, so it also ends that session on the server from a second psql, found by its name as
+    /// the wire runner finds its own (`PostgresWire.cancelQuery`). Ending the session, not only its statement, rolls
+    /// back a transaction psql would go on to commit. Limit: a Stop before psql has connected finds nothing to end.
+    static func program(
+        _ psql: [String], _ arguments: [String], password: String?, stdin: Data, timeout: TimeInterval
+    ) throws -> Subprocess.Output {
+        let name = PostgresWire.applicationName()
+        let env = DatabaseEngines.environment([
+            // UTC, as the wire runner uses (`PostgresText`), so a row found by its values compares the same text
+            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": name, "PGPASSWORD": password, "PGTZ": "UTC"
+        ])
+        let end =
+            psql + [
+                "-c",
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    + "WHERE application_name = '\(name)' AND pid <> pg_backend_pid()"
+            ]
+        // On a thread of its own, not a slot: the Stop comes from a quick call, and the slots may all be held
+        return try DatabaseStop.during({ Task { try await Slots.elsewhere { Self.end(end, env: env) } } }) {
+            try DatabaseStop.program(psql + arguments, env: env, stdin: stdin, timeLimit: timeout)
+        }
+    }
+
+    private static func end(_ argv: [String], env: [String: String]) {
+        do {
+            let out = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: DatabaseTimes.kill)
+            guard out.status != 0 else { return }
+            Log.store.error("ending a stopped psql's session: \(String(decoding: out.stderr, as: UTF8.self))")
+        } catch { Log.store.error("ending a stopped psql's session: \(error)") }
     }
 
     /// psql's arguments for the commands: each a `-c`, which psql sends to the server as it is (a `\!` or `:name` in

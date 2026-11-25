@@ -138,7 +138,7 @@ struct MySQLRun: DatabaseRunner {
         -> [String]
     {
         let db = databaseConnection.database
-        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", secret: "MYSQL_PWD")
+        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", pass: ["MYSQL_PWD"])
         // To mysql, localhost means the Unix socket, so the server's port is reached by its address.
         var argv =
             Array(client.dropLast()) + Self.client
@@ -147,7 +147,7 @@ struct MySQLRun: DatabaseRunner {
         if let name = db.database { argv.append(name) }
         let script = Self.script(statements)
         let env = DatabaseEngines.environment(["MYSQL_PWD": databaseConnection.password])
-        let out = try DatabaseStop.program(argv, env: env, stdin: Data(script.utf8), timeLimit: timeout)
+        let out = try program(argv, env: env, script: script, timeout: timeout)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)
@@ -159,6 +159,17 @@ struct MySQLRun: DatabaseRunner {
         return String(decoding: out.stdout, as: UTF8.self)
             .components(separatedBy: "\(marker)\n\(marker)\n").dropLast().map { $0 }
     }
+
+    /// Runs mysql in the container. A Stop ends only the docker client, while mysql and its statement go on in the
+    /// container (the server has nothing to find that connection by and KILL it), so the call says that, not Stopped.
+    static func program(_ argv: [String], env: [String: String], script: String, timeout: TimeInterval) throws
+        -> Subprocess.Output
+    {
+        DatabaseStop.current?.leaves(leftRunning)
+        return try DatabaseStop.program(argv, env: env, stdin: Data(script.utf8), timeLimit: timeout)
+    }
+    static let leftRunning =
+        "Stopped waiting. The statement may still run to its end in the container, and keep what it changes."
 
     /// The client in the container: mysql, or mariadb where only that is there (MariaDB 11's images). The shell's
     /// `$@` is the client's arguments.

@@ -207,9 +207,9 @@ enum DatabaseEngines {
     }
 
     /// Returns how to run the client inside the container that compose runs the database in (`docker exec`, and the
-    /// port inside the container). `secret` names the password's variable, which is passed from the environment, never
-    /// on the command line. A database with an address is spoken to directly (`DatabaseWire`).
-    static func invocation(_ databaseConnection: DatabaseConnection, _ name: String, secret: String) throws -> (
+    /// port inside the container). `pass` names the variables (the password's among them) that are passed from the
+    /// environment, never on the command line. A database with an address is spoken to directly (`DatabaseWire`).
+    static func invocation(_ databaseConnection: DatabaseConnection, _ name: String, pass: [String]) throws -> (
         argv: [String], host: String, port: Int
     ) {
         guard let service = databaseConnection.container else {
@@ -220,7 +220,7 @@ enum DatabaseEngines {
             throw DatabaseFailure.failed(
                 "\(service.name) isn't running: docker compose up -d \(service.name) starts it.")
         }
-        return ([docker, "exec", "-i", "-e", secret, id, name], "127.0.0.1", service.port)
+        return ([docker, "exec", "-i"] + pass.flatMap { ["-e", $0] } + [id, name], "127.0.0.1", service.port)
     }
 
     /// What every client run gets: a short PATH, a UTF-8 locale, and the home folder (docker reads its settings there).
