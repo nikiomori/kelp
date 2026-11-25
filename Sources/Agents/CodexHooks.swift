@@ -33,14 +33,32 @@ public enum CodexHooks {
     /// Code's hooks do there (`Hooks.hostReport`), and Kelp reads that as the program's own report. There are fewer of
     /// them, because a state is all that a host's hook can tell.
     public static let hostEvents: [Event] = [
-        ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working", conv: true), nil),
+        ("UserPromptSubmit", "user_prompt_submit", hostTurn("UserPromptSubmit", "working"), nil),
         ("PostToolUse", "post_tool_use", Hooks.hostReport("state=working"), nil),
         (
             "PermissionRequest", "permission_request", Hooks.hostReport("state=blocked:kind=permission", payload: true),
             nil
         ),
-        ("Stop", "stop", Hooks.hostReport("state=done", conv: true), nil)
+        ("Stop", "stop", hostTurn("Stop", "done"), nil)
     ]
+
+    /// In 0.171 a child's session_id is the root's and agent_id is its own. 0.133 omits agent_id;
+    /// 0.129 also uses the child's own session_id. The rollout's session_meta identifies user threads in all three.
+    /// Both hook inputs are flat, compact JSON; quotes in the prompt and reply are escaped.
+    private static func hostTurn(_ event: String, _ state: String) -> String {
+        Hooks.hostStart + #"p=$(cat);case "$p" in \{*\}) ;; *) exit 0;; esac;"#
+            + #"case "$p" in *\"agent_id\":*|*\"agent_type\":*) exit 0;; esac;"#
+            + Hooks.hostField + #"[ "$(f hook_event_name)" = \#(event) ] || exit 0;"#
+            + #"id=$(f session_id);printf %s "$id" | LC_ALL=C grep -Eq "^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$" || exit 0;"#
+            + #"t=$(printf %s "$p" | sed -nE 's/.*"transcript_path": *"(([^"\\]|\\.)*)".*/\1/p' | sed -E 's/\\(["\\/])/\1/g');"#
+            + #"r=state=\#(state);case "$t" in /*/rollout-*-"$id".jsonl) "#
+            + #"m=;[ -f "$t" ] && m=$(head -n 1 -- "$t" 2>/dev/null);"#
+            + #"case ${m#*\"source\":} in \{\"subagent\":*|\{\"internal\":*) exit 0;; "#
+            + #"\"cli\"*|\"vscode\"*|\"exec\"*|\"mcp\"*|\{\"custom\":*) "#
+            + #"case "$m" in *\"type\":\"session_meta\"*) case ${m#*\"id\":} in \"$id\"*) r=$r:conv=$id;; esac;; esac;; esac;; "#
+            + #"/*/rollout-*.jsonl) exit 0;; esac;tmux set-option -q \#(RemoteHost.statusOption) "$r";"#
+            + Hooks.hostSend
+    }
 
     /// Codex's name for a hook given on the command line (`<session-flags>`, first group, first handler).
     public static func key(_ label: String) -> String { "/<session-flags>/config.toml:\(label):0:0" }
