@@ -193,6 +193,17 @@ private func tempRoot() throws -> URL {
     try "# Plan\n\n24\n".write(to: page, atomically: true, encoding: .utf8)
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn 24") == 1)
     #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.n == 24)
+    // Version 5, saved by the user, stays when the next turns would let it go with the oldest.
+    try Artifacts.savedJSON([5: "Approved"]).write(
+        to: page.deletingLastPathComponent().appendingPathComponent(Artifacts.savedFile), atomically: true,
+        encoding: .utf8)
+    for i in 25...27 {
+        try "# Plan\n\n\(i)\n".write(to: page, atomically: true, encoding: .utf8)
+        try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn \(i)")
+    }
+    let kept = try #require(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions).map(\.n)
+    #expect(kept.first == 5 && kept.count == 21 && !kept.contains(6))
+    #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 5)))
 }
 
 /// A page made before its chat started (From File) is that chat's once a turn's prompt names it: it keeps versions

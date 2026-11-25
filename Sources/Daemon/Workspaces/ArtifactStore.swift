@@ -233,12 +233,16 @@ extension Artifacts {
             ArtifactVersion(
                 n: number, at: now.timeIntervalSince1970, label: byUser ? label : oneLine(label, number: number),
                 byUser: byUser ? true : nil, restored: restored))
-        for old in versions.dropLast(keptVersions) {   // a file deleted by hand is skipped, not an error
+        let savedText = small(folder.appendingPathComponent(savedFile).path).map { String(decoding: $0, as: UTF8.self) }
+        // A saved.json that doesn't read saves none, and says so in the log: the turn's version is still kept.
+        let saved = Log.store.attempt("the saved versions in \(folder.path)") { try Self.saved(savedText) } ?? [:]
+        let keep = kept(versions, saved: Set(saved.keys)), keeping = Set(keep.map(\.n))
+        for old in versions where !keeping.contains(old.n) {   // a file deleted by hand is skipped, not an error
             let path = versionPath(target: target, old.n)
             if FileManager.default.fileExists(atPath: path) { try FileManager.default.removeItem(atPath: path) }
         }
         var updated = record
-        updated.versions = Array(versions.suffix(keptVersions))
+        updated.versions = keep
         try save(updated, in: folder)
         return true
     }

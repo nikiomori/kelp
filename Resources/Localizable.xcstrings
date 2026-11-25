@@ -41136,6 +41136,56 @@
           }
         }
       }
+    },
+    "Don’t Keep It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не хранить"
+          }
+        }
+      }
+    },
+    "Save This Version…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить эту версию…"
+          }
+        }
+      }
+    },
+    "Save Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить версию %lld"
+          }
+        }
+      }
+    },
+    "A saved version keeps its name and isn’t removed with the oldest.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённая версия хранит своё имя и не удаляется вместе со старыми."
+          }
+        }
+      }
+    },
+    "Saved versions: %@ doesn’t read.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённые версии: %@ не читается."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -5,9 +5,10 @@ import KelpKit
 
 /// A page's versions as a column beside it (its bar's "N of M"): each one's number, who made it (you, its agent, or a
 /// restore), when, and the prompt or the edits that made it, newest first, found by its words. The chosen one shows on
-/// the page; Restore asks, then brings it back as a new version, so nothing is erased.
+/// the page; Restore asks, then brings it back as a new version, so nothing is erased. A version saved by a name of
+/// the user's own (`Artifacts.savedFile`) shows first, by that name, and is never let go with the oldest.
 @MainActor
-final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
+final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     private unowned let bar: ArtifactBar
     private let table = NSTableView()
     private let search = NSSearchField()
@@ -18,6 +19,11 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private var rows: [(index: Int, entry: ArtifactBar.Entry)] = []
     /// While the list is filled: its selection then follows the bar, not the other way round.
     private var filling = false
+    /// The saved versions' names, by number.
+    private var saved: [Int: String] = [:]
+    private var savedFile: String {
+        ((bar.path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(Artifacts.savedFile)
+    }
 
     init(bar: ArtifactBar) {
         self.bar = bar
@@ -55,16 +61,33 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
         pin(all)
         widthAnchor.constraint(equalToConstant: 300).isActive = true
         foot.heightAnchor.constraint(equalToConstant: Metrics.panelHeader).isActive = true
+        table.menu = NSMenu()
+        table.menu?.delegate = self
         reload()
+        let app = bar.app
+        Task {
+            let text = await app.quiet(FilesRead(path: savedFile))?.text
+            do { saved = try Artifacts.saved(text) } catch {
+                Banner.show(String(localized: "Saved versions: \(savedFile) doesn’t read."))
+            }
+            reload()
+        }
     }
 
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError("not from a nib") }
 
     @objc func reload() {
         let words = search.stringValue.trimmingCharacters(in: .whitespaces)
-        rows = bar.entries.enumerated().reversed().map { ($0.offset, $0.element) }.filter {
-            words.isEmpty || $0.entry.label.localizedCaseInsensitiveContains(words)
+        let all: [(index: Int, entry: ArtifactBar.Entry)] = bar.entries.enumerated().reversed()
+            .map { ($0.offset, $0.element) }.filter { row in
+                words.isEmpty
+                    || (row.entry.version.flatMap { saved[$0.n] } ?? row.entry.label)
+                        .localizedCaseInsensitiveContains(words)
+            }
+        let isSaved = { (row: (index: Int, entry: ArtifactBar.Entry)) in
+            row.entry.version.map { self.saved[$0.n] != nil } ?? false
         }
+        rows = all.filter(isSaved) + all.filter { !isSaved($0) }
         let kept = bar.entries.filter { $0.version != nil }.count
         subtitle.stringValue = String(
             localized: "\(kept) versions · Kelp keeps the last \(Artifacts.keptVersions) turns")
@@ -106,7 +129,10 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
             ArtifactBar.time(entry.at), font: .ui(TextSize.caption), color: .secondaryLabelColor)
         let top = NSStackView(views: [number, who, NSView(), when])
         top.spacing = Metrics.gap
-        let label = NSTextField.label(entry.label, font: .ui(TextSize.row), color: .secondaryLabelColor)
+        let name = entry.version.flatMap { saved[$0.n] }
+        let label = NSTextField.label(
+            name ?? entry.label, font: .ui(TextSize.row, weight: name == nil ? .regular : .semibold),
+            color: name == nil ? .secondaryLabelColor : .labelColor)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let cell = NSStackView(views: [top, label])
@@ -123,6 +149,7 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
     /// Who made a version: the user by hand, a restore, or the page's agent.
     private func source(_ entry: ArtifactBar.Entry) -> String {
         guard let version = entry.version else { return "" }
+        if saved[version.n] != nil { return " " + String(localized: "Saved") + " " }
         if version.restored != nil { return " " + String(localized: "Restored") + " " }
         if version.byUser == true { return " " + String(localized: "You") + " " }
         return " " + (bar.agentName ?? String(localized: "Agent")) + " "
@@ -133,6 +160,51 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let index = chosen.index == bar.entries.count - 1 ? nil : chosen.index
         if index != bar.shown { bar.show(index) }
         updateButtons()
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        guard rows.indices.contains(table.clickedRow), let version = rows[table.clickedRow].entry.version else {
+            return
+        }
+        if saved[version.n] != nil {
+            menu.add(String(localized: "Don’t Keep It")) { [weak self] in self?.save(version.n, as: nil) }
+        } else {
+            menu.add(String(localized: "Save This Version…")) { [weak self] in self?.askName(version) }
+        }
+    }
+
+    private func askName(_ version: ArtifactVersion) {
+        Task {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Save Version \(version.n)")
+            alert.informativeText = String(
+                localized: "A saved version keeps its name and isn’t removed with the oldest.")
+            let field = NSTextField(string: String(version.label.prefix(60)))
+            field.frame.size = NSSize(width: Metrics.alertAccessory, height: field.fittingSize.height)
+            alert.accessoryView = field
+            alert.addButton(withTitle: String(localized: "Save"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            let name = field.stringValue.trimmingCharacters(in: .whitespaces)
+            save(version.n, as: name.isEmpty ? "v\(version.n)" : name)
+        }
+    }
+
+    private func save(_ n: Int, as name: String?) {
+        var next = saved
+        next[n] = name
+        let app = bar.app
+        Task {
+            do {
+                let text = try Artifacts.savedJSON(next)
+                guard await app.call(FilesWrite(path: savedFile, text: text, base: nil)) != nil else { return }
+                saved = next
+                reload()
+            } catch {
+                Banner.show(error.localizedDescription, style: .error)
+            }
+        }
     }
 
     private func showChat() {

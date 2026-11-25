@@ -81,3 +81,13 @@ func aCanvasIsADeckWhenEveryBoardIsASlide(sizes: [(Int, Int?)], deck: Bool) {
     }
     #expect(ArtifactCanvas(boards: boards).isDeck == deck)
 }
+
+/// A version the user saved stays when it is older than the last twenty; its name reads back as written.
+@Test func aSavedVersionOutlivesTheLastTwenty() throws {
+    let versions = (1...25).map { ArtifactVersion(n: $0, at: 0, label: "turn \($0)") }
+    #expect(Artifacts.kept(versions, saved: []).map(\.n) == Array(6...25))
+    #expect(Artifacts.kept(versions, saved: [2]).map(\.n) == [2] + Array(6...25))
+    let json = try Artifacts.savedJSON([2: "Approved \"v1\""])
+    #expect(try Artifacts.saved(json) == [2: "Approved \"v1\""] && Artifacts.saved(nil).isEmpty)
+    #expect(throws: (any Error).self) { try Artifacts.saved("{") }
+}
