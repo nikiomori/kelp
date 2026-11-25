@@ -30,7 +30,8 @@ struct BrowserRequests {
         let action = event.action
         let args = event.args ?? .object([:])
         if action == .open, let page = try await pageForOpen(wid, shared: args["shared"]?.bool == true, args: args) {
-            return try await browse(page, in: wid, .info, args)
+            // A page driven from a host starts blank and opens the address once it is on the host's network.
+            return try await browse(page, in: wid, Self.fromHost(args) ? .open : .info, args)
         }
         guard let page = browsedPage(wid) else {
             throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
@@ -59,10 +60,14 @@ struct BrowserRequests {
             throw RPCError.invalidParams(
                 "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
         }
-        guard let page = app.workbench.openBeside(shared ? url : TabURI.agentPage(url), in: wid) else { return nil }
+        let start = Self.fromHost(args) ? "about:blank" : url
+        guard let page = app.workbench.openBeside(shared ? url : TabURI.agentPage(start), in: wid) else { return nil }
         AgentPages.of(app).browsed[wid] = page.id
         return page
     }
+
+    /// Whether an agent on a remote project's host drives the page (`BrowserTab.onHost`).
+    static func fromHost(_ args: JSONValue) -> Bool { args["remote"].map { $0 != .null } ?? false }
 
     /// Returns the page `kelp browser` drives in this workspace, which is always one it opened. The user's own page
     /// tabs carry their logins, so an agent never takes one of those by itself.

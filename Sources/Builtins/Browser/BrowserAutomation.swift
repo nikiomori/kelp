@@ -63,6 +63,7 @@ extension BrowserTab {
             // reloads with nothing from the cache. A dev server that doesn't ask for revalidation would hand back the
             // old script.
             let url = try need("url")
+            if let remote = args["remote"], remote != .null { try await onHost(remote) }
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case .reload:
