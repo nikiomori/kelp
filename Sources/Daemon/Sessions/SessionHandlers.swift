@@ -163,6 +163,12 @@ extension SessionChoose: Handled {
     var fence: Fence { Fence(actsOn: id, answersQuestion: true) }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
+        let token = questionId.flatMap(UUID.init(uuidString:))
+        if questionId != nil {
+            guard let token, let question, answer == "allow" || answer == "deny",
+                sessions.permissions.questionId(ls, for: question) == token
+            else { return false }
+        }
         // Not Allow or Deny but one of a question's answers (`Session.choices`): picked in its menu, by its label.
         guard answer == "allow" || answer == "deny" else {
             guard ls.choose(answer, to: question) != nil else { return false }
@@ -171,18 +177,22 @@ extension SessionChoose: Handled {
         }
         // Kelp's own question (a database change): its command waits on it, whatever the screen says meanwhile. An
         // answer shown for one run's change goes to that change alone.
-        if let run { return sessions.permissions.answerKelp(id, question: nil, answer, run: run) }
-        if sessions.permissions.answerKelp(id, question: question, answer) { return true }
+        if let run { return sessions.permissions.answerKelp(id, question: nil, answer, only: token, run: run) }
+        if sessions.permissions.answerKelp(id, question: question, answer, only: token) { return true }
         // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
         if let question, !Hooks.shownWhole(question) { return false }
         // The session's hook waits for the answer (`session.permissionWait`), so the answer goes there, not into the
         // menu. A banner's answer goes only to the question it showed, since the hook waiting now may be a newer one's.
-        if ls.asks(question), sessions.permissions.answerPermission(id, answer) {
-            _ = ls.answeredThroughHook()
+        if ls.answeredThroughHook(
+            question,
+            take: { menuID in
+                sessions.permissions.answerPermission(id, answer, only: token, menuID: token == nil ? nil : menuID)
+            })
+        {
             sessions.publish(ls)
             return true
         }
-        guard ls.choose(answer, to: question) != nil else { return false }
+        guard ls.choose(answer, to: question, menuID: token) != nil else { return false }
         sessions.publish(ls)
         return true
     }
@@ -193,7 +203,7 @@ extension SessionPermissionWait: AsyncHandled {
     static let within: TimeInterval = 600   // for Kelp's answer; the hook's own timeout is longer (`Hooks.listens`)
     var fence: Fence { Fence(reportsFor: id) }   // only the session's own hook waits for its answer
     func handle(_ permissions: PermissionWaits) async throws -> String? {
-        await permissions.waitForPermission(id, within: Self.within)
+        await permissions.waitForPermission(id, at: at, within: Self.within)
     }
 }
 

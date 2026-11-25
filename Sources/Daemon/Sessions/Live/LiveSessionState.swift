@@ -116,8 +116,11 @@ extension LiveSession {
         var interruptArmed: (at: Date, seen: String)?
         /// The questions Kelp asks (`LiveSession.askForKelp`), oldest first. The row asks the oldest, whatever the
         /// screen and the hooks say, until they're over.
-        var kelpQuestions: [String] = []
-        var kelpQuestion: String? { kelpQuestions.first }
+        var kelpQuestions: [(text: String, id: UUID)] = []
+        var kelpQuestion: String? { kelpQuestions.first?.text }
+        /// Rotates when a terminal permission is reported, including a repeat of the same question.
+        var menuID = UUID() { didSet { permissionHookAt = nil } }
+        var permissionHookAt: TimeInterval?
         /// The /goal that the prompt starting this turn set. The turn's first Stop comes before the first check is
         /// written.
         var goalAsked: String?
@@ -145,7 +148,8 @@ extension LiveSession {
         /// A menu answer in progress: it moves one step at a time, re-reading the screen, and presses Enter only on the
         /// wanted option. `screen` is what must still be on screen for each key (the dialog being answered); it is nil
         /// for a menu the user answers from a notification.
-        var steering: (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?)?
+        var steering:
+            (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?, questionId: UUID?)?
         /// The version an update last restarted it for (`restartAgent`).
         var updatedTo: String?
         var sawFirstPrompt = false
@@ -271,6 +275,7 @@ extension LiveSession {
             }
             guard status != record.status, record.status != .exited else { return said ? record : nil }
             trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
+            if status == .waiting { menuID = UUID() }
             record.status = status
             // A status read off the screen is a guess and is marked as one (`Session.guessed`); hooks and the program's
             // own reports aren't. So is one from `releaseStale` ("no sign of life"), because a still screen is all it

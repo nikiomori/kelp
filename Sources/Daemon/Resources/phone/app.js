@@ -26,8 +26,13 @@ const EN = {
   steps: ['Tap Copy Pairing Link.', 'Tap Share, then Add to Home Screen.', 'Open Kelp from the Home Screen and tap Paste Pairing Link if it asks.'],
   copy: 'Copy Pairing Link', copied: 'Copied. Now add Kelp to the Home Screen.', here: 'Use It in Safari Instead',
   paste: 'Paste Pairing Link', link: 'Pairing link', connect: 'Connect', badLink: "That isn't a pairing link.",
+  otherAddress: 'Open the pairing link at its own address. Add that page to the Home Screen to use it there.',
+  pairStorage: 'The browser could not save the pairing. Check its storage and try again.',
+  updateMac: 'Update Kelp on your Mac, then scan a new pairing code.',
   cantReach: mac => `Can't reach ${mac || 'your Mac'}. Trying again…`,
   failed: mac => `Can't reach ${mac || 'your Mac'}.`,
+  readFailed: "Couldn't load the conversation.", readRetrying: "Couldn't load the conversation. Trying again…",
+  retry: 'Retry',
   empty: mac => `No agents are running on ${mac || 'your Mac'}.`,
   status: {
     waiting: 'Needs you', working: 'Working', done: 'Done', error: 'Error',
@@ -78,6 +83,7 @@ const EN = {
   pushBlocked: 'Blocked. Allow notifications for Kelp in the Settings app, then come back.',
   pushUnavailable: 'Not available in this browser.',
   pushFailed: "Couldn't change notifications. Try again.",
+  pushRenew: 'Your Mac changed its notification key. Turn notifications on again.',
   addToHome: 'For notifications Kelp has to be on the Home Screen, paired there: scan the code in Kelp › Settings › Phone again and follow the steps.',
   disconnect: 'Disconnect This Phone…',
   disconnectAsk: mac => `Disconnect this phone from ${mac || 'your Mac'}? To connect again, scan a new code in Kelp.`,
@@ -96,8 +102,13 @@ const RU = {
   steps: ['Нажмите «Скопировать ссылку для подключения».', 'Нажмите «Поделиться», затем «На экран „Домой“».', 'Откройте Kelp с экрана «Домой» и, если он попросит, нажмите «Вставить ссылку для подключения».'],
   copy: 'Скопировать ссылку для подключения', copied: 'Скопировано. Теперь добавьте Kelp на экран «Домой».', here: 'Остаться в Safari',
   paste: 'Вставить ссылку для подключения', link: 'Ссылка для подключения', connect: 'Подключить', badLink: 'Это не ссылка для подключения.',
+  otherAddress: 'Откройте ссылку по указанному в ней адресу. Добавьте эту страницу на экран «Домой», чтобы пользоваться ею там.',
+  pairStorage: 'Браузеру не удалось сохранить привязку. Проверьте хранилище браузера и попробуйте ещё раз.',
+  updateMac: 'Обновите Kelp на Mac и отсканируйте новый код.',
   cantReach: mac => `Нет связи с ${mac || 'вашим Mac'}. Пробую ещё раз…`,
   failed: mac => `Нет связи с ${mac || 'вашим Mac'}.`,
+  readFailed: 'Не удалось загрузить переписку.', readRetrying: 'Не удалось загрузить переписку. Пробую ещё раз…',
+  retry: 'Повторить',
   empty: mac => `На ${mac || 'вашем Mac'} не работает ни один агент.`,
   status: {
     waiting: 'Ждёт вас', working: 'Работает', done: 'Готово', error: 'Ошибка',
@@ -150,6 +161,7 @@ const RU = {
   pushBlocked: 'Запрещены. Разрешите уведомления для Kelp в приложении «Настройки» и вернитесь.',
   pushUnavailable: 'В этом браузере недоступно.',
   pushFailed: 'Не удалось изменить уведомления. Попробуйте ещё раз.',
+  pushRenew: 'Mac сменил ключ уведомлений. Включите уведомления ещё раз.',
   addToHome: 'Для уведомлений Kelp должен быть на экране «Домой» и подключён там: отсканируйте код в Kelp › Настройки › Телефон ещё раз и следуйте шагам.',
   disconnect: 'Отключить этот телефон…',
   disconnectAsk: mac => `Отключить этот телефон от ${mac || 'вашего Mac'}? Чтобы подключить снова, отсканируйте новый код в Kelp.`,
@@ -196,6 +208,10 @@ function permit(ask) {
 function tileNode(name, project) {
   const tile = el('span', 'tile', name.slice(0, 2).toUpperCase());
   tile.style.setProperty('--hue', [...name].reduce((hue, letter) => (hue * 31 + letter.charCodeAt(0)) % 360, 7));
+  if (/^#[0-9a-f]{6}$/i.test(project?.color?.light) && /^#[0-9a-f]{6}$/i.test(project.color.dark)) {
+    tile.style.setProperty('--project-light', project.color.light);
+    tile.style.setProperty('--project-dark', project.color.dark);
+  }
   if (project?.icon) {
     iconOf(project.id).then(address => {
       if (!address) return;
@@ -232,8 +248,8 @@ let stops = false;                // whether the Mac can stop a working agent
 let agents = new Map();
 let paired = false;
 let online = true;
-let open = null;          // the agent on screen: {id, reply, shown, gone}
-let sending = false;
+let open = null;          // the current visit to an agent, including its conversation and refresh state
+let sending = null;
 const busy = new Map();   // agent id → 'flight' (answer on its way) | 'sent' (answered, its event not here yet)
 const notes = new Map();  // agent id → the line under its Allow and Deny
 const rowEls = new Map();
@@ -265,8 +281,12 @@ const lenses = [];    // each wakes its lens, which sleeps while the agent isn't
     give this page a pairing link. */
 function showPair(text, how = text === S.connecting ? 'wait' : 'ask') {
   paired = reaching = false;
+  open?.detailRead?.abort();
+  open = null;
   clearTimeout(retry);
   stream?.close();
+  stream = null;
+  ++connection;
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   $('pair-text').textContent = text;
   $('pair-note').textContent = '';
@@ -282,15 +302,21 @@ function usePair(code) {
   pending = null;
   forget();
   showPair(S.connecting);
-  kelp.pair(decoded(code), device()).then(sync, e => showPair(e.status === 0 ? S.failed('') : S.scanAgain));
+  kelp.pair(decoded(code), device()).then(sync, error => {
+    if (kelp.recovering()) sync();
+    else showPair(error.status === 426 ? S.updateMac : error.status ? S.scanAgain : S.pairStorage);
+  });
 }
 $('pair-copy').onclick = () => navigator.clipboard.writeText(location.href).then(
   () => { $('pair-note').textContent = S.copied; }, () => { $('pair-note').textContent = location.href; });
 $('pair-here').onclick = () => usePair(codeIn(location.hash));
 function given(text) {
-  const code = codeIn(text.trim());
-  if (code) usePair(code);
-  else $('pair-note').textContent = S.badLink;
+  let url;
+  try { url = new URL(text.trim(), location.href); } catch {}
+  const code = url && codeIn(url.hash);
+  if (!code) $('pair-note').textContent = S.badLink;
+  else if (url.origin !== location.origin) $('pair-note').textContent = S.otherAddress;
+  else usePair(code);
 }
 // The clipboard, with the system's own "Paste" asked; where it can't be read, a field to paste into by hand.
 $('pair-paste').onclick = () => navigator.clipboard.readText().then(given, () => {
@@ -302,6 +328,7 @@ $('pair-form').onsubmit = e => { e.preventDefault(); given($('pair-link').value)
 function route() {
   if (!paired) return;
   const id = decoded(location.hash.slice(1));
+  if (open && open.id !== id) open.detailRead?.abort();
   if (!id) {
     open = null;
     screen('list');
@@ -313,8 +340,8 @@ function route() {
     screen('agent');
     grow();
     $('a-body').scrollTop = 0;
-    kelp.read(id).catch(() => {});
-    loadOpen();
+    markOpenRead();
+    requestOpen();
   }
   render();
 }
@@ -327,12 +354,6 @@ addEventListener('hashchange', () => {
 
 // ---- data
 
-/** Keeps an agent that came with its lastReply (GET /api/agents/{id}). */
-function take(raw) {
-  agents.set(raw.id, kelp.agentFrom(raw));
-  if (open?.id === raw.id) [open.reply, open.turns] = [raw.lastReply ?? null, Array.isArray(raw.turns) && raw.turns.length ? raw.turns : null];
-}
-
 // The page names its version when the Mac serves it; the agents' list names the one the Mac has now. A page left open
 // while Kelp updated loads again, once for each version, so a Mac that keeps serving another can't keep it reloading.
 const servedAs = document.querySelector('meta[name="kelp-page"]')?.content;
@@ -343,34 +364,97 @@ function newerPage(page) {
   return true;
 }
 
-async function refresh() {
-  const data = await kelp.list();
+function conversationChanged(before, after) {
+  return before?.status !== after?.status || before?.statusAt !== after?.statusAt
+    || (after?.agent === 'codex' && (before?.summary !== after.summary || before?.progress !== after.progress));
+}
+
+function refresh(data, changes) {
   mac = data.mac ?? '';
   [projects, kinds, stops] = [data.projects ?? [], data.kinds ?? [], data.stops === true];
   if (newerPage(data.page)) return;
+  const previous = open && agents.get(open.id);
   agents = new Map(data.agents.map(a => [a.id, kelp.agentFrom(a)]));
+  for (const [id, { agent, revision }] of changes) {
+    if (revision <= data.revision) continue;
+    if (agent) agents.set(id, agent);
+    else agents.delete(id);
+  }
+  if (open) open.gone = !agents.has(open.id);
   busy.clear();
   if (!paired) {
     paired = true;
     route();
-    resubscribe();
   }
+  if (pushable && !needsHome) changePush().then(renderPush);
+  const selected = open && agents.get(open.id);
+  if (selected?.unread) markOpenRead();
+  if (conversationChanged(previous, selected)) requestOpen();
+  else loadOpen();   // An unchanged snapshot can still have a pending read or retry.
   render();
-  if (open) loadOpen();
 }
 
-async function loadOpen() {
+function requestOpen() {
+  if (!open) return;
+  open.dirty = true;
+  loadOpen();
+}
+
+function markOpenRead() {
   const mine = open;
+  if (document.hidden || mine.markingRead) return;
+  mine.markingRead = true;
+  kelp.read(mine.id).catch(() => {}).finally(() => { mine.markingRead = false; });
+}
+
+const detailRetryDelays = [1000, 2000, 4000];
+async function loadOpen(manualRetry = false) {
+  const mine = open;
+  if (!mine || mine.gone || mine.detailRead || !online || document.hidden) return;
+  const before = agents.get(mine.id);
+  const failure = mine.readFailure;
+  if (manualRetry) {
+    if (!failure?.attempt) return;
+    mine.readFailure = null;
+  } else if (failure) {
+    const delay = detailRetryDelays[failure.attempt - 1];
+    if (delay == null || performance.now() - mine.lastRead < delay) return;
+  } else if (!mine.dirty || (mine.lastRead != null && performance.now() - mine.lastRead < 1000)) return;
+  mine.detailRead = new AbortController();
+  mine.dirty = false;
+  if (failure) $('a-retry').disabled = true;
   try {
-    const raw = await kelp.get(mine.id);
-    if (open === mine) take(raw);
-  } catch (e) {
-    if (open === mine && e.status === 404) {
-      mine.gone = true;
-      agents.delete(mine.id);
+    const { lastReply, turns, conversation, same, ...agent } =
+      await kelp.get(mine.id, mine.detailRead.signal, mine.conversation);
+    if (open !== mine || mine.gone) return;
+    // A summary event can arrive while the Mac is still reading the transcript.
+    if (agents.get(mine.id) === before) agents.set(mine.id, kelp.agentFrom(agent));
+    if (!same) {
+      mine.reply = lastReply ?? null;
+      mine.turns = Array.isArray(turns) && turns.length ? turns : null;
+      mine.content = mine.turns ? JSON.stringify(mine.turns) : mine.reply;
     }
+    mine.conversation = conversation;
+    mine.readFailure = null;
+  } catch (e) {
+    if (open !== mine || mine.gone || mine.detailRead.signal.aborted) return;
+    if (e.status === 404 || e.status === 410) {
+      mine.readFailure = null;
+      if (agents.get(mine.id) === before) {
+        mine.gone = true;
+        agents.delete(mine.id);
+      } else mine.dirty = true;   // A newer snapshot still listed this agent. Check it again.
+    } else if ([0, 408, 429].includes(e.status)) {   // api.js reports network and server errors as status 0
+      const attempt = (mine.readFailure?.attempt ?? 0) + 1;
+      mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
+    } else {
+      mine.readFailure = { message: S.readFailed };
+    }
+  } finally {
+    mine.lastRead = performance.now();
+    mine.detailRead = null;
   }
-  render();
+  if (!document.hidden) render();
 }
 
 function upsert(raw) {
@@ -379,25 +463,50 @@ function upsert(raw) {
   if (busy.get(a.id) === 'sent') busy.delete(a.id);
   if (!a.ask) notes.delete(a.id);
   if (open?.id === a.id) {
-    if (old?.statusAt !== a.statusAt) loadOpen();
-    if (a.unread && document.visibilityState === 'visible') kelp.read(a.id).catch(() => {});
+    open.gone = false;
+    if (conversationChanged(old, a)) requestOpen();
+    if (a.unread) markOpenRead();
   }
   render();
 }
 
 // The stream, and the list again each time it opens: the server doesn't resend what happened while it was down.
-let stream, retry, delay = 1000;
+let stream, retry, delay = 1000, connection = 0;
 
-function sync() {
+async function sync() {
   clearTimeout(retry);
   stream?.close();
+  stream = null;
+  const generation = ++connection;
+  if (kelp.recovering()) {
+    try { await kelp.recoverPair(); }
+    catch (error) { if (generation === connection) lost(error); return; }
+    if (generation !== connection) return;
+  }
   const mine = stream = kelp.events();
-  mine.onopen = () => refresh().then(() => { delay = 1000; setOnline(true); }, lost);
-  // A probe tells why it broke: 401 shows pairing, anything else is the Mac out of reach.
-  mine.onerror = () => { mine.close(); if (stream === mine) refresh().then(() => lost(), lost); };
-  mine.addEventListener('agent', e => upsert(JSON.parse(e.data)));
+  let changes = new Map(), through = -1;
+  mine.onopen = async signal => {
+    try {
+      const data = await kelp.list(signal);
+      if (stream !== mine) return;
+      through = data.revision ?? -1;
+      refresh(data, changes);
+      changes = null;
+      delay = 1000;
+      setOnline(true);
+    } catch (error) { if (stream === mine) lost(error); }
+  };
+  mine.onerror = error => { if (stream === mine) lost(error); };
+  mine.addEventListener('agent', e => {
+    if (mine !== stream || e.revision <= through) return;
+    const raw = JSON.parse(e.data);
+    if (changes) changes.set(raw.id, { agent: kelp.agentFrom(raw), revision: e.revision });
+    else upsert(raw);
+  });
   mine.addEventListener('removed', e => {
+    if (mine !== stream || e.revision <= through) return;
     const { id } = JSON.parse(e.data);
+    if (changes) { changes.set(id, { agent: null, revision: e.revision }); return; }
     agents.delete(id);
     if (open?.id === id) open.gone = true;
     render();
@@ -406,13 +515,8 @@ function sync() {
 
 function lost(error) {
   stream?.close();
-  if (error?.status === 401) return;
-  // A new pairing link while the old Mac is out of reach: maybe it's another Mac now. Tried once; if it fails, the old one.
-  if (error && pending) {
-    const code = pending;
-    pending = null;
-    return kelp.pair(decoded(code), device()).then(sync, () => lost(error));
-  }
+  stream = null;
+  if (error?.status === 401) return kelp.on.unpaired();
   // Launched while the Mac sleeps: nothing to list yet, so say so (and keep a way to pair again) while it retries.
   if (error && !paired && !reaching) { showPair(S.cantReach(mac)); reaching = true; }
   if (error) setOnline(false);
@@ -435,19 +539,25 @@ addEventListener('online', again);
 
 // ---- answers
 
-async function choose(id, answer) {
-  const question = agents.get(id)?.ask?.text;
+async function choose(agent, answer) {
+  const { id, ask } = agent, question = ask?.text;
   if (question == null || busy.has(id) || !online) return;
   busy.set(id, 'flight');
   notes.delete(id);
   render();
   try {
-    const result = await kelp.choose(id, answer, question);
+    const result = await kelp.choose(id, answer, question, ask.id);
     if (result?.ok === false) {
       busy.delete(id);
       notes.set(id, S.changed);
-      await kelp.get(id).then(take, () => {});
-    } else if (agents.get(id)?.ask?.text === question) {
+      if (open?.id === id) requestOpen();
+      else {
+        const before = agents.get(id);
+        const data = await kelp.list().catch(() => null);
+        const row = data?.agents.find(a => a.id === id);
+        if (row && agents.get(id) === before) upsert(row);
+      }
+    } else if (agents.get(id)?.ask?.text === question && agents.get(id)?.ask?.id === ask.id) {
       // The page doesn't change the status itself: the buttons stay off until the agent's event says what happened.
       busy.set(id, 'sent');
       setTimeout(() => { if (busy.get(id) === 'sent') { busy.delete(id); render(); } }, 10000);
@@ -465,19 +575,19 @@ async function choose(id, answer) {
 async function send(text, fromField) {
   const id = open?.id;
   if (!id || !text.trim() || sending) return;
-  sending = true;
+  sending = { id, clearDraft: fromField };
   $('send-error').textContent = '';
   renderAgent();
   try {
     await kelp.reply(id, text);
-    if (fromField) {
+    if (sending.clearDraft) {
       sessionStorage.removeItem('draft:' + id);
       if (open?.id === id) { $('text').value = ''; grow(); }
     }
   } catch (e) {
     if (open?.id === id && e.status !== 401) $('send-error').textContent = e.message || S.failed(mac);
   }
-  sending = false;
+  sending = null;
   renderAgent();
 }
 
@@ -511,11 +621,11 @@ function ago(at) {
 }
 
 
-function answerButton(id, answer, label, primary) {
+function answerButton(agent, answer, label, primary) {
   const button = el('button', primary ? 'primary' : '', label);
   button.type = 'button';
-  button.disabled = busy.has(id) || !online;
-  button.onclick = () => choose(id, answer);
+  button.disabled = busy.has(agent.id) || !online;
+  button.onclick = () => choose(agent, answer);
   return button;
 }
 
@@ -553,7 +663,7 @@ function row(a) {
   li.classList.toggle('unread', !!a.unread);
   li.replaceChildren(link);
   if (a.ask?.kind === 'permission') {
-    li.append(el('div', 'answer', answerButton(a.id, 'deny', S.deny), answerButton(a.id, 'allow', S.allow, true)));
+    li.append(el('div', 'answer', answerButton(a, 'deny', S.deny), answerButton(a, 'allow', S.allow, true)));
   }
   if (note) li.append(el('p', 'note', note));
   return li;
@@ -624,7 +734,8 @@ const groupEls = new Map();   // project → {li, ul, add, fold}
 const unfolded = new Set();   // projects whose quiet agents are shown
 function groupOf({ key, name, project }) {
   let group = groupEls.get(key);
-  if (!group) {
+  const appearance = JSON.stringify([name, project?.icon, project?.color]);
+  if (group?.appearance !== appearance) {
     const ul = el('ul', 'glass'), add = el('button', 'icon', iconNode('plus'));
     add.type = 'button';
     add.setAttribute('aria-label', S.newIn(name));
@@ -633,7 +744,7 @@ function groupOf({ key, name, project }) {
     toggle.type = 'button';
     toggle.onclick = () => { unfolded.has(key) ? unfolded.delete(key) : unfolded.add(key); renderList(); };
     const head = el('h2', 'project', name && tileNode(name, project), el('span', 'name', name || S.other), add);
-    groupEls.set(key, group = { ul, add, fold: el('li', 'more', toggle), li: el('li', 'group', head, ul) });
+    groupEls.set(key, group = { appearance, ul, add, fold: el('li', 'more', toggle), li: el('li', 'group', head, ul) });
   }
   return group;
 }
@@ -663,7 +774,6 @@ $('start-form').onsubmit = async e => {
     localStorage.setItem('kind', $('start-kind').value);
     $('start-text').value = '';
     $('start').close();
-    await refresh().catch(() => {});
     location.hash = encodeURIComponent(id);
   } catch (error) {
     $('start-error').textContent = error.message || S.notStarted;
@@ -679,9 +789,14 @@ function talk(turns) {
     : el('div', 'said', ...kelp.replyNodes(turn.text)));
 }
 
+const nearEnd = body => body.scrollHeight - body.clientHeight - body.scrollTop <= 24;
+
 function renderAgent() {
   if (!open) return;
   const a = agents.get(open.id);
+  const body = $('a-body');
+  const changed = open.shown !== open.content;
+  const followTurns = changed && open.turns && nearEnd(body);
   const ended = open.gone || a?.status === 'exited';
   const off = !online || busy.has(open.id);
 
@@ -699,8 +814,11 @@ function renderAgent() {
   $('stop').hidden = !(stops && working);
   $('stop').disabled = stopping || !online;
 
-  $('a-offline').hidden = online;
-  set($('a-offline-text'), S.cantReach(mac));
+  const failure = open.gone ? null : open.readFailure;
+  $('a-offline').hidden = online && !failure;
+  set($('a-offline-text'), online ? failure?.message ?? '' : S.cantReach(mac));
+  $('a-retry').hidden = !online || !failure?.attempt;
+  $('a-retry').disabled = !!open.detailRead;
 
   $('a-limit').hidden = !a?.limit;
   if (a?.limit) {
@@ -714,6 +832,8 @@ function renderAgent() {
   set($('a-ask-lead'), asked ? asked[0] : S.asks);
   set($('a-ask-text'), asked ? asked[1] : a?.ask?.text ?? '');
   $('a-ask-buttons').hidden = a?.ask?.kind !== 'permission';
+  $('a-allow').onclick = () => a && choose(a, 'allow');
+  $('a-deny').onclick = () => a && choose(a, 'deny');
   $('a-question').hidden = !question;
   set($('a-question-text'), question ? a.ask.text : '');
   $('answer-lead').hidden = !question;
@@ -727,19 +847,18 @@ function renderAgent() {
   $('a-allow').disabled = $('a-deny').disabled = off;
   set($('a-ask-note'), notes.get(open.id) ?? '');
 
-  // The whole conversation where the Mac has it, its end in view; else the last reply, from its start.
-  const showing = open.turns ? JSON.stringify(open.turns) : open.reply;
-  if (open.shown !== showing) {
-    open.shown = showing;
+  // Follow new turns while the reader is at the end.
+  if (changed) {
+    open.shown = open.content;
     $('a-reply').classList.toggle('talk', !!open.turns);
     $('a-reply').replaceChildren(...(open.turns ? talk(open.turns) : kelp.replyNodes(open.reply)));
-    if (open.turns) $('a-body').scrollTop = $('a-body').scrollHeight;
   }
 
   $('a-ended').hidden = !ended;
   $('composer').hidden = ended;
   $('quick').hidden = !(a && (a.status === 'done' || a.status === 'error') && !a.ask && !a.limit);
-  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = sending || !online;
+  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = !!sending || !online;
+  if (followTurns) body.scrollTop = body.scrollHeight;
 }
 
 /** How long it has been on what it runs, as m:ss: the one thing on screen that moves each second. */
@@ -749,7 +868,7 @@ function tick() {
   const s = Math.max(0, (Date.now() - Date.parse(a.statusAt)) / 1000 | 0);
   set($('a-live-time'), s >= 3600 ? `${s / 3600 | 0}h ${(s / 60 | 0) % 60}m` : `${s / 60 | 0}:${String(s % 60).padStart(2, '0')}`);
 }
-setInterval(tick, 1000);
+setInterval(() => { tick(); loadOpen(); }, 1000);
 
 function render() {
   renderList();
@@ -771,6 +890,7 @@ function grow() {
 text.addEventListener('input', () => {
   grow();
   if (!open) return;
+  if (sending?.id === open.id) sending.clearDraft = false;
   if (text.value) sessionStorage.setItem('draft:' + open.id, text.value);
   else sessionStorage.removeItem('draft:' + open.id);
 });
@@ -788,9 +908,8 @@ addEventListener('keydown', e => {
 wide.addEventListener('change', () => screen(document.body.dataset.screen));
 $('quick-continue').onclick = () => send(S.quickContinue[1]);
 $('quick-good').onclick = () => send(S.quickGood[1]);
-$('a-allow').onclick = () => open && choose(open.id, 'allow');
-$('a-deny').onclick = () => open && choose(open.id, 'deny');
 $('back').onclick = () => { location.hash = ''; };
+$('a-retry').onclick = () => loadOpen(true);
 $('stop').onclick = stop;
 
 // The keyboard covers the bottom of the layout, not of what is seen: the page takes the height that is seen.
@@ -838,7 +957,11 @@ lens($('a-ask'), $('a-body'));
 lens($('send-form'), $('a-body'));
 
 // The terminal scrolls under the glass dock: its last line stops above it.
-new ResizeObserver(() => $('a-card').style.setProperty('--dock', $('dock').offsetHeight + 'px')).observe($('dock'));
+new ResizeObserver(() => {
+  const body = $('a-body'), following = open?.turns && nearEnd(body);
+  $('a-card').style.setProperty('--dock', $('dock').offsetHeight + 'px');
+  if (following) body.scrollTop = body.scrollHeight;
+}).observe($('dock'));
 seen?.addEventListener('resize', fit);
 seen?.addEventListener('scroll', fit);
 
@@ -896,34 +1019,52 @@ const needsHome = ios && !standalone;   // Web Push on iOS exists only for a pag
 // Registered even where there is no push: it also keeps the page for a launch with no network.
 const registration = 'serviceWorker' in navigator ? navigator.serviceWorker.register('/sw.js').catch(() => null) : null;
 
-async function subscription() {
-  const reg = await registration;
-  return reg ? reg.pushManager.getSubscription() : null;
+let pushWork = Promise.resolve(), pushOn = false, pushProblem = '';
+
+// Reconnects and taps share one queue so an old registration cannot undo a newer choice.
+function changePush(wanted) {
+  pushWork = pushWork.then(async () => {
+    pushProblem = '';
+    let renewing = false;
+    try {
+      const reg = await registration;
+      if (!reg?.pushManager) return;
+      let sub = await reg.pushManager.getSubscription();
+      if (wanted === false) {
+        if (sub) { await kelp.unsubscribe(sub.endpoint); await sub.unsubscribe(); }
+        pushOn = false;
+        return;
+      }
+      pushOn = false;
+      if (!sub && !wanted) return;
+      const { key } = await kelp.pushKey();
+      const bytes = Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      const current = new Uint8Array(sub?.options?.applicationServerKey);
+      if (sub && (bytes.length !== current.length || !bytes.every((byte, i) => byte === current[i]))) {
+        await sub.unsubscribe();
+        sub = null;
+        // Without a tap the browser may refuse the new subscription: then the switch says to turn it on again.
+        renewing = !wanted;
+      }
+      sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+      await kelp.subscribe(sub.toJSON());
+      pushOn = true;
+    } catch (error) { pushProblem = renewing ? S.pushRenew : error?.status === 0 ? S.failed(mac) : S.pushFailed; }
+  });
+  return pushWork;
 }
 
-/** Each launch sends the subscription the browser already has: that survives new keys and a reinstalled Kelp. */
-function resubscribe() {
-  subscription().then(sub => sub && kelp.subscribe(sub.toJSON())).catch(() => {});
-}
-
-async function pushOff() {
-  const sub = await subscription();
-  if (!sub) return;
-  await kelp.unsubscribe(sub.endpoint);
-  await sub.unsubscribe();
-}
-
-async function renderPush(problem) {
+async function renderPush() {
+  await pushWork;
   const toggle = $('push-toggle');
-  let state = S.pushWhen, can = true, isOn = false;
+  let state = pushProblem || S.pushWhen, can = true;
   if (needsHome) [state, can] = [S.addToHome, false];
   else if (!pushable || !(await registration)) [state, can] = [S.pushUnavailable, false];
   else if (Notification.permission === 'denied') [state, can] = [S.pushBlocked, false];
-  else isOn = !!(await subscription().catch(() => null));
-  set($('push-state'), problem ? `${problem}` : state);
+  set($('push-state'), state);
   toggle.hidden = !can;
-  toggle.dataset.on = isOn ? '1' : '';
-  toggle.checked = isOn;
+  toggle.dataset.on = pushOn && can ? '1' : '';
+  toggle.checked = !!toggle.dataset.on;
 }
 
 $('push-toggle').onclick = async () => {
@@ -931,21 +1072,12 @@ $('push-toggle').onclick = async () => {
   // Asking for permission has to be the first thing the tap does, or Safari refuses it.
   const asked = toggle.dataset.on ? null : Notification.requestPermission();
   toggle.disabled = true;
-  let problem;
   try {
-    if (!asked) await pushOff();
-    else if (await asked === 'granted') {
-      const { key } = await kelp.pushKey();
-      const bytes = Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-      const reg = await registration;
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
-      await kelp.subscribe(sub.toJSON());
-    }
-  } catch (e) {
-    problem = e?.status === 0 ? S.failed(mac) : S.pushFailed;
-  }
+    if (!asked) await changePush(false);
+    else if (await asked === 'granted') await changePush(true);
+  } catch { pushProblem = S.pushFailed; }
   toggle.disabled = false;
-  renderPush(problem);
+  renderPush();
 };
 
 // A tapped notification, while the page is already open: the service worker says which agent.
@@ -983,7 +1115,7 @@ $('confirm-no').onclick = () => confirm.close();
 $('confirm-yes').onclick = async () => {
   $('confirm-yes').disabled = true;
   try {
-    await pushOff().catch(() => {});
+    await changePush(false);
     await kelp.unpair();
     showPair(S.scanAgain);
   } catch (e) {
@@ -996,6 +1128,7 @@ $('confirm-yes').onclick = async () => {
 
 for (const [id, words] of Object.entries({
   'a-allow': S.allow, 'a-deny': S.deny, 'a-ended': S.ended,
+  'a-retry': S.retry,
   'quick-continue': S.quickContinue[0], 'quick-good': S.quickGood[0],
   'menu-title': S.thisPhone, 'push-title': S.notifications, 'disconnect': S.disconnect,
   'confirm-no': S.cancel, 'confirm-yes': S.disconnectYes, 'home-hint-text': S.addToHome,
@@ -1020,7 +1153,7 @@ function device() {
 
 function start(code) {
   // A Home Screen app made from a pairing link starts with that link each time: once paired, it's an old one.
-  if (code && kelp.paired()) {
+  if (code && kelp.paired(decoded(code).split('.')[0])) {
     pending = code;
     forget();
     return sync();

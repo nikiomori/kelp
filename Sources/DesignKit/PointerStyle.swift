@@ -16,13 +16,18 @@ public struct PointerButtonStyle: ButtonStyle {
         let configuration: ButtonStyleConfiguration
         @State private var hovering = false
         @State private var size = CGSize.zero
+        /// A disabled button gets no plate under the pointer, as `PointerButton` in AppKit: a plate says "click me".
+        @Environment(\.isEnabled) private var enabled
         var body: some View {
             configuration.label
                 .padding(.horizontal, PointerButtonStyle.padding)
                 .frame(minHeight: Metrics.iconButton)
                 .background(
                     RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
-                        .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear))
+                        .fill(
+                            Color(
+                                nsColor: configuration.isPressed
+                                    ? .fillSelected : hovering && enabled ? .fillHover : .clear))
                 )
                 .contentShape(Rectangle())
                 .animation(

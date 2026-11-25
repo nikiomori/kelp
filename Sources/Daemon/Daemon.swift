@@ -256,10 +256,11 @@ public final class Daemon: Sendable {
         // as a second copy.
         workspaces.routines.stop()
         let probes = agentUsage.openProbes.endAll()   // half-done usage probes, whose agents would outlive us
-        sessions.phone.hear(.stop)
+        sessions.phone.stop()
         Interruptions.markWorking(sessions.live.all, AgentManifest.load(dir: Paths.agents(in: root)))
         sessions.pauseAll()
         Sessions.waitGone(probes)
+        sessions.phone.waitStopped()
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()
@@ -284,9 +285,10 @@ public final class Daemon: Sendable {
         previous.ticker?.cancel()
         previous.prune?.cancel()
         workspaces.routines.stop()
-        sessions.phone.hear(.stop)
+        sessions.phone.stop()
         let handover = Handover(socket: socket, lock: dup(previous.instanceLock), sessions: sessions.handOver())
         Sessions.waitGone(agentUsage.openProbes.endAll())   // probes end here: their agents would be left behind
+        sessions.phone.waitStopped()
         lsp.stopAll()
         watches.stopAll()
         workspaces.stopWatching()

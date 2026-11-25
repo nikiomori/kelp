@@ -90,9 +90,9 @@ extension LiveSession {
     /// Steers an armed menu answer, on every tick. It reads the latest menu render and presses Enter only when the
     /// cursor sits on the wanted option.
     func steer() {
-        let key = state.withLock { state -> String? in
+        let key = state.withLock { state -> (String, UUID?)? in
             guard let st = state.steering else { return nil }
-            if Date().timeIntervalSince(st.since) > 30 {
+            if Date().timeIntervalSince(st.since) > 30 || (st.questionId != nil && st.questionId != state.menuID) {
                 state.steering = nil
                 return nil
             }
@@ -109,20 +109,22 @@ extension LiveSession {
             if st.choose.firstMatch(in: option, range: NSRange(option.startIndex..., in: option)) != nil {
                 state.steering = nil
                 state.dialogSettled = true
-                return "\r"
+                return ("\r", st.questionId)
             }
             state.steering?.lastKey = Date()
-            return "\u{1B}[B"   // menus wrap, so stepping down always reaches it
+            return ("\u{1B}[B", st.questionId)   // menus wrap, so stepping down always reaches it
         }
-        if let key { write(Data(key.utf8)) }   // after what's being typed: never between a send's text and its Enter
+        // Queue the menu key after any pending text and its Enter.
+        if let (key, menuID) = key { write(Data(key.utf8), menuID: menuID) }
     }
 
     /// Answers the menu the agent shows (a permission request) from outside the terminal — a notification's Allow / Deny.
     /// The cursor is walked to the option and Enter pressed only there (see `steer`). Returns nil when no such menu is
     /// on screen, or it isn't the one `question` was about, so a banner left from before never answers what came after
     /// it.
-    func choose(_ answer: String, to question: String? = nil) -> Session? {
+    func choose(_ answer: String, to question: String? = nil, menuID: UUID? = nil) -> Session? {
         state.withLock { state in
+            if let menuID, state.menuID != menuID || state.kelpQuestion != nil { return nil }
             if let question, !state.asksOnly(question) { return nil }
             let inTmux = state.record.tmux != nil,
                 screen = inTmux ? StartupQuestion.optionsOnLines(state.menuScreen()) : state.menuScreen()
@@ -144,9 +146,9 @@ extension LiveSession {
             // option's number picks it instead.
             let option = lines.first { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }
             if inTmux, let number = option?.prefix(while: \.isNumber), !number.isEmpty {
-                write(Data(number.utf8))
+                write(Data(number.utf8), menuID: menuID)
             } else {
-                state.steering = (re, Date(), .distantPast, nil)
+                state.steering = (re, Date(), .distantPast, nil, menuID)
             }
             state.detector.input()
             state.record.unread = false
@@ -161,22 +163,18 @@ extension LiveSession {
         }
     }
 
-    /// Whether the session asks `question` now and nothing else. nil (an answer not tied to a question shown) matches
-    /// whatever is up.
-    func asks(_ question: String?) -> Bool {
-        guard let question else { return true }
-        return state.withLock { $0.asksOnly(question) }
-    }
-
-    /// Allow or Deny went to the question's hook, so the agent works again (it goes on either way, told what was
-    /// decided).
-    func answeredThroughHook() -> Session {
-        state.withLock { state in
+    /// Take the hook's answer while the same question is current, then update its session before a new hook can run.
+    func answeredThroughHook(_ question: String?, take: (UUID) -> Bool) -> Bool {
+        state.withLockUnchecked { state in
+            guard state.kelpQuestion == nil, question.map(state.asksOnly) ?? true, take(state.menuID) else {
+                return false
+            }
             state.detector.input()
             state.record.unread = false
             _ = state.answeredOne()
             state.detector.override(.working, because: "an answer from Kelp, through its hook")
-            return state.sync() ?? state.record
+            _ = state.sync()
+            return true
         }
     }
 

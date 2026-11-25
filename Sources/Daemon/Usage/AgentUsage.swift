@@ -50,7 +50,8 @@ final class AgentUsage: Sendable {
         self.remotes = remotes
         let probes = OpenProbes()
         self.openProbes = probes
-        self.conversations = Conversations(settings: settings, openProbes: probes, remotes: remotes)
+        self.conversations = Conversations(
+            history: root.appendingPathComponent("history"), settings: settings, openProbes: probes, remotes: remotes)
         // A parser or price change bumps the number in the name, so everything is read again.
         self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-3.json"))
         self.agentIndexes = Dictionary(

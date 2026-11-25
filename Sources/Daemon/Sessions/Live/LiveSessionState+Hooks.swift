@@ -8,6 +8,7 @@ extension LiveSession.State {
     /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
     mutating func apply(_ report: ProgramStatus.Report) {
         spoke()
+        if report.state == "blocked" { menuID = UUID() }
         detector.program(report.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10)
         lastHookAt = Date()
         // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
@@ -32,7 +33,13 @@ extension LiveSession.State {
         record.progress = report.progress
         // After /clear or /resume on a host, the conversation a wake brings back is the one the agent is in now
         // (`Sessions.follow`).
-        if let conv = report.conv, report.id == nil { record.argv = agent.following(record.argv, conversation: conv) }
+        if let conv = report.conv, report.id == nil {
+            if record.agent == Session.codexAgent, record.tmux != nil {
+                if let id = UUID(uuidString: conv) { record.codexThread = id }
+            } else {
+                record.argv = agent.following(record.argv, conversation: conv)
+            }
+        }
     }
 
     /// Applies a hook event the agent sent: its new status, and what a compaction or a question shows on the session's
@@ -70,6 +77,9 @@ extension LiveSession.State {
             if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
             compactManual = false
         case .waiting:
+            // A new dialog comes with PermissionRequest (`asker`) or a status change (`sync`). Claude Code's
+            // Notification about the same open dialog, six seconds on, keeps the question the phone shows.
+            if asker != nil { menuID = UUID() }
             if let asker { kept.asking[asker, default: 0] += 1 }
             if question { kept.questionOpen = true }
             if let message, !message.isEmpty {

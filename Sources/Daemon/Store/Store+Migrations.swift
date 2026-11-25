@@ -308,6 +308,9 @@ extension Store {
         migrator.registerMigration("session.interruptedAt") { db in   // a turn Kelp's going down cut short
             try db.alter(table: "session") { t in t.add(column: "interruptedAt", .datetime) }
         }
+        migrator.registerMigration("session.codexThread") { db in
+            try db.alter(table: "session") { t in t.add(column: "codexThread", .blob) }
+        }
         migrator.registerMigration("session.page") { db in   // the artifact page its turn works on (`Session.page`)
             try db.alter(table: "session") { t in t.add(column: "page", .text) }
         }

@@ -402,7 +402,7 @@ private func onHost() -> LiveSession.State {
     #expect(!s.readyForText(submits: true) && !s.readyForText(submits: false))
 
     // Allow from a notification: the row works from then on, and the keys still need the menu.
-    s.steering = (try NSRegularExpression(pattern: "Yes"), Date(), .distantPast, nil)
+    s.steering = (try NSRegularExpression(pattern: "Yes"), Date(), .distantPast, nil, nil)
     s.detector.override(.working)
     _ = s.sync()
     #expect(s.menuOpen() && !s.readyForText(submits: true))

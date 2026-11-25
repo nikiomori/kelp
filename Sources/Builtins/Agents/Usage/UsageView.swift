@@ -146,7 +146,7 @@ struct UsageView: View {
                                 if card.id != cards.first?.id { Divider() }
                                 Details(
                                     row: card, forecast: LimitWatch.of(app).forecast, pace: pace,
-                                    bars: barred(card).map(\.kind)
+                                    bars: barred(card).map(\.kind), others: used.count > 1
                                 ) { line in toggle(line, of: card) }
                             }
                         }
@@ -215,13 +215,25 @@ struct UsageView: View {
             hidden: app.settings[SettingKeys.usageBarsHidden])
     }
 
-    /// Shows or hides the bar of `line`, as its eye in the card asks.
+    /// Shows or hides the bar of `line`, as its eye in the card asks. The eye on the agent's last bar hides the agent.
     private func toggle(_ line: Line, of row: Row) {
+        let hidden = app.settings[SettingKeys.usageHiddenAgents]
+        if let agents = Self.hiding(line, of: row, bars: barred(row).map(\.kind), hidden: hidden) {
+            if card.shown == row.id { card.close() }   // its row leaves the foot
+            app.settings.set(SettingKeys.usageHiddenAgents, agents)
+            return
+        }
         let next = LimitBars.toggled(
             line, in: row.lines, agent: row.id, shown: app.settings[SettingKeys.usageBarsShown],
             hidden: app.settings[SettingKeys.usageBarsHidden])
         app.settings.set(SettingKeys.usageBarsShown, next.shown)
         app.settings.set(SettingKeys.usageBarsHidden, next.hidden)
+    }
+
+    /// Returns the agents hidden from the foot once the eye of `line` is clicked, when it's the agent's last bar there,
+    /// or nil when the eye only hides or shows that bar.
+    nonisolated static func hiding(_ line: Line, of row: Row, bars: [String], hidden: [String]) -> [String]? {
+        bars == [line.kind] ? hidden + [row.id] : nil
     }
 
     /// Returns the agents that have used any of their plans, because a row at 0% says nothing, less those hidden from

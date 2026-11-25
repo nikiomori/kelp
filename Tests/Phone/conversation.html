@@ -1,0 +1,322 @@
+<!doctype html>
+<!-- Serve the repository root with python3 -m http.server and open /Tests/Phone/conversation.html. -->
+<meta charset="utf-8">
+<title>Phone conversation refresh</title>
+<link rel="stylesheet" href="../../Sources/Daemon/Resources/phone/app.css">
+<script type="text/plain" id="api">
+export const on = {};
+export const recovering = () => false;
+export const agentFrom = agent => agent;
+export const events = () => ({
+  addEventListener(type, listener) { this[type] = listener; },
+  close() {},
+  set onopen(open) { window.stream = this; queueMicrotask(open); },
+});
+export const list = async () => ({ agents: window.rows });
+export const read = id => new Promise(resolve => window.marks.push({ id, resolve }));
+export const get = (id, signal, seen) => new Promise((resolve, reject) => window.reads.push({ id, signal, seen, resolve, reject }));
+export const reply = (id, text) => new Promise((resolve, reject) => window.replies.push({ id, text, resolve, reject }));
+export const replyNodes = text => [text || ''];
+</script>
+<script type="module">
+const phone = '../../Sources/Daemon/Resources/phone/';
+const api = new Blob([document.getElementById('api').textContent], { type: 'text/javascript' });
+const imports = document.createElement('script');
+imports.type = 'importmap';
+imports.textContent = JSON.stringify({ imports: { [phone + 'js/api.js']: URL.createObjectURL(api) } });
+document.head.append(imports);
+
+function check(ok, message) { if (!ok) throw Error(message); }
+const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+async function run() {
+  const html = await fetch(phone + 'index.html').then(r => r.text());
+  document.body.replaceWith(new DOMParser().parseFromString(html, 'text/html').body);
+  const scroller = document.getElementById('a-body'), transcript = document.getElementById('a-reply');
+  const atEnd = () => Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) <= 1;
+  const codex = { id: 'first', agent: 'codex', status: 'working', statusAt: '2026-01-01T00:00:00Z', progress: null, title: 'First' };
+  const other = { ...codex, id: 'second', agent: 'claude', title: 'Second' };
+  window.rows = [codex, other];
+  window.reads = [];
+  window.marks = [];
+  let now = 0, hidden = false;
+  const intervals = [];
+  window.setInterval = (fn, ms) => intervals.push({ fn, ms });
+  performance.now = () => now;
+  Object.defineProperty(document, 'hidden', { get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', { get: () => hidden ? 'hidden' : 'visible' });
+  function advance(seconds) {
+    for (let i = 0; i < seconds; i++) {
+      now += 1000;
+      for (const { fn, ms } of intervals) if (now % ms === 0) fn();
+    }
+  }
+  function event(agent) { window.stream.agent({ data: JSON.stringify(agent) }); }
+  const turns = Array.from({ length: 80 }, (_, i) => ({ role: 'user', text: 'Turn ' + i }));
+  history.replaceState(null, '', '#first');
+  await import(phone + 'app.js');
+  await settle();
+  check(reads.length === 1 && reads[0].id === 'first', 'Opening a deep link should fetch detail once');
+  reads[0].resolve({ ...codex, turns });
+  await settle();
+  check(scroller.scrollTop > 0 && atEnd(),
+    `A long conversation should open at its end (top ${scroller.scrollTop}, height ${scroller.clientHeight}/${scroller.scrollHeight})`);
+
+  window.replies = [];
+  const field = document.getElementById('text'), form = document.getElementById('send-form');
+  function type(value) {
+    field.value = value;
+    field.dispatchEvent(new Event('input'));
+  }
+  function checkDraft(id, value) {
+    check(sessionStorage.getItem('draft:' + id) === value, 'Wrong stored draft for ' + id);
+    if (location.hash === '#' + id) check(field.value === (value ?? ''), 'Wrong composer text for ' + id);
+  }
+  async function visit(agent) {
+    // Keep the detail and read-receipt logs for the current visit.
+    reads.length = marks.length = 0;
+    const moved = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));
+    location.hash = agent.id;
+    await moved;
+    reads[0].resolve(agent);
+    await settle();
+  }
+
+  type('First message');
+  form.requestSubmit();
+  type('Next message');
+  form.requestSubmit();
+  check(replies.length === 1 && replies[0].id === 'first' && replies[0].text === 'First message',
+    'Submitting while a reply is pending should send only the original message');
+  replies[0].resolve();
+  await settle();
+  checkDraft('first', 'Next message');
+
+  form.requestSubmit();
+  await visit(other);
+  await visit({ ...codex, turns });
+  type('');
+  type('Next message');
+  replies[1].resolve();
+  await settle();
+  checkDraft('first', 'Next message');
+
+  form.requestSubmit();
+  type('Edited while sending');
+  replies[2].reject(Error('Send failed'));
+  await settle();
+  checkDraft('first', 'Edited while sending');
+  check(document.getElementById('send-error').textContent === 'Send failed' && replies.length === 3,
+    'A failed send should show its error and wait for a manual retry');
+
+  form.requestSubmit();
+  await visit(other);
+  type('Second chat draft');
+  replies[3].resolve();
+  await settle();
+  checkDraft('first', null);
+  checkDraft('second', 'Second chat draft');
+  type('');
+  await visit({ ...codex, turns });
+  checkDraft('first', null);
+  check(replies.length === 4, 'Acknowledgement and navigation should never resend a reply');
+
+  advance(15);
+  check(reads.length === 1, 'A working Codex should not download its conversation on a timer');
+  for (let i = 0; i < 12; i++) event(codex);
+  const renamed = { ...codex, title: 'Updated', unread: true };
+  event(renamed);
+  advance(5);
+  check(reads.length === 1, 'Identical snapshots, title changes and read receipts should not fetch detail');
+
+  const running = { ...renamed, running: 'swift test' };
+  event(running);
+  advance(5);
+  check(document.querySelector('.row a[href="#first"] .chip')?.textContent === running.running && reads.length === 1,
+    'A command-only change should update the agent row without fetching detail');
+  const progressing = { ...running, progress: 37 };
+  event(progressing);
+  check(reads.length === 2, 'A numeric progress change alone should fetch detail once');
+  scroller.scrollTop = 120;
+  const readingAt = scroller.scrollTop;
+  const newer = { ...progressing, summary: 'Tests passed' };
+  for (let i = 0; i < 12; i++) event(newer);
+  advance(10);
+  check(reads.length === 2, 'Slow reads should not overlap, even during an event burst');
+  check(marks.length === 1, 'An unread event burst should not send overlapping read receipts');
+  marks[0].resolve();
+  reads[1].resolve({ ...codex, turns: [...turns, { role: 'user', text: 'New turn' }] });
+  await settle();
+  check(transcript.textContent.endsWith('New turn'), 'New turns should render with an unchanged status');
+  check(document.getElementById('a-title').textContent === 'Updated', 'Old detail rolled back a newer summary');
+  check(scroller.scrollTop === readingAt, 'A reader who scrolled up during the read lost their place');
+  advance(1);
+  check(reads.length === 3, 'Coalesced events should get one trailing refresh');
+  scroller.scrollTop = scroller.scrollHeight;
+  const seen = { ...newer, unread: false };
+  event(seen);
+  event(seen);
+  reads[2].resolve({ ...newer, turns: [...turns, ...turns.slice(-10)] });
+  await settle();
+  check(atEnd(), 'Following should resume when the reader returns to the bottom');
+  advance(15);
+  check(reads.length === 3, 'An identical snapshot during a read should not queue a trailing refresh');
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  event(newer);
+  advance(20);
+  check(reads.length === 3 && marks.length === 1, 'Hidden pages should not fetch or mark a conversation read');
+  hidden = false;
+  rows[0] = newer;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  advance(5);
+  check(reads.length === 3 && marks.length === 2, 'An unchanged conversation should reconnect with one read receipt and zero detail reads');
+  window.stream.onerror();
+  await settle();
+  check(reads.length === 3, 'Probing the list after a stream failure should skip unchanged detail');
+  rows[0] = { ...newer, progress: 0 };
+  window.dispatchEvent(new Event('online'));
+  await settle();
+  check(reads.length === 4, 'A progress change missed while disconnected should fetch detail once');
+  const switched = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));
+  location.hash = 'second';
+  await switched;
+  check(reads.length === 5 && reads[4].id === 'second', 'Switching should fetch the new conversation while the old read is pending');
+  check(reads[3].signal.aborted && !reads[4].signal.aborted, 'Switching should abort only the previous detail read');
+  reads[4].resolve({ ...other, lastReply: 'Second reply' });
+  await settle();
+  check(transcript.textContent === 'Second reply', 'The second reply should render while the first read is pending');
+  reads[3].resolve({ ...codex, lastReply: 'Stale first conversation' });
+  await settle();
+  check(transcript.textContent === 'Second reply', 'A delayed response overwrote the new conversation');
+  advance(20);
+  check(transcript.textContent === 'Second reply' && reads.length === 5, 'Fallback replies should render without polling other agents');
+
+  // Detail read failures on a settled chat.
+  const settled = { ...codex, id: 'settled', status: 'done' };
+  rows.push(settled);
+  const banner = document.getElementById('a-offline'), retry = document.getElementById('a-retry');
+  const message = document.getElementById('a-offline-text');
+  const ru = document.documentElement.lang === 'ru';
+  async function select(id) {
+    const moved = new Promise(resolve => addEventListener('hashchange', resolve, { once: true }));
+    location.hash = id;
+    await moved;
+    check(reads.at(-1).id === id, 'Expected a detail request for ' + id);
+  }
+  async function failRead(status) {
+    reads.at(-1).reject({ status });
+    await settle();
+  }
+
+  await select(settled.id);
+  await failRead(0);
+  check(!banner.hidden && !retry.hidden && retry.textContent === (ru ? 'Повторить' : 'Retry') &&
+    message.textContent.includes(ru ? 'Пробую ещё раз' : 'Trying again'), 'An initial failure should explain the retry');
+  let count = reads.length;
+  advance(1);
+  check(reads.length === count + 1, 'A settled chat should retry its first read without an event');
+  reads.at(-1).resolve({ ...settled, turns });
+  await settle();
+  const historyNode = transcript.firstChild;
+  check(banner.hidden && transcript.textContent.endsWith('Turn 79'), 'Recovery should show the transcript and clear the error');
+
+  advance(1);
+  const updated = { ...settled, statusAt: '2026-01-01T00:01:00Z' };
+  rows[rows.length - 1] = updated;
+  count = reads.length;
+  event(updated);
+  check(reads.length === count + 1, 'A new status timestamp should refresh detail');
+  await failRead(408);
+  count = reads.length;
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  advance(30);
+  check(reads.length === count, 'Backgrounding the chat should pause its retry');
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  check(reads.length === ++count, 'Reconnecting with the same snapshot should resume the failed detail read');
+  await failRead(429);
+  for (const delay of [2, 4]) {
+    event(updated);
+    advance(delay - 1);
+    check(reads.length === count, 'Summary events should respect the retry delay');
+    advance(1);
+    check(reads.length === ++count, 'Expected one detail retry after the delay');
+    await failRead(0);
+  }
+  event(updated);
+  advance(60);
+  check(reads.length === count && !retry.hidden && !retry.disabled && !banner.hidden &&
+    message.textContent === (ru ? 'Не удалось загрузить переписку.' : "Couldn't load the conversation."),
+    'Repeated failures should stop with a manual retry');
+  check(transcript.firstChild === historyNode, 'Failed refreshes should leave the displayed turns in place');
+  retry.click();
+  retry.click();
+  check(reads.length === count + 1, 'Manual retry should issue one detail read');
+  reads.at(-1).resolve({ ...settled, lastReply: 'Recovered history' });
+  await settle();
+  check(banner.hidden && transcript.textContent === 'Recovered history', 'A manual retry should recover and clear the error');
+
+  advance(1);
+  count = reads.length;
+  const idle = { ...settled, status: 'idle' };
+  event(idle);
+  check(reads.length === count + 1, 'A status transition should refresh detail even with the same timestamp');
+  event(idle);
+  await failRead(404);
+  advance(1);
+  check(reads.length === count + 2, 'A newer snapshot listing the agent should get one retry after a stale 404');
+  await failRead(0);
+  await select('forbidden');
+  check(banner.hidden, 'A new visit should clear the previous read error');
+  await failRead(403);
+  count = reads.length;
+  event({ ...codex, id: 'forbidden' });
+  advance(60);
+  check(reads.length === count && !banner.hidden && retry.hidden &&
+    message.textContent.includes(ru ? 'Не удалось загрузить' : "Couldn't load"),
+    'A forbidden read and a failed chat left behind should both stop retrying');
+  for (const status of [404, 410]) {
+    await select('gone-' + status);
+    await failRead(status);
+    count = reads.length;
+    advance(60);
+    check(reads.length === count && retry.hidden && !document.getElementById('a-ended').hidden,
+      'A gone chat should show the ended state and stop retrying');
+  }
+
+  await select('first');
+  count = reads.length;
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  reads.at(-1).resolve({ ...rows[0], turns });
+  await settle();
+  advance(5);
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  check(reads.length === count && transcript.textContent.endsWith('Turn 79'),
+    'A detail read completed in the background should be ready on return without a second download');
+
+  // An unchanged conversation comes back as `same` alone, and the page keeps what it shows.
+  await select('kept');
+  reads.at(-1).resolve({ ...codex, id: 'kept', turns, conversation: 'c1' });
+  await settle();
+  const shownNode = transcript.firstChild;
+  event({ ...codex, id: 'kept', summary: 'Next step' });
+  advance(1);
+  check(reads.at(-1).seen === 'c1', 'A refresh should name the conversation the page shows');
+  reads.at(-1).resolve({ ...codex, id: 'kept', conversation: 'c1', same: true });
+  await settle();
+  check(transcript.firstChild === shownNode && transcript.textContent.endsWith('Turn 79'),
+    'An unchanged conversation should stay as it is shown');
+}
+try {
+  await run();
+  document.body.textContent = 'PASS';
+} catch (error) {
+  document.body.textContent = 'FAIL ' + error.stack;
+}
+</script>

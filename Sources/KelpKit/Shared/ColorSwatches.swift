@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 
 /// The Color item in the menu on a project's row. It shows a dot for each colour, like Finder's tags in its menus, so a

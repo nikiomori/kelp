@@ -67,9 +67,9 @@ final class ArtifactBar: NSObject {
     lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
         [weak self] in
         guard let self else { return }
-        Task { @MainActor in
-            await self.markdown.loadPublished()
-            self.showMore()
+        Task { @MainActor [weak tab = self.markdown] in   // the tab may close while it reads
+            await tab?.loadPublished()
+            if tab != nil { self.showMore() }
         }   // its link may be new
     }
     var item: ArtifactItem?
@@ -166,12 +166,13 @@ final class ArtifactBar: NSObject {
         markdown.onCheck = { [weak self] in self?.show(check: $0) }
         nameFromRecord()
         watched.key = workspace
-        track(owner: self) { [app, workspace] in
+        // Both end with the tab, not the bar: a read still waiting keeps the bar after the tab, and `update` reads it.
+        track(owner: markdown) { [app, workspace] in
             app.latest(ArtifactsEvent.self, workspace ?? "")?.items
         } changed: { [weak self] _ in
             self?.update()
         }
-        track(owner: self) { [app] in
+        track(owner: markdown) { [app] in
             PageAgents.watched(app) + app.sessions.map(\.title)
         } changed: { [weak self] _ in
             self?.update()
@@ -310,8 +311,8 @@ final class ArtifactBar: NSObject {
     /// a listed page is named.
     private func nameFromRecord() {
         let record = (path as NSString).deletingLastPathComponent + "/artifact.json"
-        Task {
-            guard item == nil, let file = await app.quiet(FilesRead(path: record)) else { return }
+        Task { [weak tab = markdown] in   // the tab may close while it reads (update reads it)
+            guard item == nil, let file = await app.quiet(FilesRead(path: record)), tab != nil else { return }
             do {
                 recorded = try Artifacts.decoder.decode(ArtifactRecord.self, from: Data(file.text.utf8))
             } catch { return }

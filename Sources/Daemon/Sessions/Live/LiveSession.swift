@@ -218,7 +218,7 @@ final class LiveSession: Sendable {
             st.ring = Data(st.ring.suffix(Self.ringLimit))
         }
         st.logSize += chunk.count
-        let said = (st.record.summary, st.record.progress, st.record.limitHit)
+        let said = (st.record.summary, st.record.progress, st.record.limitHit, st.record.codexThread)
         var heard = Heard(probe: st.readReports(text, chunk), topic: st.readTopic(text, chunk))
         // The chunk without escapes, once, for the two readers that want it.
         let plain = st.interruptArmed != nil || (!st.sawURL && st.wantsURL) ? StatusDetector.stripANSI(text) : ""
@@ -235,7 +235,9 @@ final class LiveSession: Sendable {
         heard.attached = st.attached
         heard.id = st.record.id
         heard.trimLog = st.logSize > Self.logLimit
-        emit(st.sync() ?? (said != (st.record.summary, st.record.progress, st.record.limitHit) ? st.record : nil))
+        let changed = st.sync()
+        let now = (st.record.summary, st.record.progress, st.record.limitHit, st.record.codexThread)
+        emit(changed ?? (said != now ? st.record : nil))
         return heard
     }
 
@@ -341,7 +343,17 @@ final class LiveSession: Sendable {
 
     /// Writes bytes into the program after anything Kelp is still typing (`sends`), so a key never lands between a
     /// send's text and its Enter.
-    func write(_ data: Data) { sends.async { [pty] in pty.write(data) } }
+    func write(_ data: Data, menuID: UUID? = nil) {
+        sends.async { [state, pty] in
+            guard let menuID else { return pty.write(data) }
+            pty.write(data) { send in
+                state.withLockUnchecked { current in
+                    guard current.menuID == menuID, current.kelpQuestion == nil else { return nil }
+                    return send()
+                }
+            }
+        }
+    }
 
     /// For a hand-over, stops taking input (a caller is refused, not told it went in), then waits until what was taken
     /// is written to the program (a program that doesn't read is given up on after `within` seconds).

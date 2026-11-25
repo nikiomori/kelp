@@ -262,6 +262,70 @@ import Testing
     #expect(permission?["timeout"]?.int.map { TimeInterval($0) > SessionPermissionWait.within } == true)
 }
 
+/// A hook registers its wait in a second RPC. An old registration or phone tap cannot take a newer identical question.
+@Test func aPhoneDecisionStaysWithItsPermissionHook() async throws {
+    let w = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let ws = try await firstWorkspace(w)
+    let session = try await w.c.call(SessionCreate(worktreeId: ws.id, agent: "menu"))
+    let id = session.id, live = try #require(w.d.sessions.existing(id)), waits = w.d.sessions.permissions
+    let question = "Allow swift test?"
+    live.hook(.waiting, message: question, asker: "", at: 1)
+    let first = Task { await waits.waitForPermission(id, at: 1, within: 5) }
+    try #require(try await waitFor { waits.waits.withLock { $0[id] != nil } })
+    let old = try #require(waits.questionId(live, for: question))
+
+    live.state.withLock { $0.nothingAsked() }   // The agent's first dialog was settled on the Mac.
+    live.hook(.waiting, message: question, asker: "", at: 2)
+    #expect(waits.questionId(live, for: question) != old)
+    #expect(
+        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionId: old.uuidString))
+            == false)
+    let second = Task { await waits.waitForPermission(id, at: 2, within: 5) }
+    try #require(try await waitFor { waits.waits.withLock { $0[id]?.token != old && $0[id] != nil } })
+    #expect(await first.value == nil)
+    #expect(try await w.c.call(SessionPermissionWait(id: id, at: 1)) == nil)
+    let current = try #require(waits.questionId(live, for: question))
+    #expect(
+        try await w.c.call(SessionChoose(id: id, answer: "deny", question: question, questionId: current.uuidString)))
+    #expect(await second.value == "deny")
+}
+
+/// Claude Code repeats an open dialog as a Notification six seconds after PermissionRequest: a phone that answers
+/// later still answers that dialog.
+@Test func aPermissionNotificationKeepsThePhonesQuestion() async throws {
+    let w = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let ws = try await firstWorkspace(w)
+    let session = try await w.c.call(SessionCreate(worktreeId: ws.id, agent: "menu"))
+    let id = session.id, live = try #require(w.d.sessions.existing(id)), waits = w.d.sessions.permissions
+    let question = "Allow swift test?"
+    live.hook(.waiting, message: question, asker: "", at: 1)
+    let wait = Task { await waits.waitForPermission(id, at: 1, within: 5) }
+    try #require(try await waitFor { waits.waits.withLock { $0[id] != nil } })
+    let shown = try #require(waits.questionId(live, for: question))
+    live.hook(.waiting, message: nil, at: 2)   // "permission_prompt", while already waiting
+    #expect(
+        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionId: shown.uuidString)))
+    #expect(await wait.value == "allow")
+}
+
+@Test func aQueuedPhoneKeyIsDroppedWhenTheMenuChanges() async throws {
+    let w = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let ws = try await firstWorkspace(w)
+    let session = try await w.c.call(SessionCreate(worktreeId: ws.id, agent: "menu"))
+    let live = try #require(w.d.sessions.existing(session.id))
+    live.pty.writes.suspend()
+    live.write(Data("old menu key\n".utf8), menuID: live.state.withLock { $0.menuID })
+    live.sends.sync {}
+    live.hook(.waiting, message: "Allow new command?", asker: "")
+    live.pty.writes.resume()
+    live.write(Data("new menu key\n".utf8), menuID: live.state.withLock { $0.menuID })
+    try #require(try await waitFor { try await w.c.call(SessionRead(id: session.id)).contains("new menu key") })
+    #expect(try await w.c.call(SessionRead(id: session.id)).contains("old menu key") == false)
+}
+
 /// A question that doesn't show all it would allow (a command of more lines) isn't answered from a banner, even its own.
 @Test func aQuestionCutShortIsntAnsweredFromABanner() async throws {
     let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])

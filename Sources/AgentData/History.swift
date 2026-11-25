@@ -87,7 +87,7 @@ public enum ClaudeHistory {
             case "summary": summary = object["summary"] as? String ?? summary
             case "custom-title": custom = object["customTitle"] as? String ?? custom
             case "ai-title": aiTitle = object["aiTitle"] as? String ?? aiTitle
-            case "last-prompt": lastPrompt = object["lastPrompt"] as? String ?? lastPrompt
+            case "last-prompt": lastPrompt = (object["lastPrompt"] as? String).flatMap(JSONL.typed) ?? lastPrompt
             case "assistant": count += 1
             case "user":
                 count += 1
@@ -122,7 +122,15 @@ public enum CodexHistory {
     /// Returns the agent's last message at the end of the latest turn in `rollout`. Returns nil before any turn has
     /// ended, or when the turn ended with nothing to say.
     public static func lastReply(rollout url: URL) -> String? {
-        for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
+        lastReply(lines: JSONL.headAndTail(url)?.lines ?? [])
+    }
+
+    public static func lastReply(tail data: Data) -> String? {
+        lastReply(lines: JSONL.lines(data))
+    }
+
+    private static func lastReply(lines: [Data]) -> String? {
+        for line in lines.reversed() {
             guard let payload = JSONL.object(line)?["payload"] as? [String: Any],
                 payload["type"] as? String == "task_complete"
             else { continue }
@@ -326,34 +334,6 @@ enum JSONL {
     static func date(_ value: Any?) -> Date? {
         if let seconds = value as? NSNumber { return Date(timeIntervalSince1970: seconds.doubleValue) }
         return (value as? String).flatMap(CIRuns.date)
-    }
-
-    /// Returns the text a human typed: a string or the text blocks of a content array, skipping injected `<tag>` and
-    /// AGENTS.md blocks.
-    /// A slash command with arguments counts as "/name args".
-    static func promptText(_ content: Any?) -> String? {
-        let texts: [String] =
-            if let string = content as? String { [string] } else {
-                (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
-            }
-        return texts.lazy.compactMap(typed).first
-    }
-
-    /// Returns what a person typed, or nil for what a program put under the person's name (`<system-reminder>`, a
-    /// command's output, Codex's AGENTS.md and environment, an interruption). A slash command with arguments reads
-    /// "/name args".
-    static func typed(_ raw: String) -> String? {
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-            let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-            !args.allSatisfy(\.isWhitespace)
-        {
-            return "\(name) \(args)"
-        }
-        let notTyped =
-            text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md")
-            || text.hasPrefix("[Request interrupted")
-        return notTyped ? nil : text
     }
 
     static func clip(_ text: String, _ length: Int = 80) -> String {

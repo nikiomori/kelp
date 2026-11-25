@@ -72,8 +72,9 @@ package enum Help {
                 ## The middle: tabs and splits
                 The **+** at the end of a pane’s tabs opens an agent, a terminal, a browser or what extensions add; the \
                 agent’s icon before it starts the default agent (Settings › Agents) in one click. \
-                \(k("terminal.splitRight")) splits right, \(k("terminal.splitDown")) down; drag a tab to an edge to \
-                split, between groups to move it. Dividers stay where you drag them (View › Equalize Panes evens them \
+                \(k("terminal.splitRight")) opens a new terminal to the right, \(k("terminal.splitDown")) below. To \
+                move an existing tab, right-click its title or drag it to an edge or another pane. Dividers stay where \
+                you drag them (View › Equalize Panes evens them \
                 out); \(panes) move to the pane on that side. \(k("view.maximizePane")) lets the focused pane fill the \
                 area and brings the others back. Agents open side by side, each in a pane of its own (four make a 2×2 \
                 grid); terminals and files share one more pane. The button right of the search \
@@ -84,8 +85,10 @@ package enum Help {
                 rest. Edited files show a dot on their tab and in the window’s close button; \(k("editor.save")) saves.
 
                 In a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). \
-                Right-click for copy, paste and splits. Drop files to type their paths; ⌘K clears, \
+                Right-click for copy, paste and new terminals in splits. Drop files to type their paths; ⌘K clears, \
                 \(k("view.biggerText")) / \(k("view.smallerText")) change the text size.
+                In the code editor, \(k("editor.addNextOccurrence")) selects the word at the cursor or adds the next \
+                occurrence.
                 """)
     }
 
@@ -130,7 +133,7 @@ package enum Help {
             (bound(["browser.new"]), String(localized: "browser")),
             (bound(["files.quickOpen"]), String(localized: "open file")),
             (bound(["workbench.commandPalette"]), String(localized: "commands")),
-            (bound(["terminal.splitRight", "terminal.splitDown"]), String(localized: "split")),
+            (bound(["terminal.splitRight", "terminal.splitDown"]), String(localized: "new terminal in a split")),
             (bound(["agents.sideBySide"]), String(localized: "agents side by side / as tabs")),
             (bound(["view.maximizePane"]), String(localized: "maximize pane")),
             (bound(["editor.tab.1", "editor.tab.9"], "…"), String(localized: "tabs")),
