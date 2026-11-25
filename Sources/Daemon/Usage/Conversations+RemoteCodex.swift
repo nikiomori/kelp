@@ -3,17 +3,21 @@ import Core
 import Foundation
 
 extension Conversations {
-    /// Older session records have no thread ID. Recover the last main hook if it's still in their terminal log.
+    /// Older session records may only name their current thread in a terminal hook report. The search widens
+    /// from the log's last 64 KB to all of it, because a long turn can print far more than that after the report.
     func lastCodexReport(of session: Session) -> UUID? {
-        guard UUID(uuidString: session.id) != nil,
-            let tail = Data(tail: LiveSession.logLimit, of: history.appendingPathComponent(session.id + ".log")),
-            tail.range(of: Data("conv=".utf8)) != nil
-        else { return nil }
-        var carry = ""
-        for message in ProgramStatus.scan(String(decoding: tail, as: UTF8.self), carry: &carry).reversed() {
-            if case .report(let report) = message, report.id == nil, let conv = report.conv {
-                return UUID(uuidString: conv)
+        guard UUID(uuidString: session.id) != nil else { return nil }
+        let log = history.appendingPathComponent(session.id + ".log")
+        var bytes = 64 << 10
+        while let tail = Data(tail: bytes, of: log) {
+            var carry = ""
+            for message in ProgramStatus.scan(String(decoding: tail, as: UTF8.self), carry: &carry).reversed() {
+                if case .report(let report) = message, report.id == nil, let conv = report.conv {
+                    return UUID(uuidString: conv)
+                }
             }
+            guard tail.count == bytes else { return nil }   // that was the whole log
+            bytes *= 8
         }
         return nil
     }

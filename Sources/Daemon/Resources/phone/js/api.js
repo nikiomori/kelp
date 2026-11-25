@@ -128,7 +128,8 @@ export async function unpair() {
   await store('readwrite', kept => kept.delete('pairing'));
 }
 export const list = () => api('GET', 'agents');
-export const get = (agent, signal) => api('GET', `agents/${id(agent)}`, undefined, signal);
+// `seen`: the conversation the page shows (`conversation`), so an unchanged one comes back as `same` alone.
+export const get = (agent, signal, seen) => api('GET', `agents/${id(agent)}`, seen ? { seen } : undefined, signal);
 export const choose = (agent, answer, question) => api('POST', `agents/${id(agent)}/choose`, { answer, question });
 export const reply = (agent, text) => api('POST', `agents/${id(agent)}/reply`, { text });
 export const read = agent => api('POST', `agents/${id(agent)}/read`);

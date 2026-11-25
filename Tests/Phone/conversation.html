@@ -13,7 +13,7 @@ export const events = () => ({
 });
 export const list = async () => ({ agents: window.rows });
 export const read = id => new Promise(resolve => window.marks.push({ id, resolve }));
-export const get = (id, signal) => new Promise((resolve, reject) => window.reads.push({ id, signal, resolve, reject }));
+export const get = (id, signal, seen) => new Promise((resolve, reject) => window.reads.push({ id, signal, seen, resolve, reject }));
 export const reply = (id, text) => new Promise((resolve, reject) => window.replies.push({ id, text, resolve, reject }));
 export const replyNodes = text => [text || ''];
 </script>
@@ -275,7 +275,7 @@ async function run() {
   event({ ...codex, id: 'forbidden' });
   advance(60);
   check(reads.length === count && !banner.hidden && retry.hidden &&
-    message.textContent.includes(ru ? 'нет доступа' : "don't have access"),
+    message.textContent.includes(ru ? 'Не удалось загрузить' : "Couldn't load"),
     'A forbidden read and a failed chat left behind should both stop retrying');
   for (const status of [404, 410]) {
     await select('gone-' + status);
@@ -298,6 +298,19 @@ async function run() {
   await settle();
   check(reads.length === count && transcript.textContent.endsWith('Turn 79'),
     'A detail read completed in the background should be ready on return without a second download');
+
+  // An unchanged conversation comes back as `same` alone, and the page keeps what it shows.
+  await select('kept');
+  reads.at(-1).resolve({ ...codex, id: 'kept', turns, conversation: 'c1' });
+  await settle();
+  const shownNode = transcript.firstChild;
+  event({ ...codex, id: 'kept', summary: 'Next step' });
+  advance(1);
+  check(reads.at(-1).seen === 'c1', 'A refresh should name the conversation the page shows');
+  reads.at(-1).resolve({ ...codex, id: 'kept', conversation: 'c1', same: true });
+  await settle();
+  check(transcript.firstChild === shownNode && transcript.textContent.endsWith('Turn 79'),
+    'An unchanged conversation should stay as it is shown');
 }
 try {
   await run();

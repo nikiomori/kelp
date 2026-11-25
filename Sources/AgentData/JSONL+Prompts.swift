@@ -29,8 +29,10 @@ extension JSONL {
     ]
 
     /// Skips leading transcript wrappers. User text can follow a wrapper in the same block or start with markup itself.
+    /// A paste is what the person sent: its `<pasted_content>` wrapper goes and its text stays.
     static func typed(_ raw: String) -> String? {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)[...]
+        let unwrapped = raw.replacing(/<\/?pasted_content(?: [^>]*)?>/, with: "")
+        var text = unwrapped.trimmingCharacters(in: .whitespacesAndNewlines)[...]
         while let tag = text.prefixMatch(of: /<([\w-]+)(?=[>\s])/),
             generatedTags.contains(tag.1) || text.hasPrefix("<kelp from=\"")
         {

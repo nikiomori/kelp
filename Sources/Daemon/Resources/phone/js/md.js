@@ -36,14 +36,14 @@ function link(text, href) {
     a.target = '_blank';
     return [a];
   }
-  if (!url || url.protocol === 'file:' || /^[A-Za-z]:[\\/]|^[\w.-]+:\d+(?::\d+)?$/.test(href)) {
+  if (!url || url.protocol === 'file:' || /^[A-Za-z]:[\\/]|^[\w.-]*\.[A-Za-z]\w*:\d+(?::\d+)?$/.test(href)) {
     let file = href.split(/[\\/]/).pop();
     try { file = decodeURIComponent(file); } catch { /* Keep a literal percent sign. */ }
     const [, name, location] = file.match(/^(.*?)(:\d+(?::\d+)?|#L\d+(?:-L?\d+)?)?$/s);
     const plain = text.replace(/`/g, '');
     if (name && !plain.includes(name)) label.push(' (', el('code', file), ')');
     else if (location && !plain.replace(/#L(?=\d)/g, ':').endsWith(location.replace('#L', ':'))) label.push(location);
-  }
+  } else if (!text.includes(href)) label.push(` (${href})`);   // mailto:, localhost:3000: shown, never a link
   return label;
 }
 

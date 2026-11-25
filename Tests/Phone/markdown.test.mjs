@@ -35,14 +35,14 @@ test('local references retain names and locations as text, including angle-wrapp
 });
 
 test('bare filenames, encoded spaces and labels that already have the line stay readable', () => {
-  const [p] = markdown('[main.js](main.js:19) [My File.md:2](file:///tmp/My%20File.md#L2)');
-  assert.equal(p.textContent, 'main.js:19 My File.md:2');
+  const [p] = markdown('[main.js](main.js:19) [My File.md:2](file:///tmp/My%20File.md#L2) [server](localhost:3000)');
+  assert.equal(p.textContent, 'main.js:19 My File.md:2 server (localhost:3000)');
   assert.deepEqual(p.children, []);
 });
 
 test('only HTTP and HTTPS destinations produce anchors', () => {
   const [p] = markdown('[HTTP](http://example.test/x) [**docs**](https://example.test/a_(b)) [go](custom://x) [mail](mailto:a@b) [run](javascript:void(0)) <script>');
-  assert.equal(p.textContent, 'HTTP docs go mail run <script>');
+  assert.equal(p.textContent, 'HTTP docs go (custom://x) mail (mailto:a@b) run (javascript:void(0)) <script>');
   assert.deepEqual(tags(p.children), ['a', 'a']);
   assert.deepEqual(p.children.map(a => a.href), ['http://example.test/x', 'https://example.test/a_(b)']);
   for (const a of p.children) {
@@ -137,4 +137,13 @@ test('an unfinished fence leaves the next step its own fenced block', () => {
     assert.deepEqual(next.children.map(node => node.textContent), expected);
     assert.equal(next.children.at(-1).localName, 'pre');
   }
+});
+
+test('a fence in a list keeps code at the margin and ends at its closing line', () => {
+  const nodes = markdown('1. Run:\n   ```bash\nmake\n   ```\n2. Next\n\nAfter');
+  assert.deepEqual(tags(nodes), ['ol', 'p']);
+  const [run, next] = nodes[0].children;
+  assert.equal(run.children[1].textContent, 'make');
+  assert.equal(next.textContent, 'Next');
+  assert.equal(nodes[1].textContent, 'After');
 });
