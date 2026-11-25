@@ -72,7 +72,7 @@ extension Databases {
             throw RPCError.invalidParams("No \(name) in All my projects.")
         }
         var db = mine.database
-        db.access = access ?? (db.host.map(DatabaseInfo.isLocal) == false ? .read : db.access)
+        db.access = access ?? (db.host.map(DatabaseInfo.isLocal) == false ? db.access.atMost(.read) : db.access)
         db.group = nil
         return try save(worktreeId, db, password: mine.password)
     }

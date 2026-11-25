@@ -26,12 +26,16 @@ package final class GitFolders {
     /// badges.
     private func wanted() -> Set<String> { app.settings[SettingKeys.gitBadges] ? folders : [] }
 
-    /// Every folder the sidebar lists: each project's own folder, and the folder of each workspace on a branch of its
-    /// own.
+    /// Every folder the sidebar lists: each project's own folder, the folder of each workspace on a branch of its
+    /// own, and each live chat's own worktree that is no workspace (`Session.branchKey`).
     var folders: Set<String> {
-        Set(
+        let groups = Set(app.worktrees.map(\.path))
+        let chats = app.sessions.filter { chat in
+            chat.status != .exited && !chat.isTerminal && chat.branchFolder.map { !groups.contains($0) } == true
+        }
+        return Set(
             app.repos.compactMap { app.gitFolder(project: $0.id)?.id }
-                + app.worktrees.compactMap { app.gitFolder(workspace: $0.id)?.id })
+                + app.worktrees.compactMap { app.gitFolder(workspace: $0.id)?.id } + chats.map(\.branchKey))
     }
 
     private func follow(_ now: Set<String>) {
@@ -39,6 +43,10 @@ package final class GitFolders {
         for id in following.subtracting(now) { app.unwatch(.git, id) }
         following = now
     }
+
+    /// The branch folder `id` has out, as its last git status said. It is nil while HEAD is detached or before the
+    /// status comes.
+    func branch(_ id: String) -> String? { app.latest(GitEvent.self).byKey[id]?.branches?.current }
 
     /// Returns the work that only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`):
     /// commits that no other branch or remote has, and files not committed. It is nil when the folder isn't a branch's

@@ -110,13 +110,13 @@ extension QuickOpen {
             icon = logo
         }
         cell.show(lead: icon, session: it.session)
-        cell.title.attributedStringValue = Self.highlighted(it.title, field.stringValue)
+        cell.title.attributedStringValue = Self.highlighted(it.title, field.stringValue, mono: it.mono)
         cell.detail.stringValue = it.detail
         cell.detail.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // With the field empty, the agents on ⌘1–⌘6 show their shortcut (counted past the heading).
         let index = itemIndex.indices.contains(row) ? itemIndex[row] : 0
         let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
-        cell.kind.stringValue = shortcut + (showingRecents ? loc(it.kind) : it.value ?? "")
+        cell.kind.stringValue = shortcut + (showingRecents ? loc(it.kind) : it.value ?? it.note)
         cell.chevron.isHidden = showingRecents || it.value == nil
         cell.tick.isHidden = !it.checked   // the choice in effect gets a tick at the end, as in a menu
         cell.key.stringValue = it.key   // a command's shortcut sits at the end of the title's line, as in a menu

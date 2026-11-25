@@ -61,6 +61,11 @@ private func orders() throws -> String {
             #"UPDATE orders SET "status" = 'pending', "note" = NULL WHERE "id" = '10' AND "status" = 'cancelled' AND "note" = 'Expired'"#,
             #"UPDATE orders SET "status" = 'pending', "note" = 'it''s' WHERE "id" = '20' AND "status" = 'cancelled' AND "note" = 'Expired'"#
         ])
+    // Postgres compares the other columns as their text, as Kelp shows them: json and xml have no "="
+    #expect(
+        DatabaseUndo.statements(change, .postgres).first
+            == #"UPDATE orders SET "status" = 'pending', "note" = NULL WHERE "id" = '10' AND "#
+            + #"format('%s', "status") = 'cancelled' AND format('%s', "note") = 'Expired'"#)
     // A row changed while the question was up (by the agent, again) isn't written over.
     _ = try run(path, "UPDATE orders SET note = 'Again' WHERE id = 20")
     _ = try run(path, statements.joined(separator: ";"))

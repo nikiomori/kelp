@@ -58,6 +58,15 @@ import Testing
         (.session(mine.id), UIBrowserAsk(question: "Sign in", worktreeId: wt.id), true, "it hands its page over"),
         (.session(mine.id), GitRemoteOp(id: elsewhere.id, op: .fetch), false, "nor fetch there"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .fetch), true, "in its own it fetches"),
+        (
+            .session(mine.id), GitHunk(id: RepoKey.of(elsewhere.id, "fe"), file: "a", hunk: 0), false,
+            "a repository inside another's folder is that workspace's"
+        ),
+        (
+            .session(mine.id), GitHunk(id: RepoKey.of(wt.id, "fe"), file: "a", hunk: 0), true,
+            "inside its own, it stages"
+        ),
+        (.session(mine.id), GitRemoteOp(id: RepoKey.of(wt.id, "fe"), op: .fetch), true, "and fetches"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .push), false, "but never pushes"),
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
         (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set"),

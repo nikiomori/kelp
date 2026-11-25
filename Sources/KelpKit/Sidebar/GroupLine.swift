@@ -12,7 +12,7 @@ extension SidebarCell {
         let work = onBranch ? app.gitState.ownWork(worktree.id) : nil, held = (work?.commits ?? 0) + (work?.files ?? 0)
         if let work, work.commits > 0 { parts.append(String(localized: "\(work.commits) commits")) }
         if let work, work.files > 0 { parts.append(String(localized: "\(work.files) files")) }
-        if node.children.isEmpty { parts += openWords(worktree.id) }
+        if node.children.isEmpty, node.hidden.isEmpty { parts += openWords(worktree.id) }
         detail.stringValue = parts.joined(separator: " · ")
         detail.isHidden = parts.isEmpty
         detail.toolTip =
@@ -23,7 +23,8 @@ extension SidebarCell {
             ) : nil
         // Remove doesn't show on the group on screen, because an empty group goes by itself when the screen moves on.
         remove.isHidden =
-            !(work != nil && held == 0 && node.children.isEmpty && app.workbench.workspaceId != worktree.id)
+            !(work != nil && held == 0 && node.children.isEmpty && node.hidden.isEmpty
+            && app.workbench.workspaceId != worktree.id)
     }
 
     /// The tabs of a group that has no agent's row to show, as in "Terminal · 2 files · 1 more".

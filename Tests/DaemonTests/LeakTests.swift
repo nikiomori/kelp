@@ -74,6 +74,26 @@ private func callPastItsTime(_ engine: DatabaseInfo.Engine) async throws {
     #expect(try await waitFor(5) { server.closed }, "\(engine): the server saw its connection closed")
 }
 
+/// A MySQL server that doesn't offer TLS where the address requires it: the connection is refused once it is open,
+/// before any query goes over it in clear text, and closed. It used to go on in clear text.
+@Test(.timeLimit(minutes: 2)) func aMySQLWithoutTLSIsRefusedWhereTLSIsRequired() async throws {
+    let server = try SilentServer(.mysql)
+    let db = DatabaseInfo(
+        name: "plain", engine: .mysql, host: "127.0.0.1", port: server.port, database: "d", user: "u", ssl: "require")
+    // The refusal comes once the login is done, and under TSan a login here has stalled past 40 s: its time is long, as
+    // what is checked is what it says, not how soon
+    let limit = 40 * testSlowness
+    let said = await firstOf(seconds: 50 * testSlowness, otherwise: "no answer in time") {
+        do {
+            _ = try await MySQLWire(connection: DatabaseConnection(database: db), grace: limit, handshake: limit)
+                .read("SELECT 1", timeout: 0)
+            return "an answer"
+        } catch { return (error as? DatabaseFailure)?.message ?? "\(error)" }
+    }
+    #expect(said.contains("didn't offer TLS"), "\(said)")
+    #expect(try await waitFor(5) { server.closed })
+}
+
 /// What `work` says, or `otherwise` once `seconds` pass first: the work is left running, not awaited (a task group
 /// would wait for it).
 private func firstOf(

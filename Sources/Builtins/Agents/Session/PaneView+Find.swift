@@ -37,6 +37,17 @@ extension PaneView {
         bar.begin(needle)
     }
 
+    /// Opens the find bar on `needle` with its newest match chosen, the line ⌘P showed for it (`OutputRows`): Ghostty
+    /// steps from the newest match back, and its first step picks the newest. A search already open is dropped first,
+    /// because it would keep the match it had chosen.
+    func findNewest(_ needle: String) {
+        guard let terminal = ghostty else { return }
+        terminal.perform(action: "search:")
+        findBar?.field.stringValue = ""   // so the card searches again, though `needle` may be what it holds
+        showFind(needle)
+        terminal.perform(action: "navigate_search:next")
+    }
+
     func searchEvent(_ event: GhosttyTerminalView.SearchEvent) {
         switch event {
         // Ghostty says so from inside its own binding action (Use Selection for Find), and the card searches and

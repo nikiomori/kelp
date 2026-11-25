@@ -114,7 +114,7 @@ extension Databases {
         // kept as a database added by hand.
         if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
             var db = Self.asCopy(found.database, of: databaseConnection.database.name, for: worktree.id)
-            if databaseConnection.database.access == .hidden { db.access = .hidden }
+            if databaseConnection.database.access.unseenRows { db.access = databaseConnection.database.access }
             let entry = try SavedDatabase(repoId: worktree.repoId, database: db, byHand: false, copyIn: worktree.id)
             try store.db.write { try entry.save($0) }
             touch(worktree.id)
@@ -124,7 +124,7 @@ extension Databases {
             name: databaseConnection.database.name + "_" + suffix, engine: databaseConnection.database.engine,
             path: target)
         db = Self.asCopy(db, of: databaseConnection.database.name, for: worktree.id)
-        db.access = databaseConnection.database.access == .hidden ? .hidden : .free
+        db.access = databaseConnection.database.access.unseenRows ? databaseConnection.database.access : .free
         return try save(worktree.id, db, password: nil)
     }
 
@@ -133,13 +133,13 @@ extension Databases {
     static func asCopy(_ db: DatabaseInfo, of name: String, for worktreeId: String) -> DatabaseInfo {
         var copy = db
         copy.copy = BranchCopy(of: name, worktreeId: worktreeId, at: Date())
-        copy.access = db.access == .hidden ? .hidden : .free
+        copy.access = db.access.unseenRows ? db.access : .free
         copy.production = false
         return copy
     }
 
-    /// Drops the workspace's copy `name` (`DatabaseCopyRemove`): its file, or its Postgres database, and what Kelp
-    /// keeps of it.
+    /// Drops the workspace's copy `name` (`DatabaseCopyRemove`): its file, or its Postgres database and the copies
+    /// Undo Turn kept of it, and what Kelp keeps of it.
     func dropCopy(_ worktreeId: String, _ name: String) async throws {
         let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
         guard c.database.copy?.worktreeId == worktreeId, let repo = try store.worktree(worktreeId)?.repoId else {
@@ -149,7 +149,9 @@ extension Databases {
             if c.database.engine.isFile {
                 if let path = c.database.path { Self.removeCopy(path) }
             } else {
-                try await dropDatabase(try await offloads.run { [self] in try reach(c, worktreeId) })
+                let near = try await offloads.run { [self] in try reach(c, worktreeId) }
+                try await dropDatabase(near)
+                await dropTurnTemplates(of: near)
             }
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
         try forget(copy: c.database, byHand: c.origin == .project, repo: repo)
@@ -193,7 +195,10 @@ extension Databases {
                 database: db, password: entry.byHand ? Keychain.get(Self.account(entry.id)) : nil)
             Task { [self] in
                 do {
-                    if !db.engine.isFile { try await dropDatabase(connection) }
+                    if !db.engine.isFile {
+                        try await dropDatabase(connection)
+                        await dropTurnTemplates(of: connection)
+                    }
                     try forget(copy: db, byHand: entry.byHand, repo: worktree.repoId)
                 } catch { Log.store.error("dropping \(db.name), \(worktree.branch)'s copy: \(error)") }
             }

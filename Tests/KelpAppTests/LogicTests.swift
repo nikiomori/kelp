@@ -394,6 +394,11 @@ extension OneAtATime {
         session(.done, unread: true).isNews && !session(.idle, unread: true).isNews
             && !session(.done).isNews)
     #expect(session(.paused, unread: true).isNews)   // bold as long as it's counted
+    var cut = session(.paused, unread: true)
+    cut.interruptedAt = Date()   // cut short when Kelp closed: bold until looked at, but not a result to count
+    #expect(cut.isNews && cut.showsInterrupted && !cut.wantsYou && cut.shownStatus == .paused)
+    cut.unread = false
+    #expect(!cut.isNews && !cut.showsInterrupted && cut.interrupted)   // looked at, and still offered to go on
 }
 
 @MainActor @Test func aProjectTileShowsTheInitialsOfItsFirstTwoWords() {

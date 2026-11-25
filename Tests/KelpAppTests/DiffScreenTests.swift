@@ -406,6 +406,38 @@ extension AppOfItsOwn {
                 if case .diff(.line) = $0 { true } else if case .diff(.pair) = $0 { true } else { false }
             })
         #expect(lineItems(line).contains("Add Comment…"))
+        // Send to Agent comes with the key that does it from the keyboard, as it stands.
+        rig.app.extensions.reload()
+        let added = try #require(vc.rows.indices.first { vc.shownLine($0)?.1.newLine != nil })
+        let m = NSMenu()
+        vc.lineMenu(m, row: added)
+        let send = try #require(m.items.first { $0.title == "Send to Agent" })
+        #expect(
+            KeyBindings.display(KeySpec(key: send.keyEquivalent, mods: .init(send.keyEquivalentModifierMask))) == "⌥⌘↩")
+        // The diff answers ⌥⌘↩ through its tab, and only with lines selected.
+        vc.table.deselectAll(nil)
+        #expect(!vc.sendSelectionToAgent())
+        vc.table.selectRowIndexes([added], byExtendingSelection: false)
+        #expect(vc.sendSelectionToAgent())
+    }
+}
+
+/// What a diff's selection names for an agent: one file's lines by the numbers the file has now; a removed line has
+/// none, so it adds nothing, and a selection of only removed lines names nothing (a beep).
+@MainActor @Test func aDiffsSelectionNamesTheFilesNewLines() {
+    func line(_ old: Int?, _ new: Int?) -> DiffLine {
+        DiffLine(kind: new == nil ? .del : old == nil ? .add : .context, text: "x", oldLine: old, newLine: new)
+    }
+    let cases: [([(String, DiffLine)], String?, ClosedRange<Int>?)] = [
+        ([("a", line(nil, 44)), ("a", line(nil, 45))], "a", 44...45),
+        ([("a", line(43, nil)), ("a", line(nil, 44)), ("a", line(nil, 45))], "a", 44...45),
+        ([("a", line(43, nil))], nil, nil),
+        ([("a", line(10, 12)), ("b", line(nil, 3))], "a", 12...12),
+        ([], nil, nil)
+    ]
+    for (shown, file, lines) in cases {
+        let got = DiffViewController.agentLines(shown)
+        #expect(got?.0 == file && got?.1 == lines)
     }
 }
 

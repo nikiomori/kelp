@@ -27,30 +27,38 @@ extension DatabaseTab {
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
         startReading(name)
-        let asked = page
+        let asked = page, order = Self.order(grid.orders)
         let result = await query(sql, limit: Self.pageSize, reading: name)
         await rowsWait.settled()
-        // When another page, table or filter was asked for meanwhile, this answer is for the older ask. It is checked
-        // after each wait.
+        // When another page, table, filter or order was asked for meanwhile, this answer is for the older ask. It is
+        // checked after each wait.
         let still = { [weak self] in
-            self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
+            self.map {
+                $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition
+                    && Self.order($0.grid.orders) == order
+            } ?? false
         }
         guard still() else { return }
         readingEnded()
         guard let result else { return }
         grid.editable = current?.kind != "view"   // a table without a key too: its rows are found by their values
+        let again = grid.source?.table == name
         grid.source = (name, engine)
         let orders = grid.orders
-        grid.show(columns: result.columns, rows: result.rows, info: info)
+        grid.show(columns: result.columns, rows: result.rows, info: info, keeping: again)
+        if !again, let look = keptLook(name) { grid.apply(look) }   // as the table was left, in any tab
         grid.orders = orders
+        keepLook()
         grid.indicate()
         empty.show(result.rows.isEmpty ? String(localized: "No Rows") : nil, symbol: "tablecells")
         arrange()
-        counted = nil
-        if !condition.isEmpty {
+        // Turning pages keeps the count: the filter and the rows it counted are the same.
+        let counting = name + " WHERE " + condition
+        if asked == 0 || counted?.of != counting { counted = nil }
+        if !condition.isEmpty, counted == nil {
             let rows = await count(name, condition)
             guard still() else { return }
-            counted = rows
+            counted = rows.map { ($0, counting) }
         }
         pageChanged(shown: result.rows.count, ms: result.ms)
         await mark(name, primary: primary, still: still)
@@ -61,6 +69,7 @@ extension DatabaseTab {
     /// at once, over the grid. With no `table`, it is the user's statement that runs.
     func startReading(_ table: String? = nil) {
         reading?.cancel()
+        if table != nil { takesEdits(false) }   // the answer replaces the rows, and edits made meanwhile with them
         let words = table.map { String(localized: "Reading \($0)…") } ?? String(localized: "Running the statement…")
         if grid.columns.isEmpty, elsewhere {
             empty.show(nil)
@@ -70,13 +79,30 @@ extension DatabaseTab {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             self?.status.stringValue = words
             self?.busy.startAnimation(nil)
+            self?.showStop(true)
         }
     }
 
     func readingEnded() {
         reading?.cancel()
+        takesEdits(true)
         busy.stopAnimation(nil)
+        showStop(false)
         rowsWait.show(nil)
+    }
+
+    /// Lets a table's rows take edits, or not while they are read again. A view's never do.
+    func takesEdits(_ on: Bool) {
+        let now = on && mode.table != nil && current?.kind != "view"
+        guard grid.editable != now else { return }
+        grid.editable = now
+        grid.table.reloadData()   // the cells on screen take it
+        arrange()   // and Add Row
+    }
+
+    /// An order as text, to tell two apart.
+    static func order(_ orders: [(column: String, ascending: Bool)]) -> [String] {
+        orders.map { $0.column + ($0.ascending ? " ASC" : " DESC") }
     }
 
     /// Counts how many rows the filter leaves. The server stops a count that takes too long.
@@ -93,15 +119,15 @@ extension DatabaseTab {
         // before ANALYZE).
         let ended = shown < Self.pageSize
         let estimate = (filters.isActive ? nil : current?.rows).flatMap { $0 >= first + shown ? $0 : nil }
-        let total = ended ? first + shown : counted ?? estimate
+        let total = ended ? first + shown : counted?.rows ?? estimate
         let exact = ended || counted != nil || engine.isFile
-        var words: [String] = []
+        var words: [String] = [""]   // after the count, which is a label of its own
         if shown == 0 {
-            words.append(String(localized: "No rows"))
+            rowCount.stringValue = String(localized: "No rows")
         } else {
             let range = "\((first + 1).formatted())–\((first + shown).formatted())"
             let all = total.map { (exact ? "" : "≈ ") + Self.rows($0) }   // "≈ 12 408 rows"
-            words.append(all.map { String(localized: "\(range) of \($0)") } ?? range)
+            rowCount.stringValue = all.map { String(localized: "\(range) of \($0)") } ?? range
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
@@ -120,24 +146,40 @@ extension DatabaseTab {
         Task { await showTable(name) }
     }
 
+    /// Reads what the tab shows again. A table's unsaved edits are asked about first (`settleEdits`), as before each
+    /// read in place that would drop them: a new order, filter or part.
     func refresh() {
         switch mode {
-        case .table(let name): Task { await showTable(name) }
+        case .table(let name):
+            Task {
+                guard await settleEdits() else { return }
+                counted = nil
+                await showTable(name)
+            }
         case .run(let id): Task { await showRun(id) }
         case .query: Task { await loadTables() }
         }
     }
 
-    func sorted() {
+    func sorted(was: [(column: String, ascending: Bool)]) {
         guard let name = mode.table else { return }
-        page = 0
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else {   // the edits stay, and so does the order they were made in
+                grid.orders = was
+                return grid.indicate()
+            }
+            page = 0
+            await showTable(name)
+        }
     }
 
     func filtered() {
         guard let name = mode.table else { return }
-        page = 0
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else { return }
+            page = 0
+            await showTable(name)
+        }
     }
 
     func toggleFilters() {
@@ -150,6 +192,7 @@ extension DatabaseTab {
     func toggleDetails() {
         details.view.isHidden.toggle()
         detailsClosed = details.view.isHidden
+        if !detailsClosed { detailsChanged() }
     }
 
     /// Shows the table's data (0) or its structure (1), as the foot's Data / Structure does.
@@ -160,7 +203,10 @@ extension DatabaseTab {
 
     @objc func partChanged() {
         guard let name = mode.table else { return }
-        Task { await showTable(name) }
+        Task {
+            guard await settleEdits() else { return part.selectedSegment = 0 }   // Structure shows no edits
+            await showTable(name)
+        }
     }
 
     /// The Columns menu: show or hide each column, or show all of them again.
@@ -218,14 +264,13 @@ extension DatabaseTab {
         guard let table = current else { return }
         grid.editable = false
         grid.source = nil
-        var rows = table.columns.map { column -> [String?] in
+        let rows = table.columns.map { column -> [String?] in
             [
                 column.name, column.type, column.nullable ? String(localized: "yes") : String(localized: "no"),
                 column.primary ? String(localized: "primary key") : "", column.references ?? ""
             ]
         }
-        let index = String(localized: "index")
-        if !table.indexes.isEmpty { rows += [["", "", "", "", ""]] + table.indexes.map { [index, $0, "", "", ""] } }
+        indexesText.stringValue = table.indexes.joined(separator: "\n")   // under the columns (`indexesBlock`)
         grid.show(
             columns: [
                 String(localized: "column"), String(localized: "type"), String(localized: "null"),
@@ -244,17 +289,37 @@ extension DatabaseTab {
         footChanged()
     }
 
+    /// The block under Structure's columns that lists the table's indexes, one a line, with a line over it.
+    func indexesBlock() -> NSStackView {
+        let title = NSTextField.label(
+            String(localized: "Indexes"), font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+        indexesText.font = .uiMono(TextSize.caption)
+        indexesText.isSelectable = true
+        indexesText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let words = NSStackView(views: [title, indexesText])
+        words.orientation = .vertical
+        words.alignment = .leading
+        words.spacing = Metrics.lineGap
+        words.edgeInsets = NSEdgeInsets(
+            top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
+        let line = NSBox()
+        line.boxType = .separator
+        let box = NSStackView(views: [line, words])
+        box.orientation = .vertical
+        box.spacing = 0
+        for v in [line, words] { v.widthAnchor.constraint(equalTo: box.widthAnchor).isActive = true }
+        box.isHidden = true
+        return box
+    }
+
     /// CREATE TABLE as the columns read, which is what an agent or a migration starts from.
     func definition(_ table: DatabaseSchema.Table) -> String {
         let lines =
             table.columns.map { column in
                 "  " + DatabaseEdits.name(column.name, engine) + " " + column.type
                     + (column.nullable ? "" : " NOT NULL")
-                    + (column.references.map { reference in
-                        let parts = reference.split(separator: ".")
-                        return parts.count == 2
-                            ? " REFERENCES " + DatabaseEdits.name(String(parts[0]), engine) + "(\(parts[1]))" : ""
-                    } ?? "")
+                    + (column.target.map { " REFERENCES " + DatabaseEdits.name($0.table, engine) + "(\($0.column))" }
+                        ?? "")
             }
             + [table.columns.filter(\.primary).map { DatabaseEdits.name($0.name, engine) }].filter { !$0.isEmpty }
             .map { "  PRIMARY KEY (" + $0.joined(separator: ", ") + ")" }
@@ -277,10 +342,11 @@ extension DatabaseTab {
                 && short.map { run.sql.lowercased().contains($0) } != false
         }
         details.agentName = agentToAsk.map { app.catalog.name($0.agent) }
-        details.show(picked == nil ? nil : .row)
         // The details stay closed until a row is picked, because what they'd say of the table is on screen already.
-        // Once the user closes them, they stay closed.
+        // Once the user closes them, they stay closed, and aren't built again for each row picked.
         if picked != nil, !detailsClosed { details.view.isHidden = false }
+        guard !details.view.isHidden else { return }
+        details.show(picked == nil ? nil : .row)
     }
 
     /// Applies a field edited in the details as the same edit in the row's cell.
@@ -293,67 +359,16 @@ extension DatabaseTab {
 
     /// Follows a foreign key's arrow in a cell to the table it names, at that row.
     func followKey(_ column: String, _ value: String) {
-        guard let ref = current?.columns.first(where: { $0.name == column })?.references else { return }
-        let parts = ref.split(separator: ".")
-        guard parts.count == 2 else { return }
-        follow(String(parts[0]), String(parts[1]), value)
+        guard let target = current?.columns.first(where: { $0.name == column })?.target else { return }
+        follow(target.table, target.column, value)
     }
 
     /// Shows `table` filtered to the row where `column` holds `value`.
-    func follow(_ table: String, _ column: String, _ value: String) {
+    func follow(_ table: String, _ column: String, _ value: String) { Task { await followed(table, column, value) } }
+
+    func followed(_ table: String, _ column: String, _ value: String) async {
         let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
-        Task {
-            await leave(to: .table(target))
-            filters.add(column: column, op: .equal, value: value)
-        }
-    }
-
-    // MARK: Copy and export
-
-    func copyMenu() {
-        let menu = NSMenu()
-        let picked = grid.selectedRows.isEmpty ? Array(grid.rows.indices) : grid.selectedRows
-        let what = grid.selectedRows.isEmpty ? String(localized: "the Page") : Self.rows(picked.count).capitalizedFirst
-        for format in ResultText.Format.allCases {
-            menu.add(String(localized: "Copy \(what) as \(format.rawValue)")) { [weak self] in
-                guard let self else { return }
-                copyText(text(format, picked))
-            }
-        }
-        menu.addItem(.separator())
-        for format in [ResultText.Format.csv, .json] {
-            menu.add(String(localized: "Export \(what) as \(format.rawValue)…")) { [weak self] in
-                self?.export(format, picked)
-            }
-        }
-        if let table = current {
-            menu.addItem(.separator())
-            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in
-                if let self { copyText(definition(table)) }
-            }
-        }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-
-    private func text(_ format: ResultText.Format, _ picked: [Int]) -> String {
-        ResultText.text(format, grid.columns, picked.map { grid.rows[$0] }, table: mode.table, engine: engine)
-    }
-
-    /// Saves the rows where the user says: a file of their own choosing, not one in the project.
-    private func export(_ format: ResultText.Format, _ picked: [Int]) {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = (mode.table ?? address.name) + "." + format.fileExtension
-        let body = text(format, picked)
-        Task {
-            guard await runSheet(panel) == .OK, let url = panel.url else { return }
-            // Written off the main thread, because a big table's text may go to a slow disk.
-            let written = await Task.detached { Result { try body.write(to: url, atomically: true, encoding: .utf8) } }
-                .value
-            if case .failure(let error) = written {
-                Banner.show(
-                    String(localized: "Couldn’t save \(url.lastPathComponent): \(error.localizedDescription)"),
-                    style: .error)
-            }
-        }
+        guard await leave(to: .table(target)) else { return }   // Cancel keeps the table and its edits
+        filters.add(column: column, op: .equal, value: value)
     }
 }

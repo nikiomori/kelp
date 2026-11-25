@@ -110,6 +110,10 @@ final class SidebarCell: NSTableCellView {
     let detail = NSTextField(labelWithString: "")
     /// The chats of a folded project or group, shown as their agents' logos (AgentStack).
     let stack = AgentStack()
+    /// On an empty group's row, the hourglass that counts down the last of its time (`showCountdown`).
+    let hourglass = NSImageView()
+    /// The hourglass symbol on show, so the sand runs out once, when it changes.
+    var sand: String?
     /// Whether the chevron last showed the row folded. When this changes, the chevron turns instead of switching.
     var shownFolded: Bool?
     var hovering = false
@@ -164,14 +168,21 @@ final class SidebarCell: NSTableCellView {
             slot.wantsLayer = true
             glow.frame = CGRect(x: 0, y: 0, width: 16, height: 16)
             slot.layer?.insertSublayer(glow, at: 0)
-            layout(row: [slot, title, muted, stack, changes, pr, ci, locate, button])
+            detail.font = .ui(TextSize.caption)
+            detail.textColor = .secondaryLabelColor
+            detail.lineBreakMode = .byTruncatingMiddle
+            detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate, button])
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
             title.font = .ui(TextSize.body)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, trailing])
+            hourglass.symbolConfiguration = .chrome(Metrics.iconSmall)
+            hourglass.contentTintColor = .secondaryLabelColor
+            hourglass.isHidden = true
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, hourglass, trailing])
         case .agent:
             title.font = .ui(TextSize.body)
             glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -183,7 +194,8 @@ final class SidebarCell: NSTableCellView {
             fillSlot(lead())
             action.image = .symbol("xmark", String(localized: "Close Chat"))
             action.toolTip = String(localized: "Close Chat")
-            layout(row: [slot, title, muted, glyph, chip, family, markButton, trailing])
+            // A chat on its own branch shows that branch's marks, as a screen on a branch does.
+            layout(row: [slot, title, muted, glyph, chip, family, markButton, stack, changes, pr, ci, trailing])
             addAsk()
         case .host, .parked: break   // these are a server's header (ServerCards) and a ParkedHeader
         }
@@ -200,7 +212,7 @@ final class SidebarCell: NSTableCellView {
             badge.target = self
         }
         stack.onMore = { [weak owner, node] in owner?.toggle(node) }
-        for badge in [changes, ci] { badge.onHover = { [weak self, weak badge] in self?.spell(badge, $0) } }
+        for badge in [changes, ci, pr] { badge.onHover = { [weak self, weak badge] in self?.spell(badge, $0) } }
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
         ci.action = #selector(openCI)
@@ -275,10 +287,14 @@ final class SidebarCell: NSTableCellView {
             // A project with no agents is a quieter, grey name the eye passes over. Its weight doesn't change:
             // semibold is kept for news.
             let busy =
-                !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
+                !missing
+                && (!node.hidden.isEmpty
+                    || node.children.contains {
+                        if case .agent = $0.kind { true } else { !$0.children.isEmpty || !$0.hidden.isEmpty }
+                    })
             // Above workspace headings the project is their parent, so its name stays primary, never greyer than the
             // rows under it.
-            title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
+            title.textColor = busy || selected || node.holds ? .labelColor : .secondaryLabelColor
             toolTip =
                 missing
                 ? String(localized: "\(repo?.path ?? "") isn’t there anymore. Right-click › Locate… if it moved.")
@@ -287,18 +303,29 @@ final class SidebarCell: NSTableCellView {
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,
             // its row sums them up.
             locate.isHidden = !missing
+            // Its folder's branch, in grey, while that isn't the project's base: an agent may have checked another out
+            // in the project's own folder. With a row for the project's own screen, that row says it.
+            let current = folder.flatMap { app.gitState.branch($0.id) }
+            detail.stringValue = current.flatMap { $0 == repo?.baseBranch ? nil : $0 } ?? ""
+            detail.isHidden = detail.stringValue.isEmpty
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // on a fold, not a status change
-            stack.show(folded ? AgentStack.chats(under: node, app) : [], app)
+            // Folded, a project with one screen holds its chats as logos; one with more leaves them to its screens.
+            stack.show(folded ? node.hidden.compactMap(app.session) : [], app)
             fitBadges()
             showFold()
         case .workspace(let id):
             guard let worktree = app.worktree(id) else { return }
-            title.stringValue = worktree.displayName
+            // The project's own screen, which has a row once the project has others, is named by its folder's branch,
+            // as the window bar names it.
+            let own = isOwnScreen
+            title.stringValue =
+                own && (worktree.note.isEmpty || worktree.isUnnamed)
+                ? app.gitState.branch(id) ?? worktree.branch : worktree.displayName
             title.textColor = .labelColor
             // A branch splits the code and a group splits the screen, so the icon in the slot always tells them apart.
             let onBranch = worktree.path != app.repo(worktree.repoId)?.path
-            icon.image = .symbol(onBranch ? "arrow.triangle.branch" : "rectangle.stack")
+            icon.image = .symbol(onBranch ? "arrow.triangle.branch" : own ? "macwindow" : "rectangle.stack")
             showGroupLine(worktree, onBranch: onBranch)
             showFold()
             // When the workspace is expanded, its agents show their own state. When collapsed, its row sums them up.
@@ -308,7 +335,10 @@ final class SidebarCell: NSTableCellView {
                 collapsed
                 ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt })
                 : node.children.isEmpty ? "" : "\(node.children.count)"
-            stack.show(collapsed ? AgentStack.chats(under: node, app) : [], app)
+            // In a folded project, the screen's row holds its chats as logos.
+            let held = node.hidden.compactMap(app.session)
+            stack.show(!held.isEmpty ? held : collapsed ? AgentStack.chats(under: node, app) : [], app)
+            showCountdown(worktree)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
             speakGroup(onBranch: onBranch)
@@ -351,6 +381,12 @@ final class SidebarCell: NSTableCellView {
             speak(session)
         case .host, .parked: break
         }
+    }
+
+    /// True on the row of a project's own screen (once the project has other screens).
+    var isOwnScreen: Bool {
+        guard case .workspace(let id) = node.kind else { return false }
+        return (owner?.outline.parent(forItem: node) as? SidebarController.Node)?.workspace == id
     }
 
     /// Starts editing the workspace's name: the title of its own row, or the grey name beside the project's name. With

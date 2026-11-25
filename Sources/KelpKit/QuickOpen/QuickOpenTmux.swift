@@ -98,21 +98,39 @@ extension QuickOpen {
 /// A row of a built-in's list in Open Quickly (`Workbench.showList`).
 package struct QuickItem {
     let title: String, detail: String, icon: String, image: NSImage?
+    /// Grey words at the row's end ("3 more matches").
+    let note: String
+    /// The title is machine text (a line a terminal printed), set in the monospaced face.
+    let mono: Bool
     /// A view at the row's end, such as a database's stage.
     let accessory: (@MainActor () -> NSView?)?
     let open: () -> Void, split: (() -> Void)?
 
     package init(
-        _ title: String, detail: String, icon: String = "", image: NSImage? = nil,
-        accessory: (@MainActor () -> NSView?)? = nil, open: @escaping () -> Void, split: (() -> Void)? = nil
+        _ title: String, detail: String, icon: String = "", image: NSImage? = nil, note: String = "",
+        mono: Bool = false, accessory: (@MainActor () -> NSView?)? = nil, open: @escaping () -> Void,
+        split: (() -> Void)? = nil
     ) {
         self.title = title
         self.detail = detail
         self.icon = icon
         self.image = image
+        self.note = note
+        self.mono = mono
         self.accessory = accessory
         self.open = open
         self.split = split
+    }
+}
+
+/// A built-in's rows for whatever is typed in ⌘P, under `heading` (English, shown translated) after ⌘P's own matches.
+/// The rows are asked for again on every key; an empty list shows no heading.
+package struct QuickSection {
+    let heading: String
+    let rows: @MainActor (_ typed: String) async -> [QuickItem]
+    package init(_ heading: String, rows: @escaping @MainActor (_ typed: String) async -> [QuickItem]) {
+        self.heading = heading
+        self.rows = rows
     }
 }
 

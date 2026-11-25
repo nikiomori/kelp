@@ -19,6 +19,9 @@ package final class Workbench {
     var mainWindow: NSWindow? { window?.window }
     /// Focus Mode puts the side panels away, and also what a tab adds over its content (breadcrumbs).
     package internal(set) var inFocusMode = false
+    /// The empty groups whose time ran out and that are closing (`WorkspaceActions.closeIdle`). Their rows show the
+    /// sand running out before they go.
+    var timeUp: Set<String> = []
 
     // What an extension may ask of the window (it never gets the window itself).
     /// Brings the window of the workspace on screen to the front, as after a sheet or a settings change made elsewhere.
@@ -74,6 +77,9 @@ package final class Workbench {
     /// The session last looked at in the workspace on screen, or else its newest chat. "Send to agent" and the diff's
     /// review go to it. It stays while a file or a page has the focus.
     package var lastSession: String?
+    /// The agent the user last prompted, in any workspace: its turn began while its tab had the focus, or Send to
+    /// Agent typed into it. ⇧⌘U goes back to it when no agent needs you.
+    var lastPrompted: String?
     /// The file last looked at there (an extension's `{file}`). It stays while a terminal has the focus.
     var focusedFile: String?
 

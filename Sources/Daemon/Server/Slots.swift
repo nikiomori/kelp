@@ -94,12 +94,15 @@ final class Slots: Sendable {
     /// Runs `work` on a thread of its own once it has a slot (`Daemon.offload`). `quick` work runs at once, with no
     /// slot and no program.
     func run<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {
-        let slots = quick ? quickSlots : self, asker = Sessions.asker   // a new thread doesn't inherit `asker`
+        // A new thread doesn't inherit `asker`, nor the Stop of the statement it runs
+        let slots = quick ? quickSlots : self, asker = Sessions.asker, stop = DatabaseStop.current
         if let slots, await !slots.acquire() { throw RPCError.updating }
         return try await Self.onThread {
             defer { slots?.release() }
             return Sessions.$asker.withValue(asker) {
-                quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work)
+                DatabaseStop.$current.withValue(stop) {
+                    quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work)
+                }
             }
         }
     }

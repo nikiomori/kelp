@@ -287,6 +287,15 @@ public struct GitRemoteOp: RPCMethod {
         self.op = op
     }
 }
+/// Fetches workspace `worktreeId`'s remotes for Kelp's background fetch (Settings › Source Control): as Fetch does,
+/// but without a password or passphrase prompt nobody would see, and giving up sooner. A failure is the answer, not an
+/// error. A remote project is fetched only over a connection already open: Kelp doesn't dial a host by itself.
+public struct GitFetchQuietly: InternalMethod {
+    public static let name = "git.fetchQuietly"
+    public typealias Result = QuietFetch
+    public var worktreeId: String
+    public init(worktreeId: String) { self.worktreeId = worktreeId }
+}
 /// Acts on one commit of workspace `worktreeId`'s history: `checkout` puts HEAD on it with no branch, `branch` makes
 /// the branch `branch` there and switches to it, `cherryPick` applies it to the current branch, and `revert` adds a
 /// commit that undoes it. A conflict leaves the cherry-pick or revert under way, for Source Control's Merge section.

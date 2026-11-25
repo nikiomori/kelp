@@ -22,9 +22,12 @@ extension StripPlaceTests {
         if was { main.toggleSidebarPanel() }
         main.left.item.isCollapsed = false   // open, whatever this Mac's tests left in the split's autosave
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
+        let home = try #require(main.window?.standardWindowButton(.closeButton)).frame.origin.x
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { !main.sidebar.view.isDescendant(of: split) })   // in its floater, at the edge
         #expect(app.settings[SettingKeys.sidebarAutoHide])
+        // The lights sit as far in as the floater stands from the window's corner, in its corner as in a window's.
+        #expect(main.window?.standardWindowButton(.closeButton)?.frame.origin.x == home + main.left.floater.inset)
         // The traffic lights went with it; its toggle stays, at the window's edge where they stood.
         let close = try #require(main.window?.standardWindowButton(.closeButton))
         #expect(try await waitFor(5) { close.isHidden && !main.sidebarToggle.isHidden })
@@ -51,11 +54,48 @@ extension StripPlaceTests {
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
         #expect(!app.settings[SettingKeys.sidebarAutoHide])
+        #expect(main.window?.standardWindowButton(.closeButton)?.frame.origin.x == home)
         #expect(try await waitFor(5) { !close.isHidden && !main.sidebarToggle.isHidden })
         #expect(
             try await waitFor(5) {
                 main.window?.contentView?.layoutSubtreeIfNeeded()
                 return main.sidebarToggle.frame.minX > close.frame.maxX   // back after the lights
+            })
+    }
+
+    /// The inspector's button (⌥⌘0) does as the sidebar's: the inspector is in its column or away at the window's right
+    /// edge, never just closed. Neither panel closes by its divider dragged shut.
+    @Test func theInspectorButtonPutsTheInspectorAwayToo() async throws {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all), main = MainWindowController(app: app)
+        let split = try #require(main.window?.contentView?.subviews.first { !($0 is Backdrop) })
+        let was = app.settings[SettingKeys.inspectorAutoHide]
+        defer { app.settings.set(SettingKeys.inspectorAutoHide, was) }
+        if was { main.toggleInspectorPanel() }
+        main.right.item.isCollapsed = false   // open, whatever this Mac's tests left in the split's autosave
+        #expect(try await waitFor(5) { main.inspector.view.isDescendant(of: split) })
+        main.toggleInspectorPanel()
+        #expect(try await waitFor(5) { !main.inspector.view.isDescendant(of: split) })   // in its floater, at the edge
+        #expect(app.settings[SettingKeys.inspectorAutoHide] && !main.inspectorShown)
+        main.toggleInspectorPanel()
+        #expect(try await waitFor(5) { main.inspector.view.isDescendant(of: split) })
+        #expect(!app.settings[SettingKeys.inspectorAutoHide] && main.inspectorShown)
+        #expect(!main.left.item.canCollapse && !main.right.item.canCollapse)
+        // Closed by an older Kelp, it opens and stays open next time.
+        UserDefaults.standard.set(true, forKey: "inspector.collapsed")
+        main.right.item.isCollapsed = true
+        main.toggleInspectorPanel()
+        #expect(!UserDefaults.standard.bool(forKey: "inspector.collapsed"))
+        // Under Reduce Motion, away and back at once, the docked panel follows its column again.
+        Motion.pinned = true
+        defer { Motion.pinned = nil }
+        main.toggleInspectorPanel()
+        main.toggleInspectorPanel()
+        #expect(
+            try await waitFor(5) {
+                main.right.column.setFrameSize(NSSize(width: 333, height: 500))
+                main.right.column.layoutSubtreeIfNeeded()
+                return main.inspector.view.frame.width == main.right.column.frame.width
             })
     }
 }

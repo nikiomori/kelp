@@ -89,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let workspace = pick ?? last ?? first { app.workbench.show(workspace: workspace.id) }
             app.workbench.reopenOwnWindows()
             await UnsavedBackups.reopen(app, in: app.workbench.editors)
+            WorkspaceActions(app).closeIdle()   // after the unsaved tabs are back in their groups
             app.updates.sayInstalled()
             let early = pendingOpens ?? []
             pendingOpens = nil
@@ -103,8 +104,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Looks for agents again when Kelp comes to the front, so agents installed meanwhile show up.
+    /// Closes the groups that stayed empty for a day, too.
     func applicationDidBecomeActive(_ notification: Notification) {
         app.availability.refresh()
+        WorkspaceActions(app).closeIdle()
         notifier.checkAllowed()
     }
     /// Sends the banners held while you typed, once you're in another app.
@@ -300,9 +303,9 @@ private struct MenuSources: Equatable {
 }
 
 extension AppDelegate: NSMenuItemValidation {
-    /// Show/Hide items say what choosing them does, Focus Mode is ticked while it is on, Stop needs something running,
-    /// and the file commands need a file. The window is asked as `main?`, because there is none until launch and a
-    /// test checks the menu bar without one.
+    /// Show/Hide items say what choosing them does, as ⇧⌘U's says where it goes, Focus Mode is ticked while it is on,
+    /// Stop needs something running, and the file commands need a file. The window is asked as `main?`, because there
+    /// is none until launch and a test checks the menu bar without one.
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.identifier?.rawValue {
         case "workbench.toggleSidebar":
@@ -312,6 +315,7 @@ extension AppDelegate: NSMenuItemValidation {
             item.title =
                 main?.inspectorShown == true
                 ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
+        case "agents.nextNeedingYou": item.title = app.workbench.needingYouTitle
         case "workbench.toggleFocusMode": item.state = main?.inFocusMode == true ? .on : .off
         case "power.keepAwake": item.state = app.settings[SettingKeys.keepAwake] == "always" ? .on : .off
         // Disabled outside a file, so a terminal still gets ⌥Z.

@@ -36,7 +36,7 @@ package struct WorkspaceActions {
     }
 
     /// The work on a branch's folder, or nil when it can't be told (for example, the folder is gone).
-    private func work(on id: String) async -> Work? {
+    func work(on id: String) async -> Work? {
         guard let dirty = await app.quiet(WorktreeDirty(id: id)),
             let commits = await app.quiet(WorktreeUnmerged(id: id))
         else {
@@ -251,47 +251,6 @@ package struct WorkspaceActions {
         for sid in chats { await app.call(SessionMove(id: sid, worktreeId: id)) }
         if let sid = chats.first { app.workbench.focus(session: sid) }
         for wid in from { app.workbench.editors?.chatsLeft(wid) }
-    }
-
-    /// Called when the screen left a group: a group with nothing open lived only while on screen, so it closes.
-    func left(_ id: String) {
-        if app.workbench.layouts[id].allTabs.isEmpty { closeEmpty(id, ended: nil) }
-    }
-
-    /// Called when a group's last tab was closed: the group's row goes too, unasked, unless the group is on screen,
-    /// where it offers what to open next and goes when the screen moves on (`left`). A group on a branch with work of
-    /// its own stays and says so, since closing a tab decides nothing. `ended` is that tab's session, on its way out.
-    func closeEmpty(_ id: String, ended: String?) {
-        guard !app.workbench.isOnScreen(id) else { return }
-        // The session's children end a moment later, with no tab, and nothing would come back to close this group.
-        var ending = Set([ended].compactMap { $0 })
-        while case let more = Set(app.sessions.filter { $0.parent.map(ending.contains) == true }.map(\.id)).subtracting(
-            ending), !more.isEmpty
-        {
-            ending.formUnion(more)
-        }
-        guard let group = app.worktree(id), let repo = app.repo(group.repoId),
-            !app.sessions.contains(where: { $0.worktreeId == id && !ending.contains($0.id) && $0.status != .exited }),
-            let next = WorkspaceClosing.afterLastTab(of: group, rows: app.workspaces(of: repo), repos: app.repos)
-        else { return }
-        Task {
-            if group.path != repo.path {
-                guard let work = await work(on: id) else { return }
-                if work.isAny {
-                    let key = app.extensions.keyText("workspace.close") ?? String(localized: "Close Group")
-                    Banner.show(
-                        String(
-                            localized:
-                                "“\(group.displayName)” stays: its work is only on \(group.branch). \(key) closes it."
-                        ))
-                    return
-                }
-            }
-            if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            // The group stays when a closed chat couldn't move or the agent that just ended left something after all.
-            guard await app.workbench.keepClosedTabs(of: group, on: next), await app.call(WorktreeRemove(id: id)) != nil
-            else { return app.workbench.show(workspace: id) }
-        }
     }
 
     /// Closes several workspaces at once (sidebar multi-selection) with one question; each project keeps at least one.

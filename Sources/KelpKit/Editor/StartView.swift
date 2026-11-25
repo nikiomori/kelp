@@ -212,7 +212,20 @@ final class StartView: NSView {
         other.toolTip = String(localized: "A branch with a name, one that’s there, or a pull request")
         let row = NSStackView(views: [label, place, other])
         row.spacing = Metrics.gapWide
-        return row
+        // A folder of repositories (`RepoKey`) gets the branch in each of them, which the choice says under it.
+        guard let repos = app.latest(GitEvent.self, app.gitKey(worktree.id))?.repos else { return row }
+        let list = repos.joined(separator: ", ")
+        place.setToolTip(
+            String(localized: "A new branch in each repository, side by side in a folder of its own: \(list)"),
+            forSegment: 1)
+        let note = NSTextField(labelWithString: String(localized: "Own Branch makes it in each repository: \(list)"))
+        note.font = .ui(TextSize.caption)
+        note.textColor = .secondaryLabelColor
+        let both = NSStackView(views: [row, note])
+        both.orientation = .vertical
+        both.alignment = .leading
+        both.spacing = Metrics.lineGap
+        return both
     }
     private var codePick: ClosureTarget?   // kept here because a control doesn't retain its target
 

@@ -31,6 +31,7 @@ final class DiffTab: TabContent {
     }
     var icon: NSImage? { .symbol("plus.forwardslash.minus") }
     var toolTip: String? { file }
+    func sendSelectionToAgent() -> Bool { controller.sendSelectionToAgent() }
 
     init(uri: String, app: AppModel) {
         self.uri = uri

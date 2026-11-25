@@ -75,7 +75,14 @@ final class RowMarks {
             ci.insert(here.id)
         }
         let prs = (settings[SettingKeys.gitBadges] ? app.gitFolders : []).union(carded.map { [$0] } ?? [])
-        return [.ci: ci, .pr: prs]
+        return [.ci: withRepos(ci), .pr: withRepos(prs)]
+    }
+
+    /// The folders, a folder of repositories (`RepoKey`) as each of them: its CI and PR are theirs.
+    private func withRepos(_ folders: Set<String>) -> Set<String> {
+        Set(
+            folders.flatMap { id in app.latest(GitEvent.self, id)?.repos.map { $0.map { RepoKey.of(id, $0) } } ?? [id] }
+        )
     }
 
     private func follow(_ now: [WatchTopic: Set<String>]) {
@@ -95,6 +102,10 @@ extension RowMarks {
     /// The more pressing of the folder's runs and its PR's checks. The checks lag a minute, and the runs miss what
     /// isn't CI.
     func state(_ id: String) -> CIRuns.State? {
+        // A folder of repositories (`RepoKey`) has the most pressing of theirs.
+        if let repos = app.latest(GitEvent.self, id)?.repos {
+            return repos.compactMap { state(RepoKey.of(id, $0)) }.max()
+        }
         let ci = app.latest(CIEvent.self, id)?.result.flatMap { CIRuns.state($0.runs) }
         return [ci, app.latest(PREvent.self, id)?.pr.flatMap { CIRuns.state($0.checks) }].compactMap { $0 }.max()
     }

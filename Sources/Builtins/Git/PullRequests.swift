@@ -14,7 +14,9 @@ enum PullRequests {
     @MainActor static func mark(_ folder: String, _ app: AppModel) -> (
         title: NSAttributedString, tip: String, uri: String, page: URL?
     )? {
-        guard app.settings[SettingKeys.gitBadges], let pr = app.latest(PREvent.self, folder)?.pr else { return nil }
+        guard app.settings[SettingKeys.gitBadges] else { return nil }
+        if let repos = app.latest(GitEvent.self, folder)?.repos { return several(folder, repos, app) }
+        guard let pr = app.latest(PREvent.self, folder)?.pr else { return nil }
         let (title, tip) = badge(pr)
         return (title, tip, uri(folder, number: pr.number, page: pr.url, app), URL(string: pr.url))
     }
@@ -22,7 +24,8 @@ enum PullRequests {
     /// The PR's own tab (Issues'), as the Issues panel opens it, or the PR's page while the folder's project isn't
     /// known.
     @MainActor static func uri(_ folder: String, number: Int?, page: String, _ app: AppModel) -> String {
-        guard let repo = app.worktree(folder)?.repoId, let number else { return page }
+        // A repository of a folder of several (`RepoKey`) is no project of Kelp's: its PR opens as its page.
+        guard RepoKey.parts(folder) == nil, let repo = app.worktree(folder)?.repoId, let number else { return page }
         return TabURI.pullRequest(repo: repo, number: number)
     }
 
@@ -49,9 +52,47 @@ enum PullRequests {
         return (label, String(localized: "Pull request #\(number) · \(said) · \(checks)") + "\n" + pr.title)
     }
 
-    /// The PR as the folder's hover card shows it.
+    /// The PRs of a folder of repositories (`RepoKey`), one for each repository with one, in one mark: "#12" for one,
+    /// "2 PR" for more, in the colour of the most pressing (changes asked for, then failing checks, else their
+    /// state's). The tooltip and the hover card name each; a click opens the first.
+    @MainActor private static func several(_ folder: String, _ repos: [String], _ app: AppModel) -> (
+        title: NSAttributedString, tip: String, uri: String, page: URL?
+    )? {
+        let prs = repos.compactMap { name in
+            app.latest(PREvent.self, RepoKey.of(folder, name))?.pr.map { (name: name, pr: $0) }
+        }
+        guard let first = prs.first else { return nil }
+        let tip = prs.map { "\($0.name): " + badge($0.pr).1 }.joined(separator: "\n")
+        let page = uri(RepoKey.of(folder, first.name), number: first.pr.number, page: first.pr.url, app)
+        guard prs.count > 1 else { return (badge(first.pr).0, tip, page, URL(string: first.pr.url)) }
+        let asked = prs.contains { $0.pr.reviewDecision == "CHANGES_REQUESTED" }
+        let failing = prs.contains { $0.pr.checks.failed > 0 }
+        let color: NSColor =
+            asked ? .textOrange : failing ? .textRed : .pullRequest(state: first.pr.state, draft: first.pr.isDraft)
+        let title = NSAttributedString(
+            string: String(localized: "\(prs.count) PR"),
+            attributes: [.font: NSFont.uiDigits(TextSize.micro, weight: .medium), .foregroundColor: color])
+        return (title, tip, page, URL(string: first.pr.url))
+    }
+
+    /// The PR as the folder's hover card shows it; in a folder of repositories, each one's, under its name.
     @MainActor static func card(_ folder: String, _ app: AppModel) -> AnyView? {
-        app.latest(PREvent.self, folder)?.pr.map { AnyView(PRLine(pr: $0)) }
+        guard let repos = app.latest(GitEvent.self, folder)?.repos else {
+            return app.latest(PREvent.self, folder)?.pr.map { AnyView(PRLine(pr: $0)) }
+        }
+        let prs = repos.compactMap { name in
+            app.latest(PREvent.self, RepoKey.of(folder, name))?.pr.map { (name: name, pr: $0) }
+        }
+        guard !prs.isEmpty else { return nil }
+        return AnyView(
+            VStack(alignment: .leading, spacing: Metrics.gap) {
+                ForEach(prs, id: \.name) { item in
+                    VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                        Text(item.name).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
+                        PRLine(pr: item.pr)
+                    }
+                }
+            })
     }
 
     /// Adds Create Pull Request to the branch chip's menu while the branch has no PR.
@@ -81,7 +122,7 @@ struct PRLine: View {
             default: "arrow.triangle.pull"
             }
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Metrics.lineGap) {
             HStack(spacing: 6) {
                 SymbolIcon(symbol, size: Metrics.iconSmall).foregroundStyle(color)
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())

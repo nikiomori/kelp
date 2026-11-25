@@ -179,6 +179,27 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     #expect(unsynced.outgoing.map(\.subject) == ["not pushed"] && unsynced.incoming.isEmpty)
 }
 
+/// Kelp's background fetch brings what another clone pushed, so the branch's counts show it; it fails quietly, with
+/// the reason as its answer.
+@Test func aQuietFetchBringsTheRemotesCommits() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let bare = tmp().path, other = tmp().path
+    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare, remotes: .none)
+    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path, remotes: .none)
+    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path, remotes: .none)
+    try Git.run(["clone", "-q", "-b", "feat/x", bare, other], cwd: tmp().path, remotes: .none)
+    try "theirs\n".write(toFile: other + "/t.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "t.txt"], cwd: other, remotes: .none)
+    try Git.run(["commit", "-qm", "theirs"], cwd: other, remotes: .none)
+    try Git.run(["push", "-q"], cwd: other, remotes: .none)
+    #expect(try await r.c.call(GitBranches(id: r.wt.id)).behind == 0)
+    #expect(try await r.c.call(GitFetchQuietly(worktreeId: r.wt.id)).trouble == nil)
+    #expect(try await r.c.call(GitBranches(id: r.wt.id)).behind == 1)
+    try Git.run(["remote", "set-url", "origin", "https://nonexistent.invalid/r.git"], cwd: r.wt.path, remotes: .none)
+    #expect(try await r.c.call(GitFetchQuietly(worktreeId: r.wt.id)).trouble == .offline)
+}
+
 /// The Files panel's ignored entries: a folder git ignores as one entry, its files when it's opened, nothing above the
 /// workspace.
 @Test func ignoredFilesAreListedByFolder() async throws {
@@ -250,6 +271,26 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await sessions(r).first { $0.id == s.id }?.currentDir == elsewhere)
     _ = try await r.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "cwd": .string(s.cwd + "/")]))
     #expect(try await sessions(r).first { $0.id == s.id }?.workDir == nil)
+}
+
+/// A hook from a worktree of the project's that Kelp didn't make (Claude Code's own) names the chat's branch, which
+/// stays when the agent works in its first folder again. Git reads it by the chat's key; what removes a workspace can't
+/// take it.
+@Test func aWorktreeTheAgentWorksInIsItsBranchAndStays() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let s = try await session(r, "cat")
+    let fix = r.repo.path + "/.claude/worktrees/fix"
+    try Git.run(["worktree", "add", "-q", "-b", "fix", fix], cwd: r.repo.path, remotes: .none)
+    _ = try await r.c.call(
+        "session.hook", .obj(["id": .string(s.id), "event": "working", "cwd": .string(fix + "/Sources")]))
+    _ = try await r.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "cwd": .string(s.cwd)]))
+    let chat = try #require(try await sessions(r).first { $0.id == s.id })
+    #expect(chat.workDir == nil)
+    #expect(chat.branchFolder == URL(fileURLWithPath: fix).resolvingSymlinksInPath().path)
+    #expect(try await r.c.call(GitBranches(id: chat.branchKey)).current == "fix")
+    await #expect(throws: (any Error).self) { try await r.c.call(WorktreeRemove(id: chat.branchKey)) }
+    #expect(FileManager.default.fileExists(atPath: fix + "/.git"))
 }
 
 @Test func whatAProgramReportsShowsUntilItSaysSomethingElse() async throws {
@@ -687,4 +728,17 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     async let first = c.call(CommentSend(id: wt.id, session: s.id, only: [twice.id]))
     async let second = c.call(CommentSend(id: wt.id, session: s.id, only: [twice.id]))
     #expect(try await first + second == 1)
+}
+
+/// ⌘P's lines of output: each running session that printed the text gives its newest line with it and how many lines
+/// have it; one without it, or not running, gives nothing.
+@Test func findingTextInWhatSessionsPrinted() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let failed = try await session(r, "printf '$ npm run migrate\\nError: migrate failed\\n'; cat")
+    let quiet = try await session(r, "echo nothing here; cat")
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: failed.id)).contains("failed") })
+    #expect(try await waitFor { try await r.c.call(SessionRead(id: quiet.id)).contains("nothing") })
+    let found = try await r.c.call(SessionFind(ids: [failed.id, quiet.id, "gone"], query: "MIGRATE"))
+    #expect(found == [SessionFound(id: failed.id, line: "Error: migrate failed", count: 2)])
 }

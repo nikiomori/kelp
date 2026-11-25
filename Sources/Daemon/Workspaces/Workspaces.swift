@@ -151,7 +151,8 @@ final class Workspaces: Sendable {
 
     /// Claims `branch` for this create: true when the branch doesn't exist and no other create is making it.
     private func claimed(_ repo: Repo, _ branch: String) -> Bool {
-        guard !Git.branchExists(repo.path, branch, remotes: remotes) else { return false }
+        let checkouts = Git.checkouts(project: repo.path, folder: repo.path)   // a folder of repositories: any of them
+        guard !checkouts.contains(where: { Git.branchExists($0.repo, branch, remotes: remotes) }) else { return false }
         return making.withLock { $0.insert(repo.id + "/" + branch).inserted }
     }
 
@@ -165,9 +166,13 @@ final class Workspaces: Sendable {
     /// .kelp.yaml links, clones and starts waits for the user's trust in that file.
     func createBranchWorkspace(in repo: Repo, _ asked: WorktreeCreate) throws -> WorktreeCreate.Result {
         let note = asked.note, pr = asked.pr, existing = asked.existing == true
+        // A folder of repositories (`RepoKey`) gets the branch in each of them, side by side in one folder.
+        let several = try branchRepos(repo, pr: pr, existing: existing)
         // A project opened without Git gets a plain sentence, not git's refusal.
-        do { _ = try Git.root(of: repo.path, remotes: remotes) } catch {
-            throw RPCError.invalidParams("“\(repo.name)” isn't a Git repository, so it has no branches.")
+        if several.isEmpty {
+            do { _ = try Git.root(of: repo.path, remotes: remotes) } catch {
+                throw RPCError.invalidParams("“\(repo.name)” isn't a Git repository, so it has no branches.")
+            }
         }
         let auto = try nextWorkspace(in: repo)
         var claims = [auto.branch]
@@ -200,9 +205,13 @@ final class Workspaces: Sendable {
         let host = remotes.of(repo.path)
         let path =
             try host.map { try remoteWorktree(repo, $0, branch: branch, base: base, existing: checksOut) }
-            ?? Git.addWorktree(
-                repo: repo.path, branch: branch, base: base, into: into, copyFiles: repo.copyFiles,
-                existing: checksOut, copying: !fromPR, remotes: remotes)
+            ?? (several.isEmpty
+                ? Git.addWorktree(
+                    repo: repo.path, branch: branch, base: base, into: into, copyFiles: repo.copyFiles,
+                    existing: checksOut, copying: !fromPR, remotes: remotes)
+                : Git.addWorktrees(
+                    project: repo.path, branch: branch, into: into, copyFiles: repo.copyFiles,
+                    remotes: remotes))
         // Checking out "origin/x" makes a local "x" that follows it, so the workspace records "x".
         if existing, !Git.branchExists(repo.path, branch, remotes: remotes) {
             branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
@@ -293,6 +302,7 @@ final class Workspaces: Sendable {
         // stand-in folder here maps to.
         let host = remotes.of(repo.path)   // the project's host, since its worktrees are there too
         let there = remotes.of(workspace.path)?.path ?? workspace.path
+        if try removeSeveral(workspace, repo, branch: branch, force: force, dropCommits: drop) { return }
         let exists =
             try host.map {
                 String(

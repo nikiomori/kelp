@@ -20,15 +20,18 @@ enum ResultText {
         }
     }
 
+    /// `types` are the columns' types where known (a table's), for which are numbers in JSON; `from` is the table the
+    /// rows came from, for INSERT.
     static func text(
-        _ format: Format, _ columns: [String], _ rows: [[String?]], table: String?, engine: DatabaseInfo.Engine?
+        _ format: Format, _ columns: [String], _ rows: [[String?]], types: [String?],
+        from: (table: String?, engine: DatabaseInfo.Engine?)
     ) -> String {
         switch format {
         case .tsv: tsv(columns, rows)
         case .csv: csv(columns, rows)
-        case .json: json(columns, rows)
+        case .json: json(columns, rows, types: types)
         case .markdown: markdown(columns, rows)
-        case .insert: insert(columns, rows, table: table ?? "t", engine: engine ?? .postgres)
+        case .insert: insert(columns, rows, table: from.table ?? "t", engine: from.engine ?? .postgres, types: types)
         }
     }
 
@@ -47,8 +50,16 @@ enum ResultText {
             .joined(separator: "\n") + "\n"
     }
 
-    /// Rows as JSON, where numbers stay numbers, JSON stays JSON and NULL is null; the rest are strings.
-    static func json(_ columns: [String], _ rows: [[String?]]) -> String {
+    /// Rows as JSON, where a number column's numbers stay numbers (exactly, however long), JSON stays JSON and NULL is
+    /// null; the rest are strings. A column's type says which are numbers: without one (a query's rows), a column is of
+    /// numbers when every value is written as JSON writes one, so a zip code with its leading zero stays text.
+    static func json(_ columns: [String], _ rows: [[String?]], types: [String?] = []) -> String {
+        let numbers = Set(
+            columns.indices.filter { i in
+                if types.indices.contains(i), let type = types[i] { return ResultGrid.isNumber(type) }
+                let values = rows.compactMap { $0.indices.contains(i) ? $0[i] : nil }
+                return !values.isEmpty && values.allSatisfy { $0.wholeMatch(of: jsonNumber) != nil }
+            })
         let objects = rows.map { row -> [String: Any] in
             var object: [String: Any] = [:]
             for (i, name) in columns.enumerated() where row.indices.contains(i) {
@@ -56,8 +67,8 @@ enum ResultText {
                     object[name] = NSNull()
                     continue
                 }
-                if let number = Double(value), value.first != "0" || value == "0" || value.hasPrefix("0.") {
-                    object[name] = number == number.rounded() && abs(number) < 1e15 ? Int64(number) as Any : number
+                if numbers.contains(i), let number = exactNumber(value) {
+                    object[name] = number
                 } else if value.first == "{" || value.first == "[", let parsed = parsedJSON(value) {
                     object[name] = parsed
                 } else {
@@ -70,7 +81,21 @@ enum ResultText {
             let data = try JSONSerialization.data(
                 withJSONObject: objects, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
             return String(decoding: data, as: UTF8.self)
-        } catch { return "[]" }   // only strings, numbers and parsed JSON go in, so it can't fail
+        } catch { return "[]" }   // only strings, finite numbers and parsed JSON go in, so it can't fail
+    }
+
+    /// A number as JSON writes it: no leading zero, no NaN or Infinity.
+    private static var jsonNumber: Regex<Substring> { /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/ }
+
+    /// The number a cell's text is, written with every digit it has, or nil for one JSON has no number for (NaN,
+    /// Infinity, 1e999) or that has more digits than a decimal keeps: those stay text.
+    private static func exactNumber(_ value: String) -> NSDecimalNumber? {
+        let trimmed = value.trimmingCharacters(in: .whitespaces)
+        guard trimmed.wholeMatch(of: jsonNumber) != nil,
+            trimmed.prefix { $0 != "e" && $0 != "E" }.filter(\.isNumber).drop { $0 == "0" }.count <= 38,
+            let decimal = Decimal(string: trimmed), decimal.isFinite
+        else { return nil }
+        return NSDecimalNumber(decimal: decimal)
     }
 
     /// The JSON a cell holds, or nil for text that only starts like JSON.
@@ -87,16 +112,25 @@ enum ResultText {
         return ([head, rule] + rows.map { "| " + $0.map(cell).joined(separator: " | ") + " |" }).joined(separator: "\n")
     }
 
-    static func insert(_ columns: [String], _ rows: [[String?]], table: String, engine: DatabaseInfo.Engine) -> String {
-        let names = columns.map { DatabaseEdits.name($0, engine) }.joined(separator: ", ")
-        return rows.map { row in
-            "INSERT INTO \(DatabaseEdits.name(table, engine)) (\(names)) VALUES ("
-                + row.map { engine.literal($0) }.joined(separator: ", ") + ");"
+    /// A value Kelp shows only the start of is left out (`DatabaseInfo.Engine.standIn`), and `types` write MySQL's
+    /// bytes as bytes.
+    static func insert(
+        _ columns: [String], _ rows: [[String?]], table: String, engine: DatabaseInfo.Engine, types: [String?] = []
+    ) -> String {
+        rows.map { row in
+            let given = row.indices.filter { columns.indices.contains($0) && !DatabaseInfo.Engine.standIn(row[$0]) }
+            return "INSERT INTO \(DatabaseEdits.name(table, engine)) ("
+                + given.map { DatabaseEdits.name(columns[$0], engine) }.joined(separator: ", ") + ") VALUES ("
+                + given.map { engine.literal(row[$0], type: types.indices.contains($0) ? types[$0] ?? "" : "") }
+                .joined(separator: ", ") + ");"
         }.joined(separator: "\n")
     }
 }
 
 extension ResultGrid: NSMenuDelegate {
+    /// The columns' types, nil where the rows don't come from a table.
+    var types: [String?] { columns.map { info[$0]?.type } }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         if let header = table.headerView, menu === header.menu { return headerMenu(menu, header) }
@@ -131,7 +165,8 @@ extension ResultGrid: NSMenuDelegate {
                 guard let self else { return }
                 copyText(
                     ResultText.text(
-                        format, columns, picked.map { self.rows[$0] }, table: source?.table, engine: source?.engine))
+                        format, columns, picked.map { self.rows[$0] }, types: types,
+                        from: (source?.table, source?.engine)))
             }
         }
         menu.add(String(localized: "Copy Rows As"), submenu: copyAs)
@@ -146,14 +181,7 @@ extension ResultGrid: NSMenuDelegate {
                 changed(rows: [row])
             }
         }
-        if read {
-            menu.add(String(localized: "Duplicate Row")) { [weak self] in
-                guard let self else { return }
-                // The key is left out, so the database gives the copy its own.
-                let copy = rows[row].enumerated().map { i, v in info[columns[i]]?.primary == true ? nil : v }
-                addRow(copy)
-            }
-        }
+        if read { menu.add(String(localized: "Duplicate Row")) { [weak self] in self?.duplicateSelected() } }
         menu.add(
             picked.count > 1 ? String(localized: "Delete \(picked.count) Rows") : String(localized: "Delete Row")
         ) { [weak self] in self?.deleteSelected() }
@@ -172,18 +200,10 @@ extension ResultGrid {
         let column = table.tableColumns[index], name = columns[columnIndex]
         for (title, up) in [(String(localized: "Sort Ascending"), true), (String(localized: "Sort Descending"), false)]
         {
-            menu.add(title) { [weak self] in
-                self?.orders = [(name, up)]
-                self?.indicate()
-                self?.onSort()
-            }
+            menu.add(title) { [weak self] in self?.sort([(name, up)]) }
         }
         if !orders.isEmpty {
-            menu.add(String(localized: "Don’t Sort")) { [weak self] in
-                self?.orders = []
-                self?.indicate()
-                self?.onSort()
-            }
+            menu.add(String(localized: "Don’t Sort")) { [weak self] in self?.sort([]) }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Hide \(name)")) { column.isHidden = true }
@@ -198,5 +218,12 @@ extension ResultGrid {
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Name")) { copyText(name) }
+    }
+
+    private func sort(_ order: [(column: String, ascending: Bool)]) {
+        let was = orders
+        orders = order
+        indicate()
+        onSort(was)
     }
 }

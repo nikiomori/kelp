@@ -12,6 +12,13 @@ final class SidebarOutline: NSOutlineView {
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
     /// A row's own height, without that room (`SidebarRowView.content`). 0 while it isn't known.
     var rests: (Int) -> CGFloat = { _ in 0 }
+    /// Called for → on the selected row, before the outline's own expand; true when it unfolded something. A folded
+    /// project folds in the tree, so the outline itself has nothing to expand there.
+    var onRight: (Int) -> Bool = { _ in false }
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 124, selectedRowIndexes.count == 1, onRight(selectedRow) { return }   // →
+        super.keyDown(with: event)
+    }
     /// No disclosure triangles: projects and groups fold from the chevron their slot shows on hover (SidebarCell).
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {

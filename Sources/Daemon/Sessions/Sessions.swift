@@ -56,8 +56,8 @@ final class Sessions: Sendable, WorkspaceSessions {
             phone: PhoneBridge(
                 store: store, settings: settings, setup: setup, live: live,
                 conversations: agentUsage.conversations, offloads: offloads, root: root))
-        processes = SessionProcesses(live: live, store: store, remotes: remotes)
-        turns = Turns(live: live, store: store, remotes: remotes)
+        processes = SessionProcesses(live: live, store: store, remotes: remotes, forwards: setup.hostBrowser.forwards)
+        turns = Turns(live: live, store: store, remotes: remotes, root: root, offloads: offloads, setup: setup)
         updates = AgentUpdates(live: live, settings: settings)
     }
 
@@ -180,9 +180,9 @@ final class Sessions: Sendable, WorkspaceSessions {
             title: launch.title ?? "", titleManual: launch.title != nil, argv: argv)
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
         // so they stay out: status comes from what the agent reports, and from the screen.
-        let local = remotes.of(cwd) == nil
+        let remote = remotes.of(cwd), local = remote == nil
         // An account profile is a folder on this Mac, so an agent on a host signs in on the host instead.
-        if !local, launch.profile != nil, let host = remotes.of(cwd)?.host {
+        if !local, launch.profile != nil, let host = remote?.host {
             throw RPCError.invalidParams(
                 "Account profiles are for agents on this Mac: one on \(host) signs in there, in a terminal of the project."
             )

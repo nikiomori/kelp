@@ -16,8 +16,50 @@ struct SourceControl: Sendable {
     /// do to a session.
     let send: @Sendable (SessionSend) throws -> Void
 
-    /// The folder of the workspace a client named.
-    func folder(_ worktreeId: String) throws -> String { try store.worktree(named: worktreeId).path }
+    /// The folder of the workspace a client named, or of a chat's own branch (`Store.gitPlace`).
+    func folder(_ worktreeId: String) throws -> String { try store.gitPlace(named: worktreeId).path }
+
+    /// The repositories a folder holds side by side when it isn't one itself (`RepoKey`), by name; nil for any other
+    /// folder. Then a git method on the folder acts on each repository, and a path's first part names its repository.
+    func repos(in folder: String) -> [String]? {
+        let names = Git.nestedRepos(folder)   // a remote project's folder here holds only its marker: none
+        return names.isEmpty ? nil : names
+    }
+
+    /// Where git takes `files`, given relative to `folder`: the folder itself with them all, or, in a folder of
+    /// repositories, each repository named by the files' first parts with the rest of their paths, in the files'
+    /// order. No files means all of them: then every repository. A path in none of them is refused.
+    func places(_ folder: String, _ files: [String]) throws -> [(folder: String, files: [String])] {
+        guard let names = repos(in: folder) else { return [(folder, files)] }
+        guard !files.isEmpty else { return names.map { (folder + "/" + $0, []) } }
+        var out: [(folder: String, files: [String])] = []
+        for file in files {
+            let (dir, rest) = try place(folder, file, names)
+            if let index = out.firstIndex(where: { $0.folder == dir }) {
+                out[index].files.append(rest)
+            } else {
+                out.append((dir, [rest]))
+            }
+        }
+        return out
+    }
+
+    /// The repository `file` (relative to `folder`) is in, and its path there, as `places` finds them.
+    func place(_ folder: String, _ file: String, _ names: [String]? = nil) throws -> (folder: String, file: String) {
+        guard let names = names ?? repos(in: folder) else { return (folder, file) }
+        let parts = file.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2, names.contains(parts[0]) else {
+            throw RPCError.invalidParams("“\(file)” is in none of the folder's repositories.")
+        }
+        return (folder + "/" + parts[0], parts[1])
+    }
+
+    /// Runs `body` in each repository of a folder that holds several, or once in the folder itself. Each result's
+    /// paths are under its repository's name (`under`), as the folder names them.
+    func each<T>(_ folder: String, _ body: (String) throws -> T) throws -> [(name: String?, value: T)] {
+        guard let names = repos(in: folder) else { return [(nil, try body(folder))] }
+        return try names.map { ($0, try body(folder + "/" + $0)) }
+    }
 
     /// Returns what an agent's turn changed, and the folder it worked in then (maybe its own worktree). With `turn`, a
     /// turn from the agent's history, the diff runs from that turn's start up to the next turn's start, or up to now

@@ -167,6 +167,18 @@ package final class AppModel {
     /// How the user arranged the sidebar. It is its own observed model (`Arrangement`), not part of the daemon's
     /// mirror.
     @ObservationIgnored private(set) lazy var arrangement = Arrangement(app: self)
+    /// Returns sessions in about the order the sidebar lists them: by project and workspace, then as dragged among
+    /// their siblings, then oldest first.
+    package func inSidebarOrder(_ sessions: [Session]) -> [Session] {
+        let place = Dictionary(
+            projects.flatMap(workspaces(of:)).enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let rank = arrangement.rank
+        return sessions.sorted {
+            (place[$0.worktreeId ?? ""] ?? .max, rank[$0.id] ?? .max, $0.createdAt)
+                < (place[$1.worktreeId ?? ""] ?? .max, rank[$1.id] ?? .max, $1.createdAt)
+        }
+    }
+
     /// Puts the given sibling ids in the given order.
     func reorder(_ ids: [String]) { arrangement.order = ids + arrangement.order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
@@ -402,6 +414,7 @@ package final class AppModel {
             if session.isOlder(than: old) { return }
             if old != session { upsert(session) }   // the views follow `sessions`
             notifier?.statusChanged(session, old)
+            workbench.noteTurn(session, was: old)
             if old?.status != session.status { arrangement.followParked(session) }
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)
@@ -494,6 +507,16 @@ package final class AppModel {
         let all = worktrees   // read through the observed property, as `session(_:)` does
         if worktreeBy == nil { worktreeBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
         return id.flatMap { worktreeBy?[$0] }
+    }
+    /// A folder the git marks name by id: a workspace, or a chat's own branch folder (`Session.branchKey`), made up
+    /// here as the daemon makes it up for its reads (`Store.gitPlace`). Only marks and their reads take it: no group.
+    func gitPlace(_ id: String?) -> Worktree? {
+        guard let id, id.hasPrefix(Session.branchKeyPrefix) else { return worktree(id) }
+        guard let chat = session(String(id.dropFirst(Session.branchKeyPrefix.count))), let folder = chat.branchFolder,
+            let home = worktree(chat.worktreeId)
+        else { return nil }
+        let branch = gitState.branch(id) ?? (folder as NSString).lastPathComponent
+        return Worktree(id: id, repoId: home.repoId, branch: branch, path: folder)
     }
     /// Returns the workspace whose folder holds `path`. It picks the innermost one, because a branch's folder can sit
     /// inside its project's folder.

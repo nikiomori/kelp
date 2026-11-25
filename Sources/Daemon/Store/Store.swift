@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import GRDB
+import GitKit
 import os
 
 /// SQLite persistence for repos, worktrees, sessions and diff comments.
@@ -56,7 +57,19 @@ final class Store: Sendable {
     func copy(to path: URL) throws { try db.backup(to: try DatabaseQueue(path: path.path)) }
 
     func repos() throws -> [Repo] { try db.read { try Repo.order(Column("name")).fetchAll($0) } }
-    func repo(_ id: String) throws -> Repo? { try db.read { try Repo.fetchOne($0, key: id) } }
+    func repo(_ id: String) throws -> Repo? {
+        if let nested = RepoKey.parts(id) {
+            // A repository inside a project made of several (`RepoKey`): its main checkout, with its own base branch.
+            guard let project = try repo(nested.id), Git.nestedRepos(project.path).contains(nested.name) else {
+                return nil
+            }
+            let path = project.path + "/" + nested.name
+            return Repo(
+                id: id, name: nested.name, path: path, baseBranch: Git.defaultBranchFromFiles(path),
+                copyFiles: project.copyFiles)
+        }
+        return try db.read { try Repo.fetchOne($0, key: id) }
+    }
     func worktrees(repo: String? = nil) throws -> [Worktree] {
         try db.read { database in
             var query = Worktree.order(Column("createdAt"))
@@ -65,6 +78,31 @@ final class Store: Sendable {
         }
     }
     func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
+    /// The folder the git, PR and CI reads take by id: a workspace, or a chat's own branch folder
+    /// (`Session.branchKey`). That one is no workspace and is made up here, for these reads alone, so nothing Kelp does
+    /// to a workspace (close, remove, tidy a merged branch) can reach the agent's folder.
+    /// A repository inside a folder that holds several is named by a `RepoKey` and made up here too: it belongs to the
+    /// made-up project of the same name (`repo`), so its base branch and main checkout are its own.
+    func gitPlace(_ id: String) throws -> Worktree? {
+        if let nested = RepoKey.parts(id) {
+            guard let home = try gitPlace(nested.id), Git.nestedRepos(home.path).contains(nested.name) else {
+                return nil
+            }
+            let folder = home.path + "/" + nested.name
+            return Worktree(
+                id: id, repoId: RepoKey.of(home.repoId, nested.name), branch: Git.headBranch(folder) ?? "",
+                path: folder)
+        }
+        guard id.hasPrefix(Session.branchKeyPrefix) else { return try worktree(id) }
+        guard let chat = try session(String(id.dropFirst(Session.branchKeyPrefix.count))),
+            let folder = chat.branchFolder, let home = try chat.worktreeId.flatMap(worktree)
+        else { return nil }
+        return Worktree(id: id, repoId: home.repoId, branch: Git.headBranch(folder) ?? "", path: folder)
+    }
+    func gitPlace(named id: String) throws -> Worktree {
+        guard let found = try gitPlace(id) else { throw RPCError.noWorkspace(id) }
+        return found
+    }
     func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
     func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
     /// The sessions these parents started (`parent`), read through that column's index.

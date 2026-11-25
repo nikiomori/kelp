@@ -28,7 +28,8 @@ final class WindowBar: NSView {
     let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
     let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
     /// The branch chip's data: the on-screen workspace's git state, as the daemon pushes it (ChangedFiles watches it).
-    private var info: BranchInfo? { app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.branches }
+    private var info: BranchInfo? { event?.shownBranches }
+    private var event: GitEvent? { app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId)) }
 
     /// Whether the workspace on screen has uncommitted changes (a dot on the chip). `syncing` is what a sync running
     /// there says.
@@ -36,6 +37,10 @@ final class WindowBar: NSView {
         !(app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.changes ?? []).isEmpty
     }
     private var syncing: String? { app.workbench.mainWorkspaceId.flatMap { app.extensions.all.branch?.running($0) } }
+    /// Why the background fetch fails, and its mark once it has failed for long (`BranchActions.fetch`).
+    private var fetchTrouble: (said: String, mark: String?)? {
+        app.workbench.mainWorkspaceId.flatMap { app.extensions.all.branch?.fetch($0) }
+    }
     private let popover = NSPopover()
     private var closedAt = Date.distantPast
 
@@ -186,6 +191,7 @@ final class WindowBar: NSView {
             Values(
                 app.workbench.page == nil ? app.worktree(app.workbench.mainWorkspaceId) : nil,
                 app.arrangement.projectLook, self?.info, self?.dirty ?? false, self?.syncing, self?.prMark?.tip,
+                [self?.fetchTrouble?.said, self?.fetchTrouble?.mark],
                 self.map { ["\($0.ci?.state.rawValue ?? -1)", "\($0.ci?.atEnd ?? false)", $0.ciLine ?? ""] } ?? [])
         } changed: { [weak self] _ in
             self?.update()
@@ -293,8 +299,9 @@ final class WindowBar: NSView {
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
         let font = NSFont.ui(TextSize.row)
+        let name = event?.branchTitle ?? info.current ?? info.head ?? "HEAD"   // a folder of repositories: theirs
         let title = NSMutableAttributedString(
-            string: info.current ?? info.head ?? "HEAD",
+            string: name,
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         for (arrow, commits, color) in [("arrow.down", behind, NSColor.labelColor), ("arrow.up", ahead, .emphasis)]
         where commits > 0 {
@@ -304,6 +311,11 @@ final class WindowBar: NSView {
         if dirty {
             title.append(NSAttributedString(string: "  ", attributes: [.font: font]))
             title.append(SidebarCell.dot(shared: false))   // the sidebar's changes dot, drawn
+        }
+        let trouble = fetchTrouble
+        if let mark = trouble?.mark {   // the background fetch has failed for an hour: grey, a shape, not a colour
+            title.append(NSAttributedString(string: "  ", attributes: [.font: font]))
+            title.append(.signed(mark, nil, size: TextSize.row, color: .secondaryLabelColor))
         }
         let running = syncing, ci = self.ci?.state, atEnd = self.ci?.atEnd == true,
             inPlace = ci != nil && !atEnd && running == nil
@@ -321,9 +333,10 @@ final class WindowBar: NSView {
         ciAtEnd.isActive = atEnd
         let changed = app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.changes?.count ?? 0
         let parts =
-            [info.current ?? info.head ?? "HEAD"] + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
+            [name] + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
             + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (changed > 0 ? [String(localized: "\(changed) changed")] : [])
+            + [trouble?.said].compactMap { $0 }
         let said = ciLine
         branch.toolTip = parts.joined(separator: " · ") + (said.map { "\n" + $0 } ?? "")
         branch.image =

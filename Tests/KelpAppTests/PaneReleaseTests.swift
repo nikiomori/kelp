@@ -1,11 +1,35 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
+import WorkbenchKit
 
 @testable import BuiltinAgents
 @testable import KelpApp
 @testable import KelpKit
+
+/// An agent's terminal offers Send Selection to Agent, with its key, as a shell's does, so one agent's error goes to
+/// another; with nothing selected there is no item and ⌥⌘↩ has nothing to send.
+@MainActor @Test func anAgentsTerminalSendsItsSelectionToAnotherAgent() {
+    _ = testHome
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()
+    for (id, agent) in [("a", "codex"), ("s", Session.shellAgent)] {
+        let pane = PaneView(session: Session(id: id, cwd: "/", command: agent, agent: agent, status: .idle), app: app)
+        let menu = NSMenu()
+        pane.addSend(to: menu, selection: "error: call can throw")
+        let send = menu.items.first
+        #expect(send?.title == "Send Selection to Agent")
+        #expect(
+            send.map { KeyBindings.display(KeySpec(key: $0.keyEquivalent, mods: .init($0.keyEquivalentModifierMask))) }
+                == "⌥⌘↩")
+        let none = NSMenu()
+        pane.addSend(to: none, selection: "")
+        #expect(none.items.isEmpty)
+        #expect(!pane.sendSelectionToAgent())
+    }
+}
 
 /// A terminal out of sight lets go of its surface after a while, Pause idle agents off or not (only sooner when it's
 /// on); it isn't "Session ended" meanwhile, and shown again it attaches anew. All in one main-actor turn: the attach's
@@ -32,4 +56,45 @@ import Testing
     window.contentView?.addSubview(pane)
     #expect(pane.ghostty != nil && !pane.released && pane.offScreen == nil)
     #expect(pane.endedHeight.constant == 0)
+}
+
+/// A file dragged over an agent's pane shows where it will land, as over an editor pane: the drop hint across the pane,
+/// made only once something is dragged there. It goes when the drag leaves.
+@MainActor @Test func aDragOverAnAgentsPaneShowsWhereItLands() async throws {
+    _ = testHome
+    let app = AppModel(builtins: Builtins.all)
+    let s = Session(id: "s2", cwd: "/", command: "claude", agent: "claude", status: .idle)
+    app.upsert(s)
+    let pane = PaneView(session: s, app: app)
+    pane.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
+    #expect(!pane.subviews.contains { $0 is DropHint })
+    let drag = Drag()
+    #expect(pane.draggingEntered(drag) == .copy)
+    let hint = try #require(pane.subviews.last as? DropHint)
+    #expect(!hint.isHidden && hint.frame == DropHint.across(pane.bounds))
+    pane.draggingExited(drag)
+    try await waitFor { hint.isHidden }
+}
+
+/// A drag in progress, as AppKit hands one to a view it is over.
+private final class Drag: NSObject, NSDraggingInfo {
+    let draggingPasteboard = NSPasteboard.withUniqueName()
+    var draggingDestinationWindow: NSWindow? { nil }
+    var draggingSourceOperationMask: NSDragOperation { .copy }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingSource: Any? { nil }
+    var draggingSequenceNumber: Int { 1 }
+    var draggingFormation: NSDraggingFormation = .default
+    var animatesToDestination = false
+    var numberOfValidItemsForDrop = 1
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    func enumerateDraggingItems(
+        options enumOpts: NSDraggingItemEnumerationOptions = [], for view: NSView?, classes classArray: [AnyClass],
+        searchOptions: [NSPasteboard.ReadingOptionKey: Any] = [:],
+        using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+    func resetSpringLoading() {}
 }

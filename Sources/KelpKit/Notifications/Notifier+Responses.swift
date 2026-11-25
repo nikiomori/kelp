@@ -56,9 +56,9 @@ extension Notifier {
 
     /// Answers a permission request without bringing Kelp forward. If the agent's menu is gone (answered in the
     /// terminal, or another menu is up), it shows the agent instead.
-    func answer(_ id: String, _ action: String, question: String?) {
+    func answer(_ id: String, _ action: String, question: String?, run: String? = nil) {
         Task {
-            let ok = await app.call(SessionChoose(id: id, answer: action, question: question)) ?? false
+            let ok = await app.call(SessionChoose(id: id, answer: action, question: question, run: run)) ?? false
             if !ok {
                 NSApp.activate()
                 app.workbench.focus(session: id)

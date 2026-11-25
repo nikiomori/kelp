@@ -96,6 +96,41 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     #expect(try count(path, "SELECT count(*) FROM users") == 1)
 }
 
+/// Two changes asked at once: what shows a change to allow shows the one the row asks (the oldest), and an answer
+/// given for one run's change (the card, the panel, the tab) goes to that change, never to the other one.
+@Test func anAnswerForOneRunGoesToThatChange() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try askDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let dbs = w.d.workspaces.databases
+    func ask(_ sql: String) -> Task<QueryResult, Error> {
+        Task { try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: sql), origin: agent.id) }
+    }
+    let orders = ask("UPDATE orders SET status = 'paid'")
+    #expect(try await waitFor { try summary(w, agent.id) == "Allow changing 3 rows of orders in shop?" })
+    let users = ask("DELETE FROM users")
+    func asking() async throws -> [DatabaseRun] {
+        try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.filter { $0.state == .asks }
+    }
+    #expect(try await waitFor { try await asking().count == 2 })
+    let runs = try await asking()
+    #expect(runs.asked(by: agent.id)?.sql == "UPDATE orders SET status = 'paid'")
+    let newer = try #require(runs.first { $0.sql == "DELETE FROM users" })
+    let question = try summary(w, agent.id)
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: question, run: newer.id)))
+    do {
+        _ = try await users.value
+        Issue.record("a denied change ran")
+    } catch { #expect("\(error)".contains("denied")) }
+    #expect(try await asking().map(\.sql) == ["UPDATE orders SET status = 'paid'"])
+    #expect(try await !w.c.call(SessionChoose(id: agent.id, answer: "allow", run: newer.id)))   // answered already
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
+    #expect(try await orders.value.changed == 3)
+    #expect(try count(path, "SELECT count(*) FROM users") == 1)
+}
+
 /// The user makes the database read-only for agents while its change is asked: an Allow given before they noticed
 /// doesn't run it.
 @Test func aDatabaseMadeReadOnlyWhileAskedIsntChanged() async throws {
@@ -127,6 +162,10 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     #expect(asked("UPDATE ONLY items SET a = 1") == "Allow changing 2 rows of items in app?")
     let ddl = Databases.question("CREATE TABLE t (a int)", database: "app", changed: 0)
     #expect(ddl == "Allow CREATE TABLE t (a int) in app?")
+    // A change inside a query counts what it returns, not its rows: the question doesn't hold it to a number
+    for hidden in ["WITH d AS (DELETE FROM big) SELECT 1", "EXPLAIN ANALYZE UPDATE big SET a = 1", "SELECT purge()"] {
+        #expect(asked(hidden) == "Allow \(hidden) in app? Kelp can’t count the rows it changes.")
+    }
     // A long one says it's cut, and where the rest is: what's allowed from the Dock isn't only its first line
     let body = (1...20).map { "  PERFORM step\($0);" }.joined(separator: "\n")
     let function = Databases.question(
@@ -134,4 +173,61 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
         changed: nil)
     #expect(function.hasPrefix("Allow CREATE FUNCTION tidy() RETURNS void AS $$ BEGIN PERFORM step1;"))
     #expect(function.hasSuffix("(23 lines, whole in Databases) in app?"))
+}
+
+/// What makes an asked change worth a second look is read from its text, and only these kinds have a line: no WHERE, a
+/// DROP or TRUNCATE, a dropped column, a row change Undo This Change couldn't put back. A plain change has none.
+@Test func aChangesRiskIsReadFromItsText() {
+    let undoable = RowChange(kind: .delete, table: "orders", key: ["id"])
+    let rows: [(String, RowChange?, ChangeRisk?, String?)] = [
+        ("UPDATE orders SET status = 'archived'", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("delete from orders -- where id = 1", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("UPDATE orders SET note = 'where'", undoable, ChangeRisk(kind: .noWhere, table: "orders"), nil),
+        ("DELETE FROM orders WHERE id = 1", undoable, nil, nil),
+        ("DELETE FROM orders WHERE id IN (SELECT id FROM old)", undoable, nil, nil),
+        (   // a WHERE or LIMIT in a subquery isn't the statement's own
+            "UPDATE orders SET total = (SELECT max(t) FROM prices WHERE id = 1 LIMIT 1)", undoable,
+            ChangeRisk(kind: .noWhere, table: "orders"), nil
+        ),
+        ("DELETE FROM orders WHERE id = 1", nil, ChangeRisk(kind: .noUndo, table: "orders"), nil),
+        ("INSERT INTO orders VALUES (4, 'new')", RowChange(kind: .insert, table: "orders", key: ["id"]), nil, nil),
+        (
+            "ALTER TABLE orders DROP COLUMN note", nil, ChangeRisk(kind: .dropColumn, table: "orders", column: "note"),
+            "SELECT count(note) FROM orders"
+        ),
+        ("ALTER TABLE orders DROP CONSTRAINT orders_pkey", nil, nil, nil),
+        (
+            #"DROP TABLE IF EXISTS "Order Items""#, nil, ChangeRisk(kind: .drop, table: #""Order Items""#),
+            #"SELECT count(*) FROM "Order Items""#
+        ),
+        ("DROP INDEX CONCURRENTLY orders_idx", nil, ChangeRisk(kind: .drop, table: "orders_idx"), nil),
+        ("TRUNCATE TABLE orders", nil, ChangeRisk(kind: .truncate, table: "orders"), "SELECT count(*) FROM orders"),
+        ("CREATE TABLE t (a int)", nil, nil, nil)
+    ]
+    for (sql, change, risk, counting) in rows {
+        let found = Databases.risk(sql, change: change)
+        #expect(found?.risk == risk && found?.counting == counting, "\(sql)")
+    }
+}
+
+/// An agent's DROP COLUMN asked about: its trial is kept with how many values of the column go.
+@Test func anAskedDropCountsWhatGoes() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try askDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let asked = Task {
+        try await w.d.workspaces.databases.query(
+            DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "ALTER TABLE orders DROP COLUMN status"),
+            origin: agent.id)
+    }
+    #expect(try await waitFor { try summary(w, agent.id).hasPrefix("Allow ALTER TABLE") })
+    let run = try #require(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first)
+    let kept = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: run.id))
+    #expect(kept?.risk == ChangeRisk(kind: .dropColumn, table: "orders", column: "status", values: 3))
+    #expect(run.changed == nil)   // a DDL's 0 isn't a count of rows that would change
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary(w, agent.id))))
+    _ = try? await asked.value
+    #expect(try count(path, "SELECT count(*) FROM orders") == 3)
 }

@@ -56,14 +56,16 @@ final class EditorHost: NSViewController {
         }
     }
 
-    /// While a panel slides beside the card, what the card shows keeps its width, and the card uncovers or covers it.
-    /// When it was laid out for every width on the way, each terminal drew itself anew on the main thread, a frame or
-    /// two each time. `trailing` is the edge that stays (the panel on the other side is moving).
+    /// While a panel slides beside the card, what the card shows takes the width it will have once the panel stands
+    /// (`by` more than now), at once and only once, and the card uncovers or covers it. When it was laid out for every
+    /// width on the way, each terminal drew itself anew on the main thread, a frame or two each time; when it kept its
+    /// old width, its terminals rewrapped after the panel had stopped, a beat late. `trailing` is the edge that stays
+    /// (the panel on the other side is moving).
     private var held: [WidthHold] = []
-    func holdWidth(trailing: Bool) {
-        guard held.isEmpty else { return }
+    func holdWidth(trailing: Bool, by change: CGFloat = 0) {
+        letWidthGo()   // a slide cut short by another: the new one's width
         held = card.subviews.filter { $0.frame.width > 0 }.compactMap {
-            WidthHold($0, in: card, edge: trailing ? .leading : .trailing, width: $0.frame.width)
+            WidthHold($0, in: card, edge: trailing ? .leading : .trailing, width: max(1, $0.frame.width + change))
         }
     }
     func letWidthGo() {
@@ -231,7 +233,7 @@ final class EditorHost: NSViewController {
     }
 
     /// Called when chats left a workspace that may not be on screen. Their tabs leave its layout, and a group left with
-    /// no tab closes.
+    /// no tab closes a day later if nothing opens there (`WorkspaceActions.closeIdle`).
     func chatsLeft(_ id: String) {
         var layout = app.workbench.layouts[id]
         for tab in layout.allTabs
@@ -239,7 +241,7 @@ final class EditorHost: NSViewController {
             layout.remove(tab.id)
         }
         app.workbench.layouts[id] = layout
-        if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
+        if layout.allTabs.isEmpty { WorkspaceActions(app).emptied(id) }
     }
 
     /// Closes a chat from its row, on any screen, with the questions its tab asks and with ⇧⌘T to reopen it. Where the
@@ -260,7 +262,7 @@ final class EditorHost: NSViewController {
                 ClosedTab(uri: uri, title: title, workspace: id, group: layout.group(of: tab.id), index: nil))
             layout.remove(tab.id)
             app.workbench.layouts[id] = layout
-            if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
+            if layout.allTabs.isEmpty { WorkspaceActions(app).emptied(id) }
         }
     }
 

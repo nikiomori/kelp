@@ -21,8 +21,8 @@ import Testing
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["a", "b", "c"], primary: [], rows: rows) == [
             #"UPDATE "t" SET "b" = 'o''k', "c" = NULL WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
-                + #"WHERE "a"::text = '2' AND "#
-                + #""b"::text = 'it''s' AND "c"::text = 'x' LIMIT 1)"#
+                + #"WHERE format('%s', "a") = '2' AND "#
+                + #"format('%s', "b") = 'it''s' AND format('%s', "c") = 'x' LIMIT 1)"#
         ])
     #expect(
         edits.statements(table: "t", engine: .mysql, columns: ["a", "b", "c"], primary: [], rows: rows) == [
@@ -31,6 +31,33 @@ import Testing
     #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public.my``t`")   // a "." of MySQL's is the name's
     #expect(DatabaseEdits.name("audit.my\"t", .postgres) == #""audit"."my""t""#)
     #expect(DatabaseInfo.Engine.mysql.literal(#"a\b"#) == #"'a\\b'"#)
+}
+
+/// A MySQL BINARY key, shown as hex, finds its row by those bytes, and text typed into a binary column stays text; a
+/// keyless FLOAT is compared as the text it shows.
+@Test func mySQLBytesAndFloatsFindTheirRows() {
+    var edits = DatabaseEdits()
+    let rows: [[String?]] = [["0x00ff", "0.1", "a"]]
+    edits.set(row: 0, column: 2, to: "0x41", was: "a")
+    let types = ["id": "binary(2)", "f": "float", "v": "varchar(9)"]
+    #expect(
+        edits.statements(
+            table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: ["id"], rows: rows, types: types)
+            == ["UPDATE `t` SET `v` = '0x41' WHERE `id` = X'00ff'"])
+    #expect(
+        edits.statements(table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: [], rows: rows, types: types)
+            == ["UPDATE `t` SET `v` = '0x41' WHERE `id` = X'00ff' AND CONCAT(`f`) = '0.1' AND `v` = 'a' LIMIT 1"])
+    #expect(DatabaseInfo.Engine.mysql.literal("0x41", type: "blob") == "X'41'")
+    #expect(DatabaseInfo.Engine.mysql.literal("hello", type: "varbinary(9)") == "'hello'")
+    #expect(DatabaseInfo.Engine.postgres.literal("0x41", type: "bytea") == "'0x41'")
+    // A value shown only in part (a long blob) isn't written back: a copied row leaves it out, a pasted cell too
+    var copied = DatabaseEdits()
+    copied.add(["0x00ff", "0.1", "0x0102… (100 bytes)"])
+    copied.set(row: 0, column: 2, to: "<9 bytes>", was: "a")
+    #expect(
+        copied.statements(
+            table: "t", engine: .mysql, columns: ["id", "f", "v"], primary: ["id"], rows: rows,
+            types: ["id": "binary(2)", "v": "blob"]) == ["INSERT INTO `t` (`id`, `f`) VALUES (X'00ff', '0.1')"])
 }
 
 @Test func aDatabaseTabsAddressNamesItsWorkspaceDatabaseAndRun() {
@@ -51,13 +78,13 @@ import Testing
     edits.toggleDeleted(1)
     edits.set(row: 0, column: 1, to: "z", was: "a")
     edits.add([nil, "new"])
-    edits.add([nil, nil])   // nothing typed: no statement
+    edits.add([nil, nil])   // nothing typed: every column its default
     #expect(edits.count == 4)
     let sql = edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id"], rows: rows)
     #expect(
         sql == [
             #"DELETE FROM "t" WHERE "id" = '2'"#, #"UPDATE "t" SET "v" = 'z' WHERE "id" = '1'"#,
-            #"INSERT INTO "t" ("v") VALUES ('new')"#
+            #"INSERT INTO "t" ("v") VALUES ('new')"#, #"INSERT INTO "t" DEFAULT VALUES"#
         ])
     // A table without a key takes new rows only.
     var only = DatabaseEdits()
@@ -66,11 +93,18 @@ import Testing
         only.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
             "INSERT INTO `t` (`v`) VALUES ('x')"
         ])
+    var blank = DatabaseEdits()
+    blank.add([nil])
+    #expect(
+        blank.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
+            "INSERT INTO `t` () VALUES ()"
+        ])
+    #expect(blank.statements(table: "t", engine: .appwrite, columns: ["v"], primary: [], rows: []).isEmpty)
     // A key the result doesn't hold in full is no key: the row is found by all its values.
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id", "w"], rows: rows)
             .first == #"DELETE FROM "t" WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
-            + #"WHERE "id"::text = '2' AND "v"::text = 'b' LIMIT 1)"#)
+            + #"WHERE format('%s', "id") = '2' AND format('%s', "v") = 'b' LIMIT 1)"#)
     // Without a key, SQLite finds a row by its values through its rowid, a NULL cell by IS NULL: of two identical
     // rows, one changes.
     let path = NSTemporaryDirectory() + "kelp-edits-\(UUID().uuidString).sqlite"
@@ -103,6 +137,12 @@ import Testing
     let json = ResultText.json(columns, rows)
     #expect(json.contains(#""id" : 1"#) && json.contains(#""note" : null"#) && json.contains(#""k" : 1"#))
     #expect(ResultText.insert(["id"], [["1"]], table: "t", engine: .sqlite) == #"INSERT INTO "t" ("id") VALUES ('1');"#)
+    #expect(
+        ResultText.insert(["id", "b"], [["1", "\\x0102… (70 bytes)"]], table: "t", engine: .postgres)
+            == #"INSERT INTO "t" ("id") VALUES ('1');"#)
+    #expect(
+        ResultText.insert(["b"], [["0x41"]], table: "t", engine: .mysql, types: ["blob"])
+            == "INSERT INTO `t` (`b`) VALUES (X'41');")
 }
 
 /// Number columns stand right, found by their type ("interval" starts with "int", "point" ends with it: neither is
@@ -111,7 +151,8 @@ import Testing
     for type in ["integer", "double precision", "numeric(10,2)", "int unsigned", "REAL", "bigserial", "float8"] {
         #expect(ResultGrid.isNumber(type), "\(type)")
     }
-    for type in ["interval", "point", "text", "character varying(20)", "timestamp with time zone", "json"] {
+    let others = ["interval", "point", "text", "character varying(20)", "timestamp with time zone", "json", "integer[]"]
+    for type in others {
         #expect(!ResultGrid.isNumber(type), "\(type)")
     }
     #expect(DatabaseTab.took(84) == "84 ms")
@@ -193,6 +234,8 @@ import Testing
     tab.startedQuery()
     #expect(tab.title == "Query · shop" && tab.sidebar.current == nil)
     #expect(tab.editor.text == #"SELECT * FROM "orders" LIMIT 100;"#)
+    #expect(tab.editor.selectedRange.length == (tab.editor.text as NSString).length)   // typing replaces it
+    #expect(tab.grid.scroll.isHidden)   // no empty header over "Run a Statement"
     #expect(DatabaseTab.title("shop", showing: .table("users")) == "users · shop")
     #expect(DatabaseTab.title("shop", showing: .run("r1")) == "shop")
 }
@@ -221,4 +264,14 @@ import Testing
     }
     let said = texts(tab.empty)
     #expect(said.contains("Can’t Read shop") && !said.contains("Not Kept"), "\(said)")
+}
+
+/// A foreign key's target keeps its schema: the column is what follows the last ".".
+@Test func aForeignKeyNamesItsTargetsSchema() {
+    let column = {
+        DatabaseSchema.Column(name: "user_id", type: "uuid", nullable: false, primary: false, references: $0)
+    }
+    #expect(column("auth.users.id").target.map { [$0.table, $0.column] } == ["auth.users", "id"])
+    #expect(column("users.id").target.map { [$0.table, $0.column] } == ["users", "id"])
+    #expect(column(nil).target == nil && column("id").target == nil)
 }

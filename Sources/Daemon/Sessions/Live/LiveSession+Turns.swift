@@ -15,6 +15,9 @@ extension LiveSession {
         var seconds: Double
     }
 
+    /// Waits for the turn work queued so far: a turn that just began is listed once its snapshot is taken.
+    func turnWorkDone() async { await withCheckedContinuation { done in turnWork.async { done.resume() } } }
+
     /// Called with every status change: a snapshot when work starts, the changes when it stops (git work off the lock).
     func noteTurn(_ status: AgentStatus, remotes: Remotes = .none) {
         let (shell, starting, ending, start, cwd, prompt, id, sent) = state.withLock { st in

@@ -118,7 +118,7 @@ extension EditorArea {
         guard layout.allTabs.contains(where: { $0.id == id }) else { return true }   // gone while it asked (its workspace closed)
         if remember { rememberClosing(id) }
         drop(id, session: sid)
-        if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(workspaceId, ended: sid) }
+        if layout.allTabs.isEmpty { WorkspaceActions(app).emptied(workspaceId) }
         return true
     }
 

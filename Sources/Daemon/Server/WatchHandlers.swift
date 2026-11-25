@@ -156,7 +156,7 @@ extension Daemon {
                     await hostFileRead(key, located.remote, located.remotePath, first: first.take())
                 }
             }
-            return Watches.Topic(folder: Self.fileFolder(key)) { [self] _ in await fileRead(key) }
+            return Watches.Topic(folder: Watches.fileFolder(key)) { [self] _ in await fileRead(key) }
         case .files:
             let first = FirstRead()
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesFileList), backsOffFrom: 10) {
@@ -207,7 +207,7 @@ extension Daemon {
     private func workspaceFolder(
         _ id: String, _ matters: (String) -> @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
-        guard let worktree = store.look("workspace \(id)", { try $0.worktree(id) }), remotes.of(worktree.path) == nil
+        guard let worktree = store.look("workspace \(id)", { try $0.gitPlace(id) }), remotes.of(worktree.path) == nil
         else { return nil }
         return (worktree.path, matters(worktree.path))
     }
@@ -223,12 +223,22 @@ extension Daemon {
         }
     }
 
-    /// Reads the status and branches at once, then from them the line counts and what the branch holds.
+    /// Reads the status and branches, or in a folder of repositories (`RepoKey`) each one's, summed up.
     private func gitRead(_ key: String, first: Bool, memo: BranchMemo) async -> (Data?, TimeInterval?) {
         // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-        let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
+        let worktree = store.look("workspace \(key)") { try $0.gitPlace(key) }
         let remote = worktree.map { remotes.of($0.path) != nil } ?? false
         guard await mayRead(worktree, first: first) else { return (nil, 10) }
+        let names = remote ? [] : worktree.map { Git.nestedRepos($0.path) } ?? []   // a folder of repositories
+        let event = await names.isEmpty
+            ? gitEvent(key, worktree, remote: remote, memo: memo)
+            : GitEvent.sum(key, names) { await gitEvent($0, nil, remote: false, memo: memo.inner($1)) }
+        return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+    }
+
+    /// One folder's status and branches, read at once, then from them the line counts and what the branch holds.
+    private func gitEvent(_ key: String, _ given: Worktree?, remote: Bool, memo: BranchMemo) async -> GitEvent {
+        let worktree = given ?? store.look("workspace \(key)") { try $0.gitPlace(key) }
         var event: GitEvent
         do {
             async let branchesRead = direct(GitBranches(id: key))
@@ -248,7 +258,7 @@ extension Daemon {
                 }
             }
         } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
-        return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+        return event
     }
 
     private func filesRead(_ key: String, first: Bool) async -> (Data?, TimeInterval?) {
@@ -270,15 +280,6 @@ extension Daemon {
     private func mayRead(_ worktree: Worktree?, first: Bool) async -> Bool {
         guard !first, let remote = worktree.flatMap({ remotes.of($0.path) }) else { return true }
         do { return try await offload { remote.connection != nil } } catch { return false }
-    }
-
-    /// A file's folder, and a test for the events that name the file, as given or as FSEvents names it (/tmp is
-    /// /private/tmp). Only the folder is resolved, because the file itself may not be there to resolve.
-    /// Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
-    private static func fileFolder(_ path: String) -> (String, @Sendable ([FileWatcher.Change]) -> Bool) {
-        let dir = (path as NSString).deletingLastPathComponent, name = (path as NSString).lastPathComponent
-        let names = Set([path, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
-        return (dir, { $0.contains { names.contains($0.path) } })
     }
 
     /// Reads a file's stat and problems. What changes is the version, not the text (the app reads the text only for a
@@ -395,5 +396,4 @@ extension Daemon {
         data.append(0x0A)
         return data
     }
-
 }

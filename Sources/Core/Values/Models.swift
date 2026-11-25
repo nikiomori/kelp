@@ -148,6 +148,7 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         didSet {
             guard status != oldValue else { return }
             statusAt = Date()
+            if status != .paused { interruptedAt = nil }   // back at work (or ended): no longer cut short
             // A Stop that waits for a subagent keeps the session working. When the turn is cut short, no hook says the
             // subagents ended, so they are cleared here.
             if status != .working && status != .waiting {
@@ -173,6 +174,10 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// `.claude/worktrees/…`). nil while the agent works in `cwd`. Kelp reads the paths the agent prints and the
     /// changes of its last turn in this folder, but a restart still starts in `cwd`.
     public var workDir: String?
+    /// The git worktree of its project, other than the folder it started in, that the agent last worked in: a branch
+    /// of its own that its CLI made (Claude Code's `.claude/worktrees/…`), not one of Kelp's groups. Unlike `workDir`,
+    /// it stays when the agent works in its first folder again. The chat's row shows that branch (`branchKey`).
+    public var branchFolder: String?
     /// How far the session's program has got, from 0 to 100, when the program reports it (the `progress` field of
     /// OSC 7501, `kelp report`, or ConEmu's OSC 9;4).
     public var progress: Int?
@@ -206,6 +211,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// When Kelp types "continue" into the session, if the agent is still where the limit stopped it
     /// (`session.continueAt`).
     public var continueAt: Date?
+    /// When Kelp went down (a crash, the Mac shutting down) while the agent was mid-turn, so Kelp offers to go on with
+    /// it. nil for an agent paused any other way, and once it wakes.
+    public var interruptedAt: Date?
     /// The agent that started this one (`kelp session new --agent`). The parent hears how this agent is doing, and ends
     /// it when the parent ends.
     public var parent: String?

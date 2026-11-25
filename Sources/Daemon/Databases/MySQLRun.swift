@@ -138,17 +138,16 @@ struct MySQLRun: DatabaseRunner {
         -> [String]
     {
         let db = databaseConnection.database
-        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", secret: "MYSQL_PWD")
+        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", pass: ["MYSQL_PWD"])
         // To mysql, localhost means the Unix socket, so the server's port is reached by its address.
         var argv =
-            client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
+            Array(client.dropLast()) + Self.client
+            + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
         if let user = db.user { argv += ["-u", user] }
         if let name = db.database { argv.append(name) }
-        let script = statements.map { $0 + ";\nSELECT '\(marker)' AS \(marker);\n" }.joined()
+        let script = Self.script(statements)
         let env = DatabaseEngines.environment(["MYSQL_PWD": databaseConnection.password])
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout,
-            limit: DatabaseEngines.outputLimit)
+        let out = try program(argv, env: env, script: script, timeout: timeout)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)
@@ -161,10 +160,32 @@ struct MySQLRun: DatabaseRunner {
             .components(separatedBy: "\(marker)\n\(marker)\n").dropLast().map { $0 }
     }
 
+    /// Runs mysql in the container. A Stop ends only the docker client, while mysql and its statement go on in the
+    /// container (the server has nothing to find that connection by and KILL it), so the call says that, not Stopped.
+    static func program(_ argv: [String], env: [String: String], script: String, timeout: TimeInterval) throws
+        -> Subprocess.Output
+    {
+        DatabaseStop.current?.leaves(leftRunning)
+        return try DatabaseStop.program(argv, env: env, stdin: Data(script.utf8), timeLimit: timeout)
+    }
+    static let leftRunning =
+        "Stopped waiting. The statement may still run to its end in the container, and keep what it changes."
+
+    /// The client in the container: mysql, or mariadb where only that is there (MariaDB 11's images). The shell's
+    /// `$@` is the client's arguments.
+    static let client = ["sh", "-c", #"exec "$(command -v mysql || command -v mariadb || echo mysql)" "$@""#, "mysql"]
+
+    /// The statements with a marker after each. A statement's `;` goes on a line of its own, because its last line can
+    /// be a `--` comment.
+    static func script(_ statements: [String]) -> String {
+        statements.map { $0 + "\n;\nSELECT '\(marker)' AS \(marker);\n" }.joined()
+    }
+
     /// Parses tab-separated output with a header first. Tabs, newlines and backslashes arrive escaped (\t \n \\), and
-    /// NULL arrives as NULL.
+    /// NULL arrives as NULL. A row of one empty value is an empty line.
     static func section(_ text: String) -> DatabaseRows {
-        var lines = text.split(separator: "\n").map(String.init)
+        var lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if lines.last == "" { lines.removeLast() }
         guard !lines.isEmpty else { return DatabaseRows() }
         let header = lines.removeFirst().components(separatedBy: "\t")
         let rows = lines.map { line in

@@ -26,7 +26,7 @@ extension Databases {
             }
             var asked: [Int?]?
             switch forAgent ? databaseConnection.database.agentAccess : .free {
-            case .hidden, .read:
+            case .hidden, .structure, .read:
                 run.state = .refused
                 run.error = "\(name) is read-only for agents."
                 note(databaseQuery.worktreeId, run)
@@ -38,9 +38,15 @@ extension Databases {
                 let tried = try await DatabaseEngines.batch(
                     databaseConnection, statements, keep: { _ in false }, off: offloads)
                 run.state = .asks
-                run.changed = Self.total(tried)
-                note(databaseQuery.worktreeId, run, result: Self.result(run.id, statements, tried, ms: 0))
-                let question = Self.question(statements: statements.count, database: name, changed: run.changed)
+                // A change inside a query (`changesUncounted`) counts what it returns: the total isn't the rows'
+                let uncounted = statements.contains(where: SQLText.changesUncounted)
+                run.changed = uncounted ? nil : Self.total(tried)
+                var said = Self.result(run.id, statements, tried, ms: 0)
+                said.risk = await risk(databaseConnection, statements)
+                note(databaseQuery.worktreeId, run, result: said)
+                let question =
+                    Self.question(statements: statements.count, database: name, changed: run.changed)
+                    + (uncounted ? " Kelp can’t count the rows they change." : "")
                 guard await answered(databaseQuery, &run, ls, question, asker: (session, asker.pid)) else {
                     throw RPCError.refused(run.error ?? "The user didn't allow it.")
                 }
@@ -48,6 +54,10 @@ extension Databases {
             case .free: break
             }
             let started = Date(), allowed = asked
+            // A branch's Postgres copy is kept for Undo Turn before the turn's first change, and the change is kept
+            // with the turn (a batch of reads changes nothing)
+            let changes = await changesInATurn(statements, databaseConnection, session: session)
+            if changes { await turnChanging(session, databaseConnection, databaseQuery.worktreeId) }
             // The batch may change only the counts the user allowed, because the tables can change while asking
             let changed = try await DatabaseEngines.batch(
                 databaseConnection, statements, keep: { allowed == nil || $0 == allowed }, off: offloads)
@@ -60,8 +70,29 @@ extension Databases {
             run.ms = ms
             let result = Self.result(run.id, statements, changed, ms: ms)
             note(databaseQuery.worktreeId, run, result: result)
+            if changes { await turnChanged(run) }
             return result
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
+    }
+
+    /// Whether the statements of an agent in a turn change anything, told as for one statement (`query`): one that
+    /// reads as a query is run as a read, which the database refuses when it writes (`WITH d AS (DELETE …) SELECT 1`, a
+    /// function that writes). Limit: such a statement runs once more, as that read.
+    private func changesInATurn(_ statements: [String], _ databaseConnection: DatabaseConnection, session: String?)
+        async -> Bool
+    {
+        // Only a turn keeps what they change
+        guard let session, await currentTurn(session) != nil else { return false }
+        for sql in statements {
+            guard ["SELECT", "WITH", "SHOW", "EXPLAIN", "VALUES", "TABLE"].contains(SQLText.verb(sql)),
+                SQLText.mayTryAsRead(sql, databaseConnection.database.engine)
+            else { return true }
+            do { _ = try await DatabaseEngines.read(databaseConnection, sql, off: offloads) } catch {
+                Log.session.info("db batch in \(databaseConnection.database.name) kept with the turn: \(error)")
+                return true
+            }
+        }
+        return false
     }
 
     /// The total number of rows the statements changed, or nil when no statement reports a count (reads only).

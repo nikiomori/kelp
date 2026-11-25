@@ -47,6 +47,32 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     #expect(heard.events(GitEvent.self).count == seen)   // nothing changes: nothing is pushed
 }
 
+/// A project made of repositories side by side is added without a git init, each repository answers git by its key,
+/// and the folder's own status sums them up under their names. Before, the folder was "not a git repository".
+@Test func aFolderOfRepositoriesIsAProjectOfThem() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let parent = tmp().path
+    for name in ["be", "fe"] {
+        try FileManager.default.moveItem(atPath: try makeRepo(), toPath: parent + "/" + name)
+    }
+    let project = try await w.c.call(RepoAdd(path: parent))
+    #expect(project.path == Paths.real(parent))
+    let wt = try #require(try await w.c.call(WorktreeList()).first { $0.repoId == project.id })
+    try "new\n".write(toFile: wt.path + "/fe/added.txt", atomically: true, encoding: .utf8)
+    #expect(try await w.c.call(GitStatus(id: RepoKey.of(wt.id, "fe"))).map(\.path) == ["added.txt"])
+    #expect(try await w.c.call(GitStatus(id: RepoKey.of(wt.id, "be"))) == [])
+    await #expect(throws: RPCError.self) { try await w.c.call(GitStatus(id: RepoKey.of(wt.id, ".."))) }
+    let heard = Heard()
+    heard.listen(w.c)
+    w.c.notify(WatchStart(.git, wt.id))
+    #expect(
+        try await waitFor(10) {
+            let e = heard.events(GitEvent.self).last
+            return e?.repos == ["be", "fe"] && e?.changes?.map(\.path) == ["fe/added.txt"] && e?.branches == nil
+        })
+}
+
 /// A read of a workspace's databases or pages that fails is pushed with its reason, so the panel says it. Kept to the
 /// log, the failure left the panel waiting for an answer that never came.
 @Test func aWatchedReadThatFailsIsPushedWithItsReason() async throws {

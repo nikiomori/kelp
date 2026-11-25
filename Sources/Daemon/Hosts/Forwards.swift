@@ -131,6 +131,11 @@ final class Forwards: Sendable {
         return components.string ?? url
     }
 
+    /// The ports of `host` brought here, as the port here and the address there.
+    func mapping(host: String) -> [(here: Int, target: String)] {
+        state.withLock { s in s.records.filter { $0.host == host }.map { ($0.here, $0.target) } }
+    }
+
     func drop(port: Int, in worktree: String, _ remote: RemoteHost) {
         let gone = state.withLock { s in s.records.filter { $0.worktree == worktree && $0.port == port } }
         for record in gone { cancel(record, remote) }
@@ -225,6 +230,12 @@ final class Forwards: Sendable {
 
     /// Returns the forwarding's spec, bound to this Mac only, whatever ~/.ssh/config says of GatewayPorts.
     static func spec(_ here: Int, _ target: String) -> String { "127.0.0.1:\(here):\(target)" }
+}
+
+extension Remotes {
+    /// Whether `path` can be read without dialling: it's on this Mac, or its host's shared connection is open. A poll
+    /// asks this first, because Kelp never dials a host by itself. It asks ssh, so it's for `offload`.
+    func connected(_ path: String) -> Bool { of(path).map { $0.connection != nil } ?? true }
 }
 
 extension RemoteHost {

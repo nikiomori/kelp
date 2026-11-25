@@ -32,7 +32,113 @@ private func chats(_ statuses: [AgentStatus]) -> [Session] {
     return (buttons.filter(\.title.isEmpty).count, buttons.first { !$0.title.isEmpty }?.title ?? "")
 }
 
+/// The words of each row, top to bottom.
+@MainActor private func names(_ o: NSOutlineView) -> [[String]] {
+    @MainActor func words(_ v: NSView) -> [String] {
+        let own = (v as? NSTextField).flatMap { $0.isHidden || $0.stringValue.isEmpty ? nil : [$0.stringValue] } ?? []
+        return own + v.subviews.filter { !$0.isHidden }.flatMap(words)
+    }
+    return (0..<o.numberOfRows).map { r in o.view(atColumn: 0, row: r, makeIfNecessary: true).map(words) ?? [] }
+}
+
 extension OneAtATime {
+    /// A branch a chat made for itself, holding no chats, is no row of its own: the chat's row marks it, beside its
+    /// name, and a click there opens the branch's changes.
+    @Test func aChatsOwnBranchIsAMarkOnItsRow() throws {
+        var branch = Worktree(id: "b", repoId: "r1", branch: "fix-login", path: "/tmp/kelp-screen-atlas-b")
+        let chat = Session(
+            id: "c", worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Login")
+        branch.madeBy = "c"
+        try withSidebar(repos: [atlas], worktrees: [home, branch], sessions: [chat]) { vc, o in
+            #expect(names(o).count == 2)   // the project and the chat: the branch has no row
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+            vc.view.layoutSubtreeIfNeeded()
+            cell.layoutSubtreeIfNeeded()
+            #expect(cell.folder?.id == "b")
+            #expect(cell.hasBadge.pr && !cell.pr.isHidden)
+            // Under the pointer the mark spells its branch out, and the chat's card shows that branch.
+            #expect(!cell.pr.attributedTitle.string.contains("fix-login"))
+            cell.spell(cell.pr, true)
+            #expect(cell.pr.attributedTitle.string.contains("fix-login"))
+            cell.spell(cell.pr, false)
+            #expect(!cell.pr.attributedTitle.string.contains("fix-login"))
+            let card = try #require(CardModel(.agent("c"), app: vc.app))
+            #expect(card.branch?.id == "b" && card.folder == "b")
+            // Short of room for both, the branch's mark stays and the changes dot steps aside.
+            let row = try #require(cell.pr.superview as? NSStackView)
+            for width in stride(from: 280, through: 120, by: -2) {
+                cell.hasBadge = (true, true, false)
+                vc.view.frame.size.width = CGFloat(width)
+                vc.view.layoutSubtreeIfNeeded()
+                cell.fitBadges()
+                if row.visibilityPriority(for: cell.changes) == .mustHold {
+                    #expect(row.visibilityPriority(for: cell.pr) == .mustHold, "at \(width) pt")
+                }
+            }
+        }
+        // A worktree its CLI made, no group of Kelp's, marks the row and fills the card the same way.
+        var cli = chat
+        cli.branchFolder = "/tmp/kelp-screen-atlas/.claude/worktrees/fix"
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: [cli]) { vc, o in
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+            #expect(cell.folder?.id == "session:c" && cell.folder?.path == cli.branchFolder)
+            #expect(try #require(CardModel(.agent("c"), app: vc.app)).branch?.id == "session:c")
+        }
+        // A helper group the chat made, under the chat, is no second screen: the project's row keeps its screen's card.
+        var helper = Worktree(id: "h", repoId: "r1", branch: "main", path: atlas.path, note: "Helpers")
+        helper.madeBy = "c"
+        let kid = Session(id: "k", worktreeId: "h", cwd: "/", command: "claude", agent: "claude", status: .working)
+        try withSidebar(repos: [atlas], worktrees: [home, helper], sessions: [chat, kid]) { _, o in
+            let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
+            #expect(project.cardKind == .workspace("w1"))
+        }
+        // With a branch holding a helper and an empty one, the row marks the empty one and the card names it too.
+        var busy = Worktree(id: "b0", repoId: "r1", branch: "helpers", path: "/tmp/kelp-screen-atlas-b0")
+        busy.madeBy = "c"
+        let helped = Session(id: "k0", worktreeId: "b0", cwd: "/", command: "claude", agent: "claude", status: .working)
+        try withSidebar(repos: [atlas], worktrees: [home, busy, branch], sessions: [chat, helped]) { vc, o in
+            let cell = try #require(o.view(atColumn: 0, row: 1, makeIfNecessary: true) as? SidebarCell)
+            let card = try #require(CardModel(.agent("c"), app: vc.app))
+            #expect(cell.folder?.id == "b" && card.branch?.id == "b")
+        }
+    }
+
+    /// A project with a second screen gives its own screen a row, named by its branch. Folded, it keeps both screens'
+    /// rows, each with its chats' logos, and picking one of them leaves the project folded.
+    @Test func aFoldedProjectKeepsItsScreensRows() throws {
+        let group = Worktree(
+            id: "g", repoId: "r1", branch: "main", path: atlas.path, note: "Release",
+            createdAt: Date(timeIntervalSinceNow: 60))
+        let here = Session(
+            worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Here")
+        let there = Session(
+            worktreeId: "g", cwd: "/", command: "claude", agent: "claude", status: .waiting, title: "There")
+        try withSidebar(repos: [atlas], worktrees: [home, group], sessions: [here, there]) { vc, o in
+            let open = names(o)
+            #expect(open.count == 5)   // the project, its own screen, Here, Release, There
+            #expect(open[1].contains("main") && open[2].contains("Here") && open[3].contains("Release"))
+            // The project's card holds every screen's chats, each screen's under its name.
+            let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
+            #expect(project.cardKind == .project("r1"))
+            let card = try #require(CardModel(project.cardKind, app: vc.app))
+            #expect(card.agents.map(\.id) == [here.id, there.id])
+            #expect(card.heading(at: 0) != nil && card.heading(at: 1) == "Release")
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            let folded = names(o)
+            #expect(folded.count == 3 && folded[1].contains("main") && folded[2].contains("Release"))
+            // → on the folded project's row opens it again, as ← folded it; so does a screen's row's "+N" (its toggle).
+            #expect(vc.outline.onRight(0) && names(o).count == 5)
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            vc.toggle(try #require(o.item(atRow: 2) as? SidebarController.Node))
+            #expect(names(o).count == 5)
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            let screen = try #require(o.view(atColumn: 0, row: 2, makeIfNecessary: true) as? SidebarCell)
+            #expect(screen.stack.total == 1)   // There, as a logo
+            o.selectRowIndexes([2], byExtendingSelection: false)
+            #expect(names(o).count == 3)
+        }
+    }
+
     /// Only chats at work or waiting for you show their logo, two at most; the rest are one number.
     @Test func aFoldedProjectShowsALogoOnlyForChatsAtWork() throws {
         try withSidebar(repos: [atlas], worktrees: [home], sessions: chats([.idle, .working, .idle, .idle, .idle])) {

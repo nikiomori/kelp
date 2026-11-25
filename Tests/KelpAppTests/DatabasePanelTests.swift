@@ -2,7 +2,9 @@ import AppKit
 import Core
 import Testing
 
+@testable import BuiltinAgents
 @testable import BuiltinDatabases
+@testable import KelpKit
 
 private func db(
     _ name: String, _ engine: DatabaseInfo.Engine = .postgres, host: String? = nil, database: String? = nil,
@@ -86,15 +88,25 @@ private func db(
 }
 
 /// JSON keeps numbers as numbers but not a code with a leading zero, a cell's JSON as JSON, and text that only starts
-/// like JSON as text.
+/// like JSON as text. A column's type decides: a text column's digits stay text, a number column's long integer keeps
+/// every digit, and what JSON has no number for (NaN, Infinity, 1e999) is text rather than a crash.
 @MainActor @Test func rowsCopyAsJSONKeepTheirTypes() {
     let json = ResultText.json(["zip", "n", "f", "bad"], [["02134", "0", "1.5", "{not json"]])
     #expect(json.contains(#""zip" : "02134""#) && json.contains(#""n" : 0"#) && json.contains(#""f" : 1.5"#))
     #expect(json.contains(#""bad" : "{not json""#))
+    let columns = ["id", "phone", "word", "f", "huge"]
+    let typed = ResultText.json(
+        columns, [["1234567890123456789", "5551234", "inf", "NaN", "1e999"], ["2", "5550000", "x", "-Infinity", "1"]],
+        types: ["bigint", "text", "text", "double precision", nil])
+    #expect(typed.contains(#""id" : 1234567890123456789"#) && typed.contains(#""phone" : "5551234""#))
+    #expect(
+        typed.contains(#""word" : "inf""#) && typed.contains(#""f" : "NaN""#) && typed.contains(#""f" : "-Infinity""#))
+    #expect(typed.contains(#""huge" : "1e999""#) && typed.contains(#""huge" : 1"#))
     #expect(ResultText.tsv(["a", "b"], [["1", nil]]) == "a\tb\n1\tNULL")
 }
 
-/// The panel's rows in order: a copy under the database it's of, a stopped one's problem under it, All My Databases
+/// The panel's rows in order: a copy under the database it's of, a stopped one's problem and the migrations it hasn't
+/// applied under it, All My Databases
 /// by group (a folded group shows only its card), and what was found leaves out the rest.
 @MainActor @Test func thePanelsRowsAreInTheirOrder() {
     var copy = db("shop_fix", host: "localhost", database: "shop_fix")
@@ -103,13 +115,15 @@ private func db(
     dev.group = "Work"
     var list = DatabasePanelList(
         databases: [copy, db("shop", host: "localhost", database: "shop")], library: [dev, loose],
-        folded: ["Work"], health: ["shop": DatabaseHealth(name: "shop", state: .stopped)])
+        folded: ["Work"], health: ["shop": DatabaseHealth(name: "shop", state: .stopped)],
+        migrations: ["shop": 2, "shop_fix": 0])
     func names(_ rows: [DatabasesPanel.Row]) -> [String] {
         rows.map {
             switch $0 {
             case .heading(let h): "heading \(h)"
             case .database(let db, let library): (library ? "lib " : "") + db.name
             case .problem(let db, _): "problem \(db.name)"
+            case .migrations(let db, let count): "migrations \(db.name) \(count)"
             case .group(let name, let count): "group \(name) \(count)"
             case .project(let count): "project \(count)"
             case .use(let empty): "use \(empty)"
@@ -119,9 +133,65 @@ private func db(
     }
     #expect(
         names(list.rows) == [
-            "project 2", "shop", "problem shop", "shop_fix", "use false", "heading library(2)", "group Work 1",
+            "project 2", "shop", "problem shop", "migrations shop 2", "shop_fix", "use false", "heading library(2)", "group Work 1",
             "lib loose"
         ])
     list.find = "dev"
     #expect(names(list.rows) == ["project 2", "use false", "heading library(2)", "group Work 1", "lib dev"])
+}
+
+/// The compare tab's grid: a row for each table that differs, in `kelp db diff`'s order, with the rows the copy has
+/// more or fewer (or both's, when the same), then one line for the tables the same in both.
+@MainActor @Test func theCompareTabsRowsFoldTheTablesTheSame() {
+    let comparison = DatabaseComparison(
+        copy: "shop_fix", original: "shop", branch: "fix",
+        tables: [
+            .init(name: "customers", change: .same, rows: 5, was: 5),
+            .init(name: "order_items", change: .same, rows: 8, was: 20),
+            .init(name: "orders", change: .changed, columns: ["+ paid_at TEXT"], rows: 1240, was: 1240),
+            .init(name: "products", change: .same, rows: 3, was: 3),
+            .init(name: "refunds", change: .added, rows: 37)
+        ])
+    #expect(
+        DatabaseCompareTab.rows(comparison) == [
+            ["orders", "+ paid_at TEXT", 1240.formatted()], ["refunds", "new table", "+37"],
+            ["order_items", "same", "−12"], ["2 more", "same", "same"]
+        ])
+}
+
+/// The ask card's risk line says each kind in its own words, with what goes counted when Kelp counted it.
+@MainActor @Test func theAskCardSaysWhatMakesAChangeRisky() {
+    let rows: [(ChangeRisk, String)] = [
+        (ChangeRisk(kind: .noWhere, table: "orders"), "No WHERE: every row of orders changes."),
+        (
+            ChangeRisk(kind: .dropColumn, table: "orders", column: "note", values: 113),
+            "Drops a column: 113 values of note go with it. Undo This Change can’t bring them back."
+        ),
+        (
+            ChangeRisk(kind: .drop, table: "\"Order Items\"", values: 1),
+            "Drops a table: 1 row of Order Items goes with it. Undo This Change can’t bring it back."
+        ),
+        (ChangeRisk(kind: .drop, table: "orders_idx"), "Drops orders_idx. Undo This Change can’t bring it back."),
+        (
+            ChangeRisk(kind: .truncate, table: "orders", values: 12),
+            "Empties a table: 12 rows of orders go. Undo This Change can’t bring them back."
+        ),
+        (ChangeRisk(kind: .noUndo, table: "orders"), "Undo This Change can’t put these rows back.")
+    ]
+    for (risk, said) in rows { #expect(DatabaseAskCard.sentence(risk) == said) }
+}
+
+/// A batch's risk shows on the card too: the daemon reads one for several statements as for one.
+@MainActor @Test func theAskCardSaysABatchsRisk() {
+    let card = DatabaseAskCard(app: AppModel(), session: "s", worktree: "w")
+    let run = DatabaseRun(id: "r", database: "shop", sql: "DELETE FROM orders; DELETE FROM items", session: "s",
+        at: Date(), state: .asks)
+    var rows = QueryResult(id: "r", columns: [], rows: [], total: 0, ms: 0)
+    rows.statements = [
+        StatementResult(sql: "DELETE FROM orders", changed: 3), StatementResult(sql: "DELETE FROM items", changed: 1)
+    ]
+    rows.risk = ChangeRisk(kind: .noWhere, table: "orders")
+    card.say(run, rows)
+    #expect(!card.riskLine.isHidden)
+    #expect(card.risk.stringValue == "No WHERE: every row of orders changes.")
 }

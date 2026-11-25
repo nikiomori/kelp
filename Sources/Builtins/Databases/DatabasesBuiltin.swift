@@ -50,14 +50,24 @@ extension Builtins {
                 // key: ⇧⌘F is Find in Project everywhere, and ⌥⌘F is Git: Fetch.
                 tabCommand(app, "databases.run", "Run Statement", "cmd+return", shown: { $0.run }) { $0.runQuery() },
                 tabCommand(app, "databases.explain", "Explain", shown: { $0.explain }) { $0.explainQuery() },
+                tabCommand(app, "databases.stop", "Stop Statement", shown: { $0.stopButton }) { $0.stopRunning() },
                 tabCommand(app, "databases.filters", "Filters", shown: { $0.filterToggle }) {
                     $0.toggleFilters()
                 },
                 tabCommand(app, "databases.save", "Save Changes", shown: { $0.save }) { $0.saveEdits() },
-                tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discard }) { $0.discardEdits() },
+                tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discardButton }) {
+                    $0.discardEdits()
+                },
                 tabCommand(app, "databases.saveQuery", "Save Query…", shown: { $0.saveQuery }) { $0.keepQuery() },
                 tabCommand(app, "databases.showSQL", "Show SQL", shown: { $0.showSQL }) { $0.showEdits() },
                 tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() },
+                tabCommand(app, "databases.duplicateRow", "Duplicate Row", shown: { $0.addRow }) {
+                    $0.grid.duplicateSelected()
+                },
+                tabCommand(app, "databases.setNull", "Set to NULL", shown: { $0.addRow }) { $0.grid.setTypingToNull() },
+                tabCommand(app, "databases.undoChange", "Undo This Change…", shown: { $0.undoChange }) {
+                    $0.undoShownRun()
+                },
                 tabCommand(app, "databases.refresh", "Refresh Database", shown: { $0.reload }) { $0.refresh() },
                 tabCommand(app, "databases.details", "Details", shown: { $0.detailsToggle }) { $0.toggleDetails() },
                 tabCommand(app, "databases.previousRows", "Previous Rows", shown: { $0.previous }) { $0.turn(-1) },
@@ -78,8 +88,11 @@ extension Builtins {
                             SettingKeys.databaseAccess, "Agents may", .enum,
                             "With a database Kelp finds in a project, until its menu says otherwise. "
                                 + "Production: read only.",
-                            options: ["read", "ask", "free"],
-                            labels: ["read": "Read", "ask": "Read, Ask to Change", "free": "Read and Change"]),
+                            options: ["structure", "read", "ask", "free"],
+                            labels: [
+                                "structure": "See Structure", "read": "Read", "ask": "Read, Ask to Change",
+                                "free": "Read and Change"
+                            ]),
                         s(
                             SettingKeys.databaseRows, "Rows an agent gets", .number,
                             "A statement’s rows an agent reads unless it asks for more; the tab shows up to 1000.",
@@ -96,7 +109,11 @@ extension Builtins {
             ],
             tabs: [
                 TabProvider(
-                    schemes: [TabURI.databaseScheme], make: { DatabaseTab(uri: $0, app: app) },
+                    schemes: [TabURI.databaseScheme],
+                    make: { uri in
+                        DatabaseURI(uri)?.compare == nil
+                            ? DatabaseTab(uri: uri, app: app) : DatabaseCompareTab(uri: uri, app: app) as TabContent
+                    },
                     placeholder: { uri in
                         (DatabaseURI(uri).map(DatabaseTab.title) ?? TabURI.body(uri), .symbol(DatabaseLook.symbol), nil)
                     })
@@ -158,10 +175,11 @@ extension TabURI {
     static let databaseScheme = "db"
 }
 
-/// "db:<workspace>/<name>", with "?run=<id>" for one run's rows or "?table=<name>" for a table's rows.
+/// "db:<workspace>/<name>", with "?run=<id>" for one run's rows, "?table=<name>" for a table's rows, or
+/// "?compare=<original>" for how a branch's copy differs from the database it copies (`DatabaseCompareTab`).
 struct DatabaseURI: Equatable {
     var worktree: String, name: String
-    var run: String?, table: String?
+    var run: String?, table: String?, compare: String?
 }
 
 extension DatabaseURI {
@@ -172,7 +190,8 @@ extension DatabaseURI {
         let query = parts.query ?? ""
         run = query.hasPrefix("run=") ? String(query.dropFirst(4)) : nil
         table = query.hasPrefix("table=") ? String(query.dropFirst(6)).removingPercentEncoding : nil
+        compare = query.hasPrefix("compare=") ? String(query.dropFirst(8)).removingPercentEncoding : nil
     }
 
-    var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table) }
+    var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table, compare: compare) }
 }

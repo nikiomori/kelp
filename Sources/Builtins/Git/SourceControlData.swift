@@ -14,6 +14,8 @@ extension SourceControlController {
                 changes: changes, info: graphInfo, commits: commits, unpushed: unpushed, more: more, limit: limit)
         }
         worktreeId = wid
+        repos = nil
+        repoBranches = [:]
         failureBar.show(nil)
         loading.show(nil)
         showNoProject(wid == nil)
@@ -100,6 +102,8 @@ extension SourceControlController {
             followWatches()
             return
         }
+        if let names = event.repos { return applySeveral(event, names) }
+        repos = nil
         guard let ch = event.changes, let br = event.branches else { return }
         let graphStale =
             br.head != info?.head || br.local != info?.local || br.remote != info?.remote || br.current != info?.current
@@ -135,7 +139,7 @@ extension SourceControlController {
     }
 
     /// When git can show nothing here, says why instead of showing an empty commit box.
-    private func showError(_ message: String?) {
+    func showError(_ message: String?) {
         hideBox(message != nil)
         if message == nil { empty.show(nil) }
         guard let message else { return }
@@ -259,6 +263,10 @@ extension SourceControlController {
 
     func updateHeader() {
         bar.update(info, changes: changes.count, busy: busy)
+        if repos != nil {
+            branchButton.title = branchesTitle
+            return
+        }
         guard let info else {
             branchButton.title = ""
             return

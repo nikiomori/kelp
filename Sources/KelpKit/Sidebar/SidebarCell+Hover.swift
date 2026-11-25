@@ -44,7 +44,7 @@ extension SidebarCell {
     /// under the pointer and come back.
     func spell(_ badge: NSView?, _ on: Bool) {
         if on { spelling = badge } else if spelling === badge { spelling = nil }
-        showChanges()
+        if badge === pr { updateBadges() } else { showChanges() }
         ciMark.spelled = spelling === ci
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.fast)
@@ -85,7 +85,9 @@ extension SidebarCell {
         var on = hovering && owner?.renaming == nil
         if case .agent = node.kind {
         } else {
-            on = on && !node.children.isEmpty
+            // A folded project has no rows under it when its chats are all on one screen, and still opens.
+            let folded: Bool = if case .project = node.kind { owner?.isCollapsed(node) == true } else { false }
+            on = on && (!node.children.isEmpty || folded)
             showFold()
         }
         guard action.isHidden == on else { return }

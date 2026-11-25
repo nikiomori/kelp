@@ -88,6 +88,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The bar's button that shows the page is being recorded (by the user or an agent) and stops the recording.
     let recordButton = IconButton(
         .symbol("record.circle"), tip: String(localized: "Stop Recording"), target: nil, action: nil)
+    /// The host before the address, on a page an agent there drives (BrowserHostPage.swift).
+    @ObservationIgnored let hostChip = PointerButton(title: "") {}
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
     @ObservationIgnored private var webFixed: [NSLayoutConstraint] = []
     /// The page this tab shows now: its own, or a subagent's (`pageSet`).
@@ -127,12 +129,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web = opened ?? WKWebView(frame: .zero, configuration: cfg)
         web.allowsBackForwardNavigationGestures = true
         web.isInspectable = true
-        func b(_ sym: String, _ tip: String) -> NSButton {
-            IconButton(.symbol(sym), tip: tip, target: nil, action: nil)
-        }
         let browser = Self.defaultBrowser()
         let ext = IconButton(browser?.icon ?? .symbol("safari"), tip: Self.openIn(browser), target: nil, action: nil)
-        let more = b("ellipsis.circle", String(localized: "More Actions"))
+        let more = IconButton(
+            .symbol("ellipsis.circle"), tip: String(localized: "More Actions"), target: nil, action: nil)
         address.placeholderString = String(localized: "Search or enter address")
         address.lineBreakMode = .byTruncatingTail
         address.bezelStyle = .roundedBezel
@@ -148,7 +148,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         recordButton.contentTintColor = .systemRed
         recordButton.isHidden = true
         let bar = Bar.content(
-            [back, forward, reload, address], [recordButton, designButton, ext, more], stretching: address)
+            [back, forward, reload, hostChip, address], [recordButton, designButton, ext, more], stretching: address)
         let body = NSView()
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
@@ -208,6 +208,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         designButton.action = #selector(toggleDesign)
         recordButton.target = self
         recordButton.action = #selector(saveRecording)
+        showHostChip()
         if agent { watch() }
         track(owner: self) { [weak self] in
             self?.failedServed ?? false

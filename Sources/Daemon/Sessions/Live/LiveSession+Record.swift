@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 
 extension LiveSession {
     var commands: [AgentCommand] { state.withLock { $0.commands } }
@@ -21,15 +22,20 @@ extension LiveSession {
         }
     }
 
-    /// Records a hook's `cwd`, where the agent works now. Returns the record when that changed.
+    /// Records a hook's `cwd`, where the agent works now, and the worktree of its own that is in (`branchFolder`, kept
+    /// when it goes back). Returns the record when either changed.
     func workIn(_ dir: String) -> Session? {
         func real(_ path: String) -> String {
             URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
         }
         let workDir = real(dir) == real(snapshot.cwd) ? nil : dir   // the folder it started in never changes
+        let branch = workDir == nil ? nil : Git.linkedWorktree(containing: dir, besides: snapshot.cwd)
         return state.withLock { st in
-            guard workDir != st.record.workDir else { return nil }
+            guard workDir != st.record.workDir || branch.map({ $0 != st.record.branchFolder }) == true else {
+                return nil
+            }
             st.record.workDir = workDir
+            if let branch { st.record.branchFolder = branch }
             return st.record
         }
     }

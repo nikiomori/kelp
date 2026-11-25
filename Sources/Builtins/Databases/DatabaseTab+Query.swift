@@ -16,6 +16,8 @@ extension DatabaseTab {
             await MainActor.run { self?.completions(line: line, column: column) ?? [] }
         }
         editor.onChange = { [weak self] _ in self?.draft.after(0.5) { self?.keepDraft() } }
+        editor.alwaysWraps = true   // a long statement stays in view
+        editor.refreshAppearance()
         let rows = NSSplitView()
         rows.isVertical = false
         rows.dividerStyle = .thin
@@ -67,8 +69,9 @@ extension DatabaseTab {
         let from = sidebar.current ?? tables.first?.name
         sidebar.current = nil
         arrange()
-        if editor.text.isEmpty, let from {
+        if editor.text.isEmpty, let from {   // selected, so typing a statement of one's own replaces it
             editor.setText("SELECT * FROM " + DatabaseEdits.name(from, engine) + " LIMIT 100;")
+            editor.select(NSRange(location: 0, length: (editor.text as NSString).length))
         }
         grid.editable = false
         grid.source = nil
@@ -125,7 +128,7 @@ extension DatabaseTab {
     private var queriesKey: String { key("queries") }
 
     /// The key under which Kelp's state keeps the saved queries and the draft: "db.<what>/<project>/<database>".
-    private func key(_ what: String) -> String {
+    func key(_ what: String) -> String {
         let library = app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == address.name }
         let project = library == true ? "~" : app.worktree(address.worktree)?.repoId ?? address.worktree
         return "db.\(what)/\(project)/\(address.name)"
@@ -187,21 +190,29 @@ extension DatabaseTab {
         execute(engine.explain + sql)
     }
 
+    /// Runs one statement at a time: Run and Explain wait for its answer, so a second press doesn't run it twice. An
+    /// answer that comes once the tab shows a table or a run isn't put in their grid.
     private func execute(_ sql: String) {
-        guard !sql.isEmpty else { return NSSound.beep() }
+        guard !sql.isEmpty, run.isEnabled else { return NSSound.beep() }
         startReading()
+        run.isEnabled = false
+        explain.isEnabled = false
         Task {
             let result = await query(sql)
+            run.isEnabled = true
+            explain.isEnabled = true
             await rowsWait.settled()
+            guard mode == .query else { return }
             readingEnded()
             guard let result else { return }
             grid.show(columns: result.columns, rows: result.rows)
+            grid.cut = result.total > result.rows.count ? result.total : nil
             empty.show(
                 result.columns.isEmpty
                     ? String(localized: "Done") : result.rows.isEmpty ? String(localized: "No Rows") : nil)
             status.stringValue =
                 (result.changed.map { String(localized: "\($0) rows changed") }
-                    ?? String(localized: "\(result.total) rows")) + " · " + Self.took(result.ms)
+                    ?? Self.shown(result.rows.count, of: result.total)) + " · " + Self.took(result.ms)
             await loadTables()   // a CREATE or a DROP changes the list of tables
         }
     }

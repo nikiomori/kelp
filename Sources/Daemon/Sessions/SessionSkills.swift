@@ -154,7 +154,24 @@ extension SessionSetup {
         return (byHand ?? 0) > 0
     }
 
-    func browserSkill(worktreeId: String?, cwd: String) -> BrowserSkill {
+    /// Sets up `kelp browser` on the host for a session that gets it (`HostBrowser.wanted`). Nil when the host couldn't
+    /// be set up: the agent starts without it.
+    func hostBrowsing(_ session: String, cwd: String, _ remote: RemoteHost) -> HostBrowsing? {
+        guard
+            let made = Log.session.attempt(
+                "setting up kelp browser on \(remote.host)",
+                {
+                    try hostBrowser.prepare(session, remote: remote)
+                })
+        else { return nil }
+        let worktree = (store.look("the workspaces") { try $0.worktrees() } ?? []).first { $0.path == cwd }?.id
+        let skill = browserSkill(
+            worktreeId: worktree, cwd: cwd, hostWebApp: made.webApp.map { "\($0) on \(remote.host)" })
+        return HostBrowsing(dir: made.dir, socket: made.dir + "/" + HostKelp.socketName(session), skill: skill.on)
+    }
+
+    /// `hostWebApp` is what says a remote project is a web app, read on its host (`HostKelp.webFiles`).
+    func browserSkill(worktreeId: String?, cwd: String, hostWebApp: String? = nil) -> BrowserSkill {
         let repo = worktreeId.flatMap { id in Log.store.attempt("the workspace \(id)") { try store.worktree(id) } ?? nil
         }?.repoId
         let choice = repo.flatMap { repoId in state(BrowserSkill.choiceKey(repoId))?.string }.flatMap(
@@ -169,7 +186,9 @@ extension SessionSetup {
         }
         if let repo, state(Self.browserUsedKey(repo)) != nil { return BrowserSkill(on: true, .used) }
         if let repo, localPageOpen(repo: repo) { return BrowserSkill(on: true, .localPage) }
-        if let found = WebApp.found(in: URL(fileURLWithPath: cwd)) { return BrowserSkill(framework: found) }
+        if let found = hostWebApp ?? WebApp.found(in: URL(fileURLWithPath: cwd)) {
+            return BrowserSkill(framework: found)
+        }
         return BrowserSkill(on: false, .noWebApp, hint: true)
     }
 

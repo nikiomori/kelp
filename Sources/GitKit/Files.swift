@@ -14,7 +14,17 @@ extension ProjectFiles {
         do {
             output = try Git.runPart(args, cwd: root, limit: Subprocess.outputLimit, remotes: remotes)
         } catch  where outsideGit(error) {
-            return walk(root, limit: limit)
+            let names = Git.nestedRepos(root)
+            guard !names.isEmpty else { return walk(root, limit: limit) }
+            // A folder that holds repositories side by side (`RepoKey`): each one's files as git lists them, under its
+            // name, then the rest of the folder as it is.
+            var files: [String] = []
+            for name in names where files.count < limit {
+                files += try list(root + "/" + name, limit: limit - files.count, remotes: remotes).map {
+                    name + "/" + $0
+                }
+            }
+            return files + walk(root, limit: limit - files.count, skipping: Set(names))
         }
         let lines: [Substring] = Git.wholeEntries(output, 0)
             .split(separator: "\0").filter { $0.count > 2 }
@@ -42,7 +52,12 @@ extension ProjectFiles {
             let output: (data: Data, truncated: Bool)
             do { output = try Git.runPart(args, cwd: root, limit: Subprocess.outputLimit, remotes: remotes) } catch
                 where outsideGit(error)
-            { return [] }
+            {
+                // In a folder that holds repositories side by side, each one's, under its name.
+                return try Git.nestedRepos(root).flatMap { name in
+                    try ignored(root + "/" + name, limit: limit, remotes: remotes).map { name + "/" + $0 }
+                }.prefix(limit).map { $0 }
+            }
             return Array(
                 Git.wholeEntries(output, 0)
                     .split(separator: "\0").prefix(limit).map(String.init))
@@ -75,11 +90,12 @@ extension ProjectFiles {
     /// Lists a folder without git by walking it here. Limit: hidden files and folders are left out, as there's no
     /// .gitignore to say what else to skip (.venv, .cache); a folder with more than `limit` files (node_modules) shows
     /// the first ones.
-    static func walk(_ root: String, limit: Int) -> [String] {
-        guard let enumerator = FileManager.default.enumerator(atPath: root) else { return [] }
+    /// The top folders in `skipping` are left out (the repositories a folder holds, which git lists).
+    static func walk(_ root: String, limit: Int, skipping: Set<String> = []) -> [String] {
+        guard limit > 0, let enumerator = FileManager.default.enumerator(atPath: root) else { return [] }
         var files: [String] = []
         while files.count < limit, let path = enumerator.nextObject() as? String {
-            if (path as NSString).lastPathComponent.hasPrefix(".") {
+            if (path as NSString).lastPathComponent.hasPrefix(".") || skipping.contains(path) {
                 enumerator.skipDescendants()
                 continue
             }

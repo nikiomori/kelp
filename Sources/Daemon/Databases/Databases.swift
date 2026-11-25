@@ -36,6 +36,7 @@ final class Databases: Sendable {
     /// row), and the port forward for a remote database.
     let settings: SettingsStore, live: SessionTable, permissions: PermissionWaits, processes: SessionProcesses
     let clients: Clients
+    let turnKeeps: TurnDatabases   // the databases as agents' turns found them, for Undo Turn (Databases+Turns.swift)
     /// How many runs are kept per workspace (newest first), and how many of the latest runs keep their rows.
     static let keptRuns = 100, keptResults = 30
     /// How much of a result is kept and sent to an agent: a cell up to 16 KB, and the rows up to 1 MB in all.
@@ -50,9 +51,13 @@ final class Databases: Sendable {
     /// The addresses from projects' files (`fromTheFiles`) that the user has opened since kelpd started. Agents reach
     /// only those.
     private let opened = OSAllocatedUnfairLock(initialState: Set<String>())
+    /// The user's statements running now, by the name `db.cancel` stops each by (`stoppable`).
+    let stops = OSAllocatedUnfairLock(initialState: [String: DatabaseStop]())
     /// A remote project's databases as its host's files listed them, and when they were read. They are read again
     /// after a minute.
     private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())
+    /// How many migrations each workspace's databases haven't applied, by name, as their schema read last said.
+    private let migrations = OSAllocatedUnfairLock(initialState: [String: [String: Int]]())
 
     init(store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots) {
         self.store = store
@@ -64,6 +69,8 @@ final class Databases: Sendable {
         self.watches = watches
         self.remotes = remotes
         self.offloads = offloads
+        turnKeeps = sessions.turns.databases
+        turnKeeps.databases = self
     }
 
     // MARK: Which
@@ -168,9 +175,15 @@ final class Databases: Sendable {
         let project = borrowed.origin == .library ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
         guard let remote = through ?? project else { return borrowed }
         let here = try processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
-        var near = borrowed
+        return Self.forwarded(borrowed, to: here)
+    }
+
+    /// The database as reached at a forwarded port on this Mac, its certificate still checked against its own name.
+    static func forwarded(_ databaseConnection: DatabaseConnection, to port: Int) -> DatabaseConnection {
+        var near = databaseConnection
+        near.serverName = databaseConnection.serverName ?? databaseConnection.database.host
         near.database.host = "localhost"
-        near.database.port = here
+        near.database.port = port
         return near
     }
 
@@ -282,7 +295,17 @@ final class Databases: Sendable {
     func activity(_ worktreeId: String) throws -> DatabasesEvent {
         DatabasesEvent(
             worktree: worktreeId, databases: try connections(worktreeId).map(\.database),
-            runs: kept.withLock { $0[worktreeId]?.runs ?? [] }, library: try library())
+            runs: kept.withLock { $0[worktreeId]?.runs ?? [] }, library: try library(),
+            migrations: migrations.withLock { $0[worktreeId] })
+    }
+
+    /// Keeps the count of a database's migrations not applied, and tells the panel when it changed.
+    func noteMigrations(_ worktreeId: String, _ name: String, _ count: Int) {
+        let changed = migrations.withLock { all in
+            defer { all[worktreeId, default: [:]][name] = count }
+            return all[worktreeId]?[name] != count
+        }
+        if changed { touch(worktreeId) }
     }
 
     func result(_ worktreeId: String, _ id: String) -> QueryResult? {

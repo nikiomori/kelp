@@ -10,7 +10,7 @@ import KelpKit
 /// database opens straight to the form.
 @MainActor
 final class DatabaseSheet: NSObject, NSTextFieldDelegate {
-    static let width: CGFloat = 520
+    static let width: CGFloat = 600
     let app: AppModel, worktreeId: String
     let window = NSPanel(
         contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
@@ -24,8 +24,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let tiles = NSStackView()
     /// When the line saying Kelp looks for other apps' connections came up, so it stays at least `LoadingView.held`.
     private var lookingSince: Date?
-    /// The pane shown after the first one, kept alive while it shows.
-    private var pane: AnyObject?
+    /// The pane shown after the first one, kept alive while it shows. Read by a test.
+    private(set) var pane: AnyObject?
 
     /// `library` means the database edited is one of All My Projects, so it is saved back there.
     static func run(_ app: AppModel, worktreeId: String, editing: DatabaseInfo?, library: Bool = false) async {
@@ -214,7 +214,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             db.engine.isFile
             ? db.path ?? ""
             : "\(db.user.map { $0 + " " + String(localized: "on") + " " } ?? "")\(db.host ?? ""):\(db.port ?? 0)"
-        let ssl = db.ssl == "require" ? " · " + String(localized: "SSL required") : ""
+        let ssl =
+            db.ssl == "require"
+            ? " · " + String(localized: "SSL required")
+            : db.ssl?.hasPrefix("verify") == true ? " · " + String(localized: "SSL, certificate checked") : ""
         let key =
             db.engine.isFile
             ? ""

@@ -32,7 +32,8 @@ package enum Notifications {
     }
 
     /// Answers a permission request from outside Kelp's window (the card on the agent strip), as its banner does.
-    package static func answer(_ app: AppModel, _ id: String, _ action: String, question: String?) {
-        app.notifier?.answer(id, action, question: question)
+    /// `run` is the database run whose change was shown, so the answer goes to that change (`SessionChoose.run`).
+    package static func answer(_ app: AppModel, _ id: String, _ action: String, question: String?, run: String? = nil) {
+        app.notifier?.answer(id, action, question: question, run: run)
     }
 }

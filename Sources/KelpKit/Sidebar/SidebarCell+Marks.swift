@@ -51,6 +51,7 @@ extension SidebarCell {
         faceMark.status = mark.status
         faceMark.unread = mark.unread
         faceMark.limited = mark.limited
+        faceMark.interrupted = mark.interrupted
         faceMark.compacting = mark.compacting
         faceMark.waitsForCommand = mark.waitsForCommand
         faceMark.guessed = mark.guessed
@@ -87,7 +88,8 @@ extension SidebarCell {
     /// (isNews), and its mark says which. The colour stays on the mark, because orange text on a light sidebar is 2:1.
     /// What the agent asks or did is on the hover card.
     func showState(_ session: Session) {
-        title.textColor = session.status == .paused ? .secondaryLabelColor : .labelColor
+        // An agent cut short when Kelp closed reads as news until it is looked at, though its logo stays grey.
+        title.textColor = session.status == .paused && !session.showsInterrupted ? .secondaryLabelColor : .labelColor
         trailing.textColor = selected ? Self.onPill : .secondaryLabelColor
         toolTip = nil
     }
@@ -113,16 +115,24 @@ extension SidebarCell {
 }
 
 extension SidebarCell {
-    /// The folder this row stands for, if any (GitFolders.folder).
+    /// The folder this row stands for, if any (GitFolders.folder), whose marks it shows: a project's own folder on
+    /// the project's row, or on its own screen's row once that has one; a screen's on its branch; a chat's own branch
+    /// (SidebarItem.branch).
     var folder: Worktree? {
         switch node.kind {
-        case .project(let id): app.gitFolder(project: id)
-        case .workspace(let id): app.gitFolder(workspace: id)
-        case .agent, .host, .parked: nil
+        case .project(let id):
+            node.children.contains { $0.kind == .workspace(node.workspace ?? "") } ? nil : app.gitFolder(project: id)
+        case .workspace(let id): if isOwnScreen { app.worktree(id) } else { app.gitFolder(workspace: id) }
+        case .agent: app.gitPlace(node.branch)
+        case .host, .parked: nil
         }
     }
+    /// On a chat's row, the changes open on the chat's screen: its branch has no row, so a screen of its own would
+    /// leave the list with nothing selected.
     @objc func openChanges() {
-        if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
+        guard let folder else { return }
+        let chat = if case .agent(let id) = node.kind { app.session(id)?.worktreeId } else { nil as String? }
+        app.workbench.open(TabURI.diff(folder.id), workspace: chat ?? folder.id)
     }
     /// Opens the PR's tab, and with ⌘ held its page in the browser. A ⌘-click on the CI mark opens the run's page
     /// the same way (`FolderCI.open`).
@@ -152,10 +162,35 @@ extension SidebarCell {
             changes.toolTip = [sharedTip, changeCounts == nil ? nil : counted].compactMap { $0 }.joined(separator: "\n")
             changes.setAccessibilityLabel(changes.toolTip)
         }
+        // A chat's own branch with no PR yet shows the branch, with the commits it holds, in the PR's place.
+        let branch = prBadge == nil && badgeFolder != nil && node.branch != nil ? badgeFolder : nil
+        pr.action = branch == nil ? #selector(openPR) : #selector(openChanges)
+        // Bare, as the changes dot is: a plate would make it read as a PR's number, and take a name's room.
+        pr.restFill = branch == nil ? .fillRest : nil
+        pr.padding = branch == nil ? Metrics.gap : Metrics.iconGap
         if let prBadge {
             pr.attributedTitle = prBadge.title
             pr.toolTip = prBadge.tip + "\n" + Self.onGitHub
             pr.setAccessibilityLabel(prBadge.tip)
+        } else if let branch {
+            // Under the pointer the mark spells its branch out, as the changes dot spells its counts; the chat's card
+            // says the rest.
+            let commits = app.gitState.ownWork(branch.id)?.commits ?? 0
+            let title = NSMutableAttributedString(
+                attributedString: .signed(
+                    "arrow.triangle.branch", commits > 0 ? commits : nil, size: TextSize.caption,
+                    color: .secondaryLabelColor))
+            if spelling === pr {
+                title.append(
+                    NSAttributedString(
+                        string: " " + branch.branch,
+                        attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor])
+                )
+            }
+            pr.attributedTitle = title
+            pr.toolTip = nil
+            pr.setAccessibilityLabel(
+                String(localized: "This chat works on its own branch, \(branch.branch) — click for its changes"))
         }
         let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state
@@ -163,7 +198,7 @@ extension SidebarCell {
             [$0, String(localized: "Click to open CI Runs"), Self.onGitHub].joined(separator: "\n")
         }
         ci.setAccessibilityLabel(ci.toolTip)
-        hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
+        hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil || branch != nil, state != nil)
         fitBadges()
     }
     /// Shows the changes as a quiet dot at rest. Under the pointer it shows the counts on a pill, as the PR's number is
@@ -220,8 +255,14 @@ extension SidebarCell {
         take(ci, hasBadge.ci, ci.intrinsicContentSize.width + ciMark.overhang)
         var logos = stack.total == 0 ? nil : [min(1, stack.count), 0].first { stack.width(showing: $0) + gap <= room }
         if let least = logos { room -= stack.width(showing: least) + gap }
-        take(changes, hasBadge.changes, changes.intrinsicContentSize.width)
-        take(pr, hasBadge.pr, pr.intrinsicContentSize.width)
+        // On a chat, its branch's mark (or its PR) is what the row is about, so it keeps its room before the dot.
+        if case .agent = node.kind {
+            take(pr, hasBadge.pr, pr.intrinsicContentSize.width)
+            take(changes, hasBadge.changes, changes.intrinsicContentSize.width)
+        } else {
+            take(changes, hasBadge.changes, changes.intrinsicContentSize.width)
+            take(pr, hasBadge.pr, pr.intrinsicContentSize.width)
+        }
         if let least = logos {
             logos = (least...max(least, stack.count)).last {
                 stack.width(showing: $0) - stack.width(showing: least) <= room

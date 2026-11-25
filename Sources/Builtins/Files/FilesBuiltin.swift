@@ -218,13 +218,11 @@ extension Builtins {
                 cmd("editor.foldAll", "Fold All") { CodeEditor.focused?.foldAll() },
                 cmd("editor.foldLevel2", "Fold Level 2") { CodeEditor.focused?.foldAll(level: 2) },
                 cmd("editor.foldLevel3", "Fold Level 3") { CodeEditor.focused?.foldAll(level: 3) },
-                // ⌥⌘↩ types "path:12-30" into the agent's prompt without pressing Return. The agent reads the file
-                // itself.
+                // ⌥⌘↩ hands what the tab in front has selected to the agent: a file's or a diff's lines as "path:12-30"
+                // (the agent reads the file itself), a terminal's text to another agent, typed into its prompt without
+                // pressing Return.
                 cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
-                    if let tab = fileTab(app) {
-                        FileActions(app).sendToAgent(
-                            tab.path, lines: tab.selectedText?.isEmpty == false ? tab.selectedLines : nil)
-                    }
+                    if app.workbench.focusedContent?.sendSelectionToAgent() != true { NSSound.beep() }
                 },
                 cmd("editor.copyReference", "Copy Path and Line", "opt+shift+cmd+c") {
                     if let tab = fileTab(app) {

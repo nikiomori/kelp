@@ -267,6 +267,44 @@ extension Daemon {
         try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
     }
 
+    /// Answers a host's `kelp browser` as its session's agent is answered on this Mac (`HostBrowser`): held to an
+    /// agent's rules, the page the agent's own.
+    func answerFromHost(_ session: String, _ method: any Answered) async throws -> JSONValue {
+        let caller = Caller.session(session)
+        try allow(method, conn: -1, caller: caller)
+        let relay = BrowserRelay.of(self)
+        do {
+            return try await Sessions.$asker.withValue(caller.origin) {
+                switch method {
+                case let ask as UIBrowserAsk: try await ask.handle(relay, conn: -1)
+                case let browse as UIBrowser: try await browse.handle(relay)
+                default: throw RPCError.methodNotFound
+                }
+            }
+        } catch { throw Self.rpc(error) }
+    }
+
+    /// Answers from now on what comes from outside the socket: a phone's calls, as the daemon's own (`conn` -1, which
+    /// counts as the user's, because an Allow tapped on the phone has to), and a host's `kelp browser`, as its agent.
+    /// A session handed over from the kelpd before gets its socket for the host again.
+    func hearFromAfar() {
+        sessions.phone.hear(
+            .started { [weak self] method, params in
+                guard let self else { throw RPCError.internalError("The background service stopped.") }
+                return try await answer(method, params, conn: -1)
+            })
+        let hosts = sessions.setup.hostBrowser
+        hosts.answer.withLock {
+            $0 = { [weak self] session, method in
+                guard let self else { throw RPCError.internalError("The background service stopped.") }
+                return try await answerFromHost(session, method)
+            }
+        }
+        for ls in sessions.live.all {
+            if let manifest = sessions.setup.agent(ls.snapshot.agent) { hosts.adopted(ls.snapshot, manifest) }
+        }
+    }
+
     /// Like `ask` but without the trip through JSON, for what a watch reads itself, often and large. It returns the
     /// handler's result as it is (a file list holds up to 200k paths, which `ask` encoded and decoded, and the event
     /// then encoded again). This is Kelp's own read, so there is no caller to check. Errors come as `ask` gives them.
