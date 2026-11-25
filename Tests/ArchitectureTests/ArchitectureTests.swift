@@ -488,7 +488,7 @@ func codeOnly(_ s: String) -> String {
         ),
         "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
         "Builtins/Files/MarkdownTab+Sources.swift": (
-            1, "a dashboard the user set to update every 15 minutes or hour, while it is open"
+            1, "a dashboard set to update every 15 minutes or hour, while open"
         ),
         "Builtins/Agents/Strip/StripCardParts.swift": (
             1,
@@ -758,21 +758,9 @@ func codeOnly(_ s: String) -> String {
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
         "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
-        "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel"),
-        "Builtins/Files/MarkdownTab+Motion.swift": (2, "a video's half taken away on Cancel, a failed mix's leftover"),
-        "Builtins/Files/Artifacts/MotionMovie.swift": (1, "a video written over the file picked in a save panel"),
-        "Builtins/Files/Artifacts/DeckExport.swift": (1, "a deck made as a design, as a PDF where the user picked"),
-        "Builtins/Files/Artifacts/DocExport.swift": (2, "a document as Markdown or Word where the user picked"),
-        "Builtins/Files/Artifacts/PageCheck.swift": (1, "whether a file a doc links to is there"),
-        "Builtins/Files/Artifacts/PageExport.swift": (
-            9,
-            "a page exported where the user picked (a save panel, or kelp artifact export's path) and its folder of "
-                + "boards, and a video's check left in the temporary folder for kelp artifact export"
-        ),
-        "Builtins/Files/Artifacts/PowerPoint.swift": (
-            3, "a PowerPoint's parts in a temporary folder, and a page's pictures put inside its one-file export"
-        )
+        "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
+    .merging(artifactPagesTouchFiles) { own, _ in own }
     let all = try matches(
         #"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#
             + #"|enumerator|attributesOfItem|destinationOfSymbolicLink)|FileWatcher\(|FileHandle\(|(String|Data|NSImage|NSDictionary)\(\s*contentsOf"#

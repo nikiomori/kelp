@@ -362,14 +362,14 @@ private let board = """
 @Test func aMotionBlockGoesInAtTheTimeAskedWithItsEntrance() throws {
     let page = "<html><head></head><body data-width=\"1920\" data-height=\"1080\"></body></html>"
     for name in MotionBlocks.names {
-        let out = try #require(MotionBlocks.add(page, name, id: "b", start: 2, length: 4, stage: (1920, 1080)))
+        let out = try #require(MotionBlocks.add(page, name, id: "b", time: 2...6, stage: (1920, 1080)))
         let tag = try #require(BoardEdit.element(out, id: "b"))
         #expect(tag.contains(#"data-start="2" data-duration="4""#), "\(name)")
         #expect(out.contains("<style id=\"kelp-motion\">") && out.contains("[data-id='b']"), "\(name)")
     }
-    let bar = try #require(MotionBlocks.add(page, "progress", id: "p", start: 1, length: 5, stage: (1080, 1920)))
+    let bar = try #require(MotionBlocks.add(page, "progress", id: "p", time: 1...6, stage: (1080, 1920)))
     #expect(bar.contains(#"data-kelp-in="wipe 5 linear 1""#))
-    #expect(MotionBlocks.add(page, "nothing", id: "x", start: 0, length: 1, stage: (1920, 1080)) == nil)
+    #expect(MotionBlocks.add(page, "nothing", id: "x", time: 0...1, stage: (1920, 1080)) == nil)
 }
 
 /// A table written back reads as it was: a cell with the separator, a quote or a line break is quoted; a semicolon

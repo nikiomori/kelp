@@ -20,7 +20,7 @@ final class FileTab: SavableTab {
     var conflicts: ConflictBar?
     private(set) var markdown: MarkdownTab?
     /// A CSV file's table (`CSVGrid`), shown instead of its text.
-    private var csv: CSVGrid?
+    var csv: CSVGrid?
     /// A page an agent made is named by its title, not "doc.md", and its icon shows what kind of page it is.
     private var pageTitle: String?
     private var pageKind: Artifacts.Kind?
@@ -244,10 +244,7 @@ final class FileTab: SavableTab {
             bar?.show(cursor: codeEditor?.cursor)
             bar?.show(problem: codeEditor?.problemAtCursor?.message)
         }
-        codeEditor.onChange = { [weak self] t in
-            self?.edited(t)
-            self?.csv?.changed(t)
-        }
+        codeEditor.onChange = { [weak self] t in self?.edited(t) }
         if let kept = backup.text {   // the unsaved text a crash left behind
             if kept == text {
                 backup.drop()
@@ -256,10 +253,7 @@ final class FileTab: SavableTab {
                 edited(kept)
             }
         }
-        codeEditor.contextMenu = { [weak self] m in
-            self?.contextMenu(m)
-            self?.csv?.textItems(m)
-        }
+        codeEditor.contextMenu = { [weak self] m in self?.contextMenu(m) }
         track(owner: self) {   // the editor follows the theme itself; the Markdown preview is redrawn here
             app.themes.editorRevision
         } changed: { [weak self] _ in

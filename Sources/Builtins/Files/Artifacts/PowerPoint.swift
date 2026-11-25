@@ -12,7 +12,7 @@ enum PowerPoint {
         var size: Double, bold = false, italic = false, colour = "000000", align = "l", font = "Helvetica Neue"
         /// A filled shape (RRGGBB) with corners rounded by `radius` (a share of its shorter side, up to 0.5); a table
         /// when it has `cells`, rows of them, its header row filled with `fill`.
-        var fill: String? = nil, radius = 0.0, cells: [[String]]? = nil
+        var fill: String?, radius = 0.0, cells: [[String]]?
     }
     private static let ns =
         #"xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" "#

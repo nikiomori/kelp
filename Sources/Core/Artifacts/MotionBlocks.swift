@@ -7,11 +7,14 @@ import Foundation
 public enum MotionBlocks {
     public static let names = ["name", "title", "quote", "figure", "section", "progress", "action", "end"]
 
-    /// `page` with block `name` added as element `id`, shown from `start` for `length` seconds on a `stage` (w, h).
-    public static func add(_ page: String, _ name: String, id: String, start: Double, length: Double, stage: (Int, Int))
+    /// `page` with block `name` added as element `id`, shown over `time` (seconds) on a `stage` (w, h).
+    public static func add(_ page: String, _ name: String, id: String, time: ClosedRange<Double>, stage: (Int, Int))
         -> String?
     {
-        guard let html = html(name, id: id, start: start, length: length, stage: stage) else { return nil }
+        guard
+            let html = html(
+                name, id: id, start: time.lowerBound, length: time.upperBound - time.lowerBound, stage: stage)
+        else { return nil }
         return MotionPresets.refresh(BoardEdit.appendToBody(page, html))
     }
 

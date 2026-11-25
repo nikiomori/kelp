@@ -47,6 +47,7 @@ extension FileTab {
     // MARK: saving
 
     func edited(_ text: String) {
+        csv?.changed(text)   // a CSV's table follows its text
         edits += 1
         backup.keep(text)
         if autosave { autosaving.after(0.6) { [weak self] in Task { await self?.autosaveNow() } } }

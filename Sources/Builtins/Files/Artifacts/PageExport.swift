@@ -17,7 +17,8 @@ enum PageExport: String, CaseIterable {
     func title(_ page: MarkdownTab.Page) -> String {
         switch self {
         case .png: String(localized: "Boards as PNG…")
-        case .pdf: page == .markdown ? String(localized: "Document as PDF…") : String(localized: "Slides as PDF…")
+        case .pdf where page == .markdown: String(localized: "Document as PDF…")
+        case .pdf: String(localized: "Slides as PDF…")
         case .pptx: String(localized: "Slides as PowerPoint…")
         case .html: String(localized: "Page as One HTML…")
         case .zip: String(localized: "Folder as ZIP…")
@@ -116,9 +117,8 @@ extension MarkdownTab {
                 case .markdown: try await exportDocumentPDF(to)
                 default: try await exportSlidesPDF(to)
                 }
-            case .pptx:
-                try await page == .canvas
-                    ? exportBoardsPowerPoint(to, editable: editable) : exportSlidesPowerPoint(to, editable: editable)
+            case .pptx where page == .canvas: try await exportBoardsPowerPoint(to, editable: editable)
+            case .pptx: try await exportSlidesPowerPoint(to, editable: editable)
             case .html: try await exportHTML(to)
             case .zip: try await zip(url.deletingLastPathComponent(), to: to, keepFolder: true)
             case .docx: try exportWord(to)

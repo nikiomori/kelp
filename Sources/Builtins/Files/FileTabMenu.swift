@@ -15,6 +15,7 @@ extension FileTab {
     var server: LanguageServerActions { LanguageServerActions(app: app, tab: self, root: root) }
 
     func contextMenu(_ menu: NSMenu) {
+        defer { csv?.textItems(menu) }   // a CSV's text has the way back to its table
         let app = self.app, path = self.path
         let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
         if language?.server != nil, !remote {   // a remote file has no language server here

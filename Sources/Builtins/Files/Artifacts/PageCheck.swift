@@ -19,10 +19,11 @@ enum PageCheck {
         }
     }
 
-    static func source(known: [String]) -> String {
+    /// The check's script for a page of Markdown `text`, kept in `folder`.
+    static func source(_ text: String, folder: URL) -> String {
         """
         (function () {
-          const known = \(MarkdownTab.js(known));
+          const known = \(MarkdownTab.js(missingFiles(text, folder: folder)));
           const root = document.querySelector('.markdown-body') || document.body;
         \(body)
         })();

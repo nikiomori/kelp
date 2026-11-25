@@ -68,7 +68,7 @@ extension MarkdownTab {
                 let id = BoardEdit.freeID(editor.text, name), start = motionStudio.at
                 let stage = MotionPage.size(editor.text)
                 rewritePage(HandEdit(board: pageFile, id: id, what: "added", from: nil, to: name)) {
-                    MotionBlocks.add($0, name, id: id, start: start, length: 4, stage: stage)
+                    MotionBlocks.add($0, name, id: id, time: start...start + 4, stage: stage)
                 }
             }
         }

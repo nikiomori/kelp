@@ -155,9 +155,8 @@ extension MarkdownTab {
                 let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
                 html += PageMarks.style
                 scripts += [
-                    ownAccent, CanvasChrome.source(labels: chrome, floats: false),
-                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels),
-                    PageCheck.source(known: PageCheck.missingFiles(text, folder: base))
+                    ownAccent, CanvasChrome.source(labels: chrome, floats: false), PageCheck.source(text, folder: base),
+                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
                 return (html, scripts + again, nil)
