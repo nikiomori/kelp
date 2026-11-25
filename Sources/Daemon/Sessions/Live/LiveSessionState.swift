@@ -156,6 +156,15 @@ extension LiveSession {
         var turnPrompt = ""
         /// The last line sent (a prompt): what a turn that starts is named after in its history.
         var lastSent = ""
+        /// What was sent while this turn ran (marks sent with Send Now): at its end, the pages they were about hand
+        /// their marks back as the turn's own prompt's do.
+        var turnSent: [String] = []
+
+        /// A line sent with Return.
+        mutating func sent(_ text: String) {
+            lastSent = text
+            if inTurn { turnSent.append(text) }
+        }
 
         init(record: Session, manifest: AgentManifest, logSize: Int, callbacks: Callbacks, trail: StatusTrail) {
             self.record = record
@@ -193,6 +202,7 @@ extension LiveSession {
             let starting = status == .working && !inTurn, ending = inTurn && status != .working && status != .waiting
             if starting {
                 inTurn = true
+                turnSent = []
                 turnStart = Date()
                 turnFolder = record.currentDir
             }
@@ -340,7 +350,7 @@ extension LiveSession {
             kept.boxEmpty = true
             if !line.isEmpty {
                 expectHook()
-                lastSent = line
+                sent(line)
             }
             guard !sawFirstPrompt, line.count >= 8 else { return nil }
             sawFirstPrompt = true

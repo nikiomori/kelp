@@ -29,7 +29,10 @@ extension Artifacts {
             try FileManager.default.createDirectory(
                 at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
         }
-        let start = kind.isCanvas ? ArtifactCanvas.empty : "# \(title)\n\n"
+        let start =
+            kind.isCanvas
+            ? ArtifactCanvas.empty
+            : kind == .motion ? Artifacts.motionStart(title) : "# \(title)\n\n"
         try start.write(to: page, atomically: true, encoding: .utf8)
         try save(
             ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),
@@ -81,6 +84,7 @@ extension Artifacts {
             return item
         }
         item.preview = target
+        item.marks = markCounts(in: URL(fileURLWithPath: target).deletingLastPathComponent())
         let page = fileStat(target)
         item.modified =
             artifactRecord.file == Kind.design.file
@@ -176,8 +180,21 @@ extension Artifacts {
     @discardableResult
     static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
         var kept = 0, failed: (any Error)?
-        for (slug, record) in list(root: root) where record.session == session && record.file != nil {
-            do { kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0 } catch {
+        // A page another chat made counts too when its marks went to this chat: the turn answers them. A page made
+        // for a chat before it started (From File, Make from This) is named in its first prompt, and is that chat's
+        // from then on.
+        for (slug, record) in list(root: root) where record.file != nil {
+            let folder = dir(root: root).appendingPathComponent(slug)
+            let named = record.session == nil && label.contains(projectPath(target(slug, record, root: root)))
+            guard named || record.session == session || hasMarks(sentTo: session, in: folder) else { continue }
+            do {
+                if named {
+                    var adopted = record
+                    adopted.session = session
+                    try save(adopted, in: folder)
+                }
+                kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0
+            } catch {
                 failed = failed ?? error
             }   // one page failing doesn't stop the others; the first error is thrown at the end
         }
@@ -185,10 +202,15 @@ extension Artifacts {
         return kept
     }
 
-    private static func keepVersion(_ slug: String, _ record: ArtifactRecord, root: String, label: String, now: Date)
-        throws
-        -> Bool
-    {
+    static func keepVersion(
+        _ slug: String, _ record: ArtifactRecord, root: String, label: String, byUser: Bool = false,
+        restored: Int? = nil, now: Date
+    ) throws -> Bool {
+        // A turn's end, a pause in hand edits and a send can keep a version at once: one at a time, each with the
+        // record as the one before it left it, so no two take the same number.
+        Artifacts.versionLock.lock()
+        defer { Artifacts.versionLock.unlock() }
+        let record = Artifacts.record(in: dir(root: root).appendingPathComponent(slug)) ?? record
         let target = target(slug, record, root: root)
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
         // A design's version is one file that holds the canvas together with the text of every board, so an older
@@ -200,19 +222,27 @@ extension Artifacts {
             } : small(target)
         guard let live = page else { return false }
         var versions = record.versions ?? []
-        if let last = versions.last, versionText(target: target, last.n).map({ Data($0.utf8) }) == live { return false }
+        // A restore is kept even when the page reads as its last version, so the list says what happened.
+        let same = versions.last.flatMap { versionText(target: target, $0.n) }.map { Data($0.utf8) } == live
+        if restored == nil, same { return false }
         let number = (versions.last?.n ?? 0) + 1
         let dir = folder.appendingPathComponent("versions")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try live.write(to: URL(fileURLWithPath: versionPath(target: target, number)))
         versions.append(
-            ArtifactVersion(n: number, at: now.timeIntervalSince1970, label: oneLine(label, number: number)))
-        for old in versions.dropLast(keptVersions) {   // a file deleted by hand is skipped, not an error
+            ArtifactVersion(
+                n: number, at: now.timeIntervalSince1970, label: byUser ? label : oneLine(label, number: number),
+                byUser: byUser ? true : nil, restored: restored))
+        let savedText = small(folder.appendingPathComponent(savedFile).path).map { String(decoding: $0, as: UTF8.self) }
+        // A saved.json that doesn't read saves none, and says so in the log: the turn's version is still kept.
+        let saved = Log.store.attempt("the saved versions in \(folder.path)") { try Self.saved(savedText) } ?? [:]
+        let keep = kept(versions, saved: Set(saved.keys)), keeping = Set(keep.map(\.n))
+        for old in versions where !keeping.contains(old.n) {   // a file deleted by hand is skipped, not an error
             let path = versionPath(target: target, old.n)
             if FileManager.default.fileExists(atPath: path) { try FileManager.default.removeItem(atPath: path) }
         }
         var updated = record
-        updated.versions = Array(versions.suffix(keptVersions))
+        updated.versions = keep
         try save(updated, in: folder)
         return true
     }

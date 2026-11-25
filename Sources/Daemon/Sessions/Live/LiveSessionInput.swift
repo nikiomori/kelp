@@ -273,7 +273,7 @@ extension LiveSession {
         if enter {
             locked.kept.boxEmpty = true
             locked.expectHook()
-            locked.lastSent = text   // what the turn it starts is named after
+            locked.sent(text)   // what the turn it starts is named after, or a turn running hears
         } else {
             locked.kept.draftWaiting = true
         }   // a draft is left for the user to read and send

@@ -14,7 +14,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
     let url: URL
     let app: AppModel
-    let web = WKWebView()
+    let web = DropWebView()
     let links: PreviewLinks
     /// The script world where Kelp's scripts for the preview run, and the only world `kelpSync` listens to. The page's
     /// own scripts don't run (`PreviewLinks`).
@@ -22,7 +22,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private let mode = CapsuleSegments(
         labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
         name: String(localized: "Mode"))
-    private let split = NSSplitView()
+    let split = NSSplitView()
     var renderTask: Task<Void, Never>?
     /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).
     var swappable: Swap?
@@ -57,6 +57,17 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// board and data-id). That element is chosen again after the canvas is redrawn.
     var editing = false
     var chosen: (board: String, id: String)?
+    /// The elements changed by hand since the last pause, and the wait for the next one (`keepHandEdit`).
+    var handEdited: Set<String> = [], markQueue: [Int] = [], followingAuthor = false   // the queue: `followAuthor`
+    var handSteps: (undo: [HandStep], redo: [HandStep]) = ([], [])   // for ⌘Z and ⇧⌘Z (`undoHandEdit`)
+    var lastRewrite: Task<Void, Never>?   // board rewrites one after another (`rewrite`)
+    var canvasLanguage = "as"   // ⋯ › Try On's text, kept across drawings (`viewMenu`)
+    var takesRows = false   // an element shows a table's column (`DataRows`): For Each Row… applies
+    let handEditRest = Debounce()
+    /// The bar for checking the marks an agent's turn handed back.
+    lazy var reviewBar = MarkReviewBar { [weak self] call in self?.runJS(call) }
+    /// The player and timeline under a motion page.
+    lazy var motionStudio = makeMotionStudio()
     /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
     /// being written gets the ring).
     var canvasZoom: Double?
@@ -92,7 +103,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         guard ArtifactBar.isPage(url.path) else { return crumbs }
         let bar = ArtifactBar(app: app, path: url.path, markdown: self)
         artifactBar = bar
-        return bar.view
+        return bars(bar.view, reviewBar.bar)
     }
 
     /// 0 edit, 1 split, 2 preview, as the bar's segments.
@@ -109,10 +120,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     /// Restores an older version: the file's text becomes `text`, and the file is saved.
-    func restore(_ text: String) {
-        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return restoreCanvas(snapshot) }
+    @discardableResult func restore(_ text: String) async -> Bool {
+        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return await restoreCanvas(snapshot) }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
-        Task { _ = await saveFile?() }
+        return await saveFile?() ?? false
     }
 
     /// Prints the page as the preview shows it, through the system's print panel (which can also save a PDF).
@@ -200,10 +211,15 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
-        web.allowsMagnification = page == .canvas   // pinch to look closer at a board
+        links.onEnded = { [weak self] in   // a blank pane says nothing: draw it again, whole, and say so
+            self?.swappable = nil
+            self?.rerender()
+            Banner.show(String(localized: "The page stopped responding, so it was drawn again."))
+        }
+        setUpPointer()
         web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view)
-        split.addArrangedSubview(web)
+        split.addArrangedSubview(DeviceStage(web))   // the page, or a device's screen (`DeviceControls`)
         editor.view.clipsToBounds = true
         // An agent's page has its own bar, whose ⋯ menu holds the modes (⇧⌘V cycles them), so the page gets one bar,
         // not two. Any other file gets the formatting bar on top, which hides in Preview because there is nothing to
@@ -218,7 +234,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             for subview in [bar, split] { subview.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
             view = column
         } else {
-            view = stacked(split)
+            view = page == .motion ? MotionSplit(stage: split, studio: motionStudio.view) : stacked(split)
         }
         view.addSubview(selectionBar)   // over the text, placed by frame
         let before = editor.onSelection   // the breadcrumbs and the conflict bar follow the selection too
@@ -232,8 +248,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: clip)
         }
         applyMode()
+        restorePlace()
         rerender()
-        if page == .canvas { followCanvas() }
+        if [.canvas, .motion, .markdown, .slides].contains(page) { followCanvas() }   // what `kelp artifact check` asks
     }
 
     private let formatting = NSStackView()
@@ -293,7 +310,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// follows), or a line was double-clicked (the cursor goes there).
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
-        let agents = page == .canvas || (artifactBar != nil && (page == .markdown || page == .slides))
+        let agents =
+            page == .canvas || page == .motion || (artifactBar != nil && (page == .markdown || page == .slides))
         if agents, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             canvasMessage(kind, body)
         {
@@ -320,12 +338,17 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
     }
 
-    private func selectMode(_ segment: Int) {
+    func selectMode(_ segment: Int) {
         mode.selectedSegment = segment
         applyMode()
     }
 
     private var positioned = false
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        keepPlace()   // the page opens here next time
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         if !positioned, split.bounds.width > 700 {
@@ -366,33 +389,5 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.adjustSubviews()
         if segment == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }
         if dirty, !web.isHidden { rerender() }
-    }
-
-    private func edit(_ format: (String, NSRange) -> (text: String, selection: NSRange)) {
-        let result = format(editor.text, editor.selectedRange)
-        editor.apply(text: result.text, selection: result.selection)
-        editor.focus()
-    }
-    @objc func bold() { edit(MarkdownFormat.toggleBold) }
-    @objc func italic() { edit(MarkdownFormat.toggleItalic) }
-    @objc func code() { edit(MarkdownFormat.toggleCode) }
-    @objc func bullets() { edit(MarkdownFormat.toggleBullet) }
-    @objc func numbered() { edit(MarkdownFormat.toggleNumbered) }
-    @objc func tasks() { edit(MarkdownFormat.toggleTask) }
-    @objc func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
-    /// Makes the caret's line a heading of `level` (1…3), or text with 0.
-    func heading(_ level: Int) { edit { MarkdownFormat.heading($0, $1, level: level) } }
-    @objc private func headingPicked(_ popUp: NSPopUpButton) {
-        let level = popUp.indexOfSelectedItem - 1   // skips the button's face: 0 is Text, then Heading 1…3
-        guard level >= 0 else { return }
-        heading(level)
-    }
-    @objc func link() {
-        Task {
-            guard let address = await prompt(String(localized: "Insert link"), "URL", initial: "https://") else {
-                return
-            }
-            edit { MarkdownFormat.makeLink($0, $1, url: address) }
-        }
     }
 }

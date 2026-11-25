@@ -222,8 +222,8 @@ import Testing
     // SwiftUI's `@AppStorage` and `@SceneStorage` are UserDefaults by another name.
     let all = try matches(#"\bUserDefaults\b|@AppStorage\b|@SceneStorage\b"#, in: ["Sources"])
     let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
-    #expect(app.count <= 72, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
-    #expect(app.count >= 72, "\(app.count) now: lower this")
+    #expect(app.count <= 76, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(app.count >= 76, "\(app.count) now: lower this")
     #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
 }
 
@@ -232,10 +232,11 @@ import Testing
 /// `Debounce` or a timer its owner can cancel. The count is the ones there are; it only goes down.
 @Test func theAppWaitsForEventsNotForTime() throws {
     let waits = try matches(#"\.asyncAfter\("#, in: appDirs)
-    // +2 that are timers, not waits: a command the user's page holds gives up (`AgentDrive.handedBack`), and the strip
-    // asks whether to hand a page back that the user left alone (`BrowserTab.remindAfter`).
-    #expect(waits.count <= 19, "a wait in place of the event that says it's ready: \(waits)")
-    #expect(waits.count >= 19, "\(waits.count) now: lower this")
+    // +3 that are timers, not waits: a command the user's page holds gives up (`AgentDrive.handedBack`), the strip
+    // asks whether to hand a page back that the user left alone (`BrowserTab.remindAfter`), and `kelp artifact export`
+    // gives up on a page that never draws (`Builtins.exportPage`).
+    #expect(waits.count <= 20, "a wait in place of the event that says it's ready: \(waits)")
+    #expect(waits.count >= 20, "\(waits.count) now: lower this")
 }
 
 /// A test waits for what it waits on (`waitFor`), not for a time: a sleep guesses how long something takes, too long on
@@ -265,7 +266,7 @@ import Testing
 /// count is a ceiling that holds both ways.
 @Test func emptyCatchesAreCounted() throws {
     let ceilings = [
-        "Daemon": 39, "Core": 16, "Builtins": 29, "KelpKit": 7, "DesignKit": 6, "EditorKit": 3, "kelp": 2, "KelpVM": 2,
+        "Daemon": 39, "Core": 17, "Builtins": 33, "KelpKit": 7, "DesignKit": 6, "EditorKit": 3, "kelp": 2, "KelpVM": 2,
         "Agents": 1, "LSPKit": 1, "GitKit": 1, "Integrations": 1
     ]
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)

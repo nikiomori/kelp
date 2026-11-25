@@ -43,3 +43,14 @@ public func stacked(_ views: NSView...) -> NSView {
     above.constraint(equalTo: column.bottomAnchor).isActive = true
     return column
 }
+
+/// Bars stacked top to bottom, each the full width, where a hidden bar takes no room (`stacked` keeps its height).
+@MainActor
+public func bars(_ views: NSView...) -> NSStackView {
+    let column = NSStackView(views: views)
+    column.orientation = .vertical
+    column.spacing = 0
+    column.detachesHiddenViews = true
+    for view in views { view.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+    return column
+}

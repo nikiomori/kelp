@@ -6,6 +6,8 @@ import DesignKit
 enum Make {
     struct Kind: Sendable {
         let id: String, title: String, symbol: String, help: String
+        /// The agent's line, when it isn't "Make a <id>".
+        var line: String?
     }
 
     static let kinds = [
@@ -23,12 +25,22 @@ enum Make {
             help: String(localized: "Screens side by side")),
         Kind(
             id: "dashboard", title: String(localized: "Dashboard"), symbol: "chart.bar",
-            help: String(localized: "Numbers at a glance"))
+            help: String(localized: "Numbers at a glance")),
+        Kind(
+            id: "motion", title: String(localized: "Motion"), symbol: "film",
+            help: String(localized: "A video drawn as a page")),
+        Kind(
+            id: "proof", title: String(localized: "Proof"), symbol: "checkmark.seal",
+            help: String(localized: "Pictures that a change works")),
+        Kind(
+            id: "system", title: String(localized: "Design System"), symbol: "paintpalette",
+            help: String(localized: "Colours, fonts and parts from a website, brand files or the project’s code"),
+            line: "Make the project's design system (kelp artifact guide design system) from ")
     ]
 
     /// The line the agent gets; the user writes what the page is about after it. It stays in English, because it's the
     /// agent's instruction.
-    static func line(_ kind: Kind) -> String { "Make a \(kind.id) (kelp artifact guide \(kind.id)): " }
+    static func line(_ kind: Kind) -> String { kind.line ?? "Make a \(kind.id) (kelp artifact guide \(kind.id)): " }
 
     /// Adds the kinds as menu items, after a "Make" heading unless they're its submenu. Each item calls `start` with
     /// its line.

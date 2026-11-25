@@ -1,17 +1,16 @@
 import Foundation
 
-/// Marks on an agent's Markdown page (a doc, slides), as on a canvas. With Mark on (`kelpMark(true)` from the bar),
-/// text the user selects gets a number and a line in the column on the right (`window.kelpColumn`) for what should
-/// change, and Send puts all the marks in one message. With Mark off, a selection shows a Mark button that turns Mark
-/// on. The column's other list is the page's headings. Each time the page is drawn, a mark is found again by its text,
-/// because the agent may have moved that text. The script sends `marks` (send), `marksDraft` (keep), and `mode` (Mark
-/// turned on from the page) to `kelpSync`.
+/// Marks on an agent's Markdown page (a doc, slides), as on a canvas (`MarkColumn` keeps them). With Mark on
+/// (`kelpMark(true)` from the bar), text the user selects becomes a mark. With Mark off, a selection shows a Mark
+/// button that turns Mark on. The column's other list is the page's headings. Each time the page is drawn, a mark is
+/// found again by its text, because the agent may have moved that text. The script sends `mode` (Mark turned on from
+/// the page) to `kelpSync`.
 enum PageMarks {
-    static func source(marks: [CanvasMark], labels: [String: String]) -> String {
+    static func source(labels: [String: String]) -> String {
         """
         (function () {
-          const C = window.kelpColumn; if (!C) return;
-          const marks = \(MarkdownTab.js(marks)), L = \(MarkdownTab.js(labels));
+          const C = window.kelpColumn, K = window.kelpMarks; if (!C || !K) return;
+          const L = \(MarkdownTab.js(labels));
         \(body)
         })();
         """
@@ -20,10 +19,8 @@ enum PageMarks {
     private static let body = """
           const { el, post } = C;
           const root = document.querySelector('.markdown-body') || document.body;
-          const layer = el('div', 'kelp-layer'), button = el('button', 'kelp-markbtn', L.mark);
-          document.body.append(layer);
+          const button = el('button', 'kelp-markbtn', L.mark);
           document.documentElement.append(button);
-          let on = false, tab = 'marks';
           // Where a mark's text is on the page now: its first place, spaces aside (a selection across blocks or cells
           // reads with line breaks the page's text doesn't have).
           function rangeOf(quote) {
@@ -46,54 +43,39 @@ enum PageMarks {
             try { r.setStart(...at(map[i])); r.setEnd(...at(map[i + q.length - 1] + 1)); } catch (e) { return null; }
             return r;
           }
-          const keep = () => post({ kind: 'marksDraft', marks: marks });
-          function draw() {
-            layer.replaceChildren();
-            const ranges = [];
-            marks.forEach((m, i) => {
-              const r = rangeOf(m.text); if (!r) return;
-              ranges.push(r);
-              const rects = r.getClientRects(), last = rects[rects.length - 1];
-              if (!last || !last.width) return;
-              const pin = el('div', 'kelp-pin', String(i + 1));
-              Object.assign(pin.style, { left: (last.right + scrollX - 6) + 'px',
-                top: (last.top + scrollY - 14) + 'px' });
-              layer.append(pin);
-            });
-            if (window.CSS && CSS.highlights) CSS.highlights.set('kelp-mark', new Highlight(...ranges));
-            if (!on) return;
-            const tabs = [['marks', L.marks + ' ' + marks.length]].concat(window.kelpSlides ? [] : [['contents',
-              L.contents]]);
-            C.open([C.tabs(tabs, tab, key => { tab = key; draw(); })], tab === 'marks' ? markRows() : contents());
+          let lit = [];
+          K.attach({
+            empty: L.noMarks,
+            what: m => '«' + m.text + '»',
+            where(m) {
+              const r = rangeOf(m.text); if (!r) return null;
+              const box = r.getBoundingClientRect();
+              if (!box.width) return null;
+              if (m.state !== 'done') lit.push(r);
+              return { x: box.left + scrollX, y: box.top + scrollY, w: box.width, h: box.height };
+            },
+            // The marked words are lit, the ones being checked as much as the others.
+            drawn() {
+              if (window.CSS && CSS.highlights) CSS.highlights.set('kelp-mark', new Highlight(...lit));
+              lit = [];
+            },
+            focus(m) {
+              rangeOf(m.text)?.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            },
+            tabs: () => (window.kelpSlides ? [] : [['contents', L.contents]])
+              .concat(window.kelpIssues?.length ? [['check', L.check + ' ' + window.kelpIssues.length]] : []),
+            tabRows: tab => tab === 'check' ? checkRows() : contents()
+          });
+          // What the check found (`PageCheck`), and the agent asked to fix it.
+          function checkRows() {
+            const issues = window.kelpIssues || [];
+            if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
+            const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');
+            fix.onclick = () => post({ kind: 'fixCheck' });
+            foot.append(fix);
+            return [...issues.map(t => el('div', 'kelp-row kelp-issue', t)), foot];
           }
-          function markRows() {
-            if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];
-            const rows = [];
-            marks.forEach((m, i) => {
-              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib');
-              x.innerHTML = \(CanvasChrome.Glyph.xmark.js); x.title = L.remove;
-              x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
-              head.append(el('span', 'kelp-num', String(i + 1)), el('span', 'kelp-grow kelp-what kelp-quote',
-                '«' + m.text + '»'), x);
-              const note = el('input', 'kelp-field'), line = el('div', 'kelp-row kelp-indent');
-              note.placeholder = L.note; note.value = m.note;
-              note.addEventListener('change', () => { m.note = note.value; keep(); });
-              note.addEventListener('keydown', e => {
-                if (e.key === 'Enter' && e.metaKey) { m.note = note.value; send(); }
-                else if (e.key === 'Enter') note.blur();
-              });
-              line.append(note);
-              rows.push(head, line);
-            });
-            const go = el('button', 'kelp-prominent', L.send), foot = el('div', 'kelp-row kelp-end');
-            go.onclick = send;
-            foot.append(go);
-            return [...rows, foot, el('p', 'kelp-note', L.hint)];
-          }
-          function send() {
-            for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
-            post({ kind: 'marks', marks: marks }); marks.length = 0; keep(); draw();
-          }
+          addEventListener('kelp-check', () => K.draw());
           function contents() {
             const heads = [...root.querySelectorAll('h1, h2, h3')];
             if (!heads.length) return [el('p', 'kelp-note', L.noContents)];
@@ -104,9 +86,8 @@ enum PageMarks {
             });
           }
           function add(text) {
-            marks.push({ board: '', target: '', text: text, note: '' });
-            tab = 'marks'; getSelection().removeAllRanges(); keep(); draw();
-            const inputs = document.querySelectorAll('.kelp-col input'); inputs[inputs.length - 1]?.focus();
+            K.add({ kind: 'quote', text });
+            getSelection().removeAllRanges();
           }
           const chosen = () => {
             const s = getSelection(), t = String(s).trim();
@@ -117,7 +98,7 @@ enum PageMarks {
             if (e.target === button || e.target.closest?.('.kelp-col')) return;
             setTimeout(() => {
               const t = chosen(); if (!t) return hide();
-              if (on) return add(t);
+              if (K.on) return add(t);
               const r = getSelection().getRangeAt(0).getBoundingClientRect();
               Object.assign(button.style, { display: 'block', left: (r.left + scrollX) + 'px',
                 top: (r.bottom + scrollY + 6) + 'px' });
@@ -130,10 +111,42 @@ enum PageMarks {
             post({ kind: 'mode', value: 'mark' }); window.kelpMark(true);
             if (t) add(t);
           });
-          window.kelpMark = v => { on = v; if (!on) C.close(); draw(); };
-          addEventListener('resize', () => requestAnimationFrame(draw));
-          addEventListener('kelp-slide', draw);
-          draw();
+          // A paragraph or a heading is typed over where it is (double click; Return keeps it, Esc puts it back) while
+          // Mark is off; the Markdown changes at its lines (`retext`), or Kelp says to change it in the source.
+          const placeOf = el => { let at = null, after = null;
+            for (const m of document.querySelectorAll('[data-line]')) {
+              if (m.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) at = m; else if (!after) after = m;
+            }
+            return [at && +at.dataset.line, after && +after.dataset.line]; };
+          document.addEventListener('dblclick', e => {
+            const el = !K.on && e.target.closest?.('p, h1, h2, h3, h4, h5, h6');
+            if (!el || !root.contains(el) || el.closest('li, blockquote, td, th, .kelp-col')) return;
+            const [line, end] = placeOf(el); if (!line) return;
+            e.preventDefault(); e.stopImmediatePropagation();
+            const was = el.textContent;
+            el.contentEditable = 'plaintext-only'; el.focus();
+            const done = keep => {   // the listeners go first: leaving editing blurs, which would end it twice
+              el.removeEventListener('keydown', key); el.removeEventListener('blur', blur);
+              el.removeAttribute('contenteditable');
+              const now = el.textContent.trim();
+              if (!keep || now === was.trim()) { el.textContent = was; return; }
+              post({ kind: 'retext', line, end, text: now });
+            };
+            const key = k => {
+              if (k.key === 'Enter' && !k.shiftKey) { k.preventDefault(); done(true); }
+              else if (k.key === 'Escape') { k.preventDefault(); done(false); }
+            };
+            const blur = () => done(true);
+            el.addEventListener('keydown', key); el.addEventListener('blur', blur);
+          }, true);
+          // A task list's boxes tick on the page and in the Markdown (`task`).
+          for (const box of root.querySelectorAll('input[data-task]')) {
+            box.disabled = false;
+            box.onchange = () => post({ kind: 'task', line: +box.dataset.task, done: box.checked });
+          }
+          window.kelpMark = v => K.setOn(v);
+          addEventListener('kelp-slide', () => K.draw());
+          K.draw();
         """
 
     /// Shows what the agent's last turn changed in a doc. A bar goes beside each block that holds a changed line
@@ -170,11 +183,13 @@ enum PageMarks {
         <style>
         \(CanvasChrome.style)
         \(CanvasEdit.style)
-        ::highlight(kelp-mark) { background-color: rgba(255,149,0,.28); }
+        \(MarkColumn.style)
+        ::highlight(kelp-mark) { background-color: color-mix(in srgb, var(--k-orange) 28%, transparent); }
         .kelp-markbtn { position: absolute; z-index: 2147483647; display: none; padding: 4px 10px; border: 0;
-          border-radius: 999px; font: 500 12px -apple-system, BlinkMacSystemFont, sans-serif;
+          border-radius: var(--k-radius-capsule);
+          font: 500 var(--k-text-row) -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--k-accent);
-          color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); cursor: default; }
+          color: var(--k-on-accent); box-shadow: var(--k-shadow-float-sm); cursor: default; }
         .kelp-quote { font-style: italic; color: var(--k-sec); }
         .kelp-toc { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--k-label);
           font: inherit; padding: 4px 12px; border-radius: 0; white-space: nowrap; overflow: hidden;

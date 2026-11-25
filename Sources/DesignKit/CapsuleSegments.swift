@@ -11,6 +11,10 @@ public final class CapsuleSegments: NSControl {
     private var fields: [NSTextField] = []
     private var segmentOn: [Bool] = []
     private var tips: [String?] = []
+    /// A number after a segment's word, on an orange capsule: what waits for the user there (marks to check).
+    private var counts: [Int?] = []
+    private var countFields: [NSTextField] = []
+    private var countPlates: [NSView] = []
     private let thumb = NSView(), hover = NSView()
     private var hovered: Int?, pressed: Int?
     private var watching: [NSObjectProtocol] = []
@@ -76,6 +80,15 @@ public final class CapsuleSegments: NSControl {
         tips[index] = tip
         needsLayout = true
     }
+    /// Shows `count` after segment `index`'s word on an orange capsule, or nothing when it is nil.
+    public func setCount(_ count: Int?, forSegment index: Int) {
+        guard counts.indices.contains(index), counts[index] != count else { return }
+        counts[index] = count
+        countFields[index].stringValue = count.map { $0 > 99 ? "99+" : "\($0)" } ?? ""
+        countPlates[index].isHidden = count == nil
+        invalidateIntrinsicContentSize()
+        needsLayout = true
+    }
     override public var isEnabled: Bool { didSet { restyle() } }
     override public var controlSize: NSControl.ControlSize {
         didSet {
@@ -92,6 +105,23 @@ public final class CapsuleSegments: NSControl {
             field.lineBreakMode = .byTruncatingTail
             addSubview(field)
             return field
+        }
+        countPlates.forEach { $0.removeFromSuperview() }
+        counts = Array(repeating: nil, count: words.count)
+        countPlates = words.map { _ in
+            let plate = NSView()
+            plate.wantsLayer = true
+            plate.isHidden = true
+            plate.appearance = NSAppearance(named: .aqua)   // dark digits on the orange in both looks
+            addSubview(plate)
+            return plate
+        }
+        countFields = countPlates.map { plate in
+            let count = NSTextField(labelWithString: "")
+            count.font = .uiDigits(TextSize.micro, weight: .semibold)
+            count.alignment = .center
+            plate.addSubview(count)
+            return count
         }
         segmentOn = Array(repeating: true, count: words.count)
         tips = Array(repeating: nil, count: words.count)
@@ -111,7 +141,16 @@ public final class CapsuleSegments: NSControl {
     private var height: CGFloat { TextSize.of(small ? Metrics.segment.height : Metrics.row) }
     /// A word's own width with room on both sides, measured in the weight it has when chosen, so choosing doesn't move it.
     private var wants: [CGFloat] {
-        words.map { ceil(($0 as NSString).size(withAttributes: [.font: chosenFont]).width) + 2 * Metrics.gapWide + 2 }
+        words.indices.map { i in
+            ceil((words[i] as NSString).size(withAttributes: [.font: chosenFont]).width) + 2 * Metrics.gapWide + 2
+                + (counts.indices.contains(i) && counts[i] != nil ? countSize(i).width + Metrics.gapTight : 0)
+        }
+    }
+    /// The size of segment `index`'s count capsule.
+    private func countSize(_ index: Int) -> NSSize {
+        let height = TextSize.of(Metrics.countCapsule - Metrics.lineGap)
+        let digits = ceil(countFields[index].attributedStringValue.size().width) + 2 * TextSize.of(Metrics.gapTight)
+        return NSSize(width: max(height, digits), height: height)
     }
     override public var intrinsicContentSize: NSSize {
         NSSize(width: wants.reduce(0, +) + 2 * Metrics.lineGap, height: height)
@@ -134,9 +173,20 @@ public final class CapsuleSegments: NSControl {
         removeAllToolTips()
         for (index, field) in fields.enumerated() where rects.indices.contains(index) {
             let size = field.fittingSize
+            let badge = counts[index] == nil ? NSSize.zero : countSize(index)
+            let room = badge.width > 0 ? badge.width + Metrics.gapTight : 0
             field.frame = NSRect(
                 x: rects[index].minX + Metrics.gapWide / 2, y: rects[index].midY - size.height / 2,
-                width: rects[index].width - Metrics.gapWide, height: size.height)
+                width: rects[index].width - Metrics.gapWide - room, height: size.height)
+            if badge.width > 0 {
+                countPlates[index].frame = NSRect(
+                    x: field.frame.maxX + Metrics.gapTight, y: rects[index].midY - badge.height / 2, width: badge.width,
+                    height: badge.height)
+                countPlates[index].layer?.cornerRadius = badge.height / 2
+                let digits = countFields[index].fittingSize
+                countFields[index].frame = NSRect(
+                    x: 0, y: (badge.height - digits.height) / 2, width: badge.width, height: digits.height)
+            }
             if let tip = tips[index] { addToolTip(rects[index], owner: tip as NSString, userData: nil) }
             choices[index].setAccessibilityFrameInParentSpace(rects[index])
         }
@@ -176,6 +226,8 @@ public final class CapsuleSegments: NSControl {
             plate.borderWidth = contrast ? 1 : 0
             plate.borderColor = (dark ? NSColor.white : .black).withAlphaComponent(dark ? 0.35 : 0.25).cgColor
         }
+        for plate in countPlates { plate.layer?.backgroundColor = NSColor.systemOrange.cgColor }
+        for count in countFields { count.textColor = .labelColor }
         for (index, field) in fields.enumerated() {
             let chosen = index == selectedSegment, on = isEnabled && segmentOn[index]
             field.font = chosen ? chosenFont : wordFont

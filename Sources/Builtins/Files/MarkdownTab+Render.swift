@@ -20,10 +20,14 @@ extension MarkdownTab {
         case html
         /// A design's canvas.json. The preview shows its boards, drawn by Kelp (`CanvasPage`).
         case canvas
+        /// An agent's motion page (motion.html): its CSS animations on one timeline that Kelp plays (`MotionPage`).
+        case motion
 
         @MainActor init(_ url: URL) {
             if url.lastPathComponent == Artifacts.Kind.design.file && ArtifactBar.isPage(url.path) {
                 self = .canvas
+            } else if url.lastPathComponent == Artifacts.Kind.motion.file && ArtifactBar.isPage(url.path) {
+                self = .motion
             } else if ["html", "htm"].contains(url.pathExtension.lowercased()) {
                 self = .html
             } else if Review.isReview(url.path) {
@@ -49,38 +53,75 @@ extension MarkdownTab {
             guard !Task.isCancelled else { return }
             let text = shownVersion ?? editor.text, base = url.deletingLastPathComponent(), shown = shownVersion
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            var page: (background: String, text: String)?
+            var page: (background: String, text: String)?, accent = ""
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
+                accent = NSColor.controlAccentColor.hexString
             }
-            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels
+            // Kelp's own page takes the Mac's accent, as the window around it does (Graphite is grey there too).
+            let symbols = PageSymbols.script()
+            let ownAccent = "document.documentElement.style.setProperty('--k-accent', '\(accent)');" + symbols
+            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, columnLabels = markColumnLabels
+            let motion = kind == .motion ? motionScripts(at: motionStudio.at) : []
+            let animatedNote = String(localized: "Its animation moves it: change that instead")
+            let turnedNote = String(localized: "Turned or scaled: its corners would pull it askew")
+            let cropLabels = ["free": String(localized: "Free"), "reset": String(localized: "Reset")]
+            let variantLabels = [
+                "keep": String(localized: "Keep"), "more": String(localized: "Three More Like This")
+            ]
+            let layerLabels = [
+                "layers": String(localized: "Layers"), "keys": String(localized: "↑ parent · ↓ inside · ⇥ next"),
+                "allLike": String(localized: "All like this"), "onBoards": String(localized: "on %d boards")
+            ].merging(canvasEditMoreLabels) { own, _ in own }   // and Edit's Link, Picture and Arrange
+            let anchors = [
+                "moved": String(localized: "Moved"), "gone": String(localized: "Gone"),
+                "pointAgain": String(localized: "Point Again")
+            ]
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
-                CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
+                CanvasPage.chosenThemes
                 ?? (dark ? .dark : .light)
             let canvasView = CanvasPage.View(
                 themes: isDashboard ? (dark ? .dark : .light) : themes, writer: canvasWriter, dashboard: isDashboard)
             // An agent's Markdown page (a doc, slides) takes marks, and a doc shows what the agent's last turn changed.
             let agents = artifactBar != nil && (kind == .markdown || kind == .slides)
             let markLabels = pageMarkLabels,
-                slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
+                slideLabels = slidesLabels
             let turn = shown == nil && kind == .markdown ? baseline : nil
             let noSource = String(localized: "Where it came from isn’t said: ask its agent for a data-source.")
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
                 if kind == .html { return (text, [], nil) }
-                if kind == .canvas {
+                if kind == .canvas || kind == .motion {
+                    let root = Self.projectRoot(of: base.path)
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
-                    let built = CanvasPage.build(
-                        snapshot, folder: base, root: Self.projectRoot(of: base.path), view: canvasView)
-                    let around = CanvasChrome.source(
-                        themes: themes.rawValue, labels: chrome, floats: !canvasView.dashboard)
-                    let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
-                    let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
+                    let built =
+                        kind == .motion
+                        ? MotionPage.build(text, folder: base, root: root)
+                        : CanvasPage.build(snapshot, folder: base, root: root, view: canvasView)
+                    let around = CanvasChrome.source(labels: chrome, floats: !canvasView.dashboard && kind != .motion)
+                    let column = MarkColumn.source(marks: built.marks, labels: columnLabels)
+                    let edit =
+                        CanvasEdit.source(tweaks: built.tweaks, before: built.before, labels: labels)
+                        + CanvasPresent.source(labels: labels)
+                        + CanvasAnchors.source(labels: anchors) + CanvasBoardStates.source
+                        + CanvasVariants.source(labels: variantLabels)
+                    let byHand =
+                        CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
+                        + CanvasLayers.source(labels: layerLabels) + CanvasEditMore.source(labels: layerLabels)
+                    let handles =
+                        CanvasHandles.source(animated: animatedNote, turned: turnedNote) + CanvasEditBar.source
+                        + CanvasCrop.source(labels: cropLabels) + CanvasTypeOver.source
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
-                        built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + dash + again,
+                        built.html,
+                        [
+                            ownAccent, CanvasScript.source(issues: built.issues, system: built.tokens), around, column,
+                            edit, byHand, handles
+                        ]
+                            + dash + motion
+                            + again,
                         nil
                     )
                 }
@@ -102,7 +143,9 @@ extension MarkdownTab {
                         String(decoding: $0, as: UTF8.self)
                     }
                     html += SlidesPage.style + SlidesPage.tokens(tokens ?? "")
+                    scripts.append("window.kelpSlideGroups = \(Self.js(SlideVariants.groups(text)));")
                     scripts.append(SlidesPage.script(labels: slideLabels))
+                    if !agents { scripts.append(symbols) }   // with agents, `ownAccent` adds them
                 }
                 guard agents else {
                     let swap = Swap(
@@ -110,11 +153,11 @@ extension MarkdownTab {
                         mermaid: mermaid != nil, math: math != nil, body: body)
                     return (html, scripts, kind == .markdown ? swap : nil)
                 }
-                let marks = CanvasMark.read(Artifacts.small(base.appendingPathComponent(CanvasMark.file).path))
+                let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
                 html += PageMarks.style
                 scripts += [
-                    CanvasChrome.source(themes: "", labels: chrome, floats: false),
-                    PageMarks.source(marks: marks, labels: markLabels)
+                    ownAccent, CanvasChrome.source(labels: chrome, floats: false), PageCheck.source(text, folder: base),
+                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
                 return (html, scripts + again, nil)
@@ -126,7 +169,7 @@ extension MarkdownTab {
             let was =
                 (try? await web.evaluateJavaScript("[window.scrollY, window.kelpAt ?? 0]", contentWorld: Self.world))
                 as? [Double] ?? [0, 0]
-            let scrollY = was.first ?? 0, slide = Int(was.last ?? 0)
+            let scrollY = web.url == nil ? keptPlace.y : was.first ?? 0, slide = Int(was.last ?? 0)   // first: as left
             guard !Task.isCancelled else { return }
             // In Split, the preview goes to the block being edited; otherwise it goes back to where it was.
             let place =
@@ -135,8 +178,12 @@ extension MarkdownTab {
                 : kind == .slides ? "kelpGo(\(slide))" : "window.scrollTo(0, \(scrollY))"
             // A canvas is Kelp's own page, so its scripts run; its boards sit in frames sandboxed without scripts
             // (`CanvasPage`).
+            Self.loaded.setObject(.init((html, base, scripts + [place])), forKey: self)
+            Builtins.pageDrawn(self)
+            if kind == .canvas || kind == .motion { followAuthor() }   // its turns end with a check (`TurnCheck`)
             links.load(
-                html, baseURL: base, scripts: scripts + [place], world: Self.world, pageScripts: kind == .canvas,
+                html, baseURL: base, scripts: scripts + [place], world: Self.world,
+                pageScripts: kind == .canvas || kind == .motion,
                 in: web)
             swappable = swap
         }

@@ -101,6 +101,14 @@ extension BrowserTab {
     }
 
     private func sendDesign(_ element: [String: Any], image: NSImage?) {
+        // ⇧: the element as a picture, to paste into a mark's note on an artifact as its example (Claude Design's
+        // web capture).
+        if element["shift"] as? Bool == true, let image {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([image])
+            return Banner.show(
+                String(localized: "Copied as a picture: paste it into a mark’s note to make it the example"))
+        }
         Task { sendDesign(element, shot: await Self.savePNG(image, kind: "design") ?? "") }
     }
 
@@ -221,7 +229,8 @@ extension BrowserTab {
                const src = __kelpSource(el);
                window.webkit.messageHandlers.kelp.postMessage({selector: path(el), html: el.outerHTML.slice(0, 4000), styles,
                  rect: {x: r.left, y: r.top, w: r.width, h: r.height},
-                 url: location.href, source: src.source || null, component: src.component || null, alt: e.altKey}); };
+                 url: location.href, source: src.source || null, component: src.component || null, alt: e.altKey,
+                 shift: e.shiftKey}); };
              document.addEventListener('mousemove', move, true); document.addEventListener('click', click, true);
              window.__kelpOff = () => { document.removeEventListener('mousemove', move, true); document.removeEventListener('click', click, true);
                box.remove(); tag.remove(); window.__kelp = false; };

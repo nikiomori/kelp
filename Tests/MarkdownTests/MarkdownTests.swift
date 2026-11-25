@@ -71,6 +71,21 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(h.contains(#"<li class="task-list-item"><input type="checkbox" disabled> todo</li>"#))
     #expect(h.contains(#"<li class="task-list-item"><input type="checkbox" disabled checked> done</li>"#))
     #expect(h.contains(#"<li>plain</li>"#))
+    let marked = MarkdownHTML.render("# Plan\n\n- [ ] todo\n- [x] done", marking: true)
+    #expect(
+        marked.contains(#"<input type="checkbox" disabled data-task="3">"#), "an agent's page says each task's line")
+}
+
+/// A task ticked on the page ticks its line in the Markdown; a line that holds no task is left as it is.
+@Test(arguments: [
+    ("- [ ] todo", 1, true, "- [x] todo"),
+    ("  1. [x] done", 1, false, "  1. [ ] done"),
+    ("intro\n* [ ] b", 2, true, "intro\n* [x] b"),
+    ("- [ ] todo", 2, true, "- [ ] todo"),
+    ("plain [ ] text", 1, true, "plain [ ] text")
+])
+func aTaskTickedOnThePageTicksItsLine(text: String, line: Int, done: Bool, after: String) {
+    #expect(MarkdownTasks.set(text, line: line, done: done) == after)
 }
 
 @Test func tablesWithAlignment() {
@@ -347,4 +362,22 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(html.contains("data-line=\"1\"") && html.contains("data-line=\"3\"") && html.contains("data-line=\"5\""))
     #expect(!html.contains("data-line=\"6\""))   // only the top level
     #expect(!MarkdownHTML.render("# One").contains("data-line"))
+}
+
+/// A plain paragraph or heading typed over on the page becomes its words in the Markdown, a heading keeping its #s;
+/// one with formatting, a list or a quote is left to the source.
+@Test(
+    arguments: [
+        ("# Plan\n\nOld words\nwrapped.\n\nNext", 3, 6 as Int?, "New words", "# Plan\n\nNew words\n\nNext" as String?),
+        ("# Plan\n\nText", 1, 3, "Better plan", "# Better plan\n\nText"),
+        ("## Old\nText", 1, nil, "New", "## New\nText"),
+        ("Some **bold** text", 1, nil, "x", nil),
+        ("- an item", 1, nil, "x", nil),
+        ("> quoted", 1, nil, "x", nil),
+        ("See [the docs](a.md)", 1, nil, "x", nil),
+        ("Text", 1, nil, "   ", nil),
+        ("Text", 5, nil, "x", nil)
+    ] as [(String, Int, Int?, String, String?)])
+func aPlainBlockTypedOverOnThePageChangesItsLines(text: String, line: Int, end: Int?, words: String, after: String?) {
+    #expect(MarkdownRetext.set(text, line: line, end: end, words: words) == after)
 }

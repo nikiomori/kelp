@@ -102,10 +102,10 @@ extension NSImage.SymbolConfiguration {
 public enum Motion {
     // The 120 / 180 / 240 / 320 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300; 320 is `fold`). Things
     // come in on it, and what leaves goes in about two thirds of that, because nobody waits to watch it go.
-    public static let fast: TimeInterval = 0.12   // hover, icons moving, the picture of what went fading
-    public static let base: TimeInterval = 0.18   // a panel sliding, Quick Open opening
-    public static let slow: TimeInterval = 0.17   // a banner fading: two thirds of what it took to come in
-    public static let appear: TimeInterval = 0.24   // a row or a banner coming in, the attention glow
+    public nonisolated static let fast: TimeInterval = 0.12   // hover, icons moving, the picture of what went fading
+    public nonisolated static let base: TimeInterval = 0.18   // a panel sliding, Quick Open opening
+    public nonisolated static let slow: TimeInterval = 0.17   // a banner fading: two thirds of what it took to come in
+    public nonisolated static let appear: TimeInterval = 0.24   // a row or a banner coming in, the attention glow
     public static let disappear: TimeInterval = 0.27   // the glow going, two thirds of the 0.4 it was
     public static let press: TimeInterval = 0.3   // a click's dip and spring
     public static let linger: TimeInterval = 1.5   // how long "Copied" stays, or a banner after the pointer leaves it

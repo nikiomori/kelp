@@ -30,6 +30,7 @@ enum SlidesPage {
 
     static let style = """
         <style>
+        :root{\(CanvasChrome.sizes)}
         html{background:var(--subtle)}
         body{margin:0}
         .markdown-body{max-width:none;padding:0;margin:0}
@@ -37,18 +38,19 @@ enum SlidesPage {
         .kelp-thumbs{width:150px;flex:none;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;
           border-right:1px solid var(--border);background:var(--bg)}
         .kelp-thumb{display:flex;gap:6px;align-items:flex-start;border:0;background:none;padding:0;color:var(--muted);
-          font:10px/1.2 -apple-system,sans-serif;font-variant-numeric:tabular-nums;cursor:default}
+          font:var(--k-text-micro)/1.2 -apple-system,sans-serif;font-variant-numeric:tabular-nums;cursor:default}
         .kelp-thumb span{width:10px;flex:none;text-align:right}
-        .kelp-thumb .slide{transition:box-shadow .12s ease-out}
+        .kelp-thumb .slide{transition:box-shadow var(--k-fast) ease-out}
         .kelp-thumb:hover:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-hover,rgba(127,127,127,.25))}
         .kelp-thumb:active:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-sel,rgba(127,127,127,.35));transition:none}
         @media (prefers-reduced-motion:reduce){.kelp-thumb .slide{transition:none}}
-        .kelp-thumb .slide{width:112px !important;border-radius:4px;pointer-events:none;display:block;text-align:left}
+        .kelp-thumb .slide{width:112px !important;border-radius:var(--k-radius-xs);pointer-events:none;display:block;
+          text-align:left}
         .kelp-thumb.on .slide{box-shadow:0 0 0 2.5px var(--k-accent,#007aff)}
         .kelp-stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
           gap:10px}
         .kelp-stage>.slide{display:none}.kelp-stage>.slide.on{display:block}
-        .kelp-at{font:12px -apple-system,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+        .kelp-at{font:var(--k-text-row) -apple-system,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
         .slide{--acc:var(--deck-accent,#007aff);container-type:inline-size;position:relative;aspect-ratio:16/9;
           flex:none;
           background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;
@@ -71,7 +73,15 @@ enum SlidesPage {
         .k-picture .slide-body{display:grid;grid-template-columns:1fr 1fr;column-gap:5cqw;align-content:center}
         .k-picture .slide-body>p:has(img){grid-column:2;grid-row:1/span 20;margin:0;align-self:center}
         .k-picture .slide-body img{width:100%;max-height:70cqw;object-fit:contain;border-radius:1cqw}
-        .kelp-present .kelp-thumbs,.kelp-present .kelp-at{display:none}
+        .kelp-at .kelp-prominent{margin-left:8px}
+        .kelp-notes{align-self:stretch;flex:none;height:96px;padding:8px 16px;border-top:1px solid var(--border);
+          font:var(--k-text-body)/1.45 -apple-system,sans-serif;overflow:auto}
+        .kelp-notes-head{display:flex;justify-content:space-between;font-size:var(--k-text-caption);font-weight:600;
+          color:var(--muted)}
+        .kelp-notes-saved{font-weight:400}
+        .kelp-notes-field{margin-top:6px;outline:none;min-height:38px;white-space:pre-wrap}
+        .kelp-notes-field:empty::before{content:attr(data-hint);color:var(--muted)}
+        .kelp-present .kelp-thumbs,.kelp-present .kelp-at,.kelp-present .kelp-notes{display:none}
         .kelp-present .kelp-stage{background:#000;padding-bottom:64px}
         .kelp-present .kelp-stage>.slide{border:0;border-radius:0}
         @page{size:landscape;margin:0}
@@ -98,7 +108,10 @@ enum SlidesPage {
           const shown = groups.filter(g => g.some(b => !b.hasAttribute('data-line') || b.textContent.trim()));
           const slides = shown.map((g, i) => {
             const s = el('section', 'slide'), body = el('div', 'slide-body');
-            body.append(...g); s.append(body);
+            // Its notes: its paragraph that starts with "Notes:", kept out of the slide.
+            const notes = g.find(b => b.tagName === 'P' && /^Notes:/.test(b.textContent.trim()));
+            if (notes) s.dataset.notes = notes.textContent.trim().replace(/^Notes:\\s*/, '');
+            body.append(...g.filter(b => b !== notes)); s.append(body);
             const head = body.querySelector('h1, h2'), words = head ? head.textContent.trim() : '';
             if (i === 0) s.classList.add('k-title');
             else if (words.length <= 12 && /^[~≈<>+−-]?[$€£]?\\d/.test(words)) s.classList.add('k-number');
@@ -107,18 +120,31 @@ enum SlidesPage {
           });
           const deck = el('div', 'kelp-deck'), thumbs = el('nav', 'kelp-thumbs'), stage = el('main', 'kelp-stage');
           const where = el('div', 'kelp-at');
+          // Under the slide, its notes: a click, words, and away; they go into the source as its "Notes:" line.
+          const band = el('div', 'kelp-notes'), bandHead = el('div', 'kelp-notes-head'), bandAt = el('span');
+          const saved = el('span', 'kelp-notes-saved'), field = el('div', 'kelp-notes-field');
+          field.contentEditable = 'plaintext-only'; field.dataset.hint = L.notesHint;
+          bandHead.append(bandAt, saved); band.append(bandHead, field);
+          field.oninput = () => { saved.textContent = ''; };
+          field.onblur = () => {
+            const s = slides[at], text = field.textContent.replace(/\\s+/g, ' ').trim();
+            if (!s || text === (s.dataset.notes || '')) return;
+            s.dataset.notes = text; post({ kind: 'notes', line: lineOf(s), text });
+          };
+          field.onkeydown = e => { if (e.key === 'Escape') field.blur(); e.stopPropagation(); };
           page.replaceChildren(deck);
           deck.append(thumbs, stage);
-          stage.append(...slides, where);
+          stage.append(...slides, where, band);
           slides.forEach((s, i) => {
             const t = el('button', 'kelp-thumb');
             t.append(el('span', null, String(i + 1)), s.cloneNode(true));
             t.onclick = () => go(i, true);
+            t.oncontextmenu = e => { e.preventDefault(); post({ kind: 'slideMenu', line: lineOf(s), n: i + 1 }); };
             thumbs.append(t);
           });
           window.kelpSlides = slides;
           const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
-          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
+          back.innerHTML = \(PageSymbols.span("chevron.left")); next.innerHTML = \(PageSymbols.span("chevron.right"));
           const at2 = el('span', 'kelp-where');
           back.onclick = () => go(at - 1, true); next.onclick = () => go(at + 1, true);
           strip.append(back, at2, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));
@@ -131,7 +157,7 @@ enum SlidesPage {
           addEventListener('mousemove', () => { if (presenting) wake(); });
           function size() {
             const w = presenting ? innerWidth : stage.clientWidth - 64;
-            const h = presenting ? innerHeight - 64 : stage.clientHeight - 90;
+            const h = presenting ? innerHeight - 64 : stage.clientHeight - 90 - band.offsetHeight;
             const width = Math.max(160, Math.min(w, h * 16 / 9));
             for (const s of slides) s.style.width = width + 'px';
           }
@@ -142,7 +168,18 @@ enum SlidesPage {
             slides.forEach((s, j) => s.classList.toggle('on', j === at));
             [...thumbs.children].forEach((t, j) => t.classList.toggle('on', j === at));
             thumbs.children[at].scrollIntoView({ block: 'nearest' });
-            where.textContent = at2.textContent = (at + 1) + ' ' + L.of + ' ' + slides.length;
+            const place = (at + 1) + ' ' + L.of + ' ' + slides.length;
+            where.textContent = at2.textContent = place;
+            // A slide with other layouts, or one of them: Keep puts it in their place (`SlideVariants`).
+            if ((window.kelpSlideGroups || []).some(g => g.includes(lineOf(slides[at])))) {
+              const keep = el('button', 'kelp-prominent', L.keep);
+              keep.onclick = () => post({ kind: 'keepSlide', line: lineOf(slides[at]) });
+              where.append(' ', keep);
+            }
+            bandAt.textContent = L.notes + ' · ' + L.slide.toLowerCase() + ' ' + place;
+            field.textContent = slides[at].dataset.notes || '';
+            saved.textContent = slides[at].dataset.notes ? L.saved : '';
+            post({ kind: 'slideAt', at });   // the presenter's window follows
             if (user && lineOf(slides[at])) post({ kind: 'scroll', line: lineOf(slides[at]) });
             dispatchEvent(new CustomEvent('kelp-slide'));
           }
@@ -159,7 +196,7 @@ enum SlidesPage {
             if (on) wake();
           };
           addEventListener('keydown', e => {
-            if (e.target.closest?.('input, textarea')) return;
+            if (e.target.closest?.('input, textarea, [contenteditable]')) return;
             const d = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, ArrowUp: -1,
               PageUp: -1 }[e.key];
             if (e.key === 'Escape' && presenting) { kelpPresent(false); post({ kind: 'present' });

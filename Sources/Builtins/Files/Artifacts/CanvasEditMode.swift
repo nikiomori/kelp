@@ -1,15 +1,20 @@
 import Foundation
 
-/// The script for Edit on a canvas, where the user changes a board by hand without the agent (`kelpEdit(true)` from
-/// the bar). It works on top of the sheet from `CanvasEdit`. A click chooses an element and outlines it. The column
-/// then shows the element's style by section (Text, Layout, Fill), with a way up to its parent. Each row offers the
-/// design system's tokens as chips or swatches, so a hand edit stays in the system. A double click on an element that
-/// holds only text lets the user type over it (Enter keeps, Esc drops). It sends `selected` to `kelpSync` (to choose
-/// the element again once the canvas is drawn again), plus `style` and `text`, which the tab writes into the board's
-/// file by the element's data-id (`BoardEdit`).
+/// The script for Edit on a canvas or a motion page's stage, where the user changes a board by hand without the agent
+/// (`kelpEdit(true)` from the bar). It works on top of the sheet from `CanvasEdit`. A click chooses an element and
+/// outlines it; the column is then its inspector: the element's name and the way up to its parent, and a row a
+/// property, by section (Text, Layout, Position, Fill, and Time on a motion page). A row shows the value as it is now
+/// (a token's name, the page's own value) and opens the Mac's menu of choices, the design system's tokens first and
+/// the values the page already uses after (`propMenu`, answered by `kelpProps.set`); numbers are fields, opacity a
+/// slider; ↺ shows on a row changed by hand and takes it back to the page's own. A double click on an element that
+/// holds only text lets the user type over it (Enter keeps, Esc drops). It sends `selected` (to choose the element
+/// again once the canvas is drawn again), `style`, `styles`, `text` and `retimeElement`, which the tab writes into the
+/// board's file by the element's data-id (`BoardEdit`). `window.kelpProps` is what the floating bar (`CanvasEditBar`)
+/// shares.
 enum CanvasEditMode {
-    /// The words the column shows, by key: title, parent, asDrawn, noID, typeHint, choose, text, layout, fill, size,
-    /// weight, colour, padding, gap, background, radius.
+    /// The words the column shows, by key: title, choose, text, layout, position, fill, time, size,
+    /// weight, colour, padding, gap, background, radius, opacity, offset, frame, startLength, none, auto, regular,
+    /// medium, semibold, bold, reset, seconds.
     typealias Labels = [String: String]
 
     static func source(tokens: [String: [String]], labels: Labels) -> String {
@@ -20,159 +25,373 @@ enum CanvasEditMode {
               const K = window.kelpCanvas, C = window.kelpColumn; if (!K || !C) return;
               const T = \(MarkdownTab.js(groups));
               const L = \(MarkdownTab.js(labels));
+            \(choices)
             \(body)
             })();
             """
     }
 
+    /// The properties and their choices: `P` by key, what a value is now (`shown`), and what can be chosen (`menu`),
+    /// as the rows and the bar show them.
+    private static let choices = """
+          const idOf = e => e.getAttribute('data-id');
+          const css = e => e.ownerDocument.defaultView.getComputedStyle(e);
+          const P = {
+            size: { prop: 'font-size', group: 'size' }, weight: { prop: 'font-weight' },
+            colour: { prop: 'color', group: 'color' }, padding: { prop: 'padding', group: 'space' },
+            gap: { prop: 'gap', group: 'space' }, background: { prop: 'background', group: 'color', none: true },
+            radius: { prop: 'border-radius', group: 'radius' }, opacity: { prop: 'opacity' },
+            font: { prop: 'font-family' }, align: { prop: 'text-align' }
+          };
+          const weights = [['400', L.regular], ['500', L.medium], ['600', L.semibold], ['700', L.bold]];
+          const tokenName = (group, n) => '--' + (group === 'color' ? n : group + '-' + n);
+          const tokenValue = (e, group, n) => css(e.ownerDocument.documentElement)
+            .getPropertyValue(tokenName(group, n)).trim();
+          function hex(c) {
+            const m = String(c).match(/rgba?[(]([^)]*)[)]/); if (!m) return String(c);
+            const p = m[1].split(',').map(s => parseFloat(s));
+            if (p.length > 3 && p[3] === 0) return 'none';
+            return '#' + p.slice(0, 3).map(n => Math.round(n).toString(16).padStart(2, '0')).join('');
+          }
+          const px = v => String(Math.round(parseFloat(v) || 0));
+          // The page's own values, after the tokens: the colours and text sizes its elements use.
+          function own(doc, group) {
+            if (!['color', 'size'].includes(group)) return [];
+            const seen = new Set();
+            for (const x of doc.body.querySelectorAll('*')) {
+              const st = css(x);
+              if (group === 'size') seen.add(px(st.fontSize));
+              else for (const c of [st.color, st.backgroundColor]) { const h = hex(c); if (h !== 'none') seen.add(h); }
+            }
+            const list = [...seen].slice(0, 12);
+            if (group === 'size') list.sort((a, b) => a - b);
+            return list.map(v => group === 'size' ? { value: v + 'px', title: v + ' px' }
+              : { value: v, title: v, swatch: v });
+          }
+          // What the property is now: its title, a detail, a swatch, and whether it was changed by hand (`set`).
+          function shown(key, e) {
+            const p = P[key], set = e.style.getPropertyValue(p.prop).trim(), st = css(e);
+            const token = set.match(/^var[(]--(.+)[)]$/);
+            const name = token ? token[1].replace(p.group === 'color' ? '' : p.group + '-', '') : null;
+            if (key === 'weight') {
+              const w = weights.find(([v]) => v === String(Math.round(parseFloat(st.fontWeight) / 100) * 100));
+              return { title: w ? w[1] : st.fontWeight, detail: st.fontWeight, set: !!set };
+            }
+            if (key === 'opacity') return { title: Math.round(parseFloat(st.opacity) * 100) + ' %', set: !!set };
+            if (key === 'font') return { title: family(st.fontFamily), set: !!set };
+            if (p.group === 'color') {
+              const v = hex(key === 'background' ? st.backgroundColor : st.color);
+              return { title: name || (v === 'none' ? L.none : v), swatch: v === 'none' ? null : v, set: !!set };
+            }
+            const v = key === 'size' ? px(st.fontSize) : px(st.getPropertyValue(p.prop));
+            return { title: name || v, detail: name ? v : null, set: !!set };
+          }
+          // The choices for `key` on element `e`: the tokens first, then the page's own values.
+          const family = f => {   // the first family named, the Mac's own by its name
+            const n = f.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+            return /^(-apple-system|system-ui|BlinkMacSystemFont)$/.test(n) ? 'SF Pro' : n;
+          };
+          // The families the page uses and the ones it brings (@font-face), each as a value the style attribute takes.
+          function families(doc) {
+            const seen = new Set();
+            for (const x of doc.body.querySelectorAll('*')) seen.add(family(css(x).fontFamily));
+            for (const sheet of doc.styleSheets) {
+              for (const rule of sheet.cssRules) if (rule.type === 5) seen.add(family(rule.style.fontFamily));
+            }
+            return [...seen].filter(Boolean).map(n => ({ value: "'" + n + "'", title: n, section: 'page' }));
+          }
+          function menu(key, e) {
+            if (key === 'font') return families(e.ownerDocument).map(i =>
+              Object.assign(i, { on: family(e.style.fontFamily || '') === i.title }));
+            const p = P[key], now = e.style.getPropertyValue(p.prop).trim(), out = [];
+            if (key === 'weight') return weights.map(([v, t]) => ({ value: v, title: t, detail: v, on: now === v }));
+            if (key === 'opacity')
+              return [1, 0.75, 0.5, 0.25].map(v => ({ value: String(v), title: v * 100 + ' %',
+                on: now === String(v) }));
+            if (p.none) out.push({ value: 'none', title: L.none, section: 'tokens', on: now === 'none' });
+            for (const n of T[p.group] || []) {
+              const value = 'var(' + tokenName(p.group, n) + ')', v = tokenValue(e, p.group, n);
+              const colour = p.group === 'color';
+              out.push({ value, title: n, detail: colour ? null : v, swatch: colour ? v : null, section: 'tokens',
+                on: now === value });
+            }
+            for (const o of own(e.ownerDocument, p.group))
+              out.push(Object.assign({ section: 'page', on: now === o.value }, o));
+            return out;
+          }
+          window.kelpProps = {
+            P, shown, menu, at: () => null,
+            // Asks the Mac for the menu of `key`'s choices, at the pointer; the choice comes back to `set`.
+            open(key) {
+              const at = window.kelpProps.at(); if (!at) return;
+              // What a colour is read against: a text's ground, or a ground's text (for the menu's contrast).
+              let g = at.e; while (g && hex(getComputedStyle(g).backgroundColor) === 'none') g = g.parentElement;
+              const against = key === 'colour' ? (g ? hex(getComputedStyle(g).backgroundColor) : '#ffffff')
+                : key === 'background' ? hex(getComputedStyle(at.e).color) : null;
+              K.post({ kind: 'propMenu', key, items: menu(key, at.e), reset: shown(key, at.e).set,
+                board: at.f.dataset.board, id: K.need(at.f, at.e), against });
+            }
+          };
+        """
+
     private static let body = """
           const chosen = K.el('div', 'kelp-chosen'), tag = K.el('div', 'kelp-tag');
           K.layer.append(chosen, tag);
           let at = null;
-          const idOf = e => e.getAttribute('data-id');
+          window.kelpProps.at = () => at;
+          window.kelpProps.redraw = () => draw();
           const nameOf = e => e.tagName.toLowerCase() + (idOf(e) ? ' · ' + idOf(e) : '');
+          const titleOf = e => e.dataset.title || (e.children.length ? '' : (e.textContent || '').trim().slice(0, 32))
+            || nameOf(e);
           window.kelpEdit = on => {
             K.setMode(on ? 'edit' : K.mode() === 'edit' ? null : K.mode());
             if (on) choose(at, true); else { choose(null, true); if (K.mode() !== 'mark') C.close(); }
           };
           function outline() {
             if (!at) return;
+            // Hidden at this time of a motion page: no outline over nothing.
+            const seen = at.e.ownerDocument.defaultView.getComputedStyle(at.e).visibility !== 'hidden';
+            chosen.style.display = tag.style.display = seen ? 'block' : 'none';
+            if (!seen) return;
             const b = K.box(at.f, at.e);
-            K.place(chosen, b);
+            // The 2-point line straddles the element's edge, where the corners' handles sit.
+            K.place(chosen, { x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
             Object.assign(tag.style, { left: b.x + 'px', top: (b.y - 20) + 'px' });
+          }
+          window.kelpOutline = outline;
+          function draw() {
+            if (K.mode() !== 'edit') return;
+            if (!at) return C.open([K.el('span', 'kelp-grow', L.title)], [K.el('p', 'kelp-note', L.choose)]);
+            const head = K.el('div', 'kelp-ihd');
+            head.append(K.el('div', 'kelp-ittl', titleOf(at.e)), crumb(at.e));
+            C.open([head], inspector());
           }
           function choose(next, quiet) {
             at = next;
+            dispatchEvent(new CustomEvent('kelp-chosen', { detail: K.mode() === 'edit' ? at : null }));
             chosen.style.display = tag.style.display = at ? 'block' : 'none';
             const which = at ? { board: at.f.dataset.board, id: idOf(at.e) } : {};
             if (!quiet) K.post(Object.assign({ kind: 'selected' }, which));
             if (K.mode() !== 'edit') return;
             if (at) { tag.textContent = nameOf(at.e); outline(); }
-            C.open([K.el('span', 'kelp-grow', L.title)], at ? fill() : [K.el('p', 'kelp-note', L.choose)]);
+            draw();
           }
+          window.kelpProps.choose = choose;
           window.kelpSelect = (board, id) => {
             const f = K.light(board), e = f && f.contentDocument
               && f.contentDocument.querySelector('[data-id="' + CSS.escape(id) + '"]');
             if (e) choose({ f, e }, true);
           };
           addEventListener('kelp-zoom', outline);
-          // A token's value in the board's own page, for its swatch.
-          const valueOf = (e, name) => e.ownerDocument.defaultView.getComputedStyle(e.ownerDocument.documentElement)
-            .getPropertyValue(name).trim();
-          const rows = [
-            ['text', [['size', 'font-size', 'size'], ['weight', 'font-weight', null], ['colour', 'color', 'color']]],
-            ['layout', [['padding', 'padding', 'space'], ['gap', 'gap', 'space']]],
-            ['fill', [['background', 'background', 'color'], ['radius', 'border-radius', 'radius']]]
-          ];
-          function fill() {
-            const e = at.e, id = idOf(e), out = [];
-            const path = [], up = K.el('button', 'kelp-pill', L.parent);
-            up.insertAdjacentHTML('afterbegin', \(CanvasChrome.Glyph.up.js));
-            for (let p = e.parentElement; p && p !== e.ownerDocument.body && path.length < 3; p = p.parentElement)
-              path.unshift(idOf(p) || p.tagName.toLowerCase());
-            up.onclick = () => {
-              const p = e.parentElement;
-              if (p && p !== e.ownerDocument.body) choose({ f: at.f, e: p });
-            };
-            const where = K.el('div', 'kelp-row');
-            where.append(K.el('span', 'kelp-grow kelp-what kelp-q', path.join(' › ')), up);
-            const what = K.el('div', 'kelp-row');
-            what.append(K.el('b', 'kelp-grow', nameOf(e)));
-            out.push(where, what);
-            if (!id) return [...out, K.el('p', 'kelp-note', L.noID)];
-            for (const [section, items] of rows) {
-              out.push(K.el('div', 'kelp-sec', L[section]));
-              for (const [word, property, group] of items) {
-                const choices = group
-                  ? T[group].map(n => ['var(--' + (group === 'color' ? n : group + '-' + n) + ')', n])
-                  : ['400', '500', '600'].map(w => [w, w]);
-                if (!choices.length) continue;
-                const set = e.style.getPropertyValue(property).trim();
-                const line = K.el('div', 'kelp-prop'), list = K.el('div', 'kelp-choices');
-                line.append(K.el('span', 'kelp-q', L[word]), list);
-                const pick = value => {
-                  if (value) e.style.setProperty(property, value); else e.style.removeProperty(property);
-                  outline();
-                  K.post({ kind: 'style', board: at.f.dataset.board, id, property, value: value || null });
-                  C.open([K.el('span', 'kelp-grow', L.title)], fill());
-                };
-                const none = K.el('button', 'kelp-chip' + (set ? '' : ' drawn'), L.asDrawn);
-                none.onclick = () => pick(null);
-                list.append(none);
-                for (const [value, name] of choices) {
-                  const look = (group === 'color' ? 'kelp-swatch' : 'kelp-chip') + (value === set ? ' on' : '');
-                  const b = K.el('button', look,
-                    group === 'color' ? '' : name);
-                  if (group === 'color') b.style.background = valueOf(e, '--' + name);
-                  b.title = name;
-                  b.onclick = () => pick(value);
-                  list.append(b);
-                }
-                out.push(line);
-              }
+          const changed = () => { outline(); draw(); dispatchEvent(new CustomEvent('kelp-props')); };
+          // A value chosen in a menu, a field or the slider: shown at once, written to the file.
+          function set(key, value) {
+            if (!at) return;
+            const p = P[key] || { prop: key }, e = at.e;
+            if (value) e.style.setProperty(p.prop, value); else e.style.removeProperty(p.prop);
+            K.post({ kind: 'style', board: at.f.dataset.board, id: K.need(at.f, e), property: p.prop,
+              value: value || null,
+              like: window.kelpProps.like?.(e) });
+            changed();
+          }
+          window.kelpProps.set = set;
+          function styles(props) {
+            if (!at) return;
+            for (const [k, v] of Object.entries(props)) {
+              if (v) at.e.style.setProperty(k, v); else at.e.style.removeProperty(k);
             }
-            if (!e.children.length && e.textContent.trim()) out.push(K.el('p', 'kelp-note', L.typeHint));
+            K.post({ kind: 'styles', board: at.f.dataset.board, id: K.need(at.f, at.e), props,
+              like: window.kelpProps.like?.(at.e) });
+            changed();
+          }
+          // One row: its name, what it is now, ↺ while it's changed by hand.
+          function row(label, control, wasSet, reset) {
+            const r = K.el('div', 'kelp-irow'), back = K.el('button', 'kelp-ireset');
+            if (wasSet) {
+              back.append(K.el('span', 'kelp-sym-arrow-uturn-backward'));
+              back.title = L.reset; back.onclick = reset;
+            }
+            r.append(K.el('span', 'kelp-ilabel', label), control, back);
+            return r;
+          }
+          function popup(key) {
+            const s = shown(key, at.e), b = K.el('button', 'kelp-ipop'), name = K.el('span', 'kelp-itok');
+            if (s.swatch) { const w = K.el('span', 'kelp-iswatch'); w.style.background = s.swatch; name.append(w); }
+            name.append(s.title);
+            b.append(name, K.el('span', 'kelp-ival', s.detail || ''));
+            b.onclick = () => window.kelpProps.open(key);
+            return row(L[key], b, s.set, () => set(key, null));
+          }
+          // Left, centre, right: three buttons, the one set on.
+          function align(e) {
+            const now = css(e).textAlign, seg = K.el('span', 'kelp-seg kelp-fill');
+            for (const value of ['left', 'center', 'right']) {
+              const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '');
+              b.append(K.el('span', 'kelp-sym-text-align' + value));
+              b.title = L['align_' + value] || value;   // VoiceOver reads the title; the symbol says nothing
+              b.onclick = () => set('align', value);
+              seg.append(b);
+            }
+            return row(L.align, seg, !!e.style.textAlign, () => set('align', null));
+          }
+          function field(prefix, value, done) {
+            const box = K.el('label', 'kelp-ifld'), input = K.el('input');
+            input.value = value;
+            input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); ev.stopPropagation(); });
+            input.addEventListener('change', () => done(input.value.trim()));
+            if (prefix) box.append(K.el('b', null, prefix));
+            box.append(input);
+            return box;
+          }
+          function pair(a, b) { const p = K.el('span', 'kelp-ipair'); p.append(a, b); return p; }
+          function section(title, rows) {
+            const s = K.el('div', 'kelp-isec');
+            s.append(K.el('div', 'kelp-ititle', title), ...rows);
+            return s;
+          }
+          // Where a motion page's element is in time: its own (a scene, a picture) or its animation's.
+          function timing(e) {
+            if (e.dataset.start != null) return [+e.dataset.start || 0, +e.dataset.duration || 0];
+            const a = e.getAnimations()[0], t = a && a.effect && a.effect.getComputedTiming();
+            return t ? [(t.delay || 0) / 1000, (t.activeDuration || 0) / 1000] : null;
+          }
+          const has = key => !P[key].group || (T[P[key].group] || []).length
+            || ['color', 'size'].includes(P[key].group);
+          function position(e) {
+            const st = css(e), moved = (st.translate.match(/-?[0-9.]+/g) || ['0', '0']).map(Number);
+            const x = moved[0] || 0, y = moved[1] || 0, r = e.getBoundingClientRect();
+            const shift = (nx, ny) => styles({ translate: Math.round(nx) + 'px ' + Math.round(ny) + 'px' });
+            return section(L.position, [
+              row(L.offset, pair(field('X', px(x), v => shift(+v || 0, y)), field('Y', px(y), v => shift(x, +v || 0))),
+                !!e.style.translate, () => styles({ translate: null })),
+              row(L.frame, pair(field('W', px(r.width), v => styles({ width: +v ? v + 'px' : null })),
+                field('H', e.style.height ? px(r.height) : L.auto, v => styles({ height: +v ? v + 'px' : null }))),
+                !!(e.style.width || e.style.height), () => styles({ width: null, height: null }))
+            ]);
+          }
+          function fill(e) {
+            const slider = K.el('span', 'kelp-islide'), range = K.el('input'), pct = K.el('span', 'kelp-ival');
+            range.type = 'range'; range.min = 0; range.max = 100;
+            range.value = Math.round(parseFloat(css(e).opacity) * 100);
+            const show = () => {
+              pct.textContent = range.value + ' %'; range.style.setProperty('--v', range.value + '%');
+            };
+            show();
+            range.oninput = () => { show(); e.style.opacity = range.value / 100; };
+            range.onchange = () => set('opacity', String(range.value / 100));
+            slider.append(range, pct);
+            const rows = ['background', 'radius'].filter(has).map(popup);
+            rows.push(row(L.opacity, slider, !!e.style.opacity, () => set('opacity', null)));
+            return section(L.fill, rows);
+          }
+          function time(e, id) {
+            const when = timing(e), send = (start, length) =>
+              K.post({ kind: 'retimeElement', id: id || K.need(at.f, e), start, length });
+            const sec = v => (Math.round(v * 100) / 100) + ' ' + L.seconds, num = v => parseFloat(v.replace(',', '.'));
+            return section(L.time, [row(L.startLength, pair(
+              field('', sec(when[0]), v => send(num(v) || 0, when[1])),
+              field('', sec(when[1]), v => send(when[0], num(v) || when[1]))), false)]);
+          }
+          // The way up: the parent's name (a click chooses it) › the element's tag and data-id.
+          function crumb(e) {
+            const line = K.el('div', 'kelp-icrumb'), p = e.parentElement;
+            if (p && p !== e.ownerDocument.body) {
+              const up = K.el('button', 'kelp-ilink', titleOf(p));
+              up.onclick = () => choose({ f: at.f, e: p });
+              line.append(up, K.el('span', 'kelp-sym-chevron-right kelp-crumb'));
+            }
+            line.append(nameOf(e));
+            return line;
+          }
+          function inspector() {
+            // One without a data-id gets one at its first change (`K.need`).
+            const e = at.e, id = idOf(e), out = (window.kelpProps.top || []).flatMap(top => top(at));
+            const text = window.kelpProps.isText?.(e);
+            if (text) out.push(section(L.text, ['font', 'size', 'weight', 'colour'].map(popup).concat([align(e)])));
+            const layout = ['padding', 'gap'].filter(key => (T[P[key].group] || []).length);
+            if (layout.length) out.push(section(L.layout, layout.map(popup)));
+            out.push(position(e), fill(e));
+            if (window.kelpMotion && timing(e)) out.push(time(e, id));
+            for (const more of window.kelpProps.more || []) out.push(...more(e, id));
             return out;
           }
-          K.sheet.addEventListener('click', ev => { if (K.mode() === 'edit') choose(K.under(ev, true)); });
+          K.sheet.addEventListener('click', ev => {
+            if (K.mode() === 'edit' && !window.kelpHandles?.busy()) choose(K.under(ev, true));
+          });
           K.sheet.addEventListener('dblclick', ev => {
             const hit = K.mode() === 'edit' && K.under(ev, true);
-            if (hit && !hit.e.children.length && hit.e.textContent.trim()) typeOver(hit);
+            if (hit && window.kelpProps.isText?.(hit.e)) window.kelpTypeOver?.(hit);
           });
-          // A field of the page's own over the element: the board's frame runs no script, so typing in it is unheard.
-          function typeOver(hit) {
-            const e = hit.e, look = e.ownerDocument.defaultView.getComputedStyle(e), b = K.box(hit.f, e);
-            const k = b.w / (e.getBoundingClientRect().width || 1), old = e.textContent.trim();
-            const field = K.el('textarea', 'kelp-type');
-            field.value = old;
-            Object.assign(field.style, {
-              left: b.x + 'px', top: b.y + 'px', width: Math.max(b.w, 60) + 'px', height: Math.max(b.h, 20) + 'px',
-              fontFamily: look.fontFamily, fontWeight: look.fontWeight, fontSize: parseFloat(look.fontSize) * k + 'px',
-              lineHeight: (parseFloat(look.lineHeight) || parseFloat(look.fontSize) * 1.3) * k + 'px',
-              color: look.color, textAlign: look.textAlign, letterSpacing: look.letterSpacing
-            });
-            document.body.append(field);
-            e.style.visibility = 'hidden';
-            field.focus();
-            field.select();
-            const done = keep => {
-              if (!field.isConnected) return;
-              field.remove();
-              e.style.visibility = '';
-              if (keep && field.value.trim() && field.value !== old) {
-                e.textContent = field.value;
-                K.post({ kind: 'text', board: hit.f.dataset.board, id: idOf(e), old, text: field.value });
-              }
-              outline();
-            };
-            field.addEventListener('keydown', ev => {
-              if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); done(true); }
-              if (ev.key === 'Escape') { ev.preventDefault(); done(false); }
-            });
-            field.addEventListener('blur', () => done(true));
-          }
         """
 
-    /// The CSS for the chosen element's outline and name tag, the rows of choices in the column, and the field the
-    /// user types over an element.
+    /// The CSS for the chosen element's outline and name tag, the inspector's rows, and the field the user types over
+    /// an element.
     static let style = """
-        .kelp-chosen { position: absolute; display: none; border: 2px solid var(--k-accent); border-radius: 3px; }
-        .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: 4px;
-          background: var(--k-accent); color: #fff; font: 500 10px/16px -apple-system, sans-serif;
+        .kelp-chosen { position: absolute; display: none; box-sizing: border-box; border: 2px solid var(--k-accent);
+          border-radius: var(--k-radius-xs); }
+        .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: var(--k-radius-xs);
+          background: var(--k-accent); color: var(--k-on-accent); font: 500 var(--k-text-micro)/16px -apple-system,
+          sans-serif;
           white-space: nowrap; }
         .kelp-q { color: var(--k-sec); }
-        .kelp-prop { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: start; padding: 4px 12px; }
-        .kelp-prop > span { padding-top: 3px; }
-        .kelp-choices { display: flex; flex-wrap: wrap; gap: 4px; }
-        .kelp-chip { height: 20px; padding: 0 7px; border: 0; border-radius: 4px; background: var(--k-hover);
-          color: var(--k-label); font: 11px -apple-system, sans-serif; }
-        .kelp-chip:hover { background: var(--k-sel); }
-        .kelp-chip.on { background: var(--k-accent); color: #fff; }
-        .kelp-chip.drawn { background: var(--k-sel); font-weight: 500; }
-        .kelp-swatch { width: 18px; height: 18px; border: 0; border-radius: 4px;
-          box-shadow: inset 0 0 0 1px var(--k-sep); }
-        .kelp-swatch.on { box-shadow: 0 0 0 2px var(--k-win), 0 0 0 3.5px var(--k-accent); }
+        .kelp-col-head:has(.kelp-ihd) { height: auto; padding: 10px 12px 8px; }
+        .kelp-ihd { min-width: 0; }
+        .kelp-ittl { font-size: var(--k-text-body); font-weight: 600; white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; }
+        .kelp-icrumb { color: var(--k-sec); font-size: var(--k-text-caption); font-weight: 400; margin-top: 1px;
+          white-space: nowrap;
+          overflow: hidden; text-overflow: ellipsis; }
+        .kelp-crumb { font-size: var(--k-text-micro); margin: 0 3px; color: var(--k-quiet); }
+        .kelp-ilink { border: 0; background: none; color: var(--k-sec); font: inherit; padding: 0 2px;
+          border-radius: var(--k-radius-xs); }
+        .kelp-ilink:hover { background: var(--k-hover); color: var(--k-label); }
+        .kelp-isec { padding: 8px 12px 6px; border-bottom: 1px solid var(--k-sep); }
+        .kelp-ititle { font-size: var(--k-text-caption); font-weight: 600; color: var(--k-sec); margin-bottom: 4px; }
+        .kelp-irow { display: grid; grid-template-columns: 88px minmax(0, 1fr) 16px; align-items: center; gap: 6px;
+          height: 24px; }
+        .kelp-ilabel { color: var(--k-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kelp-ireset { border: 0; background: none; color: var(--k-sec); padding: 0; font-size: var(--k-text-caption);
+          border-radius: var(--k-radius-xs); }
+        .kelp-ireset:hover { color: var(--k-label); background: var(--k-hover); }
+        .kelp-ipop { display: flex; align-items: center; height: 20px; min-width: 0; padding: 0 6px; border: 0;
+          border-radius: var(--k-radius-sm); background: var(--k-hover); color: var(--k-label);
+          font: var(--k-text-row) -apple-system, sans-serif; }
+        .kelp-ipop:hover { background: var(--k-sel); }
+        .kelp-ipop::after { content: ""; flex: none; width: .75em; height: .75em; margin-left: 4px;
+          background: var(--k-sec); -webkit-mask: var(--kelp-sym-chevron-down) center / contain no-repeat; }
+        .kelp-itok { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kelp-ival { color: var(--k-sec); margin-left: auto; padding-left: 6px; font-variant-numeric: tabular-nums; }
+        .kelp-iswatch { display: inline-block; width: 12px; height: 12px;
+          border-radius: var(--k-radius-xs); margin-right: 6px;
+          vertical-align: -2px; box-shadow: inset 0 0 0 1px var(--k-sep); }
+        .kelp-seg.kelp-fill { display: flex; }
+        .kelp-seg.kelp-fill button { flex: 1 1 auto; min-width: 0; padding: 0 3px; overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap; }
+        .kelp-step { display: flex; align-items: center; gap: 2px; }
+        .kelp-step > span { flex: 1; text-align: center; font-variant-numeric: tabular-nums; }
+        .kelp-ib.on { color: var(--k-accent); }
+        .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .kelp-ipair.kelp-isides { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px;
+          border-radius: var(--k-radius-sm);
+          background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); }
+        .kelp-ifld b { color: var(--k-quiet); font-weight: 500; font-size: var(--k-text-micro); margin-right: 6px; }
+        .kelp-ifld input { width: 100%; min-width: 0; border: 0; outline: 0; background: none; color: var(--k-label);
+          font: var(--k-text-row) -apple-system, sans-serif; font-variant-numeric: tabular-nums; padding: 0; }
+        .kelp-ifld:focus-within { box-shadow: 0 0 0 2px var(--k-accent); }
+        .kelp-islide { display: flex; align-items: center; gap: 8px; }
+        .kelp-islide input { flex: 1; min-width: 0; height: 14px; margin: 0; background: none;
+          -webkit-appearance: none; }
+        .kelp-islide input::-webkit-slider-runnable-track { height: 4px;
+          border-radius: var(--k-radius-capsule);
+          background: linear-gradient(var(--k-sec), var(--k-sec)) 0 / var(--v, 100%) 100% no-repeat, var(--k-sel); }
+        .kelp-islide input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+          margin-top: -5px;
+          border-radius: 50%; background: var(--k-knob); box-shadow: var(--k-shadow-float-sm); }
         .kelp-type { position: absolute; z-index: 26; margin: 0; padding: 0; border: 0; resize: none;
-          overflow: hidden; background: rgba(0,122,255,.08); outline: 2px solid var(--k-accent); border-radius: 2px; }
+          white-space: pre-wrap;
+          overflow: hidden; outline: 2px solid var(--k-accent);
+          background: color-mix(in srgb, var(--k-accent) 8%, transparent); border-radius: var(--k-radius-xs); }
         """
 }

@@ -2,8 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add` handles pages agents make for the user, kept in the project's
-    /// `.kelp/artifacts`.
+    /// `artifact guide|new|list|open|add|check|links|marks|reply|ask|suggest|export|beats|captions` handles pages
+    /// agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -23,7 +23,7 @@ extension Main {
             }
             print(text, terminator: "")
         case "new":
-            let quiet = has("--no-open")
+            let quiet = has("--no-open"), source = flag("--from")
             guard args.count >= 2, let kind = Artifacts.Kind(rawValue: args[0]) else {
                 fail("artifact new <\(Artifacts.Kind.allCases.map(\.rawValue).joined(separator: "|"))> <title>")
             }
@@ -40,7 +40,7 @@ extension Main {
                     )
                 }
             }
-            print(file)
+            print(file + (try keep(source, beside: file)))
             if kind.isCanvas {
                 let folder = (file as NSString).deletingLastPathComponent
                 let system = DesignSystem.dir(root: try await projectRoot(cwd, c)).path
@@ -76,24 +76,133 @@ extension Main {
                     Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
             }
         case "check":
+            // A board is also checked at the phone's and the tablet's widths under its own: `--width` keeps those.
+            let width = flag("--width")
+            if let width, !["390", "768", "1280"].contains(width) { fail("--width takes 390, 768 or 1280") }
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
-                artifact.record.file == Artifacts.Kind.design.file
+                artifact.record.file != Artifacts.Kind.review.file
             else {
-                fail("artifact check <name of a design> (names: kelp artifact list)")
+                fail("artifact check <name of a page other than a review> (names: kelp artifact list)")
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
             _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
-            let issues = try await c.call(ArtifactCheck(path: target))
+            let all = try await c.call(ArtifactCheck(path: target))
+            let issues = width.map { w in all.filter { $0.contains(" @\(w): ") } } ?? all
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
+        case "links": try await links(cwd, c)
+        case "marks": try await listMarks(root: try await projectRoot(cwd, c))
+        case "reply":
+            let usage = "artifact reply <name> <#> <what you say about that mark>"
+            guard args.count >= 3, let id = Int(args[1].trimmingCharacters(in: CharacterSet(charactersIn: "#"))) else {
+                fail(usage)
+            }
+            let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+            _ = try await c.call(ArtifactReply(path: target, id: id, text: args.dropFirst(2).joined(separator: " ")))
+            print("Said on #\(id). The user sees it under the mark.")
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
             guard let url = args.first, url.hasPrefix("https://") else {
                 fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]")
             }
             _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
+        case "export": try await exportPage(cwd, c)
+        case "ask", "suggest": try await talk(sub ?? "", cwd, c)
+        case "beats", "captions": try await motion(sub ?? "", cwd, c)
         default: print(usage)
         }
+    }
+
+    /// `kelp artifact marks <name> [--all]`: the marks with an agent and those the user checks; all with --all.
+    static func listMarks(root: String) async throws {
+        let all = has("--all")   // read once: it takes the flag out of the arguments
+        let (target, _) = try await page(args.first, root: root, usage: "artifact marks <name> [--all]")
+        let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
+        let marks = ArtifactMarks.read(
+            FileManager.default.contents(atPath: folder.appendingPathComponent(ArtifactMarks.file).path))
+        let shown = marks.marks.filter { all || $0.state == .sent || $0.state == .check }
+        if shown.isEmpty { print(all ? "No marks." : "No marks open: none with you, none to check.") }
+        for m in shown { print(line(m, folder: Artifacts.projectPath(folder.path))) }
+    }
+
+    /// Returns the file of the page named `name` in the project at `root`, or ends with `usage`.
+    /// `artifact ask <name> <data-id> <question>` puts the agent's question on an element, for the user to answer;
+    /// `artifact suggest <name> <request>…` offers up to three things the user may ask for next.
+    static func talk(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
+        let ask = sub == "ask"
+        let usage =
+            ask
+            ? "artifact ask <name> <data-id> <your question> [--choice <answer>]…"
+            : "artifact suggest <name> \"<request>\" [\"<request>\" …]"
+        let choices = ask ? all("--choice") : []   // the user answers with a click, sent at once
+        guard args.count >= (ask ? 3 : 2) else { fail(usage) }
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        if ask {
+            let question = args.dropFirst(2).joined(separator: " ") + choices.map { "\n• " + $0 }.joined()
+            let n = try await c.call(ArtifactAsk(path: target, id: args[1], text: question))
+            print(
+                choices.isEmpty
+                    ? "Asked as #\(n) on \(args[1]). The answer comes with the user's next marks."
+                    : "Asked as #\(n) on \(args[1]). A click on a choice sends it to you at once.")
+        } else {
+            _ = try await c.call(ArtifactSuggest(path: target, lines: Array(args.dropFirst().prefix(3))))
+            print("Suggested. The user sees them under the marks until the next send.")
+        }
+    }
+
+    /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
+    /// `kelp shot` does.
+    static func exportPage(_ cwd: String, _ c: RPCClient) async throws {
+        let formats = ["png", "pdf", "pptx", "html", "zip", "docx", "md", "mp4", "gif", "mov"]
+        let usage = "artifact export <name> <\(formats.joined(separator: "|"))> [to]"
+        guard args.count >= 2, formats.contains(args[1]) else { fail(usage) }
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let to = URL(
+            fileURLWithPath: args.count > 2 ? args[2] : args[0] + (args[1] == "png" ? "-boards" : "." + args[1]),
+            relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)
+        ).standardizedFileURL.path
+        _ = try await c.call(
+            UICommand(
+                id: "artifacts.export",
+                args: .object(["path": .string(target), "format": .string(args[1]), "to": .string(to)])))
+        guard ["mp4", "gif", "mov"].contains(args[1]) else {
+            return print("Exporting to \(to): the app writes it (a folder of boards for png).")
+        }
+        // A video takes a while: wait for the app's check of the file it made, and print it.
+        let check = Artifacts.exportCheck(for: to)
+        // An old check of the same file says nothing about this one.
+        do { try FileManager.default.removeItem(at: check) } catch CocoaError.fileNoSuchFile {}
+        for _ in 0..<1200 {
+            if let data = FileManager.default.contents(atPath: check.path) {
+                return print(String(decoding: data, as: UTF8.self))
+            }
+            try await Task.sleep(for: .milliseconds(500))
+        }
+        fail("Still making \(to) after 10 minutes: see Export Video's list in the page.")
+    }
+
+    static func page(_ name: String?, root: String, usage: String) async throws -> (String, ArtifactRecord) {
+        guard let name, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
+            artifact.record.file != nil
+        else { fail("\(usage) (names: kelp artifact list)") }
+        return (Artifacts.target(artifact.slug, artifact.record, root: root), artifact.record)
+    }
+
+    /// A mark as `kelp artifact marks` lists it: number, state, what it points at, the note it went with, and the
+    /// agent's reply.
+    static func line(_ m: ArtifactMark, folder: String) -> String {
+        let note = m.rounds.last?.note ?? m.note
+        var what = [m.board]
+        switch m.kind {
+        case .element: what.append(m.target)
+        case .quote: what.append("«\(m.text)»")
+        case .area: what.append("area " + (m.area ?? []).map { String(Int($0.rounded())) }.joined(separator: ","))
+        case .pen: what.append("pen" + (m.target.isEmpty ? "" : " near \(m.target)"))
+        }
+        if let picture = m.picture { what.append(folder + "/" + picture) }
+        let reply = m.rounds.last?.reply.map { "  (you said: \($0))" } ?? ""
+        let state = m.state == .check ? "to check" : m.state.rawValue
+        return "#\(m.id)\t\(state)\t\(what.filter { !$0.isEmpty }.joined(separator: " "))\t\(note)\(reply)"
     }
 
     /// Returns the folder of the workspace that holds `cwd`, because artifacts belong to the workspace. For a chat

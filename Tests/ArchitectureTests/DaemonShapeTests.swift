@@ -14,7 +14,8 @@ import Testing
             + #"(?!isDirty\([^)]*\bin:|nestedRepos\(|headBranch\()[a-z]\w*\("#
     )
     let off = try NSRegularExpression(
-        pattern: #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
+        pattern:
+            #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
     let asyncFunc = try NSRegularExpression(pattern: #"\bfunc\b[^{]*?\basync\b[^{]*\{"#)
     func block(_ s: [Character], from start: Int) -> Int {   // the index past the brace that closes the one before start
         var depth = 1, i = start
@@ -115,16 +116,25 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
     let shared: [String: String] = [
         "Sources/Integrations/HostRepo.swift: known": "a remote folder's GitHub repository, keyed by the folder's path",
         "Sources/Integrations/HostRepo.swift: reading": "one read of a folder's origin at a time, whoever asks",
-        "Sources/GitKit/Git.swift: cache": "a repository's filter names, keyed by its config and read again when it changes",
-        "Sources/GitKit/Snapshot.swift: indexFiles": "a folder's index file, keyed by its path and asked again once gone",
+        "Sources/GitKit/Git.swift: cache":
+            "a repository's filter names, keyed by its config and read again when it changes",
+        "Sources/GitKit/Snapshot.swift: indexFiles":
+            "a folder's index file, keyed by its path and asked again once gone",
         "Sources/GitKit/LineStats.swift: lineCounts": "a file's line count, keyed by its path, size and date",
         "Sources/GitKit/Files.swift: searching":
             "the search box's rg in each folder, keyed by the folder: a newer search there stops it, whoever started it",
         "Sources/Core/Extensions/ExtensionFiles.swift: digests":
             "an extension folder's digest, keyed by its path and its files' stats",
-        "Sources/Core/System/Subprocess.swift: running": "the programs this process started: a fact of the process itself",
-        "Sources/AgentData/ClaudeBuiltIns.swift: known": "the skills built into the Claude Code on this Mac, the same for all",
-        "Sources/AgentData/ClaudeContext.swift: usages": "a transcript's context usage, keyed by its path, size and date",
+        "Sources/Core/Artifacts/Artifacts.swift: versionLock":
+            "one version kept at a time, whichever of a turn's end, hand edits or a send asks: no two take one number",
+        "Sources/Core/Artifacts/ArtifactMarks.swift: lock":
+            "one change at a time to a page's marks file, which is one file whichever daemon writes it",
+        "Sources/Core/System/Subprocess.swift: running":
+            "the programs this process started: a fact of the process itself",
+        "Sources/AgentData/ClaudeBuiltIns.swift: known":
+            "the skills built into the Claude Code on this Mac, the same for all",
+        "Sources/AgentData/ClaudeContext.swift: usages":
+            "a transcript's context usage, keyed by its path, size and date",
         "Sources/AgentData/Usage.swift: rollouts": "a Codex rollout's limits, keyed by its path, size and date"
     ]
     let locks = try found(
@@ -134,6 +144,7 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
         locks.map { hit in
             "\(hit.path): \(hit.code[hit.at].firstMatch(of: /let (\w+)/).map { String($0.1) } ?? "")"
         })
-    #expect(held.subtracting(shared.keys).sorted() == [], "a lock outside an instance: say why every daemon may share it")
+    #expect(
+        held.subtracting(shared.keys).sorted() == [], "a lock outside an instance: say why every daemon may share it")
     #expect(Set(shared.keys).subtracting(held).sorted() == [], "gone: take it off the list")
 }

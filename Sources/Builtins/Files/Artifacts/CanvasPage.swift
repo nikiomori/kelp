@@ -11,6 +11,11 @@ enum CanvasPage {
     /// theme is used.
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
+    /// The themes chosen in ⋯ › Try On (light, dark or both), on this Mac; nil until one is.
+    static var chosenThemes: Themes? {
+        get { UserDefaults.standard.string(forKey: themesKey).flatMap(Themes.init) }
+        set { UserDefaults.standard.set(newValue?.rawValue, forKey: themesKey) }
+    }
 
     /// How the canvas is drawn: in which themes, which agent is writing it now (the board being written gets the
     /// ring), and whether it is a dashboard. A dashboard shows its boards as the pane's page, one view at a time,
@@ -25,9 +30,11 @@ enum CanvasPage {
         var html: String
         /// The problems found in the files themselves before anything is drawn. They are part of the check.
         var issues: [String]
-        /// Each board's tweaks, and the marks not sent yet (`CanvasEdit`).
+        /// Each board's tweaks (`CanvasEdit`), and the page's marks (`MarkColumn`).
         var tweaks: [String: [Tweak]] = [:]
-        var marks: [CanvasMark] = []
+        var marks = ArtifactMarks()
+        /// Each board as a mark to check was sent with, by `board@version@theme`, for Before.
+        var before: [String: String] = [:]
         /// The design system's token names by group, which are the choices in the properties panel (`CanvasEditMode`).
         var tokens: [String: [String]] = [:]
     }
@@ -90,11 +97,23 @@ enum CanvasPage {
             rows += "<section class=\"row\">\(title)<div class=\"boards\">\(frames)</div></section>"
         }
         let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
-        let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
+        let marks = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
+        // Each board a mark to check was sent with, drawn as it was then, in the themes shown now.
+        var before: [String: String] = [:]
+        let canvasFile = folder.appendingPathComponent(Artifacts.Kind.design.file).path
+        for mark in marks.marks where mark.state == .check {
+            guard let n = mark.rounds.last?.before, before["\(mark.board)@\(n)@\(shown[0])"] == nil,
+                let kept = read(URL(fileURLWithPath: Artifacts.versionPath(target: canvasFile, n))),
+                let old = CanvasSnapshot.read(kept)?.boards[mark.board]
+            else { continue }
+            for theme in shown {
+                let vars = (theme == "dark" ? tokens.dark : tokens.light) + " " + Tweak.css(Tweak.all(in: old))
+                before["\(mark.board)@\(n)@\(theme)"] = boardPage(old, theme: theme, vars: vars, kit: kit, base: folder)
+            }
+        }
         return Built(
             html: shell(body: "<div id=\"kelp-canvas\">\(body)</div>", dashboard: view.dashboard), issues: issues,
-            tweaks: tweaks,
-            marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
+            tweaks: tweaks, marks: marks, before: before, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
     /// Returns a board's own page: `vars` (the system's tokens for the theme, then the board's tweaks), then the kit,
@@ -119,10 +138,12 @@ enum CanvasPage {
         let size = h.map { "\(w) × \($0)" } ?? "\(w)"
         let name = (board.title ?? (board.file as NSString).lastPathComponent) + " · " + size + (dark ? " · dark" : "")
         let height = h.map { " data-h=\"\($0)\"" } ?? ""
+        let variant = board.variant.map { " data-variant=\"\(MarkdownHTML.esc($0))\"" } ?? ""
+        let notes = board.notes.map { " data-notes=\"\(MarkdownHTML.esc($0))\"" } ?? ""
         return """
-            <div class="frame"><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
+            <div class="frame"\(variant)><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
             <iframe sandbox="allow-same-origin" \
-            data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
+            data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height)\(notes) \
             style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(MarkdownHTML.esc(doc))"></iframe></div>
             """
     }
@@ -154,27 +175,42 @@ enum CanvasPage {
         return String(localized: "It isn’t {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
-    private static func shell(body: String, dashboard: Bool = false) -> String {
+    /// Kelp's page around the boards. A dashboard and a motion page (`MotionPage`) get their own looks.
+    static func shell(body: String, dashboard: Bool = false, motion: Bool = false) -> String {
         """
         <!doctype html><html><head><meta charset="utf-8"><style>
         :root { color-scheme: light dark; }
         body { margin: 0; padding: 32px 40px 80px; background: var(--k-ground); color: var(--k-label);
-          font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
+          font: var(--k-text-row)/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
         #kelp-canvas { display: flex; width: max-content; flex-direction: column; gap: 48px;
           transform-origin: 0 0; }
-        .row h2 { font-size: calc(13px / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
+        .row h2 { font-size: calc(var(--k-text-body) / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
         .boards { display: flex; gap: 48px; align-items: flex-start; }
         .frame { display: flex; flex-direction: column; gap: 6px; flex: none; }
-        .name { opacity: 0.6; font-size: calc(11px / var(--z, 1)); white-space: nowrap; }
-        iframe { border: 0; display: block; border-radius: 4px; background: #fff;
+        .name { opacity: 0.6; font-size: calc(var(--k-text-caption) / var(--z, 1)); white-space: nowrap; }
+        iframe { border: 0; display: block; border-radius: var(--k-radius-xs); background: #fff;
           box-shadow: 0 0 0 0.5px rgba(0,0,0,.15), 0 1px 4px rgba(0,0,0,.18); }
         iframe[data-theme="dark"] { background: #1c1c1e; }
         \(CanvasChrome.style)
         \(CanvasStates.style)
         \(CanvasEdit.style)
+        \(CanvasAnchors.style)
+        \(CanvasLayers.style)
+        \(CanvasBoardStates.style)
+        \(CanvasVariants.style)
+        \(MarkColumn.style)
         \(CanvasEditMode.style)
+        \(CanvasTokens.style)
+        \(CanvasBoardWidth.style)
+        \(CanvasHandles.style)
+        \(CanvasEditBar.style)
+        \(CanvasCrop.style)
+        \(CanvasTypeOver.style)
+        \(CanvasMotionKeys.style)
         \(dashboard ? DashboardPage.style : "")
-        </style></head><body\(dashboard ? " class=\"kelp-dash\"" : "")>\(body)</body></html>
+        \(motion ? MotionPage.style : "")
+        </style></head><body\(dashboard ? " class=\"kelp-dash\"" : motion ? " class=\"kelp-motion-page\"" : "")>\(body)\
+        </body></html>
         """
     }
 

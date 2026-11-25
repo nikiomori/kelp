@@ -625,3 +625,19 @@ private func onHost() -> LiveSession.State {
     s.apply(.init(state: "error", hook: failed))
     #expect(s.record.summary == "API Error: Overloaded")
 }
+
+/// What is sent while a turn runs (marks sent with Send Now) is kept with that turn, so its end hands those marks back
+/// too; the turn stays named after the prompt that started it, and the next turn starts with nothing kept.
+@Test func whatIsSentDuringATurnIsKeptWithIt() {
+    var s = hooked()
+    s.sent("make the header")
+    #expect(s.turnMoved(to: .working) == (true, false))
+    s.turnPrompt = s.lastSent
+    s.sent("Marks on .kelp/artifacts/home/canvas.json (version 3)")
+    #expect(
+        s.turnPrompt == "make the header" && s.turnSent == ["Marks on .kelp/artifacts/home/canvas.json (version 3)"])
+    #expect(s.turnMoved(to: .done) == (false, true))
+    s.sent("next")
+    #expect(s.turnSent.count == 1, "sent between turns starts the next, as its prompt")
+    #expect(s.turnMoved(to: .working) == (true, false) && s.turnSent.isEmpty)
+}

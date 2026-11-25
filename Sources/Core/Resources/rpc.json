@@ -584,6 +584,10 @@
             "description" : "Seconds since 1970, like `modified`.",
             "type" : "number"
           },
+          "marks" : {
+            "$ref" : "#/components/schemas/ArtifactMarkCounts",
+            "description" : "The page's marks that are with an agent, and those waiting for the user's check. nil when there are none."
+          },
           "modified" : {
             "description" : "When the artifact's file was last saved. nil for a page on a service.",
             "type" : "number"
@@ -632,6 +636,276 @@
         ],
         "type" : "object"
       },
+      "ArtifactMark" : {
+        "description" : "A mark the user puts on an agent's page (Mark in its bar): what it points at and what should change. A mark lives until the user says it's done. It is a draft until sent, then the agent's while its turn runs, then the user's to check (what the agent did to the marked thing, against the version it was sent with), then done or sent again. Its number stays the same throughout, so the user and the agent both say \"#3\" for it.",
+        "properties" : {
+          "area" : {
+            "description" : "An area's x, y, width and height in the board's own pixels.",
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "asked" : {
+            "description" : "The agent's question, when the agent put the mark (`kelp artifact ask`): the user's note answers it.",
+            "type" : "string"
+          },
+          "board" : {
+            "description" : "The board's file (`boards/A.html`), empty on a doc.",
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer"
+          },
+          "inState" : {
+            "description" : "The board's state it was made in (`data-states`), when not the board's first.",
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ArtifactMark.Kind"
+          },
+          "language" : {
+            "description" : "The language view it was made in: `longer` (text 40% longer) or `rtl` (right to left).",
+            "type" : "string"
+          },
+          "like" : {
+            "description" : "The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.",
+            "type" : "string"
+          },
+          "note" : {
+            "description" : "The note the user is writing now: a draft's note, empty once sent.",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "A stroke as an SVG path in the board's own pixels.",
+            "type" : "string"
+          },
+          "picture" : {
+            "description" : "The picture of an area or a stroke, or of a motion page's frame, relative to the page's folder (`marks/2.png`).",
+            "type" : "string"
+          },
+          "reference" : {
+            "description" : "A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder (`marks/3-ref.png`).",
+            "type" : "string"
+          },
+          "rounds" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark.Round"
+            },
+            "type" : "array"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/ArtifactMark.State"
+          },
+          "target" : {
+            "description" : "The element: `[data-id=title]`, or its tag. For an area or a stroke, the element it starts on.",
+            "type" : "string"
+          },
+          "text" : {
+            "description" : "The start of the element's text, or the quoted words.",
+            "type" : "string"
+          },
+          "time" : {
+            "description" : "On a motion page, the second of the video it was made at.",
+            "type" : "number"
+          },
+          "width" : {
+            "description" : "The width the board was seen at, in points, when not its own (390 for a phone's).",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "board",
+          "id",
+          "kind",
+          "note",
+          "rounds",
+          "state",
+          "target",
+          "text"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMark.Kind" : {
+        "enum" : [
+          "element",
+          "area",
+          "pen",
+          "quote"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMark.Outcome" : {
+        "description" : "What the agent's turn did to the marked thing.",
+        "enum" : [
+          "changed",
+          "same",
+          "gone"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMark.Round" : {
+        "description" : "One sending of the mark: the note it went with, and what came of it.",
+        "properties" : {
+          "after" : {
+            "type" : "integer"
+          },
+          "at" : {
+            "description" : "When it was sent, in seconds since 1970, and the chat it went to.",
+            "type" : "number"
+          },
+          "before" : {
+            "description" : "The version of the page it was sent with, and the version the agent's turn left.",
+            "type" : "integer"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "$ref" : "#/components/schemas/ArtifactMark.Outcome"
+          },
+          "reply" : {
+            "description" : "What the agent said about this mark (`kelp artifact reply`).",
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "note"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMark.State" : {
+        "enum" : [
+          "draft",
+          "sent",
+          "check",
+          "done"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMarkCounts" : {
+        "description" : "How many of a page's marks are with an agent, how many wait for the user's check, and how many of those have the agent's reply.",
+        "properties" : {
+          "asked" : {
+            "description" : "The agent's questions waiting for the user, and its suggestions shown.",
+            "type" : "integer"
+          },
+          "check" : {
+            "type" : "integer"
+          },
+          "replies" : {
+            "type" : "integer"
+          },
+          "sent" : {
+            "type" : "integer"
+          },
+          "suggested" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "check",
+          "replies",
+          "sent"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks" : {
+        "description" : "A page's marks, kept in `notes.json` beside it, and the hand edits waiting to go with them.",
+        "properties" : {
+          "edits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/HandEdit"
+            },
+            "type" : "array"
+          },
+          "marks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark"
+            },
+            "type" : "array"
+          },
+          "next" : {
+            "description" : "The number the next mark gets.",
+            "type" : "integer"
+          },
+          "suggestions" : {
+            "description" : "What the agent suggests the user asks next, shown under the marks until the next send.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "marks"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks.Change" : {
+        "description" : "What the window or an agent changes in the marks. The daemon applies each change to the file as it is then, so the window's drafts, an agent's reply and the end of a turn never write over each other.",
+        "properties" : {
+          "before" : {
+            "type" : "integer"
+          },
+          "drafts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark"
+            },
+            "type" : "array"
+          },
+          "edit" : {
+            "$ref" : "#/components/schemas/HandEdit"
+          },
+          "id" : {
+            "type" : "integer"
+          },
+          "ids" : {
+            "items" : {
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ArtifactMarks.Change.Kind"
+          },
+          "lines" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "kind"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks.Change.Kind" : {
+        "enum" : [
+          "drafts",
+          "send",
+          "done",
+          "again",
+          "reply",
+          "edit",
+          "ask",
+          "suggest",
+          "reference",
+          "retarget"
+        ],
+        "type" : "string"
+      },
       "ArtifactVersion" : {
         "description" : "A page as one of its agent's turns left it, kept as `versions/<n>.md` (or `.html`) beside the page and labelled with the prompt that started the turn.",
         "properties" : {
@@ -639,10 +913,18 @@
             "description" : "Seconds since 1970.",
             "type" : "number"
           },
+          "byUser" : {
+            "description" : "Whether the user's hand edits made it: its label then names what they changed, not a prompt.",
+            "type" : "boolean"
+          },
           "label" : {
             "type" : "string"
           },
           "n" : {
+            "type" : "integer"
+          },
+          "restored" : {
+            "description" : "The version the user brought back to make it (Restore), when it is one.",
             "type" : "integer"
           }
         },
@@ -654,14 +936,15 @@
         "type" : "object"
       },
       "Artifacts.Kind" : {
-        "description" : "The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.",
+        "description" : "The kinds of artifact Kelp makes on this Mac: a Markdown file, a canvas of boards, or a motion page (an HTML page whose CSS animations Kelp plays and records as a video).",
         "enum" : [
           "doc",
           "review",
           "slides",
           "design",
           "dashboard",
-          "proof"
+          "proof",
+          "motion"
         ],
         "type" : "string"
       },
@@ -2954,6 +3237,33 @@
           "refs",
           "subject",
           "top"
+        ],
+        "type" : "object"
+      },
+      "HandEdit" : {
+        "description" : "A change the user made to a board by hand (Edit), kept until it goes to the agent with the next marks.",
+        "properties" : {
+          "board" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "what" : {
+            "description" : "`text`, or the style property or tweak changed.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "board",
+          "id",
+          "what"
         ],
         "type" : "object"
       },
@@ -7149,6 +7459,40 @@
       }
     },
     {
+      "description" : "`kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the user answers in its note; the answer comes with the user's next marks. Returns the mark's number.",
+      "name" : "artifact.ask",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "integer"
+        }
+      }
+    },
+    {
       "description" : "`kelp artifact check` returns what Kelp's window finds wrong on a design's canvas (`path`, its canvas.json) once it has drawn the canvas again from the files: text cut off, low contrast, a board wider than its frame, a missing file. Empty when nothing is wrong. The window must have the canvas open (the CLI opens it first), and this call waits for the window's answer.",
       "name" : "artifact.check",
       "paramStructure" : "by-name",
@@ -7194,6 +7538,101 @@
       "x-internal" : true
     },
     {
+      "description" : "Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases nothing. Returns whether a version was kept.",
+      "name" : "artifact.keepRestored",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Keeps a version of a page (`path`, its file) as the user's hand edits left it, labelled with what they changed. Nothing is kept when the page is the same as its last version. Returns whether a version was kept.",
+      "name" : "artifact.keepVersion",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "label",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Changes the marks on a page (`path`, its file) as the window asks: its drafts, a send, done, again, a hand edit. The daemon applies the change to `notes.json` as it is then. A send first keeps a version of the page as the user sends it, when it changed since the last one, so the marks are checked against what the user saw; `pictures` holds the PNG of each area or stroke being sent, by mark number. Returns the marks as written.",
+      "name" : "artifact.marks",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "change",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ArtifactMarks.Change"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "pictures",
+          "required" : false,
+          "schema" : {
+            "additionalProperties" : {
+              "contentEncoding" : "base64",
+              "type" : "string"
+            },
+            "type" : "object"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactMarks"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Makes a new page of `kind` titled `title`, with its first lines written, and returns its file. The page goes in the artifacts of the workspace that holds `cwd`, preferring the workspace of chat `session` when it holds `cwd`. When no workspace holds `cwd`, the page goes under `cwd` itself.",
       "name" : "artifact.new",
       "paramStructure" : "by-name",
@@ -7232,6 +7671,133 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      }
+    },
+    {
+      "description" : "Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns whether it was renamed.",
+      "name" : "artifact.rename",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "`kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark must be with the agent or waiting for the user's check; closing it is the user's.",
+      "name" : "artifact.reply",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      }
+    },
+    {
+      "description" : "What chat `session` spent from `from` to `to` (seconds since 1970): one round of marks on a page, from their send to its turn's end. nil when nothing is known (an agent whose spending Kelp doesn't read).",
+      "name" : "artifact.roundCost",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "`kelp artifact suggest`: what the agent suggests the user asks next about a page (`path`, its file), three at most, shown under its marks until the next send; a click makes one a mark to send.",
+      "name" : "artifact.suggest",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "lines",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
         }
       }
     },

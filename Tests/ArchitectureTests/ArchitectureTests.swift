@@ -217,6 +217,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
     // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
+    // +3: an artifact's page stays in view when its marks go to an agent in the same group (`showBeside`), and a
+    // page whose process ended is drawn again (`PreviewLinks.onEnded` and its delegate method).
+    // +1: a page opens in the default browser as one HTML file Kelp wrote (`PreviewLinks.openInBrowser`).
     // +3: an agent's pane shows where a dragged file will land with the editor's own hint (`DropHint`, its
     // `show(over:)` and `hide`), so a drop looks the same on every pane.
     // +2: a built-in's rows for whatever is typed in ⌘P, under its own heading (`QuickSection`, its `init`), so Agents
@@ -228,7 +231,7 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: a tab's own answer to ⌥⌘↩ (`sendSelectionToAgent`), "nothing selected" by default.
     // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
     // Agents Overview puts a chat in review or done by it.
-    #expect(declared == 388, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    #expect(declared == 392, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -500,6 +503,10 @@ func codeOnly(_ s: String) -> String {
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
         "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
+        "Builtins/Files/MarkdownTab+Sound.swift": (1, "a scrubbed sound plays for an eighth of a second"),
+        "Builtins/Files/MarkdownTab+Sources.swift": (
+            1, "a dashboard set to update every 15 minutes or hour, while open"
+        ),
         "Builtins/Agents/Strip/StripCardParts.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
@@ -658,7 +665,7 @@ func codeOnly(_ s: String) -> String {
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
         "Daemon": 37, "KelpKit": 41, "Core": 27, "GitKit": 13, "AgentData": 4, "Agents": 13, "kelp": 10,
-        "Builtins": 8,
+        "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 9, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0
     ]
@@ -780,6 +787,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
         "Builtins/Databases/DatabaseTab+Copy.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
+    .merging(artifactPagesTouchFiles) { own, _ in own }
     let all = try matches(
         #"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#
             + #"|enumerator|attributesOfItem|destinationOfSymbolicLink)|FileWatcher\(|FileHandle\(|(String|Data|NSImage|NSDictionary)\(\s*contentsOf"#

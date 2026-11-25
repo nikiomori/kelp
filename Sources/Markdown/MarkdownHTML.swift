@@ -217,8 +217,12 @@ struct HTMLWriter: MarkupVisitor {
     /// True inside a link's text, where no nested link and no footnote reference is written.
     var inLink = false
 
+    /// True on an agent's page, where a task's box says which line it is (`data-task`) so it can be ticked.
+    var marking = false
+
     mutating func blocks(_ doc: Markup, marking: Bool = false) -> String {
-        doc.children.compactMap { block -> String? in
+        self.marking = marking
+        return doc.children.compactMap { block -> String? in
             let html = visit(block)
             guard !html.isEmpty else { return nil }
             guard marking, let line = block.range?.lowerBound.line else { return html }
@@ -298,7 +302,8 @@ struct HTMLWriter: MarkupVisitor {
     mutating func visitListItem(_ listItem: ListItem) -> String {
         var inner = children(listItem)
         guard let checkbox = listItem.checkbox else { return "<li>\(inner)</li>" }
-        let box = "<input type=\"checkbox\" disabled\(checkbox == .checked ? " checked" : "")> "
+        let line = marking ? listItem.range.map { " data-task=\"\($0.lowerBound.line)\"" } ?? "" : ""
+        let box = "<input type=\"checkbox\" disabled\(line)\(checkbox == .checked ? " checked" : "")> "
         if inner.hasPrefix("<p>") {
             inner.insert(contentsOf: box, at: inner.index(inner.startIndex, offsetBy: 3))
         } else {

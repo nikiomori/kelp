@@ -31,6 +31,10 @@ extension Artifacts {
               too.
             - `data-id="title"` on every element worth pointing at (headings, buttons, fields, cards): the user's marks
               come back to you by it.
+            - Variations of a board: boards of their own beside it, with `"variant": "boards/A.html"` in canvas.json;
+              the user keeps one (it takes the original's place) or asks for more like it.
+            - A screen with states (hover, empty, error, loading): `data-states="default,empty,error"` on the board's
+              root, styled with `[data-state=error] …`; the user switches between them and marks each.
             - Levers the user moves without you: up to 4 lines at the top of a board,
               `<!-- tweak --highlight: #1f7a5a -->` (a colour) or `<!-- tweak --gap: 12px (8px, 12px, 16px) -->`
               (choices), used as `var(--highlight)`. A tweak is one value for light and dark: name it for what it
@@ -41,12 +45,15 @@ extension Artifacts {
             2. Write all the boards and canvas.json in one go (parallel writes). No generator scripts: the kit is
                the shared part.
             3. Run `kelp artifact check <name>` once and fix what it lists. Don't screenshot, open or read back the
-               page: the user sees it beside you.
-            4. Answer in two lines: what is on the canvas, what you assumed. The user's marks arrive as
-               `Marks on <canvas>: boards/A.html 1 [data-id=title] «Welcome»: bigger | …`: edit those elements in
-               place, never rewrite a board; the user may have changed a board by hand (its text, a style), so read
-               it again first. `Picked “A. …”` means: build that row out, drop the others from
-               canvas.json.
+               page: the user sees it beside you. A line with @390 or @768 is the board at that width: fix it in a
+               @media for it, keeping the wide layout.
+            4. A flow of screens links them: `<a href="#board:choose">` or `data-link="choose"` on a button (a board's
+               name is its file's); Present clicks through, `kelp artifact links <name>` lists the dead ends.
+            5. A chart keeps its numbers in a <table> inside its `data-chart` element (hidden if need be): the user
+               changes them there, and asks you to draw it again.
+            6. Answer in two lines: what is on the canvas, what you assumed. `Picked “A. …”` means: build that row
+               out, drop the others from canvas.json.
+            \(Artifacts.marksRule)
 
             Before the first board, read `kelp artifact guide design craft` (once a session). In short: real content,
             no lorem ipsum or invented
@@ -69,6 +76,9 @@ extension Artifacts {
            from. Every figure carries where it came from and when: `<b data-value data-source="gh run list, 11 Nov
            10:00">42</b>`; the check lists one without. The user's Update asks you to run the commands again and bring
            every figure and its time up to date. Kelp shows the boards as the page, one at a time (a switch for more).
+           Declare the read-only commands in canvas.json and Update runs them itself, without you: `"sources":
+           {"issues": {"run": "gh issue list --state open --json number", "map": "length"}}` (map: length, lines,
+           text, or a path like `0.title`), and a figure shows one with `data-from="issues"`.
         """
 
     static func designPart(_ part: String) -> String? {
@@ -84,7 +94,10 @@ extension Artifacts {
         # The project's design system, in .kelp/design/
 
         Write it once from the project's own code (its stylesheets, theme, Tailwind config, a UI kit's constants such as
-        an app's Metrics and colours), not from taste: exact values, never rounded. Three files:
+        an app's Metrics and colours), not from taste: exact values, never rounded. From a website the user names: open
+        it with `kelp browser open <url>` and read the computed colours, fonts, sizes, radii and spacing of its real
+        elements with `kelp browser js`. From brand files (a guide as PDF, a logo, fonts): read them whole, take their
+        values, and copy the logo and fonts into .kelp/design/. Three files:
 
         1. `tokens.json`. Kelp turns it into CSS variables on every board, in light and dark:
            ```json
@@ -129,10 +142,12 @@ extension Artifacts {
         `kelp artifact guide slides`.
 
         - A board per slide, `"w": 1920, "h": 1080`, without a `row`: each is a row of its own, in the deck's order.
+          The speaker's notes for a slide go in its board's `"notes"`.
         - The first slide is the title; one idea a slide; nothing smaller than 24px; at most 4–5 sizes.
         - A slide is laid out to fit its frame (the check says when one runs over): too much is two slides, not
           smaller type.
-        - The user presents it with Present in the canvas's bar (← → step, Esc ends) and prints a page a slide.
+        - The user presents it with Present in the canvas's bar (← → step, Esc ends) and exports it as a PDF or a
+          PowerPoint (`kelp artifact export <name> pdf|pptx` when they ask you to).
 
         """
 
