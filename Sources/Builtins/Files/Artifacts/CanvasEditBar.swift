@@ -40,7 +40,10 @@ enum CanvasEditBar {
                 id: K.need(at.f, e), image: e.tagName === 'IMG', media: /^(IMG|VIDEO)$/.test(e.tagName),
                 chart: e.closest('[data-chart][data-id]')?.getAttribute('data-id') || '' })));
             const b = K.box(at.f, e), h = bar.offsetHeight || 28, gap = 8;
-            const above = b.y - scrollY - h - gap - 18 > 0;   // the name tag sits right over the element
+            // Over the element (its name tag sits right over it), unless that would cover the board's name or leave the
+            // window: then under it.
+            const name = at.f.closest('.frame')?.querySelector('.name')?.getBoundingClientRect();
+            const above = b.y - scrollY - h - gap - 18 > (name ? name.bottom : 0);
             Object.assign(bar.style, {
               left: Math.max(scrollX + 8, b.x) + 'px',
               top: (above ? b.y - h - gap - 18 : b.y + b.h + gap) + 'px'
