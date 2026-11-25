@@ -32,7 +32,7 @@ async function run() {
   document.body.replaceWith(new DOMParser().parseFromString(html, 'text/html').body);
   const scroller = document.getElementById('a-body'), transcript = document.getElementById('a-reply');
   const atEnd = () => Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) <= 1;
-  const codex = { id: 'first', agent: 'codex', status: 'working', statusAt: '2026-01-01T00:00:00Z', title: 'First' };
+  const codex = { id: 'first', agent: 'codex', status: 'working', statusAt: '2026-01-01T00:00:00Z', progress: null, title: 'First' };
   const other = { ...codex, id: 'second', agent: 'claude', title: 'Second' };
   window.rows = [codex, other];
   window.reads = [];
@@ -119,11 +119,25 @@ async function run() {
   checkDraft('first', null);
   check(replies.length === 4, 'Acknowledgement and navigation should never resend a reply');
 
+  advance(15);
+  check(reads.length === 1, 'A working Codex should not download its conversation on a timer');
+  for (let i = 0; i < 12; i++) event(codex);
+  const renamed = { ...codex, title: 'Updated', unread: true };
+  event(renamed);
   advance(5);
-  check(reads.length === 2, 'A working Codex should refresh without any events');
+  check(reads.length === 1, 'Identical snapshots, title changes and read receipts should not fetch detail');
+
+  const running = { ...renamed, running: 'swift test' };
+  event(running);
+  advance(5);
+  check(document.querySelector('.row a[href="#first"] .chip')?.textContent === running.running && reads.length === 1,
+    'A command-only change should update the agent row without fetching detail');
+  const progressing = { ...running, progress: 37 };
+  event(progressing);
+  check(reads.length === 2, 'A numeric progress change alone should fetch detail once');
   scroller.scrollTop = 120;
   const readingAt = scroller.scrollTop;
-  const newer = { ...codex, title: 'Updated', unread: true };
+  const newer = { ...progressing, summary: 'Tests passed' };
   for (let i = 0; i < 12; i++) event(newer);
   advance(10);
   check(reads.length === 2, 'Slow reads should not overlap, even during an event burst');
@@ -137,10 +151,14 @@ async function run() {
   advance(1);
   check(reads.length === 3, 'Coalesced events should get one trailing refresh');
   scroller.scrollTop = scroller.scrollHeight;
+  const seen = { ...newer, unread: false };
+  event(seen);
+  event(seen);
   reads[2].resolve({ ...newer, turns: [...turns, ...turns.slice(-10)] });
   await settle();
   check(atEnd(), 'Following should resume when the reader returns to the bottom');
-
+  advance(15);
+  check(reads.length === 3, 'An identical snapshot during a read should not queue a trailing refresh');
   hidden = true;
   document.dispatchEvent(new Event('visibilitychange'));
   event(newer);
@@ -150,7 +168,15 @@ async function run() {
   rows[0] = newer;
   document.dispatchEvent(new Event('visibilitychange'));
   await settle();
-  check(reads.length === 4 && marks.length === 2, 'Returning to an unread conversation should refresh and mark it read once');
+  advance(5);
+  check(reads.length === 3 && marks.length === 2, 'An unchanged conversation should reconnect with one read receipt and zero detail reads');
+  window.stream.onerror();
+  await settle();
+  check(reads.length === 3, 'Probing the list after a stream failure should skip unchanged detail');
+  rows[0] = { ...newer, progress: 0 };
+  window.dispatchEvent(new Event('online'));
+  await settle();
+  check(reads.length === 4, 'A progress change missed while disconnected should fetch detail once');
   const switched = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));
   location.hash = 'second';
   await switched;
@@ -195,7 +221,11 @@ async function run() {
   check(banner.hidden && transcript.textContent.endsWith('Turn 79'), 'Recovery should show the transcript and clear the error');
 
   advance(1);
-  event(settled);
+  const updated = { ...settled, statusAt: '2026-01-01T00:01:00Z' };
+  rows[rows.length - 1] = updated;
+  count = reads.length;
+  event(updated);
+  check(reads.length === count + 1, 'A new status timestamp should refresh detail');
   await failRead(408);
   count = reads.length;
   hidden = true;
@@ -205,17 +235,17 @@ async function run() {
   hidden = false;
   document.dispatchEvent(new Event('visibilitychange'));
   await settle();
-  check(reads.length === ++count, 'Returning to the failed chat should resume its retry');
+  check(reads.length === ++count, 'Reconnecting with the same snapshot should resume the failed detail read');
   await failRead(429);
   for (const delay of [2, 4]) {
-    event(settled);
+    event(updated);
     advance(delay - 1);
     check(reads.length === count, 'Summary events should respect the retry delay');
     advance(1);
     check(reads.length === ++count, 'Expected one detail retry after the delay');
     await failRead(0);
   }
-  event(settled);
+  event(updated);
   advance(60);
   check(reads.length === count && !retry.hidden && !retry.disabled && !banner.hidden &&
     message.textContent === (ru ? 'Не удалось загрузить переписку.' : "Couldn't load the conversation."),
@@ -229,7 +259,14 @@ async function run() {
   check(banner.hidden && transcript.textContent === 'Recovered history', 'A manual retry should recover and clear the error');
 
   advance(1);
-  event(settled);
+  count = reads.length;
+  const idle = { ...settled, status: 'idle' };
+  event(idle);
+  check(reads.length === count + 1, 'A status transition should refresh detail even with the same timestamp');
+  event(idle);
+  await failRead(404);
+  advance(1);
+  check(reads.length === count + 2, 'A newer snapshot listing the agent should get one retry after a stale 404');
   await failRead(0);
   await select('forbidden');
   check(banner.hidden, 'A new visit should clear the previous read error');
@@ -248,6 +285,19 @@ async function run() {
     check(reads.length === count && retry.hidden && !document.getElementById('a-ended').hidden,
       'A gone chat should show the ended state and stop retrying');
   }
+
+  await select('first');
+  count = reads.length;
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  reads.at(-1).resolve({ ...rows[0], turns });
+  await settle();
+  advance(5);
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  check(reads.length === count && transcript.textContent.endsWith('Turn 79'),
+    'A detail read completed in the background should be ready on return without a second download');
 }
 try {
   await run();

@@ -32,6 +32,7 @@ enum PhoneAgent {
                     "text": .string(session.summary)
                 ]) : .null,
             "running": session.running.map(JSONValue.string) ?? .null,
+            "progress": session.progress.map(JSONValue.int) ?? .null,
             "limit": session.limitHit.map {
                 .object(["kind": .string($0.kind), "resets": $0.resets.map(JSONValue.string) ?? .null])
             } ?? .null,

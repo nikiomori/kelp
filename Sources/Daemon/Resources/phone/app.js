@@ -344,11 +344,17 @@ function newerPage(page) {
   return true;
 }
 
+function conversationChanged(before, after) {
+  return before?.status !== after?.status || before?.statusAt !== after?.statusAt
+    || (after?.agent === 'codex' && (before?.summary !== after.summary || before?.progress !== after.progress));
+}
+
 async function refresh() {
   const data = await kelp.list();
   mac = data.mac ?? '';
   [projects, kinds, stops] = [data.projects ?? [], data.kinds ?? [], data.stops === true];
   if (newerPage(data.page)) return;
+  const previous = open && agents.get(open.id);
   agents = new Map(data.agents.map(a => [a.id, kelp.agentFrom(a)]));
   busy.clear();
   if (!paired) {
@@ -361,7 +367,8 @@ async function refresh() {
       open.gone = false;
       if (selected.unread) markOpenRead();
     }
-    requestOpen();
+    if (conversationChanged(previous, selected)) requestOpen();
+    else loadOpen();   // An unchanged snapshot can still have a pending read or retry.
     render();
   }
 }
@@ -391,17 +398,13 @@ async function loadOpen(manualRetry = false) {
   } else if (failure) {
     const delay = detailRetryDelays[failure.attempt - 1];
     if (delay == null || performance.now() - mine.lastRead < delay) return;
-  } else {
-    // A working Codex can append turns without sending any agent event.
-    if (!mine.dirty && !(before?.agent === 'codex' && before.status === 'working')) return;
-    if (mine.lastRead != null && performance.now() - mine.lastRead < (mine.dirty ? 1000 : 5000)) return;
-  }
+  } else if (!mine.dirty || (mine.lastRead != null && performance.now() - mine.lastRead < 1000)) return;
   mine.detailRead = new AbortController();
   mine.dirty = false;
   if (failure) $('a-retry').disabled = true;
   try {
     const { lastReply, turns, ...agent } = await kelp.get(mine.id, mine.detailRead.signal);
-    if (open !== mine || mine.gone || document.hidden) return;
+    if (open !== mine || mine.gone) return;
     // A summary event can arrive while the Mac is still reading the transcript.
     if (agents.get(mine.id) === before) agents.set(mine.id, kelp.agentFrom(agent));
     mine.reply = lastReply ?? null;
@@ -415,7 +418,7 @@ async function loadOpen(manualRetry = false) {
       if (agents.get(mine.id) === before) {
         mine.gone = true;
         agents.delete(mine.id);
-      }
+      } else mine.dirty = true;   // A newer snapshot still listed this agent. Check it again.
     } else if ([0, 408, 429].includes(e.status)) {   // api.js reports network and server errors as status 0
       const attempt = (mine.readFailure?.attempt ?? 0) + 1;
       mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
@@ -426,7 +429,7 @@ async function loadOpen(manualRetry = false) {
     mine.lastRead = performance.now();
     mine.detailRead = null;
   }
-  render();
+  if (!document.hidden) render();
 }
 
 function upsert(raw) {
@@ -436,7 +439,7 @@ function upsert(raw) {
   if (!a.ask) notes.delete(a.id);
   if (open?.id === a.id) {
     open.gone = false;
-    if (a.agent === 'codex' || old?.statusAt !== a.statusAt) requestOpen();
+    if (conversationChanged(old, a)) requestOpen();
     if (a.unread) markOpenRead();
   }
   render();
