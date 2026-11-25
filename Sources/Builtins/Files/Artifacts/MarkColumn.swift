@@ -92,7 +92,18 @@ enum MarkColumn {
               body.append(el('div', 'kelp-past', L.you + ': ' + (r.note || L.look)));
               if (r.reply) body.append(el('div', 'kelp-past', L.agent + ': ' + r.reply));
             }
-            if (m.asked && m.state === 'draft') body.append(el('div', 'kelp-said', m.asked));
+            if (m.asked && m.state === 'draft') {
+              // The agent's choices (`kelp artifact ask … --choice`), one line each: a click answers and sends.
+              const [question, ...choices] = m.asked.split('\\n• ');
+              body.append(el('div', 'kelp-said', question));
+              const row = el('div', 'kelp-row kelp-choices');
+              for (const c of choices) {
+                const b = el('button', 'kelp-pill', c);
+                b.onclick = () => { const d = by('draft').find(d => d.id === m.id); if (d) d.note = c; keep(); send(); };
+                row.append(b);
+              }
+              if (choices.length) body.append(row);
+            }
             if (m.state === 'draft') {
               // By its place among the drafts, which the daemon keeps: the mark itself may be replaced meanwhile.
               const i = by('draft').indexOf(m), note = el('input', 'kelp-field');

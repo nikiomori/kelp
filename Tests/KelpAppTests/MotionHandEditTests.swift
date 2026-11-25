@@ -3,6 +3,7 @@ import Core
 import DesignKit
 import Foundation
 import ImageIO
+import JavaScriptCore
 import TestSupport
 import Testing
 
@@ -642,4 +643,19 @@ extension OneAtATime {
 func aQuoteIsFoundByItsWords(markdown: String, quote: String, line: Int, heading: String?) throws {
     let place = try #require(MarkdownTab.place(of: quote, in: markdown))
     #expect(place.line == line && place.heading == heading)
+}
+
+extension OneAtATime {
+    /// The column's script reads as JavaScript: one that doesn't leaves the column empty, with no error shown.
+    @Test func theMarkColumnsScriptReads() throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-column/.kelp/artifacts/x/canvas.json")
+        let tab = MarkdownTab(editor: CodeEditor(text: #"{"boards": []}"#, url: url), url: url, app: AppModel())
+        _ = tab
+        let source = MarkColumn.source(marks: ArtifactMarks(), labels: [:])
+        let context = try #require(JSContext())
+        let quoted = String(decoding: try JSONEncoder().encode(source), as: UTF8.self)
+        context.evaluateScript("new Function(\(quoted))")
+        #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
+    }
 }

@@ -65,7 +65,8 @@ let usage = """
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
-      artifact ask <name> <data-id> <question> | suggest <name> <request>…   ask on an element; offer what's next
+      artifact ask <name> <data-id> <question> [--choice <a>]… | suggest <name> <request>…   ask on an element (a
+                                           choice is a button that answers at once); offer what's next
       artifact export <name> <png|pdf|pptx|html|zip|docx|md|mp4|gif|mov> [to]   pictures, PDF, PowerPoint, HTML, ZIP,
                                            Word, Markdown, video
       artifact beats <name>                    a motion page's music: its tempo and beats, at the page's seconds

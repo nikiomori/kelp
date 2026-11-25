@@ -337,7 +337,8 @@ public enum Artifacts {
           change you didn't make (`Edited by the user` lines name them). If you can't do a mark or need an answer,
           say so with `kelp artifact reply <name> <#> "…"`, one line. You never close a mark: the user checks each
           one. `kelp artifact marks <name>` lists those still open. Unsure about an element? Do what you can and ask
-          on it: `kelp artifact ask <name> <data-id> "…"`. At the end of a turn you may offer up to three next steps:
+          on it: `kelp artifact ask <name> <data-id> "…"`, with `--choice "…"` for each answer you can take (the user
+          clicks one, and it comes to you at once). At the end of a turn you may offer up to three next steps:
           `kelp artifact suggest <name> "…" "…"`.
 
         """

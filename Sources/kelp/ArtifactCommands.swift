@@ -132,14 +132,18 @@ extension Main {
         let ask = sub == "ask"
         let usage =
             ask
-            ? "artifact ask <name> <data-id> <your question>"
+            ? "artifact ask <name> <data-id> <your question> [--choice <answer>]…"
             : "artifact suggest <name> \"<request>\" [\"<request>\" …]"
+        let choices = ask ? all("--choice") : []   // the user answers with a click, sent at once
         guard args.count >= (ask ? 3 : 2) else { fail(usage) }
         let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
         if ask {
-            let n = try await c.call(
-                ArtifactAsk(path: target, id: args[1], text: args.dropFirst(2).joined(separator: " ")))
-            print("Asked as #\(n) on \(args[1]). The answer comes with the user's next marks.")
+            let question = args.dropFirst(2).joined(separator: " ") + choices.map { "\n• " + $0 }.joined()
+            let n = try await c.call(ArtifactAsk(path: target, id: args[1], text: question))
+            print(
+                choices.isEmpty
+                    ? "Asked as #\(n) on \(args[1]). The answer comes with the user's next marks."
+                    : "Asked as #\(n) on \(args[1]). A click on a choice sends it to you at once.")
         } else {
             _ = try await c.call(ArtifactSuggest(path: target, lines: Array(args.dropFirst().prefix(3))))
             print("Suggested. The user sees them under the marks until the next send.")
