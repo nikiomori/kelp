@@ -216,3 +216,38 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
         try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
     }
 }
+
+/// The pages take the width the sources leave, however the tab was first laid out (at no size, as a new tab is).
+@MainActor @Test func thePagesTakeTheTabsWidth() async throws {
+    let app = AppModel(builtins: [])
+    app.repos = [Repo(id: "k", name: "Kelp", path: "/k")]
+    app.worktrees = [Worktree(id: "kw", repoId: "k", branch: "main", path: "/k", createdAt: .distantPast)]
+    app.workbench.show(workspace: "kw")
+    let controller = OverviewController(model: OverviewModel(app: app))
+    let view = controller.view
+    view.frame = .zero
+    view.layoutSubtreeIfNeeded()
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 500, height: 800), styleMask: [.titled, .resizable],
+        backing: .buffered, defer: true)
+    window.contentView = view
+    controller.viewDidAppear()
+    app.land(ArtifactsEvent(worktree: "kw", items: (1...6).map { page("P\($0)", hoursAgo: Double($0)).item }))
+    #expect(try await waitFor(10) { controller.grid.sections.flatMap(\.pages).count == 6 })
+    view.layoutSubtreeIfNeeded()
+    for width in [500.0, 1400] {
+        window.setContentSize(NSSize(width: width, height: 800))
+        for _ in 0..<3 {
+            view.layoutSubtreeIfNeeded()
+            await mainActorTurns()
+        }
+        #expect(
+            controller.grid.scroll.frame.width > width - 300,
+            "\(width): \(controller.grid.scroll.frame)")
+        let second = controller.grid.collection.layoutAttributesForItem(at: IndexPath(item: 1, section: 0))?.frame
+        let first = controller.grid.collection.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))?.frame
+        if width > 1000 {
+            #expect(first?.minY == second?.minY, "side by side at \(width): \(String(describing: first))")
+        }
+    }
+}

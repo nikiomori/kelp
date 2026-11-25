@@ -78,32 +78,45 @@ final class OverviewController: NSViewController {
         let bar = Bar.content([title, facts], [sync, search, views])
 
         let sourceScroll = sources.table.plainList("s")
-        sourceScroll.widthAnchor.constraint(equalToConstant: 210).isActive = true
         let rule = NSBox()
         rule.boxType = .separator
         let content = NSView()
         for scroll in [grid.scroll, list.scroll] { content.pin(scroll) }
         empty.place(in: content)
         loading.place(in: content)
-        let column = NSStackView(views: [failureBar, changeBar, content])
-        column.orientation = .vertical
-        column.spacing = 0
-        column.alignment = .width   // the bars and the pages as wide as the column
-        column.distribution = .fill
-        // The bars are as tall as what they say; the pages take the rest.
-        for bar in [failureBar, changeBar] { bar.setHuggingPriority(.defaultHigh, for: .vertical) }
-        content.setContentHuggingPriority(.init(1), for: .vertical)
-        let body = NSStackView(views: [sourceScroll, rule, column])
-        body.spacing = 0
-        body.alignment = .height
-        let root = NSStackView(views: [bar, body])
-        root.orientation = .vertical
-        root.spacing = 0
-        root.alignment = .width
-        // The bar keeps its height and the body takes the rest: a stack's default gravity left the body at its
-        // fitting height, a few rows tall, until something laid the window out again.
-        root.distribution = .fill
-        body.setHuggingPriority(.init(1), for: .vertical)
+        // The bars over the pages are as tall as what they say, and take no room while hidden.
+        let bars = NSStackView(views: [failureBar, changeBar])
+        bars.orientation = .vertical
+        bars.spacing = 0
+        bars.detachesHiddenViews = true
+        for bar in [failureBar, changeBar] { bar.widthAnchor.constraint(equalTo: bars.widthAnchor).isActive = true }
+        // Laid out by hand, edge to edge: the bar on top, the sources at their width on the left, the bars and the
+        // pages taking the rest. Stacks' gravity left the pages a sliver wide or a few rows tall.
+        let root = NSView()
+        for part in [bar, sourceScroll, rule, bars, content] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(part)
+        }
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: root.topAnchor),
+            bar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            sourceScroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            sourceScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sourceScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            sourceScroll.widthAnchor.constraint(equalToConstant: 210),
+            rule.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            rule.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            rule.leadingAnchor.constraint(equalTo: sourceScroll.trailingAnchor),
+            rule.widthAnchor.constraint(equalToConstant: 1),   // a line: unsized, it took the pages' room
+            bars.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            bars.leadingAnchor.constraint(equalTo: rule.trailingAnchor),
+            bars.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            content.topAnchor.constraint(equalTo: bars.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: rule.trailingAnchor),
+            content.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+        ])
         view = root
 
         grid.onOpen = { [weak self] in self?.open($0) }
