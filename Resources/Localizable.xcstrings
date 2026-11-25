@@ -41426,6 +41426,46 @@
           }
         }
       }
+    },
+    "Insert": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить"
+          }
+        }
+      }
+    },
+    "Rectangle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прямоугольник"
+          }
+        }
+      }
+    },
+    "Button": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка"
+          }
+        }
+      }
+    },
+    "Picture…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинка…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

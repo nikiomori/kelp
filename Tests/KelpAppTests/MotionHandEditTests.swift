@@ -728,3 +728,19 @@ extension OneAtATime {
         #expect(tab.handSteps.undo.count == 1)
     }
 }
+
+extension OneAtATime {
+    /// Insert › Text puts a new text after the chosen element; a second one gets an id of its own.
+    @Test func insertPutsANewElementAfterTheChosenOne() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-insert/.kelp/artifacts/launch/motion.html")
+        let editor = CodeEditor(
+            text: #"<body data-width="1920" data-height="1080"><h1 data-id="title">Hi</h1></body>"#, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        let menu = tab.insertMenu("motion.html", after: "title")
+        #expect(menu.items.map(\.title).count == 4)
+        menu.performActionForItem(at: 0)
+        #expect(
+            try await waitFor(5) { editor.text.contains(#"<h1 data-id="title">Hi</h1><p data-id="text">Text</p>"#) })
+    }
+}

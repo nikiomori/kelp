@@ -55,4 +55,41 @@ extension MarkdownTab {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         return path == url.path ? editor.text : await app.quiet(FilesRead(path: path))?.text
     }
+
+    /// Edit's element menu › Insert: a new element after the chosen one, in the design system's look where it has
+    /// one (its tokens, kit.css's button), chosen to be changed at once.
+    func insertMenu(_ board: String, after id: String) -> NSMenu {
+        let menu = NSMenu()
+        let parts: [(String, String)] = [
+            (String(localized: "Text"), #"<p data-id="text">Text</p>"#),
+            (
+                String(localized: "Rectangle"),
+                #"<div data-id="box" style="width: 160px; "#
+                    + #"height: 100px; "#
+                    + #"background: var(--accent, #0a84ff); "#
+                    + #"border-radius: var(--radius-m, 8px)"></div>"#
+            ),
+            (String(localized: "Button"), #"<button data-id="button" class="button primary">Button</button>"#)
+        ]
+        for (title, html) in parts { menu.add(title) { [weak self] in self?.put(html, on: board, after: id) } }
+        menu.add(String(localized: "Picture…")) { [weak self] in self?.insertPicture(board, after: id) }
+        return menu
+    }
+
+    private func insertPicture(_ board: String, after id: String) {
+        guard let window = view.window else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.beginSheetModal(for: window) { [weak self] answer in
+            guard answer == .OK, let picked = panel.url else { return }
+            Task { @MainActor in
+                guard let self else { return }
+                let folder = self.url.deletingLastPathComponent().path
+                guard let made = await self.app.call(FilesCopy(paths: [picked.path], into: folder))?.made.first
+                else { return }
+                let name = (made as NSString).lastPathComponent
+                self.put(#"<img data-id="picture" src="\#(name)" style="max-width: 100%">"#, on: board, after: id)
+            }
+        }
+    }
 }

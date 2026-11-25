@@ -261,6 +261,7 @@ public enum BoardEdit {
     /// `source` has yet. Returns it and its own new id.
     public static func renamed(_ html: String, in source: String) -> (html: String, id: String)? {
         let ids = html.matches(of: /data-id="([^"]*)"/).map { String($0.output.1) }
+        if let first = ids.first, ids.allSatisfy({ !source.contains("data-id=\"\($0)\"") }) { return (html, first) }
         guard let first = ids.first,
             let n = (2...999).first(where: { n in ids.allSatisfy { !source.contains("data-id=\"\($0)-\(n)\"") } })
         else { return nil }

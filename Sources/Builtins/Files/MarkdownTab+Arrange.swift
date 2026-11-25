@@ -160,6 +160,7 @@ extension MarkdownTab {
                 self?.runJS("window.kelpChartNumbers?.(\(Self.js(board)), \(Self.js(chart)))")
             }
         }
+        menu.add(String(localized: "Insert"), submenu: insertMenu(board, after: id))
         if page == .motion { menu.add(String(localized: "Insert Block"), submenu: blocksMenu()) }
         if page == .canvas {
             menu.add(String(localized: "Take from a Table…")) { [weak self] in self?.chooseTable(board, id) }
