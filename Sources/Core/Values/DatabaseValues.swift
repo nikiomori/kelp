@@ -39,15 +39,19 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         /// The character the engine's SQL quotes a name in: "orders", or `orders` in MySQL.
         public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
 
-        /// The engine a container image runs, judged by the image's whole name and not its registry or owner. Examples
-        /// are postgres:16, bitnami/postgresql, timescale/timescaledb-ha, mariadb and percona-server. nil for other
-        /// images, such as postgrest or postgres-exporter, which only have a database's name in theirs.
+        /// The engine a container image runs, judged by a whole word of the image's name (its last path part, split at
+        /// "-") and not its registry or owner. Examples are postgres:16, bitnami/postgresql-repmgr,
+        /// timescale/timescaledb-ha, mariadb and percona-server. nil for other images, such as postgrest,
+        /// mysqld-exporter or postgres-exporter, which only have a database's name in theirs or are a tool for one.
         public init?(image: String) {
             let last = image.lowercased().split(separator: "/").last ?? ""
-            let name = String(last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? "")
-            if ["postgres", "postgresql", "postgis", "timescaledb", "timescaledb-ha", "pgvector"].contains(name) {
+            let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
+            let words = Set(name.split(separator: "-").map(String.init))
+            let tools: Set = ["exporter", "admin", "operator", "backup", "proxy", "router", "client", "cli", "tools"]
+            guard words.isDisjoint(with: tools) else { return nil }
+            if !words.isDisjoint(with: ["postgres", "postgresql", "postgis", "timescaledb", "pgvector"]) {
                 self = .postgres
-            } else if ["mysql", "mysql-server", "mariadb", "percona", "percona-server"].contains(name) {
+            } else if !words.isDisjoint(with: ["mysql", "mariadb", "percona"]) {
                 self = .mysql
             } else {
                 return nil

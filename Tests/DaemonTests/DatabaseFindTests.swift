@@ -60,7 +60,7 @@ import Testing
     }
 }
 
-/// Only a database's own image is a database: by the image's name, not a word in it.
+/// Only a database's own image is a database: by a whole word of its name, not a part of one, and not a tool for one.
 @Test func aDatabaseImageIsKnownByItsName() {
     let images: [(String, DatabaseInfo.Engine?)] = [
         ("postgres:16", .postgres), ("postgis/postgis:16-3.4", .postgres),
@@ -68,7 +68,9 @@ import Testing
         ("timescale/timescaledb-ha:pg16", .postgres), ("pgvector/pgvector:pg16", .postgres),
         ("ghcr.io/supabase/postgres@sha256:ab", .postgres), ("mysql:8", .mysql), ("mariadb:10.11", .mysql),
         ("percona/percona-server:8.0", .mysql), ("postgrest/postgrest", nil), ("postgres-exporter", nil),
-        ("prom/mysqld-exporter", nil), ("redis:7", nil)
+        ("prom/mysqld-exporter", nil), ("redis:7", nil), ("bitnami/postgresql-repmgr:16", .postgres),
+        ("timescale/timescaledb-postgis:latest", .postgres), ("bitnami/mysql-router", nil),
+        ("percona/percona-xtradb-cluster:8.0", .mysql), ("prometheuscommunity/postgres-exporter", nil)
     ]
     for (image, engine) in images {
         #expect(DatabaseInfo.Engine(image: image) == engine, "\(image)")
