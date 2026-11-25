@@ -491,5 +491,15 @@ private func tempRoot() throws -> URL {
     #expect(try ArtifactRename(path: path, title: "  Launch page ").handle(NoService()))
     #expect(Artifacts.record(in: folder)?.title == "Launch page")
     #expect(try !ArtifactRename(path: path, title: "   ").handle(NoService()))
+    // An agent tags and archives it; the list says so, and the user's Undo puts the page back. A folder outside
+    // .kelp/artifacts is refused.
+    let tagged = try ArtifactChange(folder: folder.path, add: ["Launch"], archived: true, session: "s2")
+        .handle(NoService())
+    #expect(tagged == ["launch"])
+    let listed = try #require(Artifacts.items(root: root.path).first)
+    #expect(listed.tags == ["launch"] && listed.archived == true && listed.agentChange?.session == "s2")
+    #expect(try ArtifactChange(folder: folder.path, undo: true).handle(NoService()).isEmpty)
+    #expect(Artifacts.record(in: folder).map { ($0.archived, $0.agentChange) } ?? (true, nil) == (nil, nil))
+    #expect(throws: RPCError.self) { try ArtifactChange(folder: root.path, add: ["x"]).handle(NoService()) }
     #expect(try ArtifactRoundCost(session: "no-such-chat", from: 0, to: 1).handle(NoService()) == nil)
 }

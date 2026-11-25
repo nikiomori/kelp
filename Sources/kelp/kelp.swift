@@ -64,6 +64,10 @@ let usage = """
       artifact new <kind> <title> [--from <file>] [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere
+      artifact list [--all] [--json] [--tag t] [--archived] | tags [--all]   pages of this project or all,
+                                           tags in use
+      artifact tag <name> +a -b | untag <name> <tag> | archive <name>… | unarchive <name>…   put pages in
+                                           order (the user can undo it in Artifacts Overview; deleting stays theirs)
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
       artifact ask <name> <data-id> <question> [--choice <a>]… | suggest <name> <request>…   ask on an element (a
                                            choice is a button that answers at once); offer what's next

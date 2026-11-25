@@ -142,6 +142,29 @@ public struct ArtifactRename: InternalMethod {
     }
 }
 
+/// Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in
+/// Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its
+/// `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back. Returns the page's
+/// tags after the change.
+public struct ArtifactChange: RPCMethod {
+    public static let name = "artifact.change"
+    public typealias Result = [String]
+    public var folder: String
+    public var add: [String]?, remove: [String]?, archived: Bool?
+    public var session: String?, undo: Bool?
+    public init(
+        folder: String, add: [String]? = nil, remove: [String]? = nil, archived: Bool? = nil, session: String? = nil,
+        undo: Bool? = nil
+    ) {
+        self.folder = folder
+        self.add = add
+        self.remove = remove
+        self.archived = archived
+        self.session = session
+        self.undo = undo
+    }
+}
+
 /// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the
 /// user answers in its note; the answer comes with the user's next marks. Returns the mark's number.
 public struct ArtifactAsk: RPCMethod {

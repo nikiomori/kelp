@@ -77,6 +77,9 @@ extension Artifacts {
             slug: slug, type: artifactRecord.type, title: artifactRecord.title,
             created: artifactRecord.created.timeIntervalSince1970, session: artifactRecord.session,
             url: artifactRecord.url, target: target)
+        item.tags = artifactRecord.tags
+        item.archived = artifactRecord.archived
+        item.agentChange = artifactRecord.agentChange
         guard artifactRecord.url == nil else {
             item.modified = artifactRecord.updated?.timeIntervalSince1970
             let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path

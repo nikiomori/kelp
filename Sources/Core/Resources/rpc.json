@@ -531,6 +531,33 @@
         ],
         "type" : "object"
       },
+      "ArtifactAgentChange" : {
+        "description" : "A change an agent made to a page's tags or archive (`ArtifactChange` with its session): who, when, and what the page had before, which Undo puts back.",
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "at" : {
+            "description" : "Seconds since 1970.",
+            "type" : "number"
+          },
+          "session" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "description" : "The tags and the archive before the change.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "at",
+          "session"
+        ],
+        "type" : "object"
+      },
       "ArtifactCheckEvent" : {
         "description" : "Relays `artifact.check` to the window, which draws the canvas at `path` again and answers `request` with `ui.browser.reply`.",
         "properties" : {
@@ -574,8 +601,14 @@
       "ArtifactItem" : {
         "description" : "An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.",
         "properties" : {
+          "agentChange" : {
+            "$ref" : "#/components/schemas/ArtifactAgentChange"
+          },
           "answered" : {
             "type" : "integer"
+          },
+          "archived" : {
+            "type" : "boolean"
           },
           "changed" : {
             "type" : "boolean"
@@ -605,6 +638,13 @@
           },
           "slug" : {
             "type" : "string"
+          },
+          "tags" : {
+            "description" : "The record's tags, archive and an agent's last change to them (`ArtifactRecord`).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "target" : {
             "description" : "The artifact's file, or its page on the service (`Artifacts.target`).",
@@ -7489,6 +7529,70 @@
         "name" : "result",
         "schema" : {
           "type" : "integer"
+        }
+      }
+    },
+    {
+      "description" : "Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back. Returns the page's tags after the change.",
+      "name" : "artifact.change",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "add",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "archived",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "folder",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "remove",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "undo",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
         }
       }
     },

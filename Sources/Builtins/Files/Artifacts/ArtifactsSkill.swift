@@ -28,6 +28,12 @@ extension Builtins {
             - `kelp artifact check <name>` — what Kelp finds wrong on a page it drew (text cut off, contrast,
               sizes, missing files), as text: run it once instead of a screenshot.
             - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
+              `--all --json` lists every project's, with tags, archive and whether a page waits for the user.
+            - Tag a page you make with what it is about: run `kelp artifact tags` first and reuse a tag that exists
+              rather than a new spelling, then `kelp artifact tag <name> +<tag>`.
+            - When the user asks you to put pages in order, don't change anything first: make a review page
+              (`kelp artifact guide review`) that proposes what to archive and how to tag, and do only what they
+              pick, with `kelp artifact tag|untag|archive`. You can't delete pages; the user can undo what you did.
             - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its
               link, which opens in their own browser (Kelp's tabs aren't signed in to claude.ai).
 

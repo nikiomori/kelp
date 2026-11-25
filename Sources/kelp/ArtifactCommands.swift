@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add|check|links|marks|reply|ask|suggest|export|beats|captions` handles pages
+    /// `artifact guide|new|list|tags|tag|untag|archive|unarchive|open|add|check|links|marks|reply|ask|suggest|export|
+    /// beats|captions` handles pages
     /// agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
@@ -58,10 +59,11 @@ extension Main {
                     ? "Opened beside you. Write the page into that file; the tab updates as you save."
                     : "Write the page into that file.")
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
-        case "list":
-            for (slug, r) in Artifacts.list(root: try await projectRoot(cwd, c)) {
-                print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t"))
-            }
+        case "list": try await listPages(cwd, c)
+        case "tags": try await listTags(cwd, c)
+        case "tag", "untag", "archive", "unarchive": try await keep(sub ?? "", cwd, c)
+        case "rm", "remove", "delete", "trash":
+            fail("Only the user deletes pages. Move it to the archive instead: kelp artifact archive <name>")
         case "open":
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name })

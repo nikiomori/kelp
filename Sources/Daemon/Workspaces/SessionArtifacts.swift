@@ -134,6 +134,6 @@ extension Methods {
     static let artifactMethods: [any Answered.Type] = [
         ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
         ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
-        ArtifactRename.self, ArtifactRoundCost.self
+        ArtifactRename.self, ArtifactRoundCost.self, ArtifactChange.self
     ]
 }
