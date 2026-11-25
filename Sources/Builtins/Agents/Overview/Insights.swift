@@ -74,7 +74,7 @@ struct Insight: Equatable, Identifiable {
         if let fullest = full.max(by: { ($0.context ?? 0) < ($1.context ?? 0) }) {
             out.append(
                 .init(
-                    kind: .context, title: String(localized: "Context over 70 % in \(full.count) chats"),
+                    kind: .context, title: String(localized: "\(full.count) chats near a full context"),
                     detail: String(localized: "“\(fullest.title)” will compact soon"), session: fullest.id))
         }
         if let limit, limit.used >= nearLimit {

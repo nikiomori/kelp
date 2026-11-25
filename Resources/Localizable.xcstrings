@@ -38121,6 +38121,644 @@
           }
         }
       }
+    },
+    "%lld PR · %lld merged": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR: %lld · слито: %lld"
+          }
+        }
+      }
+    },
+    "%lld asking · %lld working": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждут: %lld · работают: %lld"
+          }
+        }
+      }
+    },
+    "%lld chats in 7 days": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat in 7 days"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats in 7 days"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат за 7 дней"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата за 7 дней"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов за 7 дней"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата за 7 дней"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld chats near a full context": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat near a full context"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats near a full context"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат почти исчерпал контекст"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата почти исчерпали контекст"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов почти исчерпали контекст"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата почти исчерпали контекст"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld chats need you": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat needs you"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats need you"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат ждёт вас"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата ждут вас"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов ждут вас"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата ждут вас"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "chats today: %lld · projects: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "чатов сегодня: %lld · проектов: %lld"
+          }
+        }
+      }
+    },
+    "%lld turns": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld turn"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld turns"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ход"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld хода"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ходов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld хода"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "2 chats edit %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 чата правят %@"
+          }
+        }
+      }
+    },
+    "Agents Overview": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обзор агентов"
+          }
+        }
+      }
+    },
+    "Answer…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответить…"
+          }
+        }
+      }
+    },
+    "By Day": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дням"
+          }
+        }
+      }
+    },
+    "CI failed in #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI упал в #%lld"
+          }
+        }
+      }
+    },
+    "CI passed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI прошёл"
+          }
+        }
+      }
+    },
+    "Chats you start or talk to today show up here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появятся чаты, которые вы начнёте или продолжите сегодня."
+          }
+        }
+      }
+    },
+    "Done Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово сегодня"
+          }
+        }
+      }
+    },
+    "In PR": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В PR"
+          }
+        }
+      }
+    },
+    "In Progress": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В работе"
+          }
+        }
+      }
+    },
+    "To Review": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На проверку"
+          }
+        }
+      }
+    },
+    "Limit · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимит · %@"
+          }
+        }
+      }
+    },
+    "Longest Waits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дольше всего ждали"
+          }
+        }
+      }
+    },
+    "Needs Attention": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требует внимания"
+          }
+        }
+      }
+    },
+    "No Chats Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня чатов нет"
+          }
+        }
+      }
+    },
+    "Open Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть чат"
+          }
+        }
+      }
+    },
+    "Review waits %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ревью ждёт %@"
+          }
+        }
+      }
+    },
+    "Stages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стадии"
+          }
+        }
+      }
+    },
+    "Waited for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждали вас"
+          }
+        }
+      }
+    },
+    "Worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работали"
+          }
+        }
+      }
+    },
+    "a click opens the chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "клик открывает чат"
+          }
+        }
+      }
+    },
+    "agents waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас"
+          }
+        }
+      }
+    },
+    "agents waited for you · %lld %% of their work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас · %lld %% от их работы"
+          }
+        }
+      }
+    },
+    "agents waited for you · longest %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас · дольше всех %@"
+          }
+        }
+      }
+    },
+    "agents worked today · up to %lld at once": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты работали сегодня · до %lld одновременно"
+          }
+        }
+      }
+    },
+    "agents worked · chats: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты работали · чатов: %lld"
+          }
+        }
+      }
+    },
+    "asks now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт сейчас"
+          }
+        }
+      }
+    },
+    "at once · peak %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одновременно · пик %lld"
+          }
+        }
+      }
+    },
+    "below, worked; hatched, waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "низ — работали, штриховка — ждали вас"
+          }
+        }
+      }
+    },
+    "files in the last turns: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файлов в последних ходах: %lld"
+          }
+        }
+      }
+    },
+    "no one waits for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "никто не ждёт"
+          }
+        }
+      }
+    },
+    "pull requests of today’s chats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR сегодняшних чатов"
+          }
+        }
+      }
+    },
+    "the column is where the work is; the mark is what the agent does": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "колонка — где результат, метка — что делает агент"
+          }
+        }
+      }
+    },
+    "turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ходов"
+          }
+        }
+      }
+    },
+    "waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждал вас"
+          }
+        }
+      }
+    },
+    "waits %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт %@"
+          }
+        }
+      }
+    },
+    "worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "работал"
+          }
+        }
+      }
+    },
+    "“%@” failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» упал"
+          }
+        }
+      }
+    },
+    "“%@” has waited %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» ждёт уже %@"
+          }
+        }
+      }
+    },
+    "“%@” will compact soon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» скоро сожмёт разговор"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
