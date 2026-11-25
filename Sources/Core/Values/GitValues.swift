@@ -303,6 +303,13 @@ public struct LineStats: Codable, Sendable, Equatable {
     public var added: [Kind: Int] = [:], removed: [Kind: Int] = [:]
     public var totalAdded: Int { added.values.reduce(0, +) }
     public var totalRemoved: Int { removed.values.reduce(0, +) }
+    /// These counts and `other`'s together, kind by kind (nil adds nothing).
+    public func adding(_ other: LineStats?) -> LineStats {
+        guard let other else { return self }
+        return LineStats(
+            added: added.merging(other.added, uniquingKeysWith: +),
+            removed: removed.merging(other.removed, uniquingKeysWith: +))
+    }
     public init(added: [Kind: Int] = [:], removed: [Kind: Int] = [:]) {
         self.added = added
         self.removed = removed

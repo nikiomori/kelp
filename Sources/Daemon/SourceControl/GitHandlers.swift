@@ -34,7 +34,7 @@ extension GitPush: Handled {
 extension GitDiff: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
-        let workspace = try scm.store.worktree(named: id)
+        let workspace = try scm.store.gitPlace(named: id)
         var dir = workspace.path
         let src: DiffSource
         switch source ?? .all {
@@ -62,7 +62,7 @@ extension GitDiff: Handled {
 
 extension GitLineOrigin: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
-        let folder = try scm.store.worktree(named: worktreeId).path
+        let folder = try scm.store.gitPlace(named: worktreeId).path
         let head = try Git.head(folder, remotes: scm.remotes)
         // Only turns begun on this HEAD count, because older turns' changes are in commits now, and those commits say
         // who made them.
@@ -86,7 +86,7 @@ extension GitLineOrigin: Handled {
 extension GitLog: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
-        let workspace = try scm.store.worktree(named: id)
+        let workspace = try scm.store.gitPlace(named: id)
         let base = all == true ? nil : try scm.store.repo(workspace.repoId)?.baseBranch
         return try Git.log(workspace.path, base: base, remotes: scm.remotes).map {
             Entry(hash: $0.hash, subject: $0.subject)
@@ -118,7 +118,7 @@ extension GitHunk: Handled {
     // Staging or unstaging a hunk writes the index, so an agent may do it only in its own workspaces.
     static let agents = AgentAccess.acts
     func handle(_ scm: SourceControl) throws -> Done {
-        let workspace = try scm.store.worktree(named: id), rev = reverse == true
+        let workspace = try scm.store.gitPlace(named: id), rev = reverse == true
         let diff = try Git.diff(
             workspace.path, source: rev ? .staged : .unstaged, file: file, remotes: scm.remotes
         )
@@ -155,7 +155,7 @@ extension GitCommit: Handled {
 
 extension GitMerge: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
-        try scm.merge(scm.store.worktree(named: id), keepConflicts: keepConflicts == true)
+        try scm.merge(scm.store.gitPlace(named: id), keepConflicts: keepConflicts == true)
     }
 }
 
@@ -206,7 +206,7 @@ extension GitDiscard: Handled {
 }
 extension GitDiscardHunk: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        let worktree = try scm.store.worktree(named: id)
+        let worktree = try scm.store.gitPlace(named: id)
         // The hunk is found as `git.hunk` finds it, wherever it is in the file now. `header` always comes, so the
         // hunk is never found by number.
         guard let diff = try Git.diff(worktree.path, source: .unstaged, file: file, remotes: scm.remotes).first,

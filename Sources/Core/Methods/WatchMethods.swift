@@ -97,6 +97,10 @@ public struct GitEvent: RPCEvent, Equatable {
     /// no other branch or remote has. `dirty` means files aren't committed, by the rule its removal follows (a new link
     /// doesn't count).
     public var only: Int?, dirty: Bool?
+    /// The repositories inside a folder that isn't one itself but holds several, by folder name (`RepoKey`); nil for
+    /// any other folder. Then `changes`, `stats`, `branchFiles`, `only` and `dirty` sum them all up, with each one's
+    /// paths under its name, and `branches` is nil: each one's own status comes from a watch of its key.
+    public var repos: [String]?
     public init(
         worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
         error: String? = nil

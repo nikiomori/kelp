@@ -229,6 +229,46 @@ extension Daemon {
         let worktree = store.look("workspace \(key)") { try $0.gitPlace(key) }
         let remote = worktree.map { remotes.of($0.path) != nil } ?? false
         guard await mayRead(worktree, first: first) else { return (nil, 10) }
+        if !remote, let worktree, case let names = Git.nestedRepos(worktree.path), !names.isEmpty {
+            return (line(await severalRead(key, names, memo: memo)), nil)
+        }
+        // Limit: a remote folder is read every 10 s while watched
+        return (line(await gitEvent(key, worktree, remote: remote, memo: memo)), remote ? 10 : nil)
+    }
+
+    /// A folder that holds several repositories (`RepoKey`): each is read as a folder of its own is, and they are summed
+    /// up here, each one's paths under its folder's name, so what the sidebar, ⌃Tab and the window bar say of the
+    /// folder (its lines, what only a branch group holds, whether it has changes) counts them all. `repos` names them;
+    /// each one's own status and branch come from a watch of its key, and the folder's `branches` stays nil, as it has no
+    /// one branch. Limit: the repositories are read one after another.
+    private func severalRead(_ key: String, _ names: [String], memo: BranchMemo) async -> GitEvent {
+        var event = GitEvent(worktree: key, changes: [], stats: LineStats())
+        event.repos = names
+        var errors: [String] = []
+        for name in names {
+            let inner = RepoKey.of(key, name)
+            let place = store.look("workspace \(inner)") { try $0.gitPlace(inner) }
+            let one = await gitEvent(inner, place, remote: false, memo: memo.inner(name))
+            if let error = one.error {
+                errors.append("\(name): \(error)")
+                continue
+            }
+            event.changes? += (one.changes ?? []).map {
+                FileChange(path: name + "/" + $0.path, index: $0.index, worktree: $0.worktree)
+            }
+            event.stats = event.stats.map { $0.adding(one.stats) }
+            if let files = one.branchFiles {
+                event.branchFiles = (event.branchFiles ?? []) + files.map { name + "/" + $0 }
+            }
+            if let only = one.only { event.only = (event.only ?? 0) + only }
+            if let dirty = one.dirty { event.dirty = (event.dirty ?? false) || dirty }
+        }
+        if errors.count == names.count { event = GitEvent(worktree: key, error: errors.joined(separator: "\n")) }
+        return event
+    }
+
+    /// Reads one folder's status and branches at once, then from them the line counts and what the branch holds.
+    private func gitEvent(_ key: String, _ worktree: Worktree?, remote: Bool, memo: BranchMemo) async -> GitEvent {
         var event: GitEvent
         do {
             async let branchesRead = direct(GitBranches(id: key))
@@ -248,7 +288,7 @@ extension Daemon {
                 }
             }
         } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
-        return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+        return event
     }
 
     private func filesRead(_ key: String, first: Bool) async -> (Data?, TimeInterval?) {

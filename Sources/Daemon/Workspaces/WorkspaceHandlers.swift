@@ -24,7 +24,11 @@ extension RepoAdd: Handled {
             case true?:
                 try Git.run(["init", "-q"], cwd: path, remotes: workspaces.remotes)
                 root = try Git.root(of: path, remotes: workspaces.remotes)
-            case false?: root = Paths.real(path) ?? path   // symlinks resolved, like git's top folder
+            // A folder that holds repositories side by side is a project made of them (`RepoKey`): git init would
+            // make one repository of them all, so nothing is asked.
+            case false?,
+                nil where !Git.nestedRepos(path).isEmpty:
+                root = Paths.real(path) ?? path   // symlinks resolved, like git's top folder
             case nil: throw RepoAdd.notARepository
             }
         }
