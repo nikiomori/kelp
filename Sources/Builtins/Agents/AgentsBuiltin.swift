@@ -27,8 +27,12 @@ extension Builtins {
                 },
                 cmd("terminal.new", "New Terminal", "cmd+t") { starter(app)?.newTerminal() },
                 cmd("terminal.tmux", "Attach to tmux Session…") { app.workbench.showTmuxSessions() },
-                cmd("terminal.splitRight", "Split Right", "cmd+d") { app.workbench.split(.right) },
-                cmd("terminal.splitDown", "Split Down", "shift+cmd+d") { app.workbench.split(.down) },
+                cmd("terminal.splitRight", "New Terminal to the Right", "cmd+d") {
+                    app.workbench.splitTerminal(.right)
+                },
+                cmd("terminal.splitDown", "New Terminal Below", "shift+cmd+d") {
+                    app.workbench.splitTerminal(.down)
+                },
                 cmd("agents.sideBySide", "Agents Side by Side", "ctrl+cmd+t") { app.workbench.toggleSideBySide() },
                 cmd("agents.nextNeedingYou", "Show Agent Needing You", "shift+cmd+u") {
                     app.workbench.showNextNeedingAttention()

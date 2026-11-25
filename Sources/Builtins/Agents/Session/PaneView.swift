@@ -352,13 +352,13 @@ final class PaneView: NSView {
         if shell { menu.add(String(localized: "Clear")) { _ = terminal.perform(action: "clear_screen") } }
         if embedded { return menu }
         menu.addItem(.separator())
-        menu.add(String(localized: "Split Right")) { [weak self] in
+        menu.add(String(localized: "New Terminal to the Right")) { [weak self] in
             self?.focus()
-            self?.app.workbench.split(.right)
+            self?.app.workbench.splitTerminal(.right)
         }
-        menu.add(String(localized: "Split Down")) { [weak self] in
+        menu.add(String(localized: "New Terminal Below")) { [weak self] in
             self?.focus()
-            self?.app.workbench.split(.down)
+            self?.app.workbench.splitTerminal(.down)
         }
         return menu
     }

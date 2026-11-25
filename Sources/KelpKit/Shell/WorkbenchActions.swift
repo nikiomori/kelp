@@ -40,10 +40,10 @@ extension Workbench {
     package func replace(_ old: String, with new: String) { editor?.replace(old, with: new) }
     /// Gives the keyboard back to the tab in front there.
     package func focusTab() { editor?.focusSelected() }
-    /// Moves the focused tab into a new pane to the right or below. It beeps when no workspace is on screen.
-    package func split(_ direction: SplitDirection) {
+    /// Opens a new terminal beside the focused pane, or as the first tab in an empty workspace.
+    package func splitTerminal(_ direction: SplitDirection) {
         guard let editor else { return NSSound.beep() }
-        editor.splitFocused(direction)
+        editor.starter.splitTerminal(direction)
     }
     /// Puts agents side by side, or every tab in one pane (⌃⌘T). It beeps when no workspace is on screen.
     package func toggleSideBySide() {
