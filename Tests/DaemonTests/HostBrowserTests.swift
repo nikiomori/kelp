@@ -39,8 +39,9 @@ private struct HostPage {
     func kelp(_ words: [String], stdin: String? = nil, cwd: URL? = nil, socket: String? = nil) throws -> (
         status: Int32, out: String, err: String
     ) {
-        let script = home.appendingPathComponent("kelp")
-        try HostKelp.shim.write(to: script, atomically: true, encoding: .utf8)
+        // The source of `HostKelp.shim`: the sanitized run in CI can't see Core's resource bundle.
+        let script = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Sources/Core/Resources/kelp-on-host.sh")
         let sh = FileManager.default.isExecutableFile(atPath: "/bin/dash") ? "/bin/dash" : "/bin/sh"   // as on Linux
         var env = ProcessInfo.processInfo.environment
         env["KELP_SOCKET"] = socket ?? browser.macSocket(session)
