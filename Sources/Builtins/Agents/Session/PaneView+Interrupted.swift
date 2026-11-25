@@ -14,6 +14,12 @@ extension PaneView {
         return String(localized: "Cut short: Kelp closed at \(at.formatted(date: .omitted, time: .shortened))")
     }
 
+    /// The button on the bar of a paused session: Continue for an agent Kelp cut short (`continueCutShort`), which
+    /// sends it the line that has it go on, Resume for any other.
+    static func pausedButton(_ session: Session?) -> String {
+        session?.interrupted == true ? String(localized: "Continue") : String(localized: "Resume")
+    }
+
     /// Has an agent Kelp's going down cut short go on, as Continue on its bar. Returns false for any other session.
     static func continueCutShort(_ session: Session?, _ app: AppModel) -> Bool {
         guard let session, session.interrupted else { return false }

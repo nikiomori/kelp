@@ -242,7 +242,7 @@ final class PaneView: NSView {
             ? Self.pausedWords(session)
             : lost ? String(localized: "Connection lost") : String(localized: "Session ended")
         restartButton.title =
-            paused ? String(localized: "Resume") : lost ? String(localized: "Reconnect") : String(localized: "Restart")
+            paused ? Self.pausedButton(session) : lost ? String(localized: "Reconnect") : String(localized: "Restart")
     }
 
     private func reattach(_ session: Session) {

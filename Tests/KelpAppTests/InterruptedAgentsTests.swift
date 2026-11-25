@@ -40,13 +40,16 @@ import Testing
     #expect(shell.terminationStatus == 0 && printed.hasSuffix("⏺ Writing the migration\r\n  ⎿ Interrupted\r\n"))
 }
 
-/// The bar under a paused agent says when Kelp closed, for one it cut short; any other paused agent is just paused.
+/// The bar under a paused agent says when Kelp closed and offers Continue, for one it cut short; any other paused agent
+/// is just paused, with Resume.
 @MainActor @Test func theBarOfAnAgentCutShortSaysWhenKelpClosed() {
     var cut = Session(cwd: "/tmp", command: "claude", agent: "claude", status: .paused)
     let paused = PaneView.pausedWords(cut)
+    #expect(PaneView.pausedButton(cut) == "Resume")
     cut.interruptedAt = Date(timeIntervalSince1970: 0)
     let words = PaneView.pausedWords(cut)
     #expect(words != paused && words.contains(cut.interruptedAt?.formatted(date: .omitted, time: .shortened) ?? "-"))
+    #expect(PaneView.pausedButton(cut) == "Continue")
 }
 
 /// The mark of an agent cut short and not looked at yet turns back instead of sleeping.
