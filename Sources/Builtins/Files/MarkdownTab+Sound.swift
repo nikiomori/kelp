@@ -95,9 +95,13 @@ extension MarkdownTab {
 
     /// The page's sounds follow it: Kelp plays them itself (WebKit plays no file beside a page), each from where its
     /// clip is, at its volume and fades, while the page plays; still when it stops.
+    /// While it stands, a moved time (the playhead dragged, a click on the timeline) plays an eighth of a second of
+    /// what sounds there, as an editor scrubs, so a cut is found by ear.
     func followSound(playing: Bool, at time: Double) {
-        let sounds = playing ? MotionSound.sounds(in: editor.text, folder: url.deletingLastPathComponent()) : []
-        SoundPlayer.of(self).follow(sounds, at: time, rate: motionStudio.playbackRate)
+        let player = SoundPlayer.of(self)
+        let sounds = MotionSound.sounds(in: editor.text, folder: url.deletingLastPathComponent())
+        guard playing else { return player.scrub(sounds, at: time) }
+        player.follow(sounds, at: time, rate: motionStudio.playbackRate)
     }
 }
 
@@ -112,6 +116,24 @@ final class SoundPlayer {
         let made = SoundPlayer()
         byTab.setObject(made, forKey: tab)
         return made
+    }
+
+    /// Whether any of the tab's sounds is playing now.
+    var sounding: Bool { players.values.contains(where: \.isPlaying) }
+
+    /// The time last heard standing, and the short play a scrub started.
+    private var stoodAt: Double?, blip: Task<Void, any Error>?
+
+    /// Plays an eighth of a second of `sounds` at `t` when the time moved while the page stands; none the first time.
+    func scrub(_ sounds: [MotionSound.Sound], at t: Double) {
+        defer { stoodAt = t }
+        guard let was = stoodAt, abs(was - t) > 0.01 else { return follow([], at: t, rate: 1) }
+        blip?.cancel()
+        follow(sounds, at: t, rate: 1)
+        blip = Task { [weak self] () throws in
+            try await Task.sleep(for: .milliseconds(120))   // throws once a newer scrub cancels it
+            self?.follow([], at: t, rate: 1)
+        }
     }
 
     /// Plays each of `sounds` that is in its time at `at`, from the right place; stops the rest (all, with none).

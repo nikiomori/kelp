@@ -365,3 +365,27 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     let rep = try #require(NSPasteboard.general.data(forType: .png).flatMap(NSBitmapImageRep.init(data:)))
     #expect(rep.pixelsWide == 600 && rep.pixelsHigh == 400)
 }
+
+/// Standing, a moved time plays an eighth of a second of what sounds there, then stops; the first time heard plays
+/// nothing, and the same time again nothing.
+@MainActor @Test func aSoundIsHeardWhileTheTimeIsDragged() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "kelp-scrub-\(UUID().uuidString)/.kelp/artifacts/v")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent().deletingLastPathComponent()) }
+    let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 1))
+    let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16000))
+    buffer.frameLength = 16000
+    for i in 0..<16000 { buffer.floatChannelData?[0][i] = 0.3 * sin(Float(i) / 3) }
+    try AVAudioFile(forWriting: folder.appendingPathComponent("m.caf"), settings: format.settings).write(from: buffer)
+    let url = folder.appendingPathComponent("motion.html")
+    let page =
+        #"<body data-width="1920" data-height="1080"><audio data-start="0" data-duration="2" src="m.caf"></audio></body>"#
+    let tab = MarkdownTab(editor: CodeEditor(text: page, url: url), url: url, app: AppModel())
+    let player = SoundPlayer.of(tab)
+    tab.followSound(playing: false, at: 0)
+    #expect(!player.sounding, "the first time heard")
+    tab.followSound(playing: false, at: 0.5)
+    #expect(player.sounding)
+    #expect(try await waitFor(5) { !player.sounding })
+}
