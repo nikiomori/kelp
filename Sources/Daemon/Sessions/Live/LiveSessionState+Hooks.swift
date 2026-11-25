@@ -71,7 +71,9 @@ extension LiveSession.State {
             if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
             compactManual = false
         case .waiting:
-            menuID = UUID()
+            // A new dialog comes with PermissionRequest (`asker`) or a status change (`sync`). Claude Code's
+            // Notification about the same open dialog, six seconds on, keeps the question the phone shows.
+            if asker != nil { menuID = UUID() }
             if let asker { kept.asking[asker, default: 0] += 1 }
             if question { kept.questionOpen = true }
             if let message, !message.isEmpty {

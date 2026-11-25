@@ -291,6 +291,25 @@ import Testing
     #expect(await second.value == "deny")
 }
 
+/// Claude Code repeats an open dialog as a Notification six seconds after PermissionRequest: a phone that answers
+/// later still answers that dialog.
+@Test func aPermissionNotificationKeepsThePhonesQuestion() async throws {
+    let w = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let ws = try await firstWorkspace(w)
+    let session = try await w.c.call(SessionCreate(worktreeId: ws.id, agent: "menu"))
+    let id = session.id, live = try #require(w.d.sessions.existing(id)), waits = w.d.sessions.permissions
+    let question = "Allow swift test?"
+    live.hook(.waiting, message: question, asker: "", at: 1)
+    let wait = Task { await waits.waitForPermission(id, at: 1, within: 5) }
+    try #require(try await waitFor { waits.waits.withLock { $0[id] != nil } })
+    let shown = try #require(waits.questionID(live, for: question))
+    live.hook(.waiting, message: nil, at: 2)   // "permission_prompt", while already waiting
+    #expect(
+        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionID: shown.uuidString)))
+    #expect(await wait.value == "allow")
+}
+
 @Test func aQueuedPhoneKeyIsDroppedWhenTheMenuChanges() async throws {
     let w = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
     defer { w.d.stop() }
