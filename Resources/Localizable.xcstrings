@@ -3441,7 +3441,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Проверка"
+            "value": "Доказательство"
           }
         }
       }
@@ -14921,7 +14921,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Время сброса"
+            "value": "Сбросить время"
           }
         }
       }
@@ -27362,7 +27362,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Спросить %@"
+            "value": "Попросить: %@"
           }
         }
       }
@@ -37891,7 +37891,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Посмотри сюда"
+            "value": "Посмотрите сюда"
           }
         }
       }
@@ -37931,7 +37931,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "У %@"
+            "value": "Отправлено (%@)"
           }
         }
       }
@@ -38061,7 +38061,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "У %@: %lld"
+            "value": "Отправлено (%@): %lld"
           }
         }
       }
@@ -38171,7 +38171,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Экспорт видео…"
+            "value": "Экспортировать видео…"
           }
         }
       }
@@ -38651,7 +38651,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рабочий отрезок: его ставят I и O, клик здесь убирает"
+            "value": "Рабочая область: её задают I и O, щелчок здесь убирает её"
           }
         }
       }
@@ -39171,7 +39171,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Возврат"
+            "value": "Возвращена"
           }
         }
       }
@@ -39261,7 +39261,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Показ с заметками"
+            "value": "Показать с заметками"
           }
         }
       }
@@ -39341,7 +39341,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Папка ZIP…"
+            "value": "Папка как ZIP…"
           }
         }
       }
@@ -39351,7 +39351,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выгрузить"
+            "value": "Экспорт"
           }
         }
       }
@@ -39361,7 +39361,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выгрузить сюда"
+            "value": "Экспортировать сюда"
           }
         }
       }
@@ -39371,7 +39371,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось выгрузить: %@"
+            "value": "Не удалось экспортировать: %@"
           }
         }
       }
@@ -39601,7 +39601,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Дальше можно"
+            "value": "Можно спросить дальше"
           }
         }
       }
@@ -39861,7 +39861,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Проявление"
+            "value": "Плавно"
           }
         }
       }
@@ -40951,7 +40951,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вписать дорожки"
+            "value": "Вписать таймлайн"
           }
         }
       }
@@ -40971,7 +40971,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пометка на всё видео"
+            "value": "Пометить весь ролик"
           }
         }
       }
@@ -42738,6 +42738,446 @@
           "stringUnit": {
             "state": "translated",
             "value": "Первая строка называет колонки через запятую."
+          }
+        }
+      }
+    },
+    "Lock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Unlock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить"
+          }
+        }
+      }
+    },
+    "Line Up Centers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по центрам"
+          }
+        }
+      }
+    },
+    "Small Shadow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленькая тень"
+          }
+        }
+      }
+    },
+    "At Start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В начало"
+          }
+        }
+      }
+    },
+    "Move to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передвинуть к указателю"
+          }
+        }
+      }
+    },
+    "Presets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовые"
+          }
+        }
+      }
+    },
+    "Even Speed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Равномерно"
+          }
+        }
+      }
+    },
+    "Couldn’t find “%@” on the page any more. Ask the agent to make it editable.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось найти «%@» на странице. Попросите агента сделать его изменяемым."
+          }
+        }
+      }
+    },
+    "Publish": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Опубликовать"
+          }
+        }
+      }
+    },
+    "Bring In Comments as Marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забрать комментарии в пометки"
+          }
+        }
+      }
+    },
+    "Other Sizes and Lengths": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие размеры и длины"
+          }
+        }
+      }
+    },
+    "15 Seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 секунд"
+          }
+        }
+      }
+    },
+    "6 Seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 секунд"
+          }
+        }
+      }
+    },
+    "⎋ to end": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⎋ — закончить"
+          }
+        }
+      }
+    },
+    "Width · Height": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина · высота"
+          }
+        }
+      }
+    },
+    "Align Center": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По центру"
+          }
+        }
+      }
+    },
+    "That element isn’t in %@ any more: here it is as it is now.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этого элемента больше нет в %@: вот как она выглядит сейчас."
+          }
+        }
+      }
+    },
+    "%@ changed while you edited it, so that edit isn’t written.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доска %@ менялась, пока вы правили, поэтому правка не записана."
+          }
+        }
+      }
+    },
+    "Only a picture on the page can be replaced: drop it on one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить можно только картинку на странице: бросьте на неё."
+          }
+        }
+      }
+    },
+    "Add Keyframe at Playhead (K)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевой кадр у указателя (K)"
+          }
+        }
+      }
+    },
+    "Fill the Frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заполнить кадр"
+          }
+        }
+      }
+    },
+    "Fit in the Frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать в кадр"
+          }
+        }
+      }
+    },
+    "Only the work area (%.1f–%.1f s)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только рабочая область (%.1f–%.1f с)"
+          }
+        }
+      }
+    },
+    "Use the frame at %.2f s as the cover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обложка — кадр на %.2f с"
+          }
+        }
+      }
+    },
+    "Small File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленький файл"
+          }
+        }
+      }
+    },
+    "Other Sizes and Lengths…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие размеры и длины…"
+          }
+        }
+      }
+    },
+    "Print…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напечатать…"
+          }
+        }
+      }
+    },
+    "Trim Start to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать начало до указателя"
+          }
+        }
+      }
+    },
+    "Trim End to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать конец до указателя"
+          }
+        }
+      }
+    },
+    "Page as HTML…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница как HTML…"
+          }
+        }
+      }
+    },
+    "The board list can’t be read: fix canvas.json or ask the agent.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список досок не читается: исправьте canvas.json или попросите агента."
+          }
+        }
+      }
+    },
+    "Delete Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить доску"
+          }
+        }
+      }
+    },
+    "The file doesn’t open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается"
+          }
+        }
+      }
+    },
+    "The file doesn’t open: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается: %@"
+          }
+        }
+      }
+    },
+    "warnings: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "предупреждений: %lld"
+          }
+        }
+      }
+    },
+    "Copied as a picture: paste it into a mark’s note to make it the example": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано картинкой: вставьте её в заметку пометки как пример"
+          }
+        }
+      }
+    },
+    "Insert Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить ссылку"
+          }
+        }
+      }
+    },
+    "Previous": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий"
+          }
+        }
+      }
+    },
+    "That one has formatting, a list or a quote in it: change it in the text.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В нём есть оформление, список или цитата: измените это в тексте."
+          }
+        }
+      }
+    },
+    "Ready to check: the agent answered marks (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно проверить: агент ответил на пометки (%lld)"
+          }
+        }
+      }
+    },
+    "Versions: %lld · Kelp keeps the last %lld turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версий: %lld · Kelp хранит последние %lld ходов"
+          }
+        }
+      }
+    },
+    "With it: the page, the tokens, its pictures and the decided marks (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С ней: страница, токены, её картинки и решённые пометки (%lld)"
+          }
+        }
+      }
+    },
+    "Push In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наезд"
           }
         }
       }

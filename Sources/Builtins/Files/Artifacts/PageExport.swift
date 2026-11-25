@@ -20,7 +20,7 @@ enum PageExport: String, CaseIterable {
         case .pdf where page == .markdown: String(localized: "Document as PDF…")
         case .pdf: String(localized: "Slides as PDF…")
         case .pptx: String(localized: "Slides as PowerPoint…")
-        case .html: String(localized: "Page as One HTML…")
+        case .html: String(localized: "Page as HTML…")
         case .zip: String(localized: "Folder as ZIP…")
         case .docx: String(localized: "Document as Word…")
         case .md: String(localized: "Document as Markdown…")
@@ -52,7 +52,7 @@ enum PageExport: String, CaseIterable {
 }
 
 extension ArtifactBar {
-    /// ⋯'s Export section, for this page's kind.
+    /// ⋯'s Export section, for this page's kind, and under it what hands the page on.
     func exportItems(_ menu: NSMenu) {
         menu.addItem(.sectionHeader(title: String(localized: "Export")))
         for format in PageExport.formats(for: markdown.page, deck: markdown.isDeck) {
@@ -61,6 +61,8 @@ extension ArtifactBar {
         if markdown.takesRows {   // only a page whose elements take a table's columns
             menu.add(String(localized: "For Each Row of Its Table…")) { [weak markdown] in markdown?.exportEachRow() }
         }
+        // Not formats: what hands the page on, to the web, to another agent, or into another page.
+        menu.addItem(.separator())
         menu.add(String(localized: "Build in Code…")) { [weak markdown] in markdown?.buildInCode() }
         markdown.publishItems(menu)
         turnItems(menu)

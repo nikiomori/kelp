@@ -107,7 +107,7 @@ extension BrowserTab {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects([image])
             return Banner.show(
-                String(localized: "Copied as a picture: paste it into a mark's note to make it the example"))
+                String(localized: "Copied as a picture: paste it into a mark’s note to make it the example"))
         }
         Task { sendDesign(element, shot: await Self.savePNG(image, kind: "design") ?? "") }
     }

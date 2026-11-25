@@ -37,7 +37,7 @@ final class MotionStudio {
                     self?.act("window.kelpMotion?.step(1)")
                 },
                 loop, speed, time, frame, rangeChip, whole,
-                IconButton(.symbol("diamond"), tip: String(localized: "Keyframe at the Time (K)")) { [weak self] in
+                IconButton(.symbol("diamond"), tip: String(localized: "Add Keyframe at Playhead (K)")) { [weak self] in
                     self?.onKeyframe?()
                 }
             ],
@@ -231,8 +231,8 @@ final class MotionStudio {
         size.menu?.addItem(.separator())
         size.menu?.addItem(.sectionHeader(title: String(localized: "When Changing")))
         for (way, title) in [
-            (StageReframe.fit, String(localized: "Fit")), (.fill, String(localized: "Fill")),
-            (.none, String(localized: "As It Is"))
+            (StageReframe.fit, String(localized: "Fit in the Frame")), (.fill, String(localized: "Fill the Frame")),
+            (.none, String(localized: "As Is"))
         ] {
             let item = NSMenuItem(title: title, action: #selector(reframeChosen(_:)), keyEquivalent: "")
             item.target = self

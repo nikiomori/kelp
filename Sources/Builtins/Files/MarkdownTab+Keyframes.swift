@@ -11,7 +11,7 @@ import KelpKit
 extension MarkdownTab {
     /// The easings the menu offers, by name; spring and back as CSS can play them.
     static let easings: [(name: String, value: String)] = [
-        ("Linear", "linear"), ("Ease In", "ease-in"), ("Ease Out", "ease-out"), ("Ease In Out", "ease-in-out"),
+        ("Even Speed", "linear"), ("Ease In", "ease-in"), ("Ease Out", "ease-out"), ("Ease In Out", "ease-in-out"),
         ("Back Out", "cubic-bezier(.34, 1.56, .64, 1)"),
         ("Spring", "linear(0, .25 6%, .66 13%, 1.04 22%, 1.13 29%, 1.08 37%, .99 47%, .97 57%, 1 70%, 1)")
     ]
@@ -129,7 +129,7 @@ extension MarkdownTab {
         menu.addItem(.separator())
         let time = motionStudio.at, there = (keys.place(time) * 10).rounded() / 10
         if place > 0, place < 100, (0...100).contains(there) {
-            menu.add(String(localized: "Move to the Time")) { [weak self] in
+            menu.add(String(localized: "Move to Playhead")) { [weak self] in
                 self?.moveKeyframe(id, from: place, to: there)
             }
         }
@@ -171,7 +171,7 @@ extension MarkdownTab {
             "easing": String(localized: "Easing"), "curve": String(localized: "Curve"),
             "spring": String(localized: "Spring"), "wiggle": String(localized: "Wiggle"),
             "bounce": String(localized: "Bounce"), "count": String(localized: "Swings"),
-            "presets": String(localized: "Ready Ones"), "entrance": String(localized: "Entrance and Exit"),
+            "presets": String(localized: "Presets"), "entrance": String(localized: "Entrance and Exit"),
             "comes": String(localized: "Comes In"), "goes": String(localized: "Goes Out"),
             "length": String(localized: "Length"), "fade": String(localized: "Fade"),
             "rise": String(localized: "Rise"), "pop": String(localized: "Pop"),

@@ -15,7 +15,7 @@ struct MotionVerify: Codable, Equatable {
         if !ok { return problems.joined(separator: " · ") }
         let head = "✓ \(width)×\(height) · \(Self.number(fps)) fps · \(Self.number(duration)) s"
         return head + (audio ? " · " + String(localized: "sound") : "")
-            + (warnings.isEmpty ? "" : " · " + String(localized: "\(warnings.count) warnings"))
+            + (warnings.isEmpty ? "" : " · " + String(localized: "warnings: \(warnings.count)"))
     }
 
     static func number(_ value: Double) -> String { String(format: "%g", (value * 100).rounded() / 100) }
@@ -34,7 +34,7 @@ struct MotionVerify: Codable, Equatable {
         if url.pathExtension.lowercased() == "gif" {
             guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
                 let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
-            else { return out.failed(String(localized: "The file doesn't open")) }
+            else { return out.failed(String(localized: "The file doesn’t open")) }
             out.width = props[kCGImagePropertyPixelWidth] as? Int ?? 0
             out.height = props[kCGImagePropertyPixelHeight] as? Int ?? 0
             out.fps = fps   // a GIF has delays, not a rate: same frames run together into one longer one
@@ -59,7 +59,7 @@ struct MotionVerify: Codable, Equatable {
                 out.duration = length.seconds
                 out.audio = !audio.isEmpty
             } catch {
-                return out.failed(String(localized: "The file doesn't open: \(error.localizedDescription)"))
+                return out.failed(String(localized: "The file doesn’t open: \(error.localizedDescription)"))
             }
         }
         // H.264 rounds a size down to even numbers: one pixel less is as asked.

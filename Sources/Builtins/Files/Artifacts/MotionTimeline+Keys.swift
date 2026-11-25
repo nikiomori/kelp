@@ -61,14 +61,14 @@ extension MotionTimeline {
             guard let clip = clips.first(where: { box($0, lane: lane).contains(p) }), !clip.id.isEmpty else { continue }
             picked = clip.id
             let menu = NSMenu()
-            menu.add(String(localized: "Split at the Time"), key: "s") { [weak self] in
+            menu.add(String(localized: "Split at Playhead"), key: "s") { [weak self] in
                 self?.onCut?("split", clip.id)
             }
             .keyEquivalentModifierMask = []   // S alone, as the timeline takes it
-            menu.add(String(localized: "Trim the Start to the Time")) { [weak self] in
+            menu.add(String(localized: "Trim Start to Playhead")) { [weak self] in
                 self?.onCut?("trimStart", clip.id)
             }
-            menu.add(String(localized: "Trim the End to the Time")) { [weak self] in self?.onCut?("trimEnd", clip.id) }
+            menu.add(String(localized: "Trim End to Playhead")) { [weak self] in self?.onCut?("trimEnd", clip.id) }
             menu.addItem(.separator())
             menu.add(String(localized: "Duplicate"), key: "d") { [weak self] in self?.onDuplicate?(clip.id) }
             menu.addItem(.separator())

@@ -45,7 +45,7 @@ extension MotionTimeline {
         if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
             return toolTip =
                 tracks[lane - 1].locked
-                ? String(localized: "Unlock: Choose and Move It on the Stage") : String(localized: "Lock in Place")
+                ? String(localized: "Unlock") : String(localized: "Lock")
         }
         guard eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) else { return toolTip = nil }
         toolTip =

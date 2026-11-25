@@ -10,7 +10,7 @@ extension MarkdownTab {
     func askAdaptations() {
         Task {
             let alert = NSAlert()
-            alert.messageText = String(localized: "Also in Other Formats")
+            alert.messageText = String(localized: "Other Sizes and Lengths")
             alert.informativeText = String(
                 localized: "Its agent makes each as a page of its own, laid out again for the shape, and exports them.")
             let (w, h) = MotionPage.size(editor.text)
@@ -21,7 +21,7 @@ extension MarkdownTab {
             boxes.prefix(2).forEach { $0.state = .on }
             let length = PointerPopUpButton()
             length.addItems(withTitles: [
-                String(localized: "As it is"), String(localized: "15 seconds"), String(localized: "6 seconds")
+                String(localized: "As Is"), String(localized: "15 Seconds"), String(localized: "6 Seconds")
             ])
             let column = NSStackView(views: boxes + [length])
             column.orientation = .vertical

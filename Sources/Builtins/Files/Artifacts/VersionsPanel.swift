@@ -91,7 +91,7 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         rows = all.filter(isSaved) + all.filter { !isSaved($0) }
         let kept = bar.entries.filter { $0.version != nil }.count
         subtitle.stringValue = String(
-            localized: "\(kept) versions · Kelp keeps the last \(Artifacts.keptVersions) turns")
+            localized: "Versions: \(kept) · Kelp keeps the last \(Artifacts.keptVersions) turns")
         filling = true
         defer { filling = false }
         table.reloadData()

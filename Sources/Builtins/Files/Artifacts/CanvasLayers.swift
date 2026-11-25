@@ -26,11 +26,11 @@ enum CanvasLayers {
             const board = at.f.dataset.board, hidden = css(n).visibility === 'hidden';
             const locked = n.getAttribute('data-locked') === 'true';
             r.append(
-              toggle(at, n, hidden ? 'eye.slash' : 'eye', hidden, L.hideLayer, id => {
+              toggle(at, n, hidden ? 'eye.slash' : 'eye', hidden, hidden ? L.showLayer : L.hideLayer, id => {
                 n.style.visibility = hidden ? '' : 'hidden';
                 K.post({ kind: 'style', board, id, property: 'visibility', value: hidden ? null : 'hidden' });
               }),
-              toggle(at, n, locked ? 'lock' : 'lock.open', locked, L.lockLayer, id => {
+              toggle(at, n, locked ? 'lock' : 'lock.open', locked, locked ? L.unlockLayer : L.lockLayer, id => {
                 if (locked) n.removeAttribute('data-locked'); else n.setAttribute('data-locked', 'true');
                 K.post({ kind: 'attribute', board, id, name: 'data-locked', value: locked ? null : 'true' });
               }));

@@ -354,11 +354,11 @@ final class ArtifactBar: NSObject {
         }
         if md.page == .slides || md.isDeck { md.presentItems(menu) }
         if md.page == .motion {   // the agent makes the video again in other shapes (MarkdownTab+Adapt)
-            menu.add(String(localized: "Also in Other Formats…")) { md.askAdaptations() }
+            menu.add(String(localized: "Other Sizes and Lengths…")) { md.askAdaptations() }
             menu.addItem(.separator())
         }
         // Slides have their own PDF, a page a slide (Export); printing would cut them by the sheet.
-        if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
+        if md.page != .slides { menu.add(String(localized: "Print…")) { md.printPage() } }
         exportItems(menu)
         menu.addItem(.separator())
         if md.page != .motion {   // a video is shared from its export

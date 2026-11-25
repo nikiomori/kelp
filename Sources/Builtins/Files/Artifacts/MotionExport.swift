@@ -31,7 +31,7 @@ final class MotionExportPopover: NSObject {
     private let stage: (width: Int, height: Int)
     private let format = CapsuleSegments(labels: ["MP4", "GIF", "MOV"], name: String(localized: "Format"))
     private let quality = CapsuleSegments(
-        labels: [String(localized: "Best"), String(localized: "Good"), String(localized: "Small")],
+        labels: [String(localized: "Best"), String(localized: "Good"), String(localized: "Small File")],
         name: String(localized: "Quality"))
     private let movNote = NSTextField.label(
         String(localized: "ProRes 4444 · transparent background"), font: .ui(TextSize.caption),
@@ -98,13 +98,13 @@ final class MotionExportPopover: NSObject {
         let foot = NSStackView(views: [still, spacer, export])   // the main button at the trailing edge
         if let range = options.range {
             onlyRange.title = String(
-                format: String(localized: "Only the Work Area (%.1f–%.1f s)"), range.lowerBound, range.upperBound)
+                format: String(localized: "Only the work area (%.1f–%.1f s)"), range.lowerBound, range.upperBound)
             onlyRange.state = options.onlyRange ? .on : .off
             onlyRange.target = self
             onlyRange.action = #selector(changed)
             parts += [onlyRange]
         }
-        cover.title = String(format: String(localized: "Open with the Frame at %.2f s as Its Cover"), now)
+        cover.title = String(format: String(localized: "Use the frame at %.2f s as the cover"), now)
         cover.state = options.cover != nil ? .on : .off
         cover.target = self
         cover.action = #selector(changed)

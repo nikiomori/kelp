@@ -19,7 +19,7 @@ extension MarkdownTab {
             menu.addItem(.separator())
             menu.add(String(localized: "Copy as Picture")) { [weak self] in self?.copyBoard(board) }
             menu.add(String(localized: "Duplicate Board")) { [weak self] in self?.duplicateBoard(board) }
-            menu.add(String(localized: "Remove Board")) { [weak self] in self?.removeBoard(board) }
+            menu.add(String(localized: "Delete Board")) { [weak self] in self?.removeBoard(board) }
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
         case "moreLike":
             send(Self.variations(of: body["of"] as? String ?? board, page: page, like: board))
@@ -95,7 +95,8 @@ extension MarkdownTab {
     private func changeBoards(_ change: ([[String: Any]]) -> [[String: Any]]) async -> Bool {
         let json: String
         do { json = try ArtifactCanvas.editBoards(editor.text, change) } catch {
-            Banner.show(String(localized: "canvas.json doesn't read: fix it first."), style: .error)
+            Banner.show(
+                String(localized: "The board list can’t be read: fix canvas.json or ask the agent."), style: .error)
             return false
         }
         editor.apply(text: json, selection: NSRange(location: 0, length: 0))

@@ -29,7 +29,7 @@ extension MarkdownTab {
     }
     @objc func link() {
         Task {
-            guard let address = await prompt(String(localized: "Insert link"), "URL", initial: "https://") else {
+            guard let address = await prompt(String(localized: "Insert Link"), "URL", initial: "https://") else {
                 return
             }
             edit { MarkdownFormat.makeLink($0, $1, url: address) }

@@ -8,7 +8,7 @@ import KelpKit
 extension MarkdownTab {
     static let transitions: [(title: String, in: String, out: String?)] = [
         ("Crossfade", "fade", "fade-out"), ("Slide Left", "slide", "slide-out"), ("Wipe", "wipe", nil),
-        ("Zoom", "zoom", "zoom-out")
+        ("Push In", "zoom", "zoom-out")
     ]
 
     func seamMenu(_ out: String, _ into: String) -> NSMenu? {

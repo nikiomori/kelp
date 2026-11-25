@@ -47,7 +47,7 @@ extension ArtifactBar {
         guard now > was, !NSApp.isActive else { return }
         let content = UNMutableNotificationContent()
         content.title = item?.title ?? (path as NSString).lastPathComponent
-        content.body = String(localized: "Ready to check: \(now) marks came back")
+        content.body = String(localized: "Ready to check: the agent answered marks (\(now))")
         Notifications.notifyUser(app, "artifact-check:" + path, content)
     }
 }

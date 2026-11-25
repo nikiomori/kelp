@@ -21,7 +21,7 @@ enum ArtifactStart {
     static func title(_ kind: Artifacts.Kind) -> String {
         switch kind {
         case .slides: String(localized: "Slides")
-        case .doc: String(localized: "Document")
+        case .doc: String(localized: "Doc")
         case .dashboard: String(localized: "Dashboard")
         case .design: String(localized: "Design")
         case .motion: String(localized: "Motion")

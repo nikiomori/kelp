@@ -48,7 +48,7 @@ extension MarkdownTab {
             return await setImage(board, id, to: file)
         }
         guard page == .motion else {
-            return Banner.show(String(localized: "Drop a picture on an image with a data-id to replace it."))
+            return Banner.show(String(localized: "Only a picture on the page can be replaced: drop it on one."))
         }
         let at = hit.flatMap { h in (h["x"] as? Double).flatMap { x in (h["y"] as? Double).map { (x, $0) } } }
         for file in files { await addMedia(file, at: at, time: motionStudio.at) }

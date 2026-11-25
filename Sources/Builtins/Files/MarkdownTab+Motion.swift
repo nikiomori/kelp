@@ -214,7 +214,8 @@ extension MarkdownTab {
         let before = editor.text
         guard let text = change(before) else {
             return Banner.show(
-                String(localized: "Couldn’t change “\(edit.id)” in the page as it is now: give it a data-id."),
+                String(
+                    localized: "Couldn’t find “\(edit.id)” on the page any more. Ask the agent to make it editable."),
                 style: .error)
         }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))

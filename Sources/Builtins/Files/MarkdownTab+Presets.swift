@@ -24,7 +24,8 @@ extension MarkdownTab {
         let menu = NSMenu()
         if body["field"] as? String == "ease" {
             for (title, value) in [
-                ("Linear", "linear"), ("Ease In", "ease-in"), ("Ease Out", "ease-out"), ("Ease In Out", "ease-in-out"),
+                ("Even Speed", "linear"), ("Ease In", "ease-in"), ("Ease Out", "ease-out"),
+                ("Ease In Out", "ease-in-out"),
                 ("Back Out", "cubic-bezier(.34,1.56,.64,1)")
             ] {
                 menu.add(String(localized: String.LocalizationValue(title))) { set(now.name, length, value) }

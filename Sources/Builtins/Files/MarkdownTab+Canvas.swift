@@ -166,7 +166,7 @@ extension MarkdownTab {
                 localized: "Click an element on a board to mark it, or drag over an area, then say what should change."
             ),
             noIssues: String(localized: "No issues: nothing cut off, every text readable, every file there."),
-            of: String(localized: "of"), escEnds: String(localized: "esc to end"),
+            of: String(localized: "of"), escEnds: String(localized: "⎋ to end"),
             element: String(localized: "Element"),
             area: String(localized: "Area"), pen: String(localized: "Pen"), arrow: String(localized: "Arrow"),
             label: String(localized: "Label"), whole: String(localized: "The Whole Video"),
@@ -241,7 +241,7 @@ extension MarkdownTab {
     /// The words shown for a doc's marks and in its column (`PageMarks`).
     var pageMarkLabels: [String: String] {
         [
-            "mark": String(localized: "Mark"), "contents": String(localized: "Contents"),
+            "mark": String(localized: "Mark It"), "contents": String(localized: "Contents"),
             "noMarks": String(localized: "Select text on the page to mark it, then say what should change."),
             "noContents": String(localized: "No headings on this page."),
             "check": canvasLabels.check, "askFix": canvasLabels.askFix, "noIssues": canvasLabels.noIssues
@@ -286,7 +286,7 @@ extension MarkdownTab {
             for _ in 0..<2 {
                 guard let file = await app.call(FilesRead(path: path)) else { return }
                 guard let text = change(file.text) else {
-                    Banner.show(String(localized: "Couldn’t find that element in \(board) as it is now: drawn again."))
+                    Banner.show(String(localized: "That element isn’t in \(board) any more: here it is as it is now."))
                     return rerender()
                 }
                 guard let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp)) else { return }
@@ -297,7 +297,7 @@ extension MarkdownTab {
                 return
             }
             Banner.show(
-                String(localized: "\(board) kept changing as you edited it, so that change isn’t written: drawn again.")
+                String(localized: "\(board) changed while you edited it, so that edit isn’t written.")
             )
             rerender()
         }
@@ -310,17 +310,17 @@ extension MarkdownTab {
             "text": String(localized: "Text"), "layout": String(localized: "Layout"),
             "position": String(localized: "Position"), "fill": String(localized: "Fill"),
             "time": String(localized: "Time"), "size": String(localized: "Size"),
-            "weight": String(localized: "Weight"), "colour": String(localized: "Colour"),
+            "weight": String(localized: "Weight"), "colour": String(localized: "Color"),
             "padding": String(localized: "Padding"), "gap": String(localized: "Gap"),
             "background": String(localized: "Background"), "radius": String(localized: "Radius"),
             "opacity": String(localized: "Opacity"), "offset": String(localized: "Offset"),
-            "frame": String(localized: "Frame"), "startLength": String(localized: "Start · Length"),
+            "frame": String(localized: "Width · Height"), "startLength": String(localized: "Start · Length"),
             "none": String(localized: "None"), "auto": String(localized: "auto"),
             "regular": String(localized: "Regular"), "medium": String(localized: "Medium"),
             "semibold": String(localized: "Semibold"), "bold": String(localized: "Bold"),
             "reset": String(localized: "Back to the Page’s Own"), "seconds": String(localized: "s"),
             "font": String(localized: "Font"), "align": String(localized: "Alignment"),
-            "align_left": String(localized: "Align Left"), "align_center": String(localized: "Centre"),
+            "align_left": String(localized: "Align Left"), "align_center": String(localized: "Align Center"),
             "align_right": String(localized: "Align Right")
         ]
     }

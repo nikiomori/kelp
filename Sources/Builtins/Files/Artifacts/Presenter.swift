@@ -221,7 +221,7 @@ extension MarkdownTab {
             "slide": String(localized: "Slide"), "saved": String(localized: "Saved"),
             "notesHint": String(localized: "Notes for this slide: only you see them while presenting"),
             "pause": String(localized: "Pause"), "resume": String(localized: "Go On"),
-            "reset": String(localized: "Reset Time"), "before": String(localized: "Before"),
+            "reset": String(localized: "Reset Time"), "before": String(localized: "Previous"),
             "after": String(localized: "Coming Next"), "keep": String(localized: "Keep"),
             "aim": String(localized: "aiming at"), "onIt": String(localized: "on this slide")
         ]
@@ -275,7 +275,8 @@ extension MarkdownTab {
                     editor.text, line: line, end: (body["end"] as? NSNumber)?.intValue, words: text)
             else {
                 rerender()   // the page shows the file's words again
-                Banner.show(String(localized: "That one has formatting, a list or a quote in it: change it in Edit."))
+                Banner.show(
+                    String(localized: "That one has formatting, a list or a quote in it: change it in the text."))
                 break
             }
             editor.apply(text: next, selection: NSRange(location: 0, length: 0))

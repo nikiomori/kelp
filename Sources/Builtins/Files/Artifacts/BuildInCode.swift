@@ -26,7 +26,7 @@ extension MarkdownTab {
             agent.addItems(withTitles: agents.map(\.name))
             let done = await doneMarks()
             let carry = NSTextField.label(
-                String(localized: "With it: the page, the tokens, its pictures, \(done.count) decided marks"),
+                String(localized: "With it: the page, the tokens, its pictures and the decided marks (\(done.count))"),
                 font: .ui(TextSize.caption), color: .secondaryLabelColor)
             let grid = NSGridView(views: [
                 [NSTextField.label(String(localized: "What"), font: .ui(TextSize.row)), what],

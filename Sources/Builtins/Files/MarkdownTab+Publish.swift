@@ -22,7 +22,7 @@ extension MarkdownTab {
     func publishItems(_ menu: NSMenu) {
         let page = Artifacts.projectPath(url.path), file = Artifacts.projectPath(linkFile)
         guard let link = publishedLink else {
-            menu.add(String(localized: "Publish…")) { [weak self] in self?.send(Self.publish(page, link: file)) }
+            menu.add(String(localized: "Publish")) { [weak self] in self?.send(Self.publish(page, link: file)) }
             return
         }
         menu.add(String(localized: "Copy Link")) { copyText(link) }
@@ -32,7 +32,7 @@ extension MarkdownTab {
         menu.add(String(localized: "Update the Published Page")) { [weak self] in
             self?.send(Self.republish(page, link: link))
         }
-        menu.add(String(localized: "Bring In Its Comments")) { [weak self] in
+        menu.add(String(localized: "Bring In Comments as Marks")) { [weak self] in
             self?.send(Self.comments(page, link: link, canvas: self?.page == .canvas || self?.page == .motion))
         }
     }
