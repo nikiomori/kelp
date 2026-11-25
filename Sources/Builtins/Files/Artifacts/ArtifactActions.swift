@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+@preconcurrency import UserNotifications   // its content isn't marked Sendable
 import WorkbenchKit
 
 /// What the user does to a page as a whole, from the Artifacts panel's menu and its bar's ⋯: give it a name of their
@@ -41,5 +42,17 @@ extension ArtifactsPanel {
         let kind = Artifacts.Kind(rawValue: item.type).map(ArtifactStart.title) ?? item.type
         let agent = item.session.flatMap(app.session)?.agent.map { app.catalog.name($0) } ?? ""
         return [title(item, project), kind, item.type, agent].joined(separator: " ")
+    }
+}
+
+extension ArtifactBar {
+    /// Marks came back from the agent while Kelp isn't in front: a notification says the page is ready, and how many
+    /// marks wait to be checked (with Kelp in front, the Mark count and the check bar say it).
+    func tellChecks(was: Int, now: Int) {
+        guard now > was, !NSApp.isActive else { return }
+        let content = UNMutableNotificationContent()
+        content.title = item?.title ?? (path as NSString).lastPathComponent
+        content.body = String(localized: "Ready to check: \(now) marks came back")
+        Notifications.notifyUser(app, "artifact-check:" + path, content)
     }
 }

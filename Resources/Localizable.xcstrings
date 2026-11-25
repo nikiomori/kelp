@@ -41186,6 +41186,16 @@
           }
         }
       }
+    },
+    "Ready to check: %lld marks came back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно проверять: вернулось пометок — %lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

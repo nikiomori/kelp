@@ -192,6 +192,7 @@ final class ArtifactBar: NSObject {
             // Marks handed back (or answered) by an agent: a canvas draws again for Before, a doc takes them in place.
             if marks != nil || item?.marks != nil {
                 markdown.marksChanged(redraw: (item?.marks?.check ?? 0) > (marks?.check ?? 0))
+                tellChecks(was: marks?.check ?? 0, now: item?.marks?.check ?? 0)
             }
             marks = item?.marks
             modes.setCount(marks.flatMap { $0.check > 0 ? $0.check : nil }, forSegment: 1)
