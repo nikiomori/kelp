@@ -15,13 +15,13 @@ enum PhoneAgent {
     /// project's name, and `workspace` is the workspace's `Worktree.displayName`.
     static func from(
         _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String,
-        questionID: UUID? = nil
+        questionId: UUID? = nil
     ) -> [String: JSONValue] {
         let waiting = session.status == .waiting
         var ask: [String: JSONValue] = ["kind": .string("question"), "text": .string(session.summary)]
-        if let questionID, session.asksPermission {
+        if let questionId, session.asksPermission {
             ask["kind"] = .string("permission")
-            ask["id"] = .string(questionID.uuidString)
+            ask["id"] = .string(questionId.uuidString)
         }
         return [
             "id": .string(session.id), "title": .string(session.displayTitle),

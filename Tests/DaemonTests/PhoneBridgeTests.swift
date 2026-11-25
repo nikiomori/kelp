@@ -149,13 +149,13 @@ private func json(_ text: String) throws -> JSONValue {
         createdAt: Date(timeIntervalSince1970: 1_800_000_000.25), title: "Fix the flaky sync test",
         summary: "Allow Bash: swift test --filter SyncTests?")
     s.running = "swift build"
-    let questionID = try #require(UUID(uuidString: "915D0701-9BDA-45E6-9F04-FF5DB37F3508"))
+    let questionId = try #require(UUID(uuidString: "915D0701-9BDA-45E6-9F04-FF5DB37F3508"))
     #expect(PhoneAgent.shown(s))
     #expect(
         JSONValue.object(
             PhoneAgent.from(
                 s, name: "Claude Code", project: "kelp", projectId: "P", workspace: "fix/sync-retry",
-                questionID: questionID))
+                questionId: questionId))
             == (try json(
                 #"""
                 {"id":"S1","title":"Fix the flaky sync test","agent":"claude","agentName":"Claude Code","project":"kelp",
@@ -265,7 +265,7 @@ private struct Phone {
     let listed = try await phone.ask("GET", "agents", n: next())
     let agents = try #require(listed.body?["agents"]?.array)
     #expect(agents.map { $0["id"]?.string } == [s.id] && agents.first?["agentName"]?.string == "Menu")
-    let questionID = try #require(agents.first?["ask"]?["id"]?.string)
+    let questionId = try #require(agents.first?["ask"]?["id"]?.string)
     #expect(agents.first?["ask"]?["kind"] == .string("permission"))
     #expect(agents.first?["ask"]?["text"] == .string("Allow rm -rf build?"))
     #expect(agents.first?["project"]?.string == p.repo.name && listed.body?["mac"]?.string?.isEmpty == false)
@@ -279,22 +279,22 @@ private struct Phone {
     func choose(_ answer: String, _ question: String?, _ token: String?) async throws -> JSONValue? {
         var fields: [String: JSONValue] = ["answer": .string(answer)]
         fields["question"] = question.map(JSONValue.string)
-        fields["questionID"] = token.map(JSONValue.string)
+        fields["questionId"] = token.map(JSONValue.string)
         return try await phone.ask("POST", "agents/\(s.id)/choose", .object(fields), n: next()).body?["ok"]
     }
-    #expect(try await choose("allow", nil, questionID) == .bool(false))
+    #expect(try await choose("allow", nil, questionId) == .bool(false))
     #expect(try await choose("allow", "Allow rm -rf build?", nil) == .bool(false))
     #expect(try await choose("allow", "Allow rm -rf build?", UUID().uuidString) == .bool(false))
     #expect(
-        try await choose("allow", "Allow npm test?", questionID) == .bool(false), "only the question the phone showed")
-    #expect(try await choose("always", "Allow rm -rf build?", questionID) == .bool(false))
+        try await choose("allow", "Allow npm test?", questionId) == .bool(false), "only the question the phone showed")
+    #expect(try await choose("always", "Allow rm -rf build?", questionId) == .bool(false))
     let live = try #require(p.d.sessions.existing(s.id))
     live.hook(.working)
     live.hook(.waiting, message: "Allow rm -rf build?")
     let repeated = try await phone.ask("GET", "agents/\(s.id)", n: next())
     let newer = try #require(repeated.body?["ask"]?["id"]?.string)
-    #expect(newer != questionID)
-    #expect(try await choose("allow", "Allow rm -rf build?", questionID) == .bool(false))
+    #expect(newer != questionId)
+    #expect(try await choose("allow", "Allow rm -rf build?", questionId) == .bool(false))
     #expect(try await choose("allow", "Allow rm -rf build?", newer) == .bool(true))
     #expect(try await waitFor(5) { try await p.c.call(SessionRead(id: s.id)).contains("ALLOWED") })
 

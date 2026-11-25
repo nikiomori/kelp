@@ -13380,7 +13380,7 @@
         },
         {
           "description" : "The instance of the permission shown on the phone. A newer question can have the same text.",
-          "name" : "questionID",
+          "name" : "questionId",
           "required" : false,
           "schema" : {
             "type" : "string"

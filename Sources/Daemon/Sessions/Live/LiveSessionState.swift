@@ -149,7 +149,7 @@ extension LiveSession {
         /// wanted option. `screen` is what must still be on screen for each key (the dialog being answered); it is nil
         /// for a menu the user answers from a notification.
         var steering:
-            (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?, questionID: UUID?)?
+            (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?, questionId: UUID?)?
         /// The version an update last restarted it for (`restartAgent`).
         var updatedTo: String?
         var sawFirstPrompt = false

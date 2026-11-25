@@ -369,8 +369,8 @@ extension PhoneBridge {
         return PhoneAgent.from(
             session, name: name, project: repo?.name ?? "", projectId: repo?.id,
             workspace: worktree?.displayName ?? "",
-            questionID: session.asksPermission
-                ? live[session.id].flatMap { permissions.questionID($0, for: session.summary) } : nil)
+            questionId: session.asksPermission
+                ? live[session.id].flatMap { permissions.questionId($0, for: session.summary) } : nil)
     }
 
     /// Handles a saved change to a session. The phones hear of an agent that looks different now, or that is gone.

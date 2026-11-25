@@ -178,7 +178,7 @@ export function unpair() {
 }
 export const list = signal => api('GET', 'agents', undefined, signal);
 export const get = agent => api('GET', `agents/${id(agent)}`);
-export const choose = (agent, answer, question, questionID) => api('POST', `agents/${id(agent)}/choose`, { answer, question, questionID });
+export const choose = (agent, answer, question, questionId) => api('POST', `agents/${id(agent)}/choose`, { answer, question, questionId });
 export const reply = (agent, text) => api('POST', `agents/${id(agent)}/reply`, { text });
 export const read = agent => api('POST', `agents/${id(agent)}/read`);
 /** Stops what a working agent does, as Esc in its terminal: it stays, and waits. Only where `GET agents` says `stops: true`. */

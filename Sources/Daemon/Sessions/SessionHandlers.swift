@@ -163,10 +163,10 @@ extension SessionChoose: Handled {
     var fence: Fence { Fence(actsOn: id, answersQuestion: true) }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
-        let token = questionID.flatMap(UUID.init(uuidString:))
-        if questionID != nil {
+        let token = questionId.flatMap(UUID.init(uuidString:))
+        if questionId != nil {
             guard let token, let question, answer == "allow" || answer == "deny",
-                sessions.permissions.questionID(ls, for: question) == token
+                sessions.permissions.questionId(ls, for: question) == token
             else { return false }
         }
         // Not Allow or Deny but one of a question's answers (`Session.choices`): picked in its menu, by its label.

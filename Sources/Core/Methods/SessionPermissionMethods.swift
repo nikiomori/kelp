@@ -9,9 +9,9 @@ public struct SessionChoose: RPCMethod {
     public typealias Result = Bool
     public var id: String, answer: String, question: String?, run: String?
     /// The instance of the permission shown on the phone. A newer question can have the same text.
-    public var questionID: String?
-    public init(id: String, answer: String, question: String? = nil, run: String? = nil, questionID: String? = nil) {
-        self.questionID = questionID
+    public var questionId: String?
+    public init(id: String, answer: String, question: String? = nil, run: String? = nil, questionId: String? = nil) {
+        self.questionId = questionId
         self.id = id
         self.answer = answer
         self.question = question

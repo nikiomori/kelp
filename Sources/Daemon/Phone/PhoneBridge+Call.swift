@@ -143,11 +143,11 @@ extension PhoneBridge {
             case "choose":
                 guard let answer = sent?["answer"]?.string, ["allow", "deny"].contains(answer),
                     let question = sent?["question"]?.string, !question.isEmpty,
-                    let questionID = sent?["questionID"]?.string, UUID(uuidString: questionID) != nil
+                    let questionId = sent?["questionId"]?.string, UUID(uuidString: questionId) != nil
                 else {
                     return Reply(status: 200, body: .object(["ok": .bool(false)]))
                 }
-                let chose = SessionChoose(id: id, answer: answer, question: question, questionID: questionID)
+                let chose = SessionChoose(id: id, answer: answer, question: question, questionId: questionId)
                 return Reply(status: 200, body: .object(["ok": .bool(try await call(chose))]))
             case "reply":
                 guard let text = sent?["text"]?.string else { return .failed(400, "Send {\"text\"}.") }

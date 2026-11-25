@@ -28,7 +28,7 @@ final class PermissionWaits: Sendable {
     static let askerGone = "gone"
 
     /// The wait that owns the question shown on the phone, or the current terminal menu when it has no waiting hook.
-    func questionID(_ session: LiveSession, for question: String) -> UUID? {
+    func questionId(_ session: LiveSession, for question: String) -> UUID? {
         session.state.withLock { state in
             guard state.record.asksPermission, state.record.summary == question else { return nil }
             let id = state.record.id

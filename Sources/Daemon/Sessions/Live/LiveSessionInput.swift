@@ -92,7 +92,7 @@ extension LiveSession {
     func steer() {
         let key = state.withLock { state -> (String, UUID?)? in
             guard let st = state.steering else { return nil }
-            if Date().timeIntervalSince(st.since) > 30 || (st.questionID != nil && st.questionID != state.menuID) {
+            if Date().timeIntervalSince(st.since) > 30 || (st.questionId != nil && st.questionId != state.menuID) {
                 state.steering = nil
                 return nil
             }
@@ -109,10 +109,10 @@ extension LiveSession {
             if st.choose.firstMatch(in: option, range: NSRange(option.startIndex..., in: option)) != nil {
                 state.steering = nil
                 state.dialogSettled = true
-                return ("\r", st.questionID)
+                return ("\r", st.questionId)
             }
             state.steering?.lastKey = Date()
-            return ("\u{1B}[B", st.questionID)   // menus wrap, so stepping down always reaches it
+            return ("\u{1B}[B", st.questionId)   // menus wrap, so stepping down always reaches it
         }
         // Queue the menu key after any pending text and its Enter.
         if let (key, menuID) = key { write(Data(key.utf8), menuID: menuID) }

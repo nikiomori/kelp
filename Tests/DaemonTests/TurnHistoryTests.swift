@@ -273,21 +273,21 @@ import Testing
     live.hook(.waiting, message: question, asker: "", at: 1)
     let first = Task { await waits.waitForPermission(id, at: 1, within: 5) }
     try #require(try await waitFor { waits.waits.withLock { $0[id] != nil } })
-    let old = try #require(waits.questionID(live, for: question))
+    let old = try #require(waits.questionId(live, for: question))
 
     live.state.withLock { $0.nothingAsked() }   // The agent's first dialog was settled on the Mac.
     live.hook(.waiting, message: question, asker: "", at: 2)
-    #expect(waits.questionID(live, for: question) != old)
+    #expect(waits.questionId(live, for: question) != old)
     #expect(
-        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionID: old.uuidString))
+        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionId: old.uuidString))
             == false)
     let second = Task { await waits.waitForPermission(id, at: 2, within: 5) }
     try #require(try await waitFor { waits.waits.withLock { $0[id]?.token != old && $0[id] != nil } })
     #expect(await first.value == nil)
     #expect(try await w.c.call(SessionPermissionWait(id: id, at: 1)) == nil)
-    let current = try #require(waits.questionID(live, for: question))
+    let current = try #require(waits.questionId(live, for: question))
     #expect(
-        try await w.c.call(SessionChoose(id: id, answer: "deny", question: question, questionID: current.uuidString)))
+        try await w.c.call(SessionChoose(id: id, answer: "deny", question: question, questionId: current.uuidString)))
     #expect(await second.value == "deny")
 }
 
@@ -303,10 +303,10 @@ import Testing
     live.hook(.waiting, message: question, asker: "", at: 1)
     let wait = Task { await waits.waitForPermission(id, at: 1, within: 5) }
     try #require(try await waitFor { waits.waits.withLock { $0[id] != nil } })
-    let shown = try #require(waits.questionID(live, for: question))
+    let shown = try #require(waits.questionId(live, for: question))
     live.hook(.waiting, message: nil, at: 2)   // "permission_prompt", while already waiting
     #expect(
-        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionID: shown.uuidString)))
+        try await w.c.call(SessionChoose(id: id, answer: "allow", question: question, questionId: shown.uuidString)))
     #expect(await wait.value == "allow")
 }
 

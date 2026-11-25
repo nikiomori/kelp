@@ -104,9 +104,9 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     let agent = try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "bot"))
     let session = try #require(w.d.sessions.existing(agent.id)), permissions = w.d.sessions.permissions
     let question = "Allow the change?"
-    func shown() -> String? { permissions.questionID(session, for: question)?.uuidString }
+    func shown() -> String? { permissions.questionId(session, for: question)?.uuidString }
     func decide(_ id: String, _ answer: String) async throws -> Bool {
-        try await w.c.call(SessionChoose(id: agent.id, answer: answer, question: question, questionID: id))
+        try await w.c.call(SessionChoose(id: agent.id, answer: answer, question: question, questionId: id))
     }
     let first = Task { await permissions.waitForKelp(session, question: question, within: 5) }
     try #require(try await waitFor { shown() != nil })
