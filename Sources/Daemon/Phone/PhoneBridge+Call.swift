@@ -147,7 +147,7 @@ extension PhoneBridge {
                 return Reply(status: 204)
             default:
                 var agent = agent(session)
-                agent.merge(await conversationFields(of: session)) { _, value in value }
+                agent.merge(await conversationFields(of: session, seen: sent?["seen"]?.string)) { _, value in value }
                 return Reply(status: 200, body: .object(agent))
             }
         } catch {

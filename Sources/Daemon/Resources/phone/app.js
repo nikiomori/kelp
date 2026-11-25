@@ -29,7 +29,7 @@ const EN = {
   cantReach: mac => `Can't reach ${mac || 'your Mac'}. Trying again…`,
   failed: mac => `Can't reach ${mac || 'your Mac'}.`,
   readFailed: "Couldn't load the conversation.", readRetrying: "Couldn't load the conversation. Trying again…",
-  readDenied: "You don't have access to this conversation.", retry: 'Retry',
+  retry: 'Retry',
   empty: mac => `No agents are running on ${mac || 'your Mac'}.`,
   status: {
     waiting: 'Needs you', working: 'Working', done: 'Done', error: 'Error',
@@ -101,7 +101,7 @@ const RU = {
   cantReach: mac => `Нет связи с ${mac || 'вашим Mac'}. Пробую ещё раз…`,
   failed: mac => `Нет связи с ${mac || 'вашим Mac'}.`,
   readFailed: 'Не удалось загрузить переписку.', readRetrying: 'Не удалось загрузить переписку. Пробую ещё раз…',
-  readDenied: 'У вас нет доступа к этой переписке.', retry: 'Повторить',
+  retry: 'Повторить',
   empty: mac => `На ${mac || 'вашем Mac'} не работает ни один агент.`,
   status: {
     waiting: 'Ждёт вас', working: 'Работает', done: 'Готово', error: 'Ошибка',
@@ -400,13 +400,17 @@ async function loadOpen(manualRetry = false) {
   mine.dirty = false;
   if (failure) $('a-retry').disabled = true;
   try {
-    const { lastReply, turns, ...agent } = await kelp.get(mine.id, mine.detailRead.signal);
+    const { lastReply, turns, conversation, same, ...agent } =
+      await kelp.get(mine.id, mine.detailRead.signal, mine.conversation);
     if (open !== mine || mine.gone || document.hidden) return;
     // A summary event can arrive while the Mac is still reading the transcript.
     if (agents.get(mine.id) === before) agents.set(mine.id, kelp.agentFrom(agent));
-    mine.reply = lastReply ?? null;
-    mine.turns = Array.isArray(turns) && turns.length ? turns : null;
-    mine.content = mine.turns ? JSON.stringify(mine.turns) : mine.reply;
+    if (!same) {
+      mine.reply = lastReply ?? null;
+      mine.turns = Array.isArray(turns) && turns.length ? turns : null;
+      mine.content = mine.turns ? JSON.stringify(mine.turns) : mine.reply;
+    }
+    mine.conversation = conversation;
     mine.readFailure = null;
   } catch (e) {
     if (open !== mine || mine.gone || mine.detailRead.signal.aborted) return;
@@ -420,7 +424,7 @@ async function loadOpen(manualRetry = false) {
       const attempt = (mine.readFailure?.attempt ?? 0) + 1;
       mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
     } else {
-      mine.readFailure = { message: e.status === 403 ? S.readDenied : S.readFailed };
+      mine.readFailure = { message: S.readFailed };
     }
   } finally {
     mine.lastRead = performance.now();

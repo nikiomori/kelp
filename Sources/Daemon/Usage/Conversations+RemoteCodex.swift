@@ -3,16 +3,21 @@ import Core
 import Foundation
 
 extension Conversations {
-    /// After the PTY exits, its last hook report can still name a thread switched to with /resume.
+    /// After the PTY exits, its last hook report can still name a thread switched to with /resume. The search widens
+    /// from the log's last 64 KB to all of it, because a long turn can print far more than that after the report.
     func lastCodexReport(of session: Session) -> UUID? {
-        guard UUID(uuidString: session.id) != nil,
-            let tail = Data(tail: 64 << 10, of: history.appendingPathComponent(session.id + ".log"))
-        else { return nil }
-        var carry = ""
-        for message in ProgramStatus.scan(String(decoding: tail, as: UTF8.self), carry: &carry).reversed() {
-            if case .report(let report) = message, report.id == nil, let conv = report.conv {
-                return UUID(uuidString: conv)
+        guard UUID(uuidString: session.id) != nil else { return nil }
+        let log = history.appendingPathComponent(session.id + ".log")
+        var bytes = 64 << 10
+        while let tail = Data(tail: bytes, of: log) {
+            var carry = ""
+            for message in ProgramStatus.scan(String(decoding: tail, as: UTF8.self), carry: &carry).reversed() {
+                if case .report(let report) = message, report.id == nil, let conv = report.conv {
+                    return UUID(uuidString: conv)
+                }
             }
+            guard tail.count == bytes else { return nil }   // that was the whole log
+            bytes *= 8
         }
         return nil
     }

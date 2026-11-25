@@ -126,16 +126,21 @@ private let hostTmux = try? LoginPath.resolve("tmux")
     #expect(fields["lastReply"]?.string == "Finished")
     #expect(fields["turns"]?.array?.compactMap { $0["text"]?.string } == ["My question", "My reply"])
     #expect(try reads() == before + 1)
+    let print = try #require(fields["conversation"]?.string)
+    let unchanged = await d.sessions.phone.conversationFields(of: session, seen: print)
+    #expect(unchanged == ["conversation": .string(print), "same": .bool(true)], "what the phone has isn't sent again")
+    #expect(try reads() == before + 2)
     try Data().write(to: bin.appendingPathComponent("down-" + hostname))
     #expect(await d.sessions.phone.conversationFields(of: session) == ["lastReply": .null])
-    #expect(try reads() == before + 1)
+    #expect(try reads() == before + 2)
     try FileManager.default.removeItem(at: bin.appendingPathComponent("down-" + hostname))
     _ = try await c.call(SessionKill(id: session.id))
     let ended = Session(
         cwd: session.cwd, command: "codex", agent: session.agent, argv: ["codex", "resume", original.uuidString])
     let reader = d.agentUsage.conversations
     let report = ProgramStatus.prefix + "state=done:conv=\(current)\u{07}"
-    try Data(report.utf8).write(to: reader.history.appendingPathComponent(ended.id + ".log"))
+    let printedAfter = String(repeating: "output\r\n", count: 20_000)   // 160 KB the TUI printed after the report
+    try Data((report + printedAfter).utf8).write(to: reader.history.appendingPathComponent(ended.id + ".log"))
     let archived = reader.phoneConversation(of: ended, live: nil)
     #expect(archived.turns.map(\.text) == ["My question", "My reply"])
     #expect(archived.reply == nil)

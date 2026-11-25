@@ -130,20 +130,28 @@ extension PhoneBridge {
         }
     }
 
-    /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte.
-    func conversationFields(of session: Session) async -> [String: JSONValue] {
+    /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte. They carry a fingerprint,
+    /// `conversation`; a phone that sends the one it shows as `seen` gets only `same` back while nothing changed, so a
+    /// working agent's page, read every few seconds, doesn't fetch the whole conversation each time.
+    /// Limit: the fingerprint is the daemon's own hash, so a restart sends the conversation once more.
+    func conversationFields(of session: Session, seen: String? = nil) async -> [String: JSONValue] {
         let conversations = conversations, running = live[session.id]
         guard let detail = await offloaded({ conversations.phoneConversation(of: session, live: running) }) else {
             return ["lastReply": .null]
         }
         let reply = detail.reply.map { JSONValue.string(String($0.suffix(200_000))) }
         var fields: [String: JSONValue] = ["lastReply": reply ?? .null]
-        guard !detail.turns.isEmpty else { return fields }
-        fields["turns"] = .array(detail.turns.map { turn in
-            var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
-            if let at = turn.at { fields["at"] = .string(at) }
-            return .object(fields)
-        })
+        if !detail.turns.isEmpty {
+            fields["turns"] = .array(detail.turns.map { turn in
+                var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
+                if let at = turn.at { fields["at"] = .string(at) }
+                return .object(fields)
+            })
+        }
+        guard fields != ["lastReply": .null] else { return fields }
+        let print = String(UInt(bitPattern: fields.hashValue), radix: 36)
+        if print == seen { return ["conversation": .string(print), "same": .bool(true)] }
+        fields["conversation"] = .string(print)
         return fields
     }
 }
