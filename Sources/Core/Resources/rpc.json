@@ -7443,6 +7443,41 @@
       }
     },
     {
+      "description" : "What chat `session` spent from `from` to `to` (seconds since 1970): one round of marks on a page, from their send to its turn's end. nil when nothing is known (an agent whose spending Kelp doesn't read).",
+      "name" : "artifact.roundCost",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "`kelp artifact suggest`: what the agent suggests the user asks next about a page (`path`, its file), three at most, shown under its marks until the next send; a click makes one a mark to send.",
       "name" : "artifact.suggest",
       "paramStructure" : "by-name",

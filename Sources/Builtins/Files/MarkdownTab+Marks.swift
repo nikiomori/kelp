@@ -180,7 +180,8 @@ extension MarkdownTab {
         Task {
             guard let file = await app.quiet(FilesRead(path: notes)) else { return }
             let marks = ArtifactMarks.read(Data(file.text.utf8))
-            await findChangedElsewhere(marks)   // the check bar says what else the turn changed
+            await findChangedElsewhere(marks)   // the check bar says what else the turn changed, and what it cost
+            await findRoundCost(marks)
             if redraw { return rerender() }
             runJS("window.kelpMarks?.set(\(Self.js(marks)))")
         }

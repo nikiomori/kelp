@@ -50,7 +50,7 @@ final class MarkReviewBar {
     /// (`said`), and whether Before shows (and can, on a canvas).
     func show(
         count: Int, at: Int, before: (shown: Bool, can: Bool), who: String?, said: (note: String, reply: String),
-        elsewhere: [String] = []
+        elsewhere: [String] = [], cost: String? = nil
     ) {
         _ = bar
         bar.isHidden = count == 0
@@ -65,7 +65,8 @@ final class MarkReviewBar {
             label.stringValue += "  ·  " + String(localized: "also changed \(names.joined(separator: ", "))")
         }
         label.toolTip = said.note.isEmpty ? nil : said.note + "\n\n" + answer
-        position.stringValue = String(localized: "\(at + 1) of \(count)")
+        position.stringValue = String(localized: "\(at + 1) of \(count)") + (cost.map { " · " + $0 } ?? "")
+        position.toolTip = cost.map { String(localized: "What the agent’s turn on these marks cost: \($0)") }
         self.before.isHidden = !before.can
         self.before.selectedSegment = before.shown ? 0 : 1
     }

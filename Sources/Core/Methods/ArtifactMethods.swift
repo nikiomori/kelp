@@ -117,6 +117,19 @@ public struct ArtifactKeepRestored: InternalMethod {
     }
 }
 
+/// What chat `session` spent from `from` to `to` (seconds since 1970): one round of marks on a page, from their send
+/// to its turn's end. nil when nothing is known (an agent whose spending Kelp doesn't read).
+public struct ArtifactRoundCost: InternalMethod {
+    public static let name = "artifact.roundCost"
+    public typealias Result = ArtifactCost.Spent?
+    public var session: String, from: Double, to: Double
+    public init(session: String, from: Double, to: Double) {
+        self.session = session
+        self.from = from
+        self.to = to
+    }
+}
+
 /// Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns
 /// whether it was renamed.
 public struct ArtifactRename: InternalMethod {

@@ -41256,6 +41256,16 @@
           }
         }
       }
+    },
+    "What the agent’s turn on these marks cost: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько стоил ход агента по этим пометкам: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

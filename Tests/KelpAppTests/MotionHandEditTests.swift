@@ -628,6 +628,8 @@ extension OneAtATime {
             ((v as? NSTextField).map { [$0.stringValue] } ?? []) + v.subviews.flatMap(labels)
         }
         #expect(labels(bar.bar).contains { $0.hasSuffix("also changed C, D-pricing") })
+        bar.show(count: 2, at: 1, before: (false, true), who: nil, said: ("", ""), cost: "$0.08")
+        #expect(labels(bar.bar).contains("2 of 2 · $0.08"))
     }
 }
 

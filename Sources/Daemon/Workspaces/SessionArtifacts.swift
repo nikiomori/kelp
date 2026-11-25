@@ -119,10 +119,21 @@ extension ArtifactCost: Handled {
     }
 }
 
+extension ArtifactRoundCost: Handled {
+    func handle(_: NoService) throws -> ArtifactCost.Spent? {
+        guard let transcript = ClaudeHistory.transcript(id: session) else { return nil }
+        let spent = ClaudeUsage.spent(transcript: transcript, from: from, to: to)
+        guard spent.calls > 0 else { return nil }
+        return .init(
+            calls: spent.calls, output: spent.tokens.output,
+            read: spent.tokens.input + spent.tokens.cacheRead + spent.tokens.cacheWrite, cost: spent.cost)
+    }
+}
+
 extension Methods {
     static let artifactMethods: [any Answered.Type] = [
         ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
         ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
-        ArtifactRename.self
+        ArtifactRename.self, ArtifactRoundCost.self
     ]
 }

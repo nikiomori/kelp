@@ -491,4 +491,5 @@ private func tempRoot() throws -> URL {
     #expect(try ArtifactRename(path: path, title: "  Launch page ").handle(NoService()))
     #expect(Artifacts.record(in: folder)?.title == "Launch page")
     #expect(try !ArtifactRename(path: path, title: "   ").handle(NoService()))
+    #expect(try ArtifactRoundCost(session: "no-such-chat", from: 0, to: 1).handle(NoService()) == nil)
 }

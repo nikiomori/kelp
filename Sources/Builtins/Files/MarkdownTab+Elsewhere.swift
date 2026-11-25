@@ -7,6 +7,20 @@ import Core
 extension MarkdownTab {
     private static let elsewhere = NSMapTable<MarkdownTab, NSArray>.weakToStrongObjects()
     var changedElsewhere: [String] { Self.elsewhere.object(forKey: self) as? [String] ?? [] }
+    /// What the round cost, from the marks' send to the turn's end ("$0.08"), when its agent's spending is read.
+    private static let costs = NSMapTable<MarkdownTab, NSString>.weakToStrongObjects()
+    var roundCost: String? { Self.costs.object(forKey: self) as String? }
+
+    /// Finds what the round of `marks` coming back cost.
+    func findRoundCost(_ marks: ArtifactMarks) async {
+        let rounds = marks.marks.filter { $0.state == .check }.compactMap(\.rounds.last)
+        guard let from = rounds.map(\.at).min(), let session = rounds.compactMap(\.to).first,
+            let spent = await app.quiet(
+                ArtifactRoundCost(session: session, from: from, to: Date().timeIntervalSince1970)),
+            let spent
+        else { return Self.costs.removeObject(forKey: self) }
+        Self.costs.setObject(spent.cost.formatted(.currency(code: "USD")) as NSString, forKey: self)
+    }
 
     /// Finds them for `marks`, the page's marks as they are now.
     func findChangedElsewhere(_ marks: ArtifactMarks) async {

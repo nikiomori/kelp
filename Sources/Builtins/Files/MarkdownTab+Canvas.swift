@@ -69,7 +69,8 @@ extension MarkdownTab {
                 count: number("count"), at: number("at"),
                 before: (body["before"] as? Bool ?? false, body["canBefore"] as? Bool ?? false),
                 who: pageAuthor.map { app.catalog.name($0.agent) },
-                said: (body["note"] as? String ?? "", body["reply"] as? String ?? ""), elsewhere: changedElsewhere)
+                said: (body["note"] as? String ?? "", body["reply"] as? String ?? ""), elsewhere: changedElsewhere,
+                cost: roundCost)
         case "pick":
             let row = (body["row"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             send(
