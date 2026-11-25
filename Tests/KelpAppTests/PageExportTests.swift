@@ -308,3 +308,41 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     #expect(document.pageCount > 1)
     #expect(abs((document.page(at: 0)?.bounds(for: .mediaBox).width ?? 0) - 595.3) < 1, "A4")
 }
+
+/// In an editable PowerPoint, a box filled with one colour is a shape (its corners rounded as drawn) and a table is a
+/// table, both taken out of the slide's picture.
+@MainActor @Test func aSlidesFilledBoxesAndTablesAreShapesAndTables() async throws {
+    _ = NSApplication.shared
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "kelp-deck-\(UUID().uuidString)/.kelp/artifacts/q")
+    try FileManager.default.createDirectory(
+        at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent().deletingLastPathComponent()) }
+    let board = """
+        <body style="margin:0"><div style="position:absolute;left:100px;top:100px;width:400px;height:200px;\
+        background:#0a84ff;border-radius:20px">Card</div><table style="position:absolute;left:600px;top:100px">\
+        <tr><th style="background:#eeeeee">Q</th><th>Sales</th></tr><tr><td>Q3</td><td>42</td></tr></table></body>
+        """
+    try board.write(to: folder.appendingPathComponent("boards/a.html"), atomically: true, encoding: .utf8)
+    let canvas = #"{"boards": [{"file": "boards/a.html", "w": 1920, "h": 1080}]}"#
+    let url = folder.appendingPathComponent("canvas.json")
+    try canvas.write(to: url, atomically: true, encoding: .utf8)
+    let tab = MarkdownTab(editor: CodeEditor(text: canvas, url: url), url: url, app: AppModel())
+    let (_, texts) = try await tab.deckSlides(editable: true)
+    let parts = try #require(texts.first)
+    let card = try #require(parts.first { $0.fill == "0A84FF" })
+    #expect(abs(card.radius - 0.1) < 0.01 && abs(card.x - 100.0 / 1920) < 0.001)
+    #expect(parts.first { $0.cells != nil }?.cells == [["Q", "Sales"], ["Q3", "42"]])
+    #expect(parts.first { $0.cells != nil }?.fill == "EEEEEE")
+    #expect(parts.contains { $0.words == "Card" })
+    let out = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-pptx-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: out) }
+    try PowerPoint.write([Data()], texts: [parts], into: out)
+    let slide = try String(contentsOf: out.appendingPathComponent("ppt/slides/slide1.xml"), encoding: .utf8)
+    #expect(slide.contains(#"prst="roundRect""#) && slide.contains(#"<a:srgbClr val="0A84FF"/>"#))
+    #expect(slide.contains("<a:tbl>") && slide.contains("<a:t>Sales</a:t>") && slide.contains(#"<a:gridCol w="#))
+    if ProcessInfo.processInfo.environment["KELP_KEEP_PPTX"] != nil {
+        try? FileManager.default.removeItem(atPath: "/tmp/kmr-shots/pptx-shapes")
+        try FileManager.default.copyItem(at: out, to: URL(fileURLWithPath: "/tmp/kmr-shots/pptx-shapes"))
+    }
+}

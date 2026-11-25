@@ -2,14 +2,17 @@ import Foundation
 
 /// A PowerPoint of pictures, one a slide, 16:9: the parts of a .pptx (Office Open XML) written into a folder, which a
 /// ZIP of its contents makes the file. Only what PowerPoint and Keynote need: a master, a blank layout, a theme. With
-/// `texts`, a slide's words are text boxes over its picture (taken without them), so they can be changed in
-/// PowerPoint or Keynote (Open Design's editable PPTX).
+/// `texts`, a slide's words are text boxes over its picture (taken without them), its filled boxes shapes and its
+/// tables tables, so they can be changed in PowerPoint or Keynote (Open Design's editable PPTX).
 enum PowerPoint {
     /// A text box on a slide: where (0–1 across and down), its words (a line a paragraph) and how they look.
     struct Text: Equatable {
         var x: Double, y: Double, w: Double, h: Double, words: String
         /// Points, as on a 13.33-inch slide; a colour as RRGGBB; left, ctr or r.
         var size: Double, bold = false, italic = false, colour = "000000", align = "l", font = "Helvetica Neue"
+        /// A filled shape (RRGGBB) with corners rounded by `radius` (a share of its shorter side, up to 0.5); a table
+        /// when it has `cells`, rows of them, its header row filled with `fill`.
+        var fill: String? = nil, radius = 0.0, cells: [[String]]? = nil
     }
     private static let ns =
         #"xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" "#
@@ -82,13 +85,20 @@ enum PowerPoint {
         }
     }
 
-    /// A text box's shape: placed in EMUs of the 16:9 slide, no insets or fill, a paragraph a line.
+    private static func escape(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+    }
+    private static func emu(_ v: Double, _ of: Double) -> String { String(Int((v * of).rounded())) }
+    private static func place(_ t: Text) -> String {
+        #"<a:off x="\#(emu(t.x, 12_192_000))" y="\#(emu(t.y, 6_858_000))"/>"#
+            + #"<a:ext cx="\#(emu(t.w, 12_192_000))" cy="\#(emu(t.h, 6_858_000))"/>"#
+    }
+
+    /// A text box's shape: placed in EMUs of the 16:9 slide, no insets, a paragraph a line; filled and rounded when
+    /// it is a shape, a table when it has cells.
     static func box(_ t: Text, id: Int) -> String {
-        let emu = { (v: Double, of: Double) in String(Int((v * of).rounded())) }
-        let escape = { (s: String) in
-            s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-                .replacingOccurrences(of: ">", with: "&gt;")
-        }
+        if let cells = t.cells { return table(t, cells, id: id) }
         let look =
             #"<a:rPr lang="en-US" sz="\#(Int((t.size * 100).rounded()))" b="\#(t.bold ? 1 : 0)" "#
             + #"i="\#(t.italic ? 1 : 0)"><a:solidFill><a:srgbClr val="\#(t.colour)"/></a:solidFill>"#
@@ -96,12 +106,41 @@ enum PowerPoint {
         let paragraphs = t.words.split(separator: "\n", omittingEmptySubsequences: false).map {
             #"<a:p><a:pPr algn="\#(t.align)"/><a:r>\#(look)<a:t>\#(escape(String($0)))</a:t></a:r></a:p>"#
         }
-        return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>"#
-            + #"<p:spPr><a:xfrm><a:off x="\#(emu(t.x, 12_192_000))" y="\#(emu(t.y, 6_858_000))"/>"#
-            + #"<a:ext cx="\#(emu(t.w, 12_192_000))" cy="\#(emu(t.h, 6_858_000))"/></a:xfrm>"#
-            + #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody>"#
+        let fill = t.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill><a:ln><a:noFill/></a:ln>"# }
+        let corner = Int((min(max(t.radius, 0), 0.5) * 100_000).rounded())
+        let shape =
+            corner > 0
+            ? #"<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val \#(corner)"/></a:avLst></a:prstGeom>"#
+            : #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>"#
+        let kind = fill == nil ? #"<p:cNvSpPr txBox="1"/>"# : "<p:cNvSpPr/>"
+        return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/>\#(kind)<p:nvPr/></p:nvSpPr>"#
+            + "<p:spPr><a:xfrm>\(place(t))</a:xfrm>\(shape)\(fill ?? "<a:noFill/>")</p:spPr><p:txBody>"
             + #"<a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0"><a:noAutofit/></a:bodyPr><a:lstStyle/>"#
-            + paragraphs.joined() + "</p:txBody></p:sp>"
+            + (paragraphs.isEmpty || t.words.isEmpty ? "<a:p/>" : paragraphs.joined()) + "</p:txBody></p:sp>"
+    }
+
+    /// A table: as many columns as its widest row, each as wide, each row as tall; its first row filled.
+    private static func table(_ t: Text, _ rows: [[String]], id: Int) -> String {
+        let columns = max(rows.map(\.count).max() ?? 1, 1), height = Int(t.h * 6_858_000) / max(rows.count, 1)
+        let width = Int(t.w * 12_192_000) / columns
+        let look =
+            #"<a:rPr lang="en-US" sz="\#(Int((t.size * 100).rounded()))"><a:solidFill><a:srgbClr val="\#(t.colour)"/>"#
+            + #"</a:solidFill><a:latin typeface="\#(escape(t.font))"/></a:rPr>"#
+        let body = rows.enumerated().map { r, row in
+            let cells = (0..<columns).map { c in
+                let words = c < row.count ? escape(row[c]) : ""
+                let ground = r == 0 ? t.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill>"# } ?? "" : ""
+                return #"<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r>\#(look)<a:t>\#(words)</a:t></a:r></a:p>"#
+                    + "</a:txBody><a:tcPr>\(ground)</a:tcPr></a:tc>"
+            }
+            return #"<a:tr h="\#(height)">"# + cells.joined() + "</a:tr>"
+        }
+        return #"<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="\#(id)" name="Table \#(id)"/>"#
+            + #"<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/>"#
+            + "</p:nvGraphicFramePr><p:xfrm>\(place(t))</p:xfrm><a:graphic>"
+            + #"<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>"#
+            + #"<a:tblPr firstRow="1"/><a:tblGrid>"# + String(repeating: #"<a:gridCol w="\#(width)"/>"#, count: columns)
+            + "</a:tblGrid>" + body.joined() + "</a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
     }
 
     private static func write(_ data: Data, _ url: URL) throws {
