@@ -37,11 +37,9 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             tab.runJS("kelpPresent(true)")
         }
         let here = (tab.view.window?.screen ?? NSScreen.main)?.visibleFrame ?? .zero
-        let size = NSSize(width: min(1056, here.width - 80), height: min(600, here.height - 80))
         presenter.add(
             last, extra: script(labels: tab.slidesLabels, target: rehearsing),
-            frame: NSRect(origin: NSPoint(x: here.midX - size.width / 2, y: here.midY - size.height / 2), size: size),
-            borderless: false)
+            frame: here.insetBy(dx: here.width / 8, dy: here.height / 8), borderless: false)
         tab.runJS("window.kelpGo?.(window.kelpAt || 0)")
     }
 
@@ -74,7 +72,7 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.contentView = web
         window.delegate = self
-        if borderless { window.level = .screenSaver }
+        if borderless { window.level = .screenSaver } else { window.appearance = NSAppearance(named: .darkAqua) }
         window.makeKeyAndOrderFront(nil)
         windows.append(window)
         views.append(web)
@@ -162,7 +160,8 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             if (c.tagName !== 'IFRAME') return into.append(c);
             // A deck made as a design: the board drawn again, scaled to the room it has.
             const k = into.clientWidth / (+c.dataset.w || 1920), box = el('div');
-            box.style.cssText = 'overflow: hidden; border-radius: 4px; height: ' + (+c.dataset.h || 1080) * k + 'px';
+            box.style.cssText = 'overflow: hidden; border-radius: var(--k-radius-xs); height: '
+              + (+c.dataset.h || 1080) * k + 'px';
             c.style.transformOrigin = '0 0'; c.style.transform = 'scale(' + k + ')';
             box.append(c); into.append(box);
           };
@@ -187,20 +186,26 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
           const style = el('style');
           style.textContent = `
             body.kelp-presenter > :not(.kp-root) { display: none !important; }
-            body.kelp-presenter { margin: 0; background: #171717; color: #f2f2f2; overflow: hidden; }
+            body.kelp-presenter { \(CanvasChrome.dark) margin: 0; background: var(--k-ground); color: var(--k-label);
+              overflow: hidden; }
             .kp-root { position: fixed; inset: 0; display: flex; gap: 16px; padding: 16px;
-              font: 13px -apple-system, sans-serif; }
+              font: var(--k-text-body) -apple-system, sans-serif; }
             .kp-left { width: 60%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-            .kp-right { flex: 1; border-left: 1px solid rgba(255,255,255,.1); padding-left: 16px; overflow: auto; }
+            .kp-right { flex: 1; border-left: 1px solid var(--k-sep); padding-left: 16px; overflow: auto; }
             .kp-top { display: flex; align-items: center; gap: 10px; }
-            .kp-clock { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
-            .kp-btn { height: 22px; padding: 0 9px; border: 0; border-radius: 6px; background: rgba(255,255,255,.1);
-              color: inherit; font: inherit; font-size: 11px; }
-            .kp-grow { flex: 1; } .kp-where, .kp-label { color: rgba(255,255,255,.55); font-size: 11px; }
-            .kp-now .slide, .kp-pair .slide { display: block; width: 100% !important; border-radius: 4px; }
+            .kp-clock { font-size: calc(var(--k-text-title) * 1.5); font-weight: 600;
+              font-variant-numeric: tabular-nums; }
+            .kp-btn { height: 22px; padding: 0 9px; border: 0; border-radius: var(--k-radius-capsule);
+              background: var(--k-rest); color: inherit; font: inherit; font-size: var(--k-text-caption);
+              transition: background var(--k-fast) ease-out; }
+            .kp-btn:hover { background: var(--k-hover); } .kp-btn:active { background: var(--k-sel); transition: none; }
+            .kp-grow { flex: 1; } .kp-where, .kp-label { color: var(--k-sec); font-size: var(--k-text-caption); }
+            .kp-now .slide, .kp-pair .slide { display: block; width: 100% !important;
+              border-radius: var(--k-radius-xs); }
             .kp-pair { display: flex; gap: 10px; } .kp-pair > div { flex: 0 0 32%; min-width: 0; }
-            .kp-notes { margin-top: 8px; font-size: 21px; line-height: 30px; font-weight: 600;
-              white-space: pre-wrap; }`;
+            .kp-notes { margin-top: 8px; font-size: calc(var(--k-text-heading) * 1.4); line-height: 1.43;
+              font-weight: 600; white-space: pre-wrap; }
+            @media (prefers-reduced-motion: reduce) { .kp-btn { transition: none; } }`;
           document.head.append(style);
           kelpGo(window.kelpAt || 0);
         })();

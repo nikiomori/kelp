@@ -184,11 +184,12 @@ enum PageMarks {
         \(CanvasChrome.style)
         \(CanvasEdit.style)
         \(MarkColumn.style)
-        ::highlight(kelp-mark) { background-color: rgba(255,149,0,.28); }
+        ::highlight(kelp-mark) { background-color: color-mix(in srgb, var(--k-orange) 28%, transparent); }
         .kelp-markbtn { position: absolute; z-index: 2147483647; display: none; padding: 4px 10px; border: 0;
-          border-radius: 999px; font: 500 var(--k-text-row) -apple-system, BlinkMacSystemFont, sans-serif;
+          border-radius: var(--k-radius-capsule);
+          font: 500 var(--k-text-row) -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--k-accent);
-          color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); cursor: default; }
+          color: var(--k-on-accent); box-shadow: var(--k-shadow-float-sm); cursor: default; }
         .kelp-quote { font-style: italic; color: var(--k-sec); }
         .kelp-toc { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--k-label);
           font: inherit; padding: 4px 12px; border-radius: 0; white-space: nowrap; overflow: hidden;

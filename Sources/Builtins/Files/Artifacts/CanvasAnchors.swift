@@ -58,11 +58,12 @@ enum CanvasAnchors {
         """
 
     static let style = """
-        .kelp-anchor { flex: none; height: 16px; padding: 0 6px; border: 0; border-radius: var(--k-radius-md);
+        .kelp-anchor { flex: none; height: 16px; padding: 0 6px; border: 0; border-radius: var(--k-radius-xs);
           font: var(--k-text-micro) -apple-system, sans-serif;
-          background: color-mix(in srgb, var(--k-orange) 20%, transparent); color: var(--k-orange); }
-        .kelp-anchor-gone { background: color-mix(in srgb, var(--k-red, #ff453a) 20%, transparent);
-          color: var(--k-red, #ff453a); }
+          background: color-mix(in srgb, var(--k-orange) 20%, transparent);
+          color: var(--k-text-orange); }
+        .kelp-anchor-gone { background: color-mix(in srgb, var(--k-red) 20%, transparent);
+          color: var(--k-text-red); }
         .kelp-ghost { position: absolute; border: 1.5px dashed var(--k-orange); border-radius: var(--k-radius-xs);
           opacity: .7; }
         .kelp-repointing .kelp-sheet { cursor: crosshair; }

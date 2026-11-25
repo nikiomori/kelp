@@ -328,9 +328,10 @@ enum CanvasEditMode {
     /// an element.
     static let style = """
         .kelp-chosen { position: absolute; display: none; box-sizing: border-box; border: 2px solid var(--k-accent);
-          border-radius: 2px; }
+          border-radius: var(--k-radius-xs); }
         .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: var(--k-radius-xs);
-          background: var(--k-accent); color: #fff; font: 500 var(--k-text-micro)/16px -apple-system, sans-serif;
+          background: var(--k-accent); color: var(--k-on-accent); font: 500 var(--k-text-micro)/16px -apple-system,
+          sans-serif;
           white-space: nowrap; }
         .kelp-q { color: var(--k-sec); }
         .kelp-col-head:has(.kelp-ihd) { height: auto; padding: 10px 12px 8px; }
@@ -346,13 +347,13 @@ enum CanvasEditMode {
         .kelp-isec { padding: 8px 12px 6px; border-bottom: 1px solid var(--k-sep); }
         .kelp-ititle { font-size: var(--k-text-caption); font-weight: 600; color: var(--k-sec); margin-bottom: 4px; }
         .kelp-irow { display: grid; grid-template-columns: 88px minmax(0, 1fr) 16px; align-items: center; gap: 6px;
-          height: 26px; }
+          height: 24px; }
         .kelp-ilabel { color: var(--k-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .kelp-ireset { border: 0; background: none; color: var(--k-sec); padding: 0; font-size: var(--k-text-caption);
           border-radius: var(--k-radius-xs); }
         .kelp-ireset:hover { color: var(--k-label); background: var(--k-hover); }
         .kelp-ipop { display: flex; align-items: center; height: 20px; min-width: 0; padding: 0 6px; border: 0;
-          border-radius: 5px; background: var(--k-hover); color: var(--k-label);
+          border-radius: var(--k-radius-sm); background: var(--k-hover); color: var(--k-label);
           font: var(--k-text-row) -apple-system, sans-serif; }
         .kelp-ipop:hover { background: var(--k-sel); }
         .kelp-ipop::after { content: "⌄"; color: var(--k-sec); font-size: var(--k-text-micro); margin-left: 4px;
@@ -360,7 +361,8 @@ enum CanvasEditMode {
           top: -2px; }
         .kelp-itok { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .kelp-ival { color: var(--k-sec); margin-left: auto; padding-left: 6px; font-variant-numeric: tabular-nums; }
-        .kelp-iswatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px;
+        .kelp-iswatch { display: inline-block; width: 12px; height: 12px;
+          border-radius: var(--k-radius-xs); margin-right: 6px;
           vertical-align: -2px; box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-iseg { display: flex; gap: 2px; height: 20px; padding: 1px; border-radius: 5px;
           background: var(--k-hover); }
@@ -370,7 +372,8 @@ enum CanvasEditMode {
         .kelp-iseg button.on { background: var(--k-sel); color: var(--k-label); }
         .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .kelp-ipair.kelp-isides { grid-template-columns: repeat(4, 1fr); gap: 4px; }
-        .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px;
+        .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px;
+          border-radius: var(--k-radius-sm);
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-ifld b { color: var(--k-quiet); font-weight: 500; font-size: var(--k-text-micro); margin-right: 6px; }
         .kelp-ifld input { width: 100%; min-width: 0; border: 0; outline: 0; background: none; color: var(--k-label);
@@ -379,13 +382,15 @@ enum CanvasEditMode {
         .kelp-islide { display: flex; align-items: center; gap: 8px; }
         .kelp-islide input { flex: 1; min-width: 0; height: 14px; margin: 0; background: none;
           -webkit-appearance: none; }
-        .kelp-islide input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+        .kelp-islide input::-webkit-slider-runnable-track { height: 4px;
+          border-radius: var(--k-radius-capsule);
           background: linear-gradient(var(--k-sec), var(--k-sec)) 0 / var(--v, 100%) 100% no-repeat, var(--k-sel); }
         .kelp-islide input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
           margin-top: -5px;
-          border-radius: 50%; background: var(--k-knob); box-shadow: 0 1px 2px rgba(0,0,0,.45); }
+          border-radius: 50%; background: var(--k-knob); box-shadow: var(--k-shadow-float-sm); }
         .kelp-type { position: absolute; z-index: 26; margin: 0; padding: 0; border: 0; resize: none;
           white-space: pre-wrap;
-          overflow: hidden; background: rgba(0,122,255,.08); outline: 2px solid var(--k-accent); border-radius: 2px; }
+          overflow: hidden; outline: 2px solid var(--k-accent);
+          background: color-mix(in srgb, var(--k-accent) 8%, transparent); border-radius: var(--k-radius-xs); }
         """
 }

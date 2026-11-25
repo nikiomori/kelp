@@ -137,7 +137,7 @@ enum CanvasLayers {
     static let style = """
         .kelp-layers { max-height: 220px; overflow: auto; outline: none; border-radius: var(--k-radius-sm); }
         .kelp-layers:focus { box-shadow: inset 0 0 0 1px var(--k-accent); }
-        .kelp-lrow { height: 22px; line-height: 22px; border-radius: var(--k-radius-xs);
+        .kelp-lrow { height: 24px; line-height: 24px; border-radius: var(--k-radius-xs);
           font-size: var(--k-text-row); white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis; cursor: default; }
         .kelp-lrow:hover { background: var(--k-hover); }

@@ -78,7 +78,6 @@ enum CanvasStates {
           margin-right: calc(6px / var(--z, 1)); vertical-align: -1px; box-sizing: border-box;
           border-radius: 50%; border: 1.5px solid var(--k-sep); border-top-color: var(--k-sec);
           animation: kelp-spin 1s linear infinite; }
-        @keyframes kelp-spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) { .kelp-ring { animation: none; } }
         """
 }

@@ -21,7 +21,7 @@ enum CanvasVariants {
             });
             const of = fr.dataset.variant || (originals.has(board) ? board : null);
             if (!of) continue;
-            const keep = K.el('button', 'kelp-pill kelp-keep', L.keep), more = K.el('button', 'kelp-pill', L.more);
+            const keep = K.el('button', 'kelp-prominent', L.keep), more = K.el('button', 'kelp-pill', L.more);
             keep.onclick = e => { e.stopPropagation(); K.post({ kind: 'keepVariant', board, of }); };
             more.onclick = e => { e.stopPropagation(); K.post({ kind: 'moreLike', board, of }); };
             name.append(keep, more);
@@ -29,7 +29,7 @@ enum CanvasVariants {
         """
 
     static let style = """
-        .frame .name .kelp-pill { margin-left: 6px; font-size: calc(var(--k-text-micro) / var(--z, 1)); }
-        .frame .name .kelp-keep { background: var(--k-accent); color: #fff; }
+        .frame .name .kelp-pill, .frame .name .kelp-prominent { margin-left: 6px; height: 22px;
+          font-size: calc(var(--k-text-micro) / var(--z, 1)); }
         """
 }

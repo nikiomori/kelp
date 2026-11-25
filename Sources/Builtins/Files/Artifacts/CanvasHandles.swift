@@ -261,13 +261,16 @@ enum CanvasHandles {
     /// The CSS for the corners, the guides and the distances.
     static let style = """
         .kelp-handles { position: absolute; inset: 0 auto auto 0; display: none; z-index: 16; pointer-events: none; }
-        .kelp-handle { position: absolute; width: 8px; height: 8px; box-sizing: border-box; background: #fff;
-          border: 1.5px solid var(--k-accent); border-radius: 2px; pointer-events: auto; }
+        .kelp-handle { position: absolute; width: 8px; height: 8px; box-sizing: border-box; background: var(--k-knob);
+          border: 1.5px solid var(--k-accent);
+          border-radius: var(--k-radius-xs); pointer-events: auto; }
         .kelp-h-nw, .kelp-h-se { cursor: nwse-resize; }
         .kelp-h-ne, .kelp-h-sw { cursor: nesw-resize; }
         .kelp-guides { position: absolute; inset: 0 auto auto 0; z-index: 16; pointer-events: none; }
-        .kelp-guide { position: absolute; background: #ff2d55; }
-        .kelp-measure-n { position: absolute; transform: translate(-50%, -50%); padding: 0 4px; border-radius: 3px;
-          background: #ff2d55; color: #fff; font: 600 var(--k-text-micro)/15px -apple-system, sans-serif; }
+        .kelp-guide { position: absolute; background: var(--k-guide); }
+        .kelp-measure-n { position: absolute; transform: translate(-50%, -50%); padding: 0 4px;
+          border-radius: var(--k-radius-xs);
+          background: var(--k-guide); color: var(--k-on-accent);
+          font: 600 var(--k-text-micro)/15px -apple-system, sans-serif; }
         """
 }

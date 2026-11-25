@@ -122,12 +122,13 @@ enum CanvasCrop {
         .kelp-crop { position: absolute; inset: 0 auto auto 0; z-index: 18; pointer-events: none; }
         .kelp-crop-area { position: absolute; box-shadow: 0 0 0 1.5px var(--k-accent); cursor: move;
           pointer-events: auto; }
-        .kelp-crop-h { position: absolute; width: 24px; height: 6px; border-radius: 3px; background: var(--k-accent);
+        .kelp-crop-h { position: absolute; width: 24px; height: 6px; border-radius: var(--k-radius-xs);
+          background: var(--k-accent);
           pointer-events: auto; }
         .kelp-crop-left, .kelp-crop-right { width: 6px; height: 24px; cursor: ew-resize; }
         .kelp-crop-top, .kelp-crop-bottom { cursor: ns-resize; }
         .kelp-crop-bar { position: absolute; display: flex; gap: 2px; padding: 3px; border-radius: var(--k-radius-md);
-          background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          background: var(--k-float); box-shadow: var(--k-shadow-float-sm);
           font: var(--k-text-caption) -apple-system, sans-serif;
           color: var(--k-label); pointer-events: auto; }
         """

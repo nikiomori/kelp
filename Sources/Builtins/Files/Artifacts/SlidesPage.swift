@@ -30,6 +30,7 @@ enum SlidesPage {
 
     static let style = """
         <style>
+        :root{\(CanvasChrome.sizes)}
         html{background:var(--subtle)}
         body{margin:0}
         .markdown-body{max-width:none;padding:0;margin:0}
@@ -37,18 +38,19 @@ enum SlidesPage {
         .kelp-thumbs{width:150px;flex:none;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;
           border-right:1px solid var(--border);background:var(--bg)}
         .kelp-thumb{display:flex;gap:6px;align-items:flex-start;border:0;background:none;padding:0;color:var(--muted);
-          font:10px/1.2 -apple-system,sans-serif;font-variant-numeric:tabular-nums;cursor:default}
+          font:var(--k-text-micro)/1.2 -apple-system,sans-serif;font-variant-numeric:tabular-nums;cursor:default}
         .kelp-thumb span{width:10px;flex:none;text-align:right}
-        .kelp-thumb .slide{transition:box-shadow .12s ease-out}
+        .kelp-thumb .slide{transition:box-shadow var(--k-fast) ease-out}
         .kelp-thumb:hover:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-hover,rgba(127,127,127,.25))}
         .kelp-thumb:active:not(.on) .slide{box-shadow:0 0 0 2.5px var(--k-sel,rgba(127,127,127,.35));transition:none}
         @media (prefers-reduced-motion:reduce){.kelp-thumb .slide{transition:none}}
-        .kelp-thumb .slide{width:112px !important;border-radius:4px;pointer-events:none;display:block;text-align:left}
+        .kelp-thumb .slide{width:112px !important;border-radius:var(--k-radius-xs);pointer-events:none;display:block;
+          text-align:left}
         .kelp-thumb.on .slide{box-shadow:0 0 0 2.5px var(--k-accent,#007aff)}
         .kelp-stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
           gap:10px}
         .kelp-stage>.slide{display:none}.kelp-stage>.slide.on{display:block}
-        .kelp-at{font:12px -apple-system,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+        .kelp-at{font:var(--k-text-row) -apple-system,sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
         .slide{--acc:var(--deck-accent,#007aff);container-type:inline-size;position:relative;aspect-ratio:16/9;
           flex:none;
           background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;
@@ -71,10 +73,11 @@ enum SlidesPage {
         .k-picture .slide-body{display:grid;grid-template-columns:1fr 1fr;column-gap:5cqw;align-content:center}
         .k-picture .slide-body>p:has(img){grid-column:2;grid-row:1/span 20;margin:0;align-self:center}
         .k-picture .slide-body img{width:100%;max-height:70cqw;object-fit:contain;border-radius:1cqw}
-        .kelp-at .kelp-keep{margin-left:8px;background:var(--k-accent,#007aff);color:#fff}
+        .kelp-at .kelp-prominent{margin-left:8px}
         .kelp-notes{align-self:stretch;flex:none;height:96px;padding:8px 16px;border-top:1px solid var(--border);
-          font:13px/19px -apple-system,sans-serif;overflow:auto}
-        .kelp-notes-head{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted)}
+          font:var(--k-text-body)/1.45 -apple-system,sans-serif;overflow:auto}
+        .kelp-notes-head{display:flex;justify-content:space-between;font-size:var(--k-text-caption);font-weight:600;
+          color:var(--muted)}
         .kelp-notes-saved{font-weight:400}
         .kelp-notes-field{margin-top:6px;outline:none;min-height:38px;white-space:pre-wrap}
         .kelp-notes-field:empty::before{content:attr(data-hint);color:var(--muted)}
@@ -169,7 +172,7 @@ enum SlidesPage {
             where.textContent = at2.textContent = place;
             // A slide with other layouts, or one of them: Keep puts it in their place (`SlideVariants`).
             if ((window.kelpSlideGroups || []).some(g => g.includes(lineOf(slides[at])))) {
-              const keep = el('button', 'kelp-pill kelp-keep', L.keep);
+              const keep = el('button', 'kelp-prominent', L.keep);
               keep.onclick = () => post({ kind: 'keepSlide', line: lineOf(slides[at]) });
               where.append(' ', keep);
             }

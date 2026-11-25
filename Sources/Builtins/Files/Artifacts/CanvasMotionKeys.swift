@@ -295,13 +295,15 @@ enum CanvasMotionKeys {
         .kelp-cv-arm { stroke: var(--k-accent); stroke-width: 1.2; fill: none; }
         .kelp-cv-knob { fill: var(--k-accent); cursor: grab; }
         .kelp-cv-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-        .kelp-cv-num { width: 100%; min-width: 0; height: 20px; border: 0; border-radius: 5px; padding: 0 6px;
+        .kelp-cv-num { width: 100%; min-width: 0; height: 20px; border: 0;
+          border-radius: var(--k-radius-sm); padding: 0 6px;
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); color: var(--k-label);
           font: var(--k-text-row) -apple-system, sans-serif; font-variant-numeric: tabular-nums; }
         .kelp-cv-seg { margin: 4px 0; }
         .kelp-cv-sub { margin-top: 8px; }
         .kelp-cv-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-        .kelp-cv-tile { height: 30px; border: 0; border-radius: 5px; background: var(--k-hover); color: var(--k-sec);
+        .kelp-cv-tile { height: 30px; border: 0;
+          border-radius: var(--k-radius-sm); background: var(--k-hover); color: var(--k-sec);
           font: var(--k-text-micro) -apple-system, sans-serif; }
         .kelp-cv-tile.on { background: var(--k-sel); color: var(--k-label); }
         """

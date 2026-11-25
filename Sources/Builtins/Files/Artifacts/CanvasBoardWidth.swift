@@ -109,8 +109,9 @@ enum CanvasBoardWidth {
           visibility: visible; }
         .frame:has(.kelp-wgrip) { position: relative; }
         .kelp-wgrip { position: absolute; right: calc(-12px / var(--z, 1)); top: 50%; width: calc(5px / var(--z, 1));
-          height: calc(44px / var(--z, 1)); border-radius: 3px; background: var(--k-accent); cursor: ew-resize;
-          opacity: 0; transition: opacity .15s; }
+          height: calc(44px / var(--z, 1)); border-radius: var(--k-radius-xs); background: var(--k-accent);
+          cursor: ew-resize;
+          opacity: 0; transition: opacity var(--k-fast); }
         .frame:hover .kelp-wgrip, .kelp-wgrip:active { opacity: 1; }
         """
 }

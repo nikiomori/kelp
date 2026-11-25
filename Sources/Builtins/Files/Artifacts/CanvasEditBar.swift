@@ -56,11 +56,12 @@ enum CanvasEditBar {
     /// The bar: the floating card of Kelp's pages, words 11, its buttons answering the pointer.
     static let style = """
         .kelp-ebar { position: absolute; z-index: 17; display: flex; align-items: center; gap: 2px; padding: 3px;
-          border-radius: var(--k-radius-md); background: var(--k-float); box-shadow: 0 2px 6px rgba(0,0,0,.2);
+          border-radius: var(--k-radius-md); background: var(--k-float); box-shadow: var(--k-shadow-float-sm);
           -webkit-backdrop-filter: blur(20px); font: var(--k-text-caption) -apple-system, sans-serif;
           color: var(--k-label); }
         .kelp-ebtn { display: flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border: 0;
-          border-radius: 5px; background: none; color: inherit; font: inherit; font-variant-numeric: tabular-nums;
+          border-radius: calc(var(--k-radius-md) - 3px); background: none; color: inherit; font: inherit;
+          font-variant-numeric: tabular-nums;
           white-space: nowrap; }
         .kelp-ebtn:hover { background: var(--k-hover); }
         .kelp-ebtn:active { background: var(--k-sel); }

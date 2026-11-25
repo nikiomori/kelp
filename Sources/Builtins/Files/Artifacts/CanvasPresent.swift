@@ -38,6 +38,7 @@ enum CanvasPresent {
           function present() {
             slides.forEach((f, i) => f.closest('.frame').classList.toggle('kelp-current', i === at));
             const f = slides[at];
+            back.disabled = at <= 0; next.disabled = at >= slides.length - 1;
             const fits = f && Math.min(innerWidth / f.offsetWidth, (innerHeight - 64) / f.offsetHeight);
             if (f) f.style.transform = 'scale(' + fits + ')';
             if (f) {

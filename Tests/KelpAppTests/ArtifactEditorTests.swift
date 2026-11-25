@@ -29,6 +29,16 @@ extension OneAtATime {
 
 extension OneAtATime {
     /// A dashboard's View menu has the languages a design has, but no themes: it follows the window's look.
+    /// The zoom capsule lies over the sheet Mark and Edit draw on: a click on − + Fit reaches it, not a new mark.
+    @Test func theZoomCapsuleIsOverTheMarkingSheet() throws {
+        func layer(_ rule: String, in css: String) throws -> Int {
+            let from = try #require(css.range(of: rule + " {"))
+            let z = try #require(css[from.upperBound...].firstMatch(of: /z-index: (\d+)/))
+            return try #require(Int(z.1))
+        }
+        #expect(try layer(".kelp-float", in: CanvasChrome.style) > layer(".kelp-sheet", in: CanvasEdit.style))
+    }
+
     @Test func aDashboardsViewMenuHasNoThemes() {
         _ = NSApplication.shared
         let url = URL(fileURLWithPath: "/tmp/kelp-dash-view/.kelp/artifacts/numbers/canvas.json")
