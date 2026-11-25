@@ -59,12 +59,12 @@ extension ArtifactBar {
             markdown.showVersion(nil)
             return update()
         }
-        Task {
-            guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else {
-                return
-            }
+        Task { [weak tab = markdown] in   // the tab may close while it reads
+            guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))),
+                let tab
+            else { return }
             shownN = version.n
-            markdown.showVersion(file.text)
+            tab.showVersion(file.text)
             update()
         }
     }
