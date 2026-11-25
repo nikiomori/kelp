@@ -218,7 +218,8 @@ extension Store {
             }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
-        return try strings(params, depth: 0).filter { UUID(uuidString: $0) != nil }
+        // A repository inside a workspace's folder (`RepoKey`) names that workspace.
+        return try strings(params, depth: 0).map { RepoKey.parts($0)?.id ?? $0 }.filter { UUID(uuidString: $0) != nil }
     }
 
     /// Whether an agent may work in `workspace`. It may in the workspace of `own` or of a session that started it, in a
@@ -226,7 +227,8 @@ extension Store {
     /// With `typed`, an agent typed into `own` (the user's terminal) may work in that terminal's workspace, where it
     /// runs, and in the ones it made or started a session in. It may not work in those the user made or worked in from
     /// that terminal.
-    func works(_ own: String, in workspace: String, typed: Bool = false) throws -> Bool {
+    func works(_ own: String, in place: String, typed: Bool = false) throws -> Bool {
+        let workspace = RepoKey.parts(place)?.id ?? place   // a repository in its folder (`RepoKey`) is the workspace
         let line = try lineage(own)
         if line.contains(where: { $0.worktreeId == workspace }) { return true }
         let maker = try worktree(workspace)?.madeBy

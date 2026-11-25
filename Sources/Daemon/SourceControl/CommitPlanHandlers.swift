@@ -44,13 +44,25 @@ extension CommitPlanTake: Handled {
 
 extension GitCommitPaths: Handled {
     func handle(_ scm: SourceControl) throws -> String {
-        try Git.commit(scm.folder(worktreeId), files: files, message: message, remotes: scm.remotes)
+        // In a folder of repositories (`RepoKey`), a commit in each repository the files are in, by name and hash.
+        let folder = try scm.folder(worktreeId)
+        guard scm.repos(in: folder) != nil else {
+            return try Git.commit(folder, files: files, message: message, remotes: scm.remotes)
+        }
+        return try scm.places(folder, files).map { place in
+            (place.folder as NSString).lastPathComponent + " "
+                + (try Git.commit(place.folder, files: place.files, message: message, remotes: scm.remotes))
+        }.joined(separator: ", ")
     }
 }
 
 extension GitUndoCommits: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        try Git.undoCommits(scm.folder(worktreeId), head: head, count: count, remotes: scm.remotes)
+        let folder = try scm.folder(worktreeId)
+        guard scm.repos(in: folder) == nil else {
+            throw RPCError.invalidParams("Undo the commits in each repository: this folder holds several.")
+        }
+        try Git.undoCommits(folder, head: head, count: count, remotes: scm.remotes)
         return Done()
     }
 }

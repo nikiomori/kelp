@@ -23,6 +23,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     final class Node: NSObject {
         enum Kind {
             case section(Section), file(FileChange, Section), commit(Int), commitFile(String, FileChange), note(String)
+            /// A repository of a folder that holds several (SourceControl+Repos.swift).
+            case repo(String)
         }
         /// What a file's or a commit's row shows. A rebuild draws again only the rows whose look changed.
         enum Look: Equatable {
@@ -83,6 +85,10 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// The files that another folder of the project changes too, with that folder's branches.
     var shared: [String: [String]] = [:]
     var info: BranchInfo?
+    /// In a folder that holds several repositories (`GitEvent.repos`), their names and each one's branch; nil in a
+    /// folder that is one.
+    var repos: [String]?
+    var repoBranches: [String: BranchInfo] = [:]
     var commits: [GraphCommit] = []
     var unpushed = Set<String>()
     /// Commits that just reached the remote, and when each one lands, oldest first as they left.
@@ -139,7 +145,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         }
         return commitCard
     }()
-    var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
+    var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? []) {
+        didSet { UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed") }
+    }
     /// The section a click just folded or opened, so the chevron in its rebuilt cell turns.
     var turning: Section?
     var roots: [Node] = []
@@ -396,14 +404,16 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         placeholder.stringValue = String(localized: "Message")   // ⌘↩ and what a commit takes are in the tooltip
         guard let cb = commitButton else { return }
         let plan = worktreeId.flatMap { plans[$0] }
-        let next = changes.isEmpty && plan == nil ? nextStep : nil
+        let next = changes.isEmpty && plan == nil ? (repos == nil ? nextStep : severalNext) : nil
         // What a commit takes: the staged files, or all of them when none are staged.
         let files = changes.filter { $0.staged && !$0.conflicted }.count
         let count = files > 0 ? files : changes.count
         let make = plan.map { String(localized: "Make \($0.commits.count) Commits") }
         cb.say(
             syncing?.title ?? confirmed ?? next ?? make
-                ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files")))
+                ?? (repos != nil
+                    ? severalCommitTitle
+                    : count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files")))
         let moved = syncing == nil && confirmed == nil && next != nil ? syncCounts : []
         cb.counts = moved
         // VoiceOver hears the counts in words: the arrows are pictures now.
@@ -418,9 +428,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         cb.action = next == nil ? #selector(commitPressed) : #selector(sync)
         let branch = info?.current ?? "HEAD"
         let what =
-            files > 0
-            ? String(localized: "Commit the staged files on “\(branch)” (⌘↩ in the message)")
-            : String(localized: "Commit all changes on “\(branch)” (⌘↩ in the message)")
+            repos != nil
+            ? String(localized: "Commit in each repository with changes, with this message (⌘↩ in the message)")
+            : files > 0
+                ? String(localized: "Commit the staged files on “\(branch)” (⌘↩ in the message)")
+                : String(localized: "Commit all changes on “\(branch)” (⌘↩ in the message)")
         cb.toolTip =
             plan != nil
             ? String(localized: "Make the commits one by one, each with only its files (⌘↩ in a card)")

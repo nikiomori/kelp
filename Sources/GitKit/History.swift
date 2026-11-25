@@ -364,6 +364,17 @@ extension Git {
         }
     }
 
+    /// Whether the checkout's branch follows a remote branch.
+    public static func hasUpstream(_ path: String, remotes: Remotes) -> Bool {
+        succeeds(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, remotes: remotes)
+    }
+
+    /// Whether a push would send anything: commits its remote branch lacks, or, with none yet, commits beyond `base`.
+    public static func hasWorkToPush(_ path: String, base: String, remotes: Remotes) throws -> Bool {
+        let range = hasUpstream(path, remotes: remotes) ? "@{upstream}..HEAD" : try rev(base) + "..HEAD"
+        return try line(["rev-list", "--count", range], cwd: path, remotes: remotes) != "0"
+    }
+
     /// Pop puts staged changes back as staged when it can (`--index`), like VS Code.
     public static func stash(_ path: String, pop: Bool, remotes: Remotes) throws {
         guard pop else {

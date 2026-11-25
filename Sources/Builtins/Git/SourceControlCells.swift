@@ -188,7 +188,8 @@ final class FileCell: NSTableCellView, Hoverable {
     func show(
         _ fileChange: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat,
         actions rowActions: [RowAction],
-        shared: [String] = [], commit: Int? = nil, through: (lanes: [Int], width: CGFloat)? = nil
+        shared: [String] = [], commit: Int? = nil, through: (lanes: [Int], width: CGFloat)? = nil,
+        inside repo: String? = nil
     ) {
         alphaValue = 1   // a discarded file's row was faded out (`fadeRows`)
         path = fileChange.path
@@ -202,7 +203,8 @@ final class FileCell: NSTableCellView, Hoverable {
         } else {
             name.stringValue = fileName
         }
-        dir.stringValue = (fileChange.path as NSString).deletingLastPathComponent
+        let folder = (fileChange.path as NSString).deletingLastPathComponent
+        dir.stringValue = repo.map { String(folder.dropFirst($0.count + 1)) } ?? folder
         letterField.stringValue = letter.0
         letterField.textColor = letter.1
         letterField.setAccessibilityLabel(gitLetterWord(letter.0))   // VoiceOver reads a bare "M" as a letter

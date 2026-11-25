@@ -28,7 +28,8 @@ final class WindowBar: NSView {
     let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
     let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
     /// The branch chip's data: the on-screen workspace's git state, as the daemon pushes it (ChangedFiles watches it).
-    private var info: BranchInfo? { app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.branches }
+    private var info: BranchInfo? { event?.shownBranches }
+    private var event: GitEvent? { app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId)) }
 
     /// Whether the workspace on screen has uncommitted changes (a dot on the chip). `syncing` is what a sync running
     /// there says.
@@ -298,8 +299,9 @@ final class WindowBar: NSView {
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
         let font = NSFont.ui(TextSize.row)
+        let name = event?.branchTitle ?? info.current ?? info.head ?? "HEAD"   // a folder of repositories: theirs
         let title = NSMutableAttributedString(
-            string: info.current ?? info.head ?? "HEAD",
+            string: name,
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         for (arrow, commits, color) in [("arrow.down", behind, NSColor.labelColor), ("arrow.up", ahead, .emphasis)]
         where commits > 0 {
@@ -331,7 +333,7 @@ final class WindowBar: NSView {
         ciAtEnd.isActive = atEnd
         let changed = app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.changes?.count ?? 0
         let parts =
-            [info.current ?? info.head ?? "HEAD"] + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
+            [name] + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
             + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (changed > 0 ? [String(localized: "\(changed) changed")] : [])
             + [trouble?.said].compactMap { $0 }

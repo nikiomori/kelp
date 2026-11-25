@@ -22,6 +22,39 @@ extension Git {
         return String(head.dropFirst("ref: refs/heads/".count))
     }
 
+    /// The repositories directly inside `folder`, by folder name and in name order, when `folder` itself isn't in one:
+    /// a project made of several repositories side by side (`RepoKey`). A folder that links to a repository counts.
+    /// Hidden folders don't. Read off the files alone, no git run, because each read of the folder's git asks it.
+    /// Limit: a remote project's folder here holds only its marker, so it holds no repositories.
+    public static func nestedRepos(_ folder: String) -> [String] {
+        guard checkout(folder) == nil,
+            let top = FileManager.default.enumerator(
+                at: URL(fileURLWithPath: folder), includingPropertiesForKeys: nil,
+                options: [.skipsSubdirectoryDescendants, .skipsHiddenFiles])
+        else { return [] }
+        return top.compactMap { ($0 as? URL)?.lastPathComponent }.filter { name in
+            FileManager.default.fileExists(atPath: folder + "/" + name + "/.git")
+        }.sorted()
+    }
+
+    /// A main checkout's default branch read off its files, as `defaultBranch` asks git: origin's HEAD, else main or
+    /// master where one is there, else the branch checked out. No git runs, because a folder of repositories
+    /// (`RepoKey`) names each one's base wherever its project's is read.
+    public static func defaultBranchFromFiles(_ repo: String) -> String {
+        let git = repo + "/.git/"
+        func text(_ file: String) -> String {
+            FileManager.default.contents(atPath: git + file).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        }
+        let packed = text("packed-refs"), origin = text("refs/remotes/origin/HEAD")
+        if origin.hasPrefix("ref: refs/remotes/origin/") {
+            return origin.dropFirst("ref: refs/remotes/origin/".count).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let local = ["main", "master"].first {
+            FileManager.default.fileExists(atPath: git + "refs/heads/" + $0) || packed.contains(" refs/heads/\($0)\n")
+        }
+        return local ?? headBranch(repo) ?? "main"
+    }
+
     /// The top folder of the checkout `path` is in, and whether it is a linked worktree (its `.git` is a file).
     private static func checkout(_ path: String) -> (top: String, linked: Bool)? {
         var url = URL(fileURLWithPath: path).resolvingSymlinksInPath()

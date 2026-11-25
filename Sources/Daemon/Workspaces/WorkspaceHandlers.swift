@@ -24,7 +24,11 @@ extension RepoAdd: Handled {
             case true?:
                 try Git.run(["init", "-q"], cwd: path, remotes: workspaces.remotes)
                 root = try Git.root(of: path, remotes: workspaces.remotes)
-            case false?: root = Paths.real(path) ?? path   // symlinks resolved, like git's top folder
+            // A folder that holds repositories side by side is a project made of them (`RepoKey`): git init would
+            // make one repository of them all, so nothing is asked.
+            case false?,
+                nil where !Git.nestedRepos(path).isEmpty:
+                root = Paths.real(path) ?? path   // symlinks resolved, like git's top folder
             case nil: throw RepoAdd.notARepository
             }
         }
@@ -186,7 +190,8 @@ extension WorktreeRemove: Handled {
         // A branch that was there before the workspace (checked out with `--existing`) isn't Kelp's to delete: only
         // its folder goes, as when a group tidies itself away.
         let branch = workspaces.branchNow(of: workspace, in: repo)
-        let theirs = try !Git.made(repo: repo.path, branch, at: workspace.createdAt, remotes: workspaces.remotes)
+        let made = workspaces.checkouts(workspace, repo)[0].repo   // a folder of repositories: one of its own
+        let theirs = try !Git.made(repo: made, branch, at: workspace.createdAt, remotes: workspaces.remotes)
         try workspaces.removeWorkspace(
             workspace, repo, force: force == true, dropCommits: dropCommits == true, keepBranch: theirs)
         workspaces.databases.dropCopies(of: workspace)   // the workspace's own copies of the project's databases go too

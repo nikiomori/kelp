@@ -6,10 +6,12 @@ import Testing
     // Straight in an async function, a program runs on one of Swift's few pool threads (a sync handler is offloaded
     // whole). Finding a program on the login PATH, or reading that PATH (`childPath`), may run the login shell, for seconds.
     // So does any function of GitKit's or Integrations' that runs git, gh or ssh: all of theirs but the ones that only
-    // read what they're given (`Git.isDirty(_:in:)`, a type's init).
+    // read what they're given (`Git.isDirty(_:in:)`, a type's init) or a folder's files (`Git.nestedRepos`,
+    // `Git.headBranch`: a listing and a HEAD file, no program).
     let blocking = try NSRegularExpression(
         pattern: #"LoginPath\.(resolve\(|value\b)|\bchildPath\b|(?<!await )Subprocess\.(run|checked|output)\("#
-            + #"|\b(?:Git|GitHub|GitLab|CIRuns|ProjectFiles|HostRepo|RepoFilters|BitbucketClient)\.(?!isDirty\([^)]*\bin:)[a-z]\w*\("#
+            + #"|\b(?:Git|GitHub|GitLab|CIRuns|ProjectFiles|HostRepo|RepoFilters|BitbucketClient)\."#
+            + #"(?!isDirty\([^)]*\bin:|nestedRepos\(|headBranch\()[a-z]\w*\("#
     )
     let off = try NSRegularExpression(
         pattern: #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
