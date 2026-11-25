@@ -156,7 +156,8 @@ extension MarkdownTab {
                 html += PageMarks.style
                 scripts += [
                     ownAccent, CanvasChrome.source(labels: chrome, floats: false),
-                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
+                    MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels),
+                    PageCheck.source(known: PageCheck.missingFiles(text, folder: base))
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
                 return (html, scripts + again, nil)

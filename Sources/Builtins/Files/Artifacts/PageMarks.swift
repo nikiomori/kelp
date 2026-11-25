@@ -62,9 +62,20 @@ enum PageMarks {
             focus(m) {
               rangeOf(m.text)?.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             },
-            tabs: () => window.kelpSlides ? [] : [['contents', L.contents]],
-            tabRows: contents
+            tabs: () => (window.kelpSlides ? [] : [['contents', L.contents]])
+              .concat(window.kelpIssues?.length ? [['check', L.check + ' ' + window.kelpIssues.length]] : []),
+            tabRows: tab => tab === 'check' ? checkRows() : contents()
           });
+          // What the check found (`PageCheck`), and the agent asked to fix it.
+          function checkRows() {
+            const issues = window.kelpIssues || [];
+            if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
+            const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');
+            fix.onclick = () => post({ kind: 'fixCheck' });
+            foot.append(fix);
+            return [...issues.map(t => el('div', 'kelp-row kelp-issue', t)), foot];
+          }
+          addEventListener('kelp-check', () => K.draw());
           function contents() {
             const heads = [...root.querySelectorAll('h1, h2, h3')];
             if (!heads.length) return [el('p', 'kelp-note', L.noContents)];

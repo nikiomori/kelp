@@ -239,7 +239,8 @@ extension MarkdownTab {
         [
             "mark": String(localized: "Mark"), "contents": String(localized: "Contents"),
             "noMarks": String(localized: "Select text on the page to mark it, then say what should change."),
-            "noContents": String(localized: "No headings on this page.")
+            "noContents": String(localized: "No headings on this page."),
+            "check": canvasLabels.check, "askFix": canvasLabels.askFix, "noIssues": canvasLabels.noIssues
         ]
     }
 

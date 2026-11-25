@@ -138,3 +138,19 @@ private func demo() throws -> (root: URL, folder: URL) {
     #expect(MarkdownTab.told(found, narrow: false) == [found[1]])
     #expect(MarkdownTab.told(found, narrow: true) == found)
 }
+
+/// A doc's links to files that aren't there are found from its Markdown; a link to the web, to a heading, to a file
+/// that is there, and a picture (found where it's drawn) are not.
+@Test func aDocsLinksToMissingFilesAreFound() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-doc-links-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try "x".write(to: folder.appendingPathComponent("here.md"), atomically: true, encoding: .utf8)
+    let md = """
+        [there](here.md#part) [gone](gone.md) [web](https://example.com) [top](#plan) ![pic](nope.png)
+        [spaced](<my%20notes.md> "title")
+        """
+    #expect(
+        PageCheck.missingFiles(md, folder: folder)
+            == ["a link to gone.md: no such file", "a link to my%20notes.md: no such file"])
+}

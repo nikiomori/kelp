@@ -244,7 +244,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
         applyMode()
         rerender()
-        if page == .canvas || page == .motion { followCanvas() }
+        if [.canvas, .motion, .markdown, .slides].contains(page) { followCanvas() }   // what `kelp artifact check` asks
     }
 
     private let formatting = NSStackView()

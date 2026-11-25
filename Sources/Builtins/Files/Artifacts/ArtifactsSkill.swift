@@ -25,8 +25,8 @@ extension Builtins {
             - A `proof` is for a change you made: what you ran and the pictures of it, before and after, for the user
               to look at before they commit. Make one when they ask you to show that it works, or the project's
               instructions ask.
-            - `kelp artifact check <name>` — what Kelp finds wrong on a design or a video it drew (text cut off,
-              contrast, sizes), as text: run it once instead of a screenshot.
+            - `kelp artifact check <name>` — what Kelp finds wrong on a page it drew (text cut off, contrast,
+              sizes, missing files), as text: run it once instead of a screenshot.
             - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
             - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its
               link, which opens in their own browser (Kelp's tabs aren't signed in to claude.ai).

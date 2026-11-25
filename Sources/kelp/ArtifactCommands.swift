@@ -81,9 +81,9 @@ extension Main {
             if let width, !["390", "768", "1280"].contains(width) { fail("--width takes 390, 768 or 1280") }
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
-                [Artifacts.Kind.design.file, Artifacts.Kind.motion.file].contains(artifact.record.file)
+                artifact.record.file != Artifacts.Kind.review.file
             else {
-                fail("artifact check <name of a design or a motion page> (names: kelp artifact list)")
+                fail("artifact check <name of a page other than a review> (names: kelp artifact list)")
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
             _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
