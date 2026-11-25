@@ -114,7 +114,8 @@ extension LiveSession {
             state.steering?.lastKey = Date()
             return ("\u{1B}[B", st.questionID)   // menus wrap, so stepping down always reaches it
         }
-        if let (key, menuID) = key { write(Data(key.utf8), menuID: menuID) }   // after what's being typed: never between a send's text and its Enter
+        // Queue the menu key after any pending text and its Enter.
+        if let (key, menuID) = key { write(Data(key.utf8), menuID: menuID) }
     }
 
     /// Answers the menu the agent shows (a permission request) from outside the terminal — a notification's Allow / Deny.

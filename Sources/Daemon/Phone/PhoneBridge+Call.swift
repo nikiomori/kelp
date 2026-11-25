@@ -32,8 +32,13 @@ extension PhoneBridge {
     func admit(_ sent: Sent) -> Admitted {
         guard way != nil else { return .refused(503) }
         guard let id = sent.device, let box = sent.box else { return .refused(401) }
-        guard var device = devices[id] else { return register(id, box: box) }
-        guard let ask: Ask = try? PhoneSeal.open(box, about: "q", key: device.key) else { return .refused(401) }
+        var device: PhoneDevice
+        let ask: Ask
+        do {
+            guard let known = devices[id] else { return try register(id, box: box) }
+            device = known
+            ask = try PhoneSeal.open(box, about: "q", key: device.key)
+        } catch { return .refused(401) }
         guard device.admit(ask.n) else { return .refused(409) }
         if device.needsSaving {
             guard Log.session.attempt("keeping a phone's request number", { try save(device, id: id) }) != nil
@@ -56,10 +61,11 @@ extension PhoneBridge {
         }
     }
 
-    private func register(_ id: String, box: String) -> Admitted {
-        guard record?.devices[id] == nil, let pairing, pairing.until > Date(), id.wholeMatch(of: /[\w-]{16,32}/) != nil,
-            let ask: Ask = try? PhoneSeal.open(box, about: "q", key: pairing.key),
-            ask.method == "POST", ask.path == "pair",
+    private func register(_ id: String, box: String) throws -> Admitted {
+        guard record?.devices[id] == nil, let pairing, pairing.until > Date(), id.wholeMatch(of: /[\w-]{16,32}/) != nil
+        else { return .refused(401) }
+        let ask: Ask = try PhoneSeal.open(box, about: "q", key: pairing.key)
+        guard ask.method == "POST", ask.path == "pair",
             let mine = ask.body?["key"]?.string.flatMap(Data.init(base64URL:)), mine.count == 32,
             SymmetricKey(data: mine) != pairing.key
         else { return .refused(401) }

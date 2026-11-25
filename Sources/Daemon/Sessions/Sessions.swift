@@ -37,8 +37,7 @@ final class Sessions: Sendable, WorkspaceSessions {
 
     init(
         root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage,
-        clients: Clients,
-        watches: Watches, offloads: Slots
+        clients: Clients, watches: Watches, offloads: Slots
     ) {
         self.root = root
         self.store = store

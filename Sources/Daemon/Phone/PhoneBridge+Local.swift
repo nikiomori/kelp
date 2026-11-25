@@ -5,6 +5,12 @@ import Foundation
 // localhost port (`PhoneServer`), and Tailscale, or a tunnel the user set up, brings the phone to that port.
 
 extension PhoneBridge {
+    /// Retry timers and heartbeats end as soon as the transport changes.
+    func waitWhileActive(_ duration: Duration) async -> Bool {
+        do { try await Task.sleep(for: duration) } catch { return false }
+        return !Task.isCancelled
+    }
+
     /// Starts this Mac's own server on `port`.
     func serve(_ port: UInt16) {
         guard port != 0 else {
@@ -53,8 +59,7 @@ extension PhoneBridge {
         following = Task {
             await previous?.value
             if !Task.isCancelled { await recoverPublication() }
-            do { try await Task.sleep(for: .seconds(15)) } catch { return }
-            if !Task.isCancelled { serve(port) }
+            if await waitWhileActive(.seconds(15)) { serve(port) }
         }
     }
 
@@ -85,7 +90,9 @@ extension PhoneBridge {
         let tailscale = tailscale
         while !Task.isCancelled {
             let served: Result<String, PhoneTailscale.Failed>
-            do { served = try await Slots.elsewhere { tailscale.serve(port) } } catch { break }
+            do { served = try await Slots.elsewhere { tailscale.serve(port) } } catch {
+                served = .failure(PhoneTailscale.Failed(message: error.rpcMessage))
+            }
             guard !Task.isCancelled else { break }
             switch served {
             case .success(let address):
@@ -95,7 +102,7 @@ extension PhoneBridge {
             }
             tailscaleSteps = served.steps
             for _ in 0..<4 {
-                do { try await Task.sleep(for: .seconds(15)) } catch { break }
+                guard await waitWhileActive(.seconds(15)) else { break }
                 for stream in streams.values { stream.write("\n") }   // A proxy on the way cuts a silent connection.
             }
         }
@@ -138,8 +145,7 @@ extension PhoneBridge {
         guard !stopping.withLock({ $0 }) else { return }
         cleanupRetry?.cancel()
         cleanupRetry = Task {
-            do { try await Task.sleep(for: .seconds(60)) } catch { return }
-            hear(.reconcile)
+            if await waitWhileActive(.seconds(60)) { hear(.reconcile) }
         }
     }
 }
