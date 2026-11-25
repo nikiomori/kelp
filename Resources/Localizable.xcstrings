@@ -41266,6 +41266,16 @@
           }
         }
       }
+    },
+    "A question: the agent answers it and changes nothing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопрос: агент отвечает и ничего не меняет"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

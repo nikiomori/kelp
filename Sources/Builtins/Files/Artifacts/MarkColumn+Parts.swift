@@ -20,6 +20,21 @@ extension MarkColumn {
           };
           return g;
         }
+        // ?: the note is a question for the agent, answered without changing the page (a leading "?").
+        function questionToggle(note, m) {
+          const b = el('button', 'kelp-ib kelp-ask-toggle', '?');
+          const shown = () => b.classList.toggle('on', note.value.startsWith('?'));
+          b.title = L.asQuestion;
+          b.onclick = () => {
+            note.value = note.value.startsWith('?') ? note.value.slice(1).trimStart() : '? ' + note.value;
+            const d = by('draft').find(d => d.id === m.id);
+            if (d) d.note = note.value;
+            keep(); shown();
+          };
+          note.addEventListener('input', shown);
+          shown();
+          return b;
+        }
         // The agent's question, and its choices (`kelp artifact ask … --choice`), a line each: a click answers and
         // sends.
         function asked(m, body) {

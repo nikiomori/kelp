@@ -41,7 +41,14 @@ extension ArtifactMarks {
             if let reference = m.reference { what.append("(example: \(folder)/\(reference))") }
             if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
             let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
-            let note = m.note.isEmpty ? "look at this" : m.note
+            // A note that starts with "?" asks rather than asks for a change: the answer is a reply, the page stays.
+            let question = m.note.hasPrefix("?")
+            let asked = question ? String(m.note.dropFirst()).trimmingCharacters(in: .whitespaces) : m.note
+            let note =
+                (asked.isEmpty ? "look at this" : asked)
+                + (question
+                    ? " (a question: answer it with `kelp artifact reply \(name) \(m.id) \"…\"`, change nothing for it)"
+                    : "")
             lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)
             if let more = details[m.id] { lines.append("  (\(more))") }
             if let last = m.rounds.last {

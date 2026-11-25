@@ -104,7 +104,7 @@ enum MarkColumn {
                 if (e.key === 'Enter' && e.metaKey) { take(); send(); }
                 else if (e.key === 'Enter') note.blur();
               });
-              body.append(note);
+              body.append(note, questionToggle(note, m));
               // About every element like this one (its class), not only it.
               const like = m.kind === 'element' && page?.likeOf?.(m);
               if (like) {

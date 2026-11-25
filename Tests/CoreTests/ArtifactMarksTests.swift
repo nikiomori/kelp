@@ -190,4 +190,11 @@ private let page = ".kelp/artifacts/home/canvas.json"
     #expect(
         ArtifactMarks.message([marks[0]], edits: [], page: page, name: "home", version: 5, kind: "design")
             .components(separatedBy: "\n").first?.hasSuffix(" Rules: `kelp artifact guide design`.") == true)
+    var asking = marks[0]
+    asking.note = "? why so big"
+    #expect(
+        ArtifactMarks.message([asking], edits: [], page: page, name: "home", version: 5).contains(
+            "«Welcome»: why so big (a question: answer it with `kelp artifact reply home 1 \"…\"`, "
+                + "change nothing for it)"
+        ))
 }
