@@ -221,7 +221,8 @@ enum MarkColumn {
               if (busy.who) {
                 foot.append(button(L.queue, false, () => send(true)), button(L.sendNow, true, () => send()));
               }
-              else foot.append(button(d.length ? L.sendCount.replace('%d', n) : L.send, true, () => send()));
+              else foot.append(button(L.sendTo, false, sendTo),   // another agent's chat (Kelp asks which)
+                button(d.length ? L.sendCount.replace('%d', n) : L.send, true, () => send()));
               out.push(foot);
             }
             return out;

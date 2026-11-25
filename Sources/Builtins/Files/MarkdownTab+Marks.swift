@@ -18,6 +18,18 @@ extension MarkdownTab {
         switch kind {
         case "marks":
             sendMarks(drafts(body), queue: body["queue"] as? Bool ?? false, seen: (body["seen"] as? NSNumber)?.intValue)
+        case "marksTo":
+            let list = drafts(body), seen = (body["seen"] as? NSNumber)?.intValue
+            let menu = NSMenu()
+            let chats = app.sessions.filter {
+                $0.isAgent && $0.status != .exited && $0.worktreeId == app.worktree(holding: url.path)?.id
+            }
+            for chat in chats {
+                let title = app.catalog.name(chat.agent) + (chat.title.isEmpty ? "" : " — " + chat.title)
+                menu.add(title) { [weak self] in self?.sendMarks(list, queue: false, seen: seen, to: chat) }
+            }
+            if chats.isEmpty { menu.add(String(localized: "No agent chats in this workspace")) {}.isEnabled = false }
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
         case "marksDraft":
             let list = drafts(body), seen = (body["seen"] as? NSNumber)?.intValue
             Task { change(.drafts(await stampIDs(list), seen: seen)) }
@@ -63,10 +75,12 @@ extension MarkdownTab {
     /// Sends the drafts, in order: first all drafts as they
     /// are (so each has its number), then with a picture of each area and stroke, and then the message, to the chat
     /// that made the page (or the agent on screen). With `queue` while that agent works, they wait for its turn to end.
-    private func sendMarks(_ drafts: [ArtifactMark], queue: Bool, seen: Int?) {
+    private func sendMarks(_ drafts: [ArtifactMark], queue: Bool, seen: Int?, to chosen: Session? = nil) {
         Task {
             // Who gets them is settled first: with no agent to take them, they stay drafts.
-            guard let agent = await markTaker() else { return }
+            var taker = chosen
+            if taker == nil { taker = await markTaker() }
+            guard let agent = taker else { return }
             guard let numbered = await changed(.drafts(await stampIDs(drafts), seen: seen)) else { return }
             let all = numbered.marks.filter { $0.state == .draft }
             let sending = all
@@ -217,7 +231,7 @@ extension MarkdownTab {
             "sendCount": String(localized: "Send %d"),
             "queue": String(localized: "Queue"), "sendNow": String(localized: "Send Now"),
             "working": String(localized: "%@ is working"), "queued": String(localized: "%d queued"),
-            "stop": String(localized: "Stop"),
+            "stop": String(localized: "Stop"), "sendTo": String(localized: "Send To…"),
             "asQuestion": String(localized: "A question: the agent answers it and changes nothing"),
             "asks": String(localized: "%@ asks"), "answer": String(localized: "Your answer"),
             "next": String(localized: "Next you might ask"), "allLike": String(localized: "All like this"),

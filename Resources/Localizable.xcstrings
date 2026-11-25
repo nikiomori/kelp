@@ -41276,6 +41276,26 @@
           }
         }
       }
+    },
+    "Send To…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить…"
+          }
+        }
+      }
+    },
+    "No agent chats in this workspace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этой рабочей области нет чатов агентов"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

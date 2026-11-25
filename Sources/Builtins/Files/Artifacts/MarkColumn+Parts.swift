@@ -20,6 +20,12 @@ extension MarkColumn {
           };
           return g;
         }
+        // Send to…: the drafts go to another agent's chat in this workspace, chosen from Kelp's menu.
+        function sendTo() {
+          for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
+          const d = by('draft');
+          if (d.length || M.edits.length) post({ kind: 'marksTo', marks: d, seen: seen() });
+        }
         // ?: the note is a question for the agent, answered without changing the page (a leading "?").
         function questionToggle(note, m) {
           const b = el('button', 'kelp-ib kelp-ask-toggle', '?');
