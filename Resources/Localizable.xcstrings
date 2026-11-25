@@ -40866,6 +40866,16 @@
           }
         }
       }
+    },
+    "Colours, fonts and parts from a website, brand files or the project’s code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета, шрифты и детали с сайта, из файлов бренда или из кода проекта"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -14,6 +14,8 @@ enum ArtifactStart {
         "pptx": .slides, "key": .slides, "pdf": .doc, "docx": .doc, "pages": .doc, "md": .doc, "txt": .doc,
         "rtf": .doc, "xlsx": .dashboard, "numbers": .dashboard, "csv": .dashboard
     ]
+    /// Brand files: they suggest the project's design system rather than a page.
+    static let brand: Set<String> = ["svg", "png", "jpg", "jpeg", "ttf", "otf", "woff", "woff2", "ase"]
     static let choices: [Artifacts.Kind] = [.slides, .doc, .dashboard, .design, .motion]
 
     static func title(_ kind: Artifacts.Kind) -> String {
@@ -36,6 +38,15 @@ enum ArtifactStart {
         """
     }
 
+    /// What the agent is asked for the project's design system made from `file` (copied into .kelp/design).
+    static func designSystem(from file: String) -> String {
+        """
+        Make the project's design system (`kelp artifact guide design system`) from \(file): read it whole, take \
+        its colours, fonts, sizes and marks, and keep what it doesn't say from the project's code. Say in two lines \
+        what you took from it.
+        """
+    }
+
     /// What the agent is asked for `page`, a new page of `kind` made from `source`.
     static func brief(turning source: String, into page: String, kind: Artifacts.Kind, decided: [String]) -> String {
         var lines = [
@@ -54,7 +65,10 @@ extension ArtifactsPanel {
         _ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
         proposedDropOperation dropOperation: NSTableView.DropOperation
     ) -> NSDragOperation {
-        guard let file = Self.dropped(info), ArtifactStart.kinds[file.pathExtension.lowercased()] != nil else {
+        guard let file = Self.dropped(info),
+            ArtifactStart.kinds[file.pathExtension.lowercased()] != nil
+                || ArtifactStart.brand.contains(file.pathExtension.lowercased())
+        else {
             return []
         }
         tableView.setDropRow(-1, dropOperation: .on)   // the whole list, not between rows
@@ -84,8 +98,11 @@ extension ArtifactsPanel {
             alert.informativeText = String(localized: "An agent makes it from the file, which is kept beside it.")
             let kind = PointerPopUpButton(), agent = PointerPopUpButton()
             kind.addItems(withTitles: ArtifactStart.choices.map(ArtifactStart.title))
+            kind.addItem(withTitle: String(localized: "Design System"))   // the last: not a page
             let suggested = ArtifactStart.kinds[file.pathExtension.lowercased()] ?? .doc
-            kind.selectItem(at: ArtifactStart.choices.firstIndex(of: suggested) ?? 0)
+            let brand = ArtifactStart.brand.contains(file.pathExtension.lowercased())
+            kind.selectItem(
+                at: brand ? ArtifactStart.choices.count : ArtifactStart.choices.firstIndex(of: suggested) ?? 0)
             let agents = app.catalog.installed.filter { Session.isAgent($0.id) }
             agent.addItems(withTitles: agents.map(\.name))
             let grid = NSGridView(views: [
@@ -98,6 +115,16 @@ extension ArtifactsPanel {
             alert.addButton(withTitle: String(localized: "Start"))
             alert.addButton(withTitle: String(localized: "Cancel"))
             guard await alert.beginSheetModal(for: window) == .alertFirstButtonReturn else { return }
+            let who = agents.indices.contains(agent.indexOfSelectedItem) ? agents[agent.indexOfSelectedItem].id : nil
+            guard ArtifactStart.choices.indices.contains(kind.indexOfSelectedItem) else {
+                let design = DesignSystem.dir(root: root).path
+                _ = await app.quiet(FilesCreate(path: design, folder: true))   // there already, it says so: fine
+                guard let copied = await app.call(FilesCopy(paths: [file.path], into: design))?.made.first else {
+                    return
+                }
+                return app.workbench.starter?.newAgent(
+                    who, prompt: ArtifactStart.designSystem(from: Artifacts.projectPath(copied))) ?? ()
+            }
             let chosen = ArtifactStart.choices[max(kind.indexOfSelectedItem, 0)]
             let title = file.deletingPathExtension().lastPathComponent
             guard
@@ -106,7 +133,6 @@ extension ArtifactsPanel {
                 let copied = await app.call(
                     FilesCopy(paths: [file.path], into: (page as NSString).deletingLastPathComponent))?.made.first
             else { return }
-            let who = agents.indices.contains(agent.indexOfSelectedItem) ? agents[agent.indexOfSelectedItem].id : nil
             let brief = ArtifactStart.brief(
                 from: Artifacts.projectPath(copied), page: Artifacts.projectPath(page), kind: chosen)
             app.workbench.starter?.newAgent(who, prompt: brief)

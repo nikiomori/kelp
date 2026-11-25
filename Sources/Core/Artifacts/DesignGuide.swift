@@ -94,7 +94,10 @@ extension Artifacts {
         # The project's design system, in .kelp/design/
 
         Write it once from the project's own code (its stylesheets, theme, Tailwind config, a UI kit's constants such as
-        an app's Metrics and colours), not from taste: exact values, never rounded. Three files:
+        an app's Metrics and colours), not from taste: exact values, never rounded. From a website the user names: open
+        it with `kelp browser open <url>` and read the computed colours, fonts, sizes, radii and spacing of its real
+        elements with `kelp browser js`. From brand files (a guide as PDF, a logo, fonts): read them whole, take their
+        values, and copy the logo and fonts into .kelp/design/. Three files:
 
         1. `tokens.json`. Kelp turns it into CSS variables on every board, in light and dark:
            ```json
