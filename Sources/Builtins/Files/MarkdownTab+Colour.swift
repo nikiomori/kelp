@@ -22,7 +22,7 @@ extension MarkdownTab {
 
     func otherColour(_ menu: NSMenu, _ key: String, against: NSColor) {
         menu.addItem(.separator())
-        menu.add(String(localized: "Other Colour…")) { [weak self] in self?.pickColour(key) }
+        menu.add(String(localized: "Other Color…")) { [weak self] in self?.pickColour(key) }
     }
 
     private func pickColour(_ key: String) {
@@ -61,8 +61,21 @@ extension MarkdownTab {
         return (max(x, y) + 0.05) / (min(x, y) + 0.05)
     }
 
-    nonisolated static func ratioText(_ ratio: Double) -> String {
-        String(format: "%.1f:1", ratio) + (ratio < 4.5 ? " · " + String(localized: "too faint for text") : "")
+    /// What a colour too faint for text says in its tooltip (`3.0:1: too faint for text`); nil from 4.5:1, the least
+    /// for text, up.
+    nonisolated static func faint(_ ratio: Double) -> String? {
+        ratio < 4.5 ? String(format: "%.1f:1", ratio) + ": " + String(localized: "too faint for text") : nil
+    }
+
+    /// A colour's name, and at `column` a grey warning sign: it reads too faintly against the element's ground.
+    static func warned(_ title: String, column: CGFloat) -> NSAttributedString {
+        let text = NSMutableAttributedString(
+            attributedString: NSMenuItem.titleWithNote(title, note: "", column: column))
+        let sign = NSTextAttachment()
+        sign.image = NSImage.symbol("exclamationmark.triangle", String(localized: "Too faint for text"))
+            .withSymbolConfiguration(.init(paletteColors: [.secondaryLabelColor]))
+        text.append(NSAttributedString(attachment: sign))
+        return text
     }
 }
 

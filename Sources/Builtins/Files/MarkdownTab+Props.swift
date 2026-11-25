@@ -60,8 +60,11 @@ extension MarkdownTab {
             let ratio = against.flatMap { a in
                 (item["swatch"] as? String).flatMap(NSColor.init(css:)).map { Self.contrast($0, a) }
             }
-            if let detail = (item["detail"] as? String) ?? ratio.map(Self.ratioText), !detail.isEmpty {
+            if let detail = item["detail"] as? String, !detail.isEmpty {
                 made.attributedTitle = NSMenuItem.titleWithNote(title, note: detail, column: column)
+            } else if let faint = ratio.flatMap(Self.faint) {   // only what fails says so, the ratio under the pointer
+                made.attributedTitle = Self.warned(title, column: column)
+                made.toolTip = faint
             }
             made.state = item["on"] as? Bool == true ? .on : .off
             if let swatch = (item["swatch"] as? String).flatMap(NSColor.init(css:)) { made.show(Self.swatch(swatch)) }

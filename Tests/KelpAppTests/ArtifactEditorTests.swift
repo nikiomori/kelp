@@ -219,12 +219,15 @@ extension OneAtATime {
     }
 }
 
-/// A colour in the menu says how it reads against the element's ground, and when that is too faint for text.
+/// A colour in the menu says, only when it is too faint for text, how it reads against the element's ground.
 @MainActor @Test func aColourSaysHowItReads() throws {
     let black = try #require(NSColor(css: "#000")), white = try #require(NSColor(css: "#ffffff"))
     #expect(abs(MarkdownTab.contrast(black, white) - 21) < 0.01 && MarkdownTab.contrast(white, white) == 1)
-    #expect(MarkdownTab.ratioText(21) == "21.0:1" && MarkdownTab.ratioText(3).hasPrefix("3.0:1 · "))
+    #expect(MarkdownTab.faint(21) == nil && MarkdownTab.faint(4.5) == nil && MarkdownTab.faint(3)?.hasPrefix("3.0:1: ") == true)
     #expect(MarkdownTab.hex(try #require(NSColor(css: "#0a84ff"))) == "#0a84ff")
+    let warned = MarkdownTab.warned("Muted", column: 40)
+    let sign = warned.attribute(.attachment, at: warned.length - 1, effectiveRange: nil) as? NSTextAttachment
+    #expect(warned.string.hasPrefix("Muted\t") && sign?.image != nil, "the sign after the name, at its column")
 }
 
 extension OneAtATime {

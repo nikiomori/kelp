@@ -42631,6 +42631,26 @@
           }
         }
       }
+    },
+    "Too faint for text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком бледно для текста"
+          }
+        }
+      }
+    },
+    "Other Color…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другой цвет…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
