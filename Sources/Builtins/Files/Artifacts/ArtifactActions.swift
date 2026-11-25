@@ -56,3 +56,28 @@ extension ArtifactBar {
         Notifications.notifyUser(app, "artifact-check:" + path, content)
     }
 }
+
+extension ArtifactBar {
+    /// ⋯ › Keys…: what the keys do on a canvas or a motion page, in one sheet, since none of them shows.
+    func showKeys() {
+        Task {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Keys")
+            var lines = [
+                String(localized: "Page: ⌥⌘1 View · ⌥⌘2 Mark · ⌥⌘3 Edit · ⌃⌘← ⌃⌘→ versions · ⌘F find"),
+                String(localized: "Canvas: ⌘+ ⌘− zoom · ⌘9 fit · ⇧2 to the chosen element · Space and drag to move"),
+                String(localized: "Edit: click chooses · ⇧-click adds · arrows move (⇧ by 10) · ⌘C ⌘V copy and paste")
+                    + " · " + String(localized: "⌘D duplicate · ⌫ remove · Esc chooses nothing · ⌘Z undo"),
+                String(localized: "Layers: ↑ parent · ↓ inside · ⇥ next · double-click renames")
+            ]
+            if markdown.page == .motion {
+                lines.append(
+                    String(
+                        localized: "Video: Space plays · S splits · [ ] trim · I O set the work area · K adds a key"))
+            }
+            alert.informativeText = lines.joined(separator: "\n\n")
+            alert.addButton(withTitle: String(localized: "Done"))
+            _ = await runSheet(alert)
+        }
+    }
+}

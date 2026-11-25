@@ -344,6 +344,9 @@ final class ArtifactBar: NSObject {
             }
             menu.addItem(.separator())
         }
+        if md.page == .canvas || md.page == .motion {
+            menu.add(String(localized: "Keys…")) { [weak self] in self?.showKeys() }
+        }
         if md.page == .canvas {
             menu.add(String(localized: "View"), submenu: md.viewMenu())
             if let update = md.updateMenu() { menu.add(String(localized: "Update"), submenu: update) }

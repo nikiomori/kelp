@@ -322,7 +322,9 @@ extension MarkdownTab {
             "regular": String(localized: "Regular"), "medium": String(localized: "Medium"),
             "semibold": String(localized: "Semibold"), "bold": String(localized: "Bold"),
             "reset": String(localized: "Back to the Page’s Own"), "seconds": String(localized: "s"),
-            "font": String(localized: "Font"), "align": String(localized: "Alignment")
+            "font": String(localized: "Font"), "align": String(localized: "Alignment"),
+            "align_left": String(localized: "Align Left"), "align_center": String(localized: "Centre"),
+            "align_right": String(localized: "Align Right")
         ]
     }
 

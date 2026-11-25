@@ -217,6 +217,8 @@ enum CanvasHandles {
             const t = ev.target;
             if (K.mode() !== 'edit' || !at) return;
             if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+            // Esc: nothing chosen.
+            if (ev.key === 'Escape') { ev.preventDefault(); return window.kelpProps?.choose?.(null); }
             const key = ev.metaKey && !ev.shiftKey && !ev.altKey ? ev.key.toLowerCase() : '';
             const kind = ev.key === 'Backspace' || ev.key === 'Delete' ? 'remove'
               : { d: 'duplicate', c: 'copyElement', v: 'pasteElement' }[key] || null;

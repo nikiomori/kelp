@@ -228,6 +228,7 @@ enum CanvasEditMode {
             for (const value of ['left', 'center', 'right']) {
               const b = K.el('button', now === value || (value === 'left' && now === 'start') ? 'on' : '');
               b.append(K.el('span', 'kelp-sym-text-align' + value));
+              b.title = L['align_' + value] || value;   // VoiceOver reads the title; the symbol says nothing
               b.onclick = () => set('align', value);
               seg.append(b);
             }

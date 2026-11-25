@@ -41636,6 +41636,116 @@
           }
         }
       }
+    },
+    "Align Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По левому краю"
+          }
+        }
+      }
+    },
+    "Centre": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По центру"
+          }
+        }
+      }
+    },
+    "Align Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По правому краю"
+          }
+        }
+      }
+    },
+    "Keys…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши…"
+          }
+        }
+      }
+    },
+    "Keys": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши"
+          }
+        }
+      }
+    },
+    "Page: ⌥⌘1 View · ⌥⌘2 Mark · ⌥⌘3 Edit · ⌃⌘← ⌃⌘→ versions · ⌘F find": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница: ⌥⌘1 View · ⌥⌘2 Mark · ⌥⌘3 Edit · ⌃⌘← ⌃⌘→ версии · ⌘F поиск"
+          }
+        }
+      }
+    },
+    "Canvas: ⌘+ ⌘− zoom · ⌘9 fit · ⇧2 to the chosen element · Space and drag to move": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Холст: ⌘+ ⌘− масштаб · ⌘9 вписать · ⇧2 к выбранному · пробел и перетаскивание — сдвиг"
+          }
+        }
+      }
+    },
+    "Layers: ↑ parent · ↓ inside · ⇥ next · double-click renames": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слои: ↑ родитель · ↓ внутрь · ⇥ следующий · двойной клик — переименовать"
+          }
+        }
+      }
+    },
+    "Video: Space plays · S splits · [ ] trim · I O set the work area · K adds a key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ролик: пробел — пуск · S режет · [ ] обрезают · I O — рабочая область · K — ключ"
+          }
+        }
+      }
+    },
+    "Edit: click chooses · ⇧-click adds · arrows move (⇧ by 10) · ⌘C ⌘V copy and paste": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit: клик выбирает · ⇧-клик добавляет · стрелки двигают (⇧ — на 10) · ⌘C ⌘V копировать и вставить"
+          }
+        }
+      }
+    },
+    "⌘D duplicate · ⌫ remove · Esc chooses nothing · ⌘Z undo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘D дублировать · ⌫ удалить · Esc снимает выбор · ⌘Z отменить"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
