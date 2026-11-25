@@ -205,10 +205,7 @@ extension Builtins {
                 // ⌥⌘↩ types "path:12-30" into the agent's prompt without pressing Return. The agent reads the file
                 // itself.
                 cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
-                    if let tab = fileTab(app) {
-                        FileActions(app).sendToAgent(
-                            tab.path, lines: tab.selectedText?.isEmpty == false ? tab.selectedLines : nil)
-                    }
+                    fileTab(app)?.sendToAgent()
                 },
                 cmd("editor.copyReference", "Copy Path and Line", "opt+shift+cmd+c") {
                     if let tab = fileTab(app) {

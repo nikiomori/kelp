@@ -223,7 +223,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // lists the lines open terminals printed without the shell knowing terminals.
     // +2: agents Kelp's going down cut short are offered to go on by the Agents built-in, which reads whether one was
     // (`Session.interrupted`) and continues them in the sidebar's order (`inSidebarOrder`).
-    #expect(declared == 384, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: a right-click menu's item shows its command's key as it stands (`showKey`), so Send to Agent teaches ⌥⌘↩
+    // in the editor, the diff and the terminal.
+    #expect(declared == 385, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

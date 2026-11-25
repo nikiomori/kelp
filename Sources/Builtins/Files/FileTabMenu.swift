@@ -28,13 +28,25 @@ extension FileTab {
                 FileActions(app).sendToAgent(text: "\(path):\(problem.line + 1): \(problem.message)")
             }
         }
-        menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: lines()) }
-        menu.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) }
+        // The items that are commands show their keys, so the menu teaches ⌥⌘↩ and the rest.
+        let keyed = { (id: String, item: NSMenuItem) in app.extensions.showKey(id, on: item) }
+        keyed("editor.sendToAgent", menu.add(String(localized: "Send to Agent")) { [weak self] in self?.sendToAgent() })
+        keyed(
+            "editor.copyReference",
+            menu.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) })
         if inProject != nil {
             menu.add(String(localized: "Last Change to This Line")) { [weak self] in self?.showLineOrigin() }
         }
         menu.addItem(.separator())
-        menu.add(String(localized: "Toggle Comment")) { [weak self] in self?.editor?.toggleComment() }
+        keyed(
+            "editor.toggleComment",
+            menu.add(String(localized: "Toggle Comment")) { [weak self] in self?.editor?.toggleComment() })
+    }
+
+    /// Types "path:12-30" (the selected lines, else the file alone) into the agent's prompt without pressing Return.
+    /// The agent reads the file itself.
+    func sendToAgent() {
+        FileActions(app).sendToAgent(path, lines: selectedText?.isEmpty == false ? selectedLines : nil)
     }
 
     func showProblems() {
