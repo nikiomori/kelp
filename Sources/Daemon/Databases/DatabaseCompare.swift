@@ -16,7 +16,7 @@ extension Databases {
 
     /// The copy named (or the workspace's only copy) and the database it copies. A file copied into the branch's
     /// folder keeps the original's name, so then the original is the project's own workspace's.
-    private func pair(_ worktreeId: String, _ name: String?, agent: Bool) throws -> (
+    func pair(_ worktreeId: String, _ name: String?, agent: Bool) throws -> (
         DatabaseConnection,
         DatabaseConnection
     ) {

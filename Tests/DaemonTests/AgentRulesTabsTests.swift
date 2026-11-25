@@ -29,6 +29,12 @@ import Testing
     try "DATABASE_URL=postgres://app@pg.example.com:5432/app\n".write(
         toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
     #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).map(\.name).sorted() == ["app", "db", "prod", "seen"])
+    // Two branch copies: one of a database agents use, one of the hidden one.
+    for (copy, of) in [("db_copy", "db"), ("prod_copy", "prod")] {
+        var info = DatabaseInfo(name: copy, engine: .sqlite, path: "/tmp/\(copy).db")
+        info.copy = BranchCopy(of: of, worktreeId: wt.id, at: Date())
+        _ = try dbs.save(wt.id, info, password: nil)
+    }
     try expectRows(
         w.d,
         [
@@ -51,6 +57,14 @@ import Testing
             ),
             (own, DatabaseSchemaRead(worktreeId: wt.id, database: "seen"), true, "whose tables it reads"),
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "none")), false, "nor one that isn't there"),
+            (
+                own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db_copy", compare: "db")), true,
+                "a copy's comparison with what it copies"
+            ),
+            (
+                own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "prod_copy", compare: "prod")), false,
+                "but not with an original hidden from agents, which the tab reads as the user"
+            ),
             (
                 own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "app")), false,
                 "nor an address from the project's files, which the tab would have kelpd dial"

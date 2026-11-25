@@ -173,6 +173,11 @@ private struct FenceCheck {
                 if try databases.connection(tab.worktree, tab.name, agent: true).database.agentAccess == .structure {
                     throw RPCError.refused("\(tab.name) shows agents its structure only: a tab would show its rows.")
                 }
+                // A comparison tab reads the original too (`db.diff` as the user), so the agent must be allowed to read
+                // it, as `kelp db diff` checks
+                if tab.query?.hasPrefix("compare=") == true {
+                    _ = try databases.pair(tab.worktree, tab.name, agent: true)
+                }
             } catch let error as RPCError where !error.isRefusal {
                 throw RPCError.refused("An agent opens a tab only of a database it may use: `kelp db list` says which.")
             }
