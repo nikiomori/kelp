@@ -108,7 +108,7 @@ final class Conversations: Sendable {
     /// Reads the tail over the host's existing connection. A Codex conversation needs a rollout tied to this session.
     func remoteTail(of session: Session, on remote: RemoteHost, live: LiveSession? = nil) -> Data? {
         if session.agent == Session.codexAgent {
-            let thread = live.map { $0.state.withLock { $0.kept.codexThread } } ?? lastCodexReport(of: session)
+            let thread = (live?.snapshot ?? session).codexThread ?? (live == nil ? lastCodexReport(of: session) : nil)
             guard let script = Self.codexTailScript(session, thread: thread, transcript: live?.transcriptPath) else {
                 return nil
             }

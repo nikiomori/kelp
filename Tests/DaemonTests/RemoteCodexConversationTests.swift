@@ -85,7 +85,7 @@ private let hostTmux = try? LoginPath.resolve("tmux")
         let osc = ProgramStatus.prefix + report + "\u{07}"
         _ = state.readReports(osc, Data(osc.utf8))
     }
-    #expect(state.kept.codexThread == current)
+    #expect(state.record.codexThread == current)
     let tail = Data("""
         partial line
         {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"done"}}
@@ -131,12 +131,18 @@ private let hostTmux = try? LoginPath.resolve("tmux")
     #expect(try reads() == before + 1)
     try FileManager.default.removeItem(at: bin.appendingPathComponent("down-" + hostname))
     _ = try await c.call(SessionKill(id: session.id))
-    let ended = Session(
-        cwd: session.cwd, command: "codex", agent: session.agent, argv: ["codex", "resume", original.uuidString])
+    try await waitFor { try d.sessions.store.session(session.id)?.status == .exited }
+    let ended = try #require(try d.sessions.store.session(session.id))
+    #expect(ended.codexThread == current)
     let reader = d.agentUsage.conversations
     let report = ProgramStatus.prefix + "state=done:conv=\(current)\u{07}"
-    try Data(report.utf8).write(to: reader.history.appendingPathComponent(ended.id + ".log"))
+    try (Data(report.utf8) + Data(repeating: 65, count: 128 << 10)).write(to: live.logURL)
     let archived = reader.phoneConversation(of: ended, live: nil)
     #expect(archived.turns.map(\.text) == ["My question", "My reply"])
     #expect(archived.reply == nil)
+    var legacy = ended
+    legacy.codexThread = nil
+    #expect(reader.phoneConversation(of: legacy, live: nil).turns == archived.turns)
+    try FileManager.default.removeItem(at: live.logURL)
+    #expect(reader.phoneConversation(of: ended, live: nil).turns == archived.turns)
 }

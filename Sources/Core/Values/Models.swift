@@ -189,6 +189,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// agent outlives a dropped connection and the daemon. It is kept so a wake or a restart attaches to it again. nil
     /// for local sessions, and once Kelp has ended that tmux session (Stop, or closing the tab).
     public var tmux: String?
+    /// The current Codex thread reported by a host hook, kept after the terminal closes or its log is trimmed.
+    public var codexThread: UUID?
     /// The /goal the agent works toward. Claude Code checks the goal after each turn and goes on until it is met. nil
     /// when there is no goal.
     public var goal: String?

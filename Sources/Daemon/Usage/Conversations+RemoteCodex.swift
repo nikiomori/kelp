@@ -3,10 +3,11 @@ import Core
 import Foundation
 
 extension Conversations {
-    /// After the PTY exits, its last hook report can still name a thread switched to with /resume.
+    /// Older session records have no thread ID. Recover the last main hook if it's still in their terminal log.
     func lastCodexReport(of session: Session) -> UUID? {
         guard UUID(uuidString: session.id) != nil,
-            let tail = Data(tail: 64 << 10, of: history.appendingPathComponent(session.id + ".log"))
+            let tail = Data(tail: LiveSession.logLimit, of: history.appendingPathComponent(session.id + ".log")),
+            tail.range(of: Data("conv=".utf8)) != nil
         else { return nil }
         var carry = ""
         for message in ProgramStatus.scan(String(decoding: tail, as: UTF8.self), carry: &carry).reversed() {

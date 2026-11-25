@@ -34,7 +34,7 @@ extension LiveSession.State {
         // (`Sessions.follow`).
         if let conv = report.conv, report.id == nil {
             if record.agent == Session.codexAgent, record.tmux != nil {
-                if let id = UUID(uuidString: conv) { kept.codexThread = id }
+                if let id = UUID(uuidString: conv) { record.codexThread = id }
             } else {
                 record.argv = agent.following(record.argv, conversation: conv)
             }
