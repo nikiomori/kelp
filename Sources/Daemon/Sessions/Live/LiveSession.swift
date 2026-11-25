@@ -33,7 +33,8 @@ final class LiveSession: Sendable {
         /// to keep (`SessionTurns`).
         var turnStarted: (@Sendable (SessionTurns.Mark, String?) -> Void)?
         /// A turn started by this prompt ended, so the pages its agent made keep a version (`Artifacts.keepVersions`).
-        var turnEnded: (@Sendable (String) -> Void)?
+        /// A turn ended: the prompt that started it, and what was sent while it ran.
+        var turnEnded: (@Sendable (String, [String]) -> Void)?
     }
 
     let pty: PTY

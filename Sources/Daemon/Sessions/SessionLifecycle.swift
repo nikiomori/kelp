@@ -364,8 +364,8 @@ extension Sessions {
         // Naming follows the session however it started (created, or woken from a pause).
         callbacks.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
         callbacks.turnStarted = { [weak self] t, staged in self?.turns.keep(t, staged: staged) }
-        callbacks.turnEnded = { [weak self] prompt in
-            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
+        callbacks.turnEnded = { [weak self] prompt, sent in
+            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt, sent: sent)
         }
         if rec.isAgent {
             callbacks.topic = { [weak self] topic in

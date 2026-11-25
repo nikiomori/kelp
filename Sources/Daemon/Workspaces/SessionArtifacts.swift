@@ -7,7 +7,7 @@ extension Sessions {
     /// turn left it, named by the turn's prompt. A remote project's folder here holds only its marker, so its artifacts
     /// list is read again wherever it shows instead. That read asks the host for the pages the turn published
     /// (`pickUpHostArtifacts`).
-    func keepArtifactVersions(session: String, worktree: String?, prompt: String) {
+    func keepArtifactVersions(session: String, worktree: String?, prompt: String, sent: [String] = []) {
         Log.store.attempt("keeping the versions of \(session)'s artifacts") {
             guard let workspace = try store.worktree(worktree ?? "") else { return }
             if remotes.of(workspace.path) != nil {
@@ -17,7 +17,8 @@ extension Sessions {
             guard FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path) else { return }
             // The marks are handed back even when a page's version couldn't be kept; that error is still told.
             let kept = Result { try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt) }
-            try Artifacts.settleMarks(root: workspace.path, session: session, prompt: prompt)
+            try Artifacts.settleMarks(
+                root: workspace.path, session: session, prompt: ([prompt] + sent).joined(separator: "\n"))
             _ = try kept.get()
         }
     }
