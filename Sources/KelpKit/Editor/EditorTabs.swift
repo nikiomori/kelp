@@ -40,7 +40,7 @@ extension EditorArea {
     /// Opens a URI in the focused group (or a new group to the right / below), reusing a tab already showing it. It
     /// only shows things, because callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…`
     /// must start nothing.
-    func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
+    func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true, beside pane: String? = nil) {
         guard !TabURI.runs(uri) else { return }
         // A page already open stays where it is, even when asked for beside you, because a second click must not move
         // it.
@@ -55,8 +55,11 @@ extension EditorArea {
             if let line = TabURI.filePath(uri).line { contents[tab.id]?.goTo(line: line) }
             return
         }
+        // A terminal split keeps its original pane even if focus moved while the shell started.
+        let preferredPane = pane.flatMap { layout.groups[$0]?.id ?? layout.focusedGroup?.id }
         if let tab = layout.tab(uri: uri) {   // already open (maybe added by reconcile a moment ago)
-            if let split, let gid = layout.group(of: tab.id) {
+            if let split, let gid = preferredPane ?? layout.group(of: tab.id) {
+                if preferredPane != nil { zoomed = nil }
                 layout.split(tab.id, from: gid, vertical: split == .right, before: false)
                 arrange()
                 render()
@@ -70,7 +73,7 @@ extension EditorArea {
                 return
             }   // browser extension off
         }
-        var target: String? = layout.focusedGroup?.id
+        var target = preferredPane ?? layout.focusedGroup?.id
         if let split, let focused = target {
             target = layout.newGroup(beside: focused, vertical: split == .right)
             zoomed = nil
@@ -191,16 +194,12 @@ extension EditorArea {
         select(tab.id)
     }
 
-    /// Moves the focused tab into a new group to the right / below.
-    func splitFocused(_ dir: SplitDirection) {
+    /// Moves the tab into a new group to the right / below when another tab can stay behind.
+    private func splitTab(_ id: String, _ dir: SplitDirection) {
+        guard let group = layout.group(of: id), (layout.groups[group]?.tabs.count ?? 0) > 1 else { return }
         zoomed = nil
         arrangedByHand()
-        guard let group = layout.focusedGroup, let tab = group.selectedTab else { return }
-        if group.tabs.count == 1 {
-            starter.newTerminal(split: dir)
-            return
-        }   // with nothing to move, open a terminal there, like a terminal app
-        layout.split(tab.id, from: group.id, vertical: dir == .right, before: false)
+        layout.split(id, from: group, vertical: dir == .right, before: false)
         render()
         focusSelected()
     }
@@ -247,15 +246,13 @@ extension EditorArea {
             items(menu, uri, workspaceId) { [weak self] in self?.open($0, split: .right) }
             if !menu.items.isEmpty { menu.addItem(.separator()) }
         }
-        menu.add(String(localized: "Split Right")) { [weak self] in
-            self?.select(id)
-            self?.splitFocused(.right)
+        if !tabs(beside: id).isEmpty {
+            menu.add(String(localized: "Move Tab to New Pane on the Right")) { [weak self] in
+                self?.splitTab(id, .right)
+            }
+            menu.add(String(localized: "Move Tab to New Pane Below")) { [weak self] in self?.splitTab(id, .down) }
+            menu.addItem(.separator())
         }
-        menu.add(String(localized: "Split Down")) { [weak self] in
-            self?.select(id)
-            self?.splitFocused(.down)
-        }
-        menu.addItem(.separator())
         // A run's tab can go into the Run menu, where the run keeps going and the menu brings its output back.
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
             let session = app.session(TabURI.body(uri)), session.status != .exited

@@ -192,7 +192,7 @@ extension OneAtATime {
 /// A tab's own items in its context menu come from its provider (an agent's, a file's); a tab whose provider adds none
 /// gets the shell's alone.
 extension OneAtATime {
-    @Test func aTabsMenuHasWhatItsProviderAdds() {
+    @Test func aTabsMenuHasWhatItsProviderAdds() throws {
         _ = testHome
         _ = NSApplication.shared   // reload applies the theme to NSApp
         let app = AppModel(builtins: Builtins.all)
@@ -201,7 +201,8 @@ extension OneAtATime {
         let agent = area.layout.add("session:s1"), page = area.layout.add(TabURI.file("/tmp/a.html")),
             web = area.layout.add("https://example.com")
         func titles(_ id: String) -> [String] { area.tabMenu(id).items.map { $0.isSeparatorItem ? "-" : $0.title } }
-        let splits = ["Split Right", "Split Down", "-", "Close Tab", "Close Other Tabs"]
+        let moveRight = "Move Tab to New Pane on the Right"
+        let splits = [moveRight, "Move Tab to New Pane Below", "-", "Close Tab", "Close Other Tabs"]
         let width = ["-", "Tab Width", "Tab Height"]
         #expect(
             titles(agent.id) == ["Rename…", "Hand Off to", "Copy Context", "Changes in Its Last Turn", "Restart", "-"]
@@ -212,6 +213,14 @@ extension OneAtATime {
                 "Copy", "-"
             ] + splits + ["Close Tabs to the Right"] + width)
         #expect(titles(web.id) == splits + width)   // nothing to its right
+
+        let original = area.layout.focused
+        let menu = area.tabMenu(page.id)   // the tab under the pointer, while the web tab is selected
+        let move = try #require(menu.item(withTitle: moveRight))
+        menu.performActionForItem(at: menu.index(of: move))
+        #expect(original.flatMap { area.layout.groups[$0]?.tabs } == [agent, web])
+        #expect(area.layout.focusedGroup?.tabs == [page])
+        #expect(!titles(page.id).contains(moveRight))
     }
 }
 
