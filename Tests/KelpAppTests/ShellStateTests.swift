@@ -47,7 +47,7 @@ import Testing
         #expect(pages.sorted() == [".kelp/artifacts/deck/", ".kelp/artifacts/plan/"])
         let alert = NSAlert()
         WorkspaceActions(rig.app).offerKeeping(pages, in: alert)
-        #expect(alert.showsSuppressionButton && alert.suppressionButton?.state == .on)
+        #expect((alert.accessoryView as? NSButton)?.state == .on)
     }
 }
 

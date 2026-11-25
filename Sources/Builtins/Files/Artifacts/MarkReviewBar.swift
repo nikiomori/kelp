@@ -59,7 +59,7 @@ final class MarkReviewBar {
         let answer = said.reply.isEmpty ? String(localized: "\(agent) didn’t answer it") : said.reply
         label.stringValue =
             said.note.isEmpty
-            ? String(localized: "\(agent) finished its turn") : "“\(said.note)” → " + answer
+            ? String(localized: "\(agent) finished its turn") : "“\(said.note)” · " + answer
         if !elsewhere.isEmpty {   // what the turn changed that no mark asked for
             let names = elsewhere.map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
             label.stringValue += "  ·  " + String(localized: "also changed \(names.joined(separator: ", "))")

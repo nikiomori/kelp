@@ -13,17 +13,20 @@ extension WorkspaceActions {
         }
     }
 
-    /// Puts the box under `alert`, when there are pages.
+    /// Puts the box in `alert`, when there are pages.
     func offerKeeping(_ pages: [String], in alert: NSAlert) {
         guard !pages.isEmpty else { return }
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = String(localized: "Keep its \(pages.count) pages in the project")
-        alert.suppressionButton?.state = .on
+        let box = NSButton(
+            checkboxWithTitle: String(localized: "Keep the pages made here in the project (\(pages.count))"),
+            target: nil, action: nil)
+        box.state = .on
+        alert.accessoryView = box
     }
 
-    /// Copies `pages` into the project's own folder when the box under `alert` is on.
+    /// Copies `pages` into the project's own folder when the box in `alert` is on.
     func keep(_ pages: [String], of worktree: Worktree, if alert: NSAlert) async {
-        guard alert.suppressionButton?.state == .on, !pages.isEmpty, let repo = app.repo(worktree.repoId) else {
+        guard (alert.accessoryView as? NSButton)?.state == .on, !pages.isEmpty, let repo = app.repo(worktree.repoId)
+        else {
             return
         }
         let into = (repo.path as NSString).appendingPathComponent(Artifacts.folder)
@@ -37,12 +40,11 @@ extension WorkspaceActions {
     func askAboutPages(closing worktree: Worktree) async -> Bool {
         let pages = await pages(in: worktree)
         guard !pages.isEmpty else { return true }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Close “\(worktree.displayName)”?")
-        alert.informativeText = String(localized: "Its folder goes, and with it the pages agents made on this branch.")
+        let alert = NSAlert(
+            question: String(localized: "Close “\(worktree.displayName)”?"),
+            detail: String(localized: "Its folder goes, and with it the pages agents made on this branch."),
+            action: String(localized: "Close"), destructive: true)
         offerKeeping(pages, in: alert)
-        alert.addButton(withTitle: String(localized: "Close"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
         guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
         await keep(pages, of: worktree, if: alert)
         return true

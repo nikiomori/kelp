@@ -44,7 +44,7 @@ final class MotionStudio {
             [
                 zoomSlider, TextButton(String(localized: "Fit Timeline")) { [weak self] in self?.timeline.setZoom(1) },
                 size,
-                export
+                exportProgress, export
             ], stretching: frame)
         speed.toolTip = String(localized: "How fast it plays")
         zoomSlider.toolTip = String(localized: "How close the timeline looks (or pinch, or ⌘ and scroll)")
@@ -60,7 +60,12 @@ final class MotionStudio {
         zoomSlider.controlSize = .small
         zoomSlider.target = self
         zoomSlider.action = #selector(zoomSlid)
-        zoomSlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        zoomSlider.widthAnchor.constraint(equalToConstant: Metrics.iconButton * 4).isActive = true
+        exportProgress.style = .bar
+        exportProgress.isIndeterminate = false
+        exportProgress.controlSize = .small
+        exportProgress.isHidden = true
+        exportProgress.widthAnchor.constraint(equalToConstant: Metrics.iconButton * 4).isActive = true
         timeline.onZoom = { [weak self] z in self?.zoomSlider.doubleValue = log2(z) }
         let line = NSBox()
         line.boxType = .separator
@@ -93,6 +98,8 @@ final class MotionStudio {
         didSet { whole.isHidden = !marking }
     }
     private let speed = PointerPopUpButton()
+    /// How far the video being made has come, beside Export's "Exporting 45%".
+    private let exportProgress = NSProgressIndicator()
     /// The zoom as a power of two: 0 shows the whole length, 5 a thirty-second of it.
     private let zoomSlider = NSSlider(value: 0, minValue: 0, maxValue: log2(40), target: nil, action: nil)
     private var looping = false
@@ -161,7 +168,8 @@ final class MotionStudio {
     func show(_ state: State) {
         _ = view
         at = state.at
-        play.image = .symbol(state.playing ? "pause.fill" : "play.fill", state.playing ? "Pause" : "Play")
+        play.image = .symbol(state.playing ? "pause.fill" : "play.fill")
+        play.toolTip = state.playing ? String(localized: "Pause (Space)") : String(localized: "Play (Space)")
         time.stringValue = Self.clock(state.at) + " / " + Self.clock(state.length)
         frame.stringValue = String(
             localized: "frame \(Int((state.at * fps).rounded()) + 1) of \(Int((state.length * fps).rounded(.up)) + 1)")
@@ -189,8 +197,8 @@ final class MotionStudio {
 
     private func toggleLoop() {
         looping.toggle()
-        // On speaks through the filled symbol, as the system's switches do.
-        loop.image = .symbol(looping ? "repeat.circle.fill" : "repeat", String(localized: "Play Again at the End"))
+        // On speaks through the accent, as Music's Repeat does.
+        loop.contentTintColor = looping ? .controlAccentColor : .secondaryLabelColor
         loop.toolTip =
             looping
             ? String(localized: "Play Again at the End: On") : String(localized: "Play Again at the End")
@@ -275,6 +283,8 @@ final class MotionStudio {
     func exporting(_ frame: Int?, of frames: Int) {
         _ = view
         export.isEnabled = frame == nil
+        exportProgress.isHidden = frame == nil
+        exportProgress.doubleValue = Double(frame ?? 0) / Double(max(frames, 1)) * 100
         export.title =
             frame.map { String(localized: "Exporting \($0 * 100 / max(frames, 1))%") }
             ?? String(localized: "Export Video…")

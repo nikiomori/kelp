@@ -60,7 +60,7 @@ extension MarkdownTab {
             let long = Set(Rehearsal.long(times, target: target))
             alert.informativeText = times.enumerated().map {
                 String(localized: "Slide \($0.offset + 1)") + "  " + Rehearsal.clock($0.element)
-                    + (long.contains($0.offset) ? "  ●" : "")
+                    + (long.contains($0.offset) ? "  ·  " + String(localized: "ran long") : "")
             }.joined(separator: "\n")
             alert.addButton(withTitle: String(localized: "Send to Agent"))
             alert.addButton(withTitle: String(localized: "Done"))

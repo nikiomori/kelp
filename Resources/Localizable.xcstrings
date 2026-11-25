@@ -42571,6 +42571,66 @@
           }
         }
       }
+    },
+    "Keep the pages made here in the project (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить страницы, сделанные здесь, в проекте (%lld)"
+          }
+        }
+      }
+    },
+    "Its agent wrote them to read its numbers. Kelp runs them on Update from now on.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их написал агент дашборда, чтобы читать его числа. С этого момента Kelp запускает их по «Обновить»."
+          }
+        }
+      }
+    },
+    "Not updated: %@. Its command failed: ask the agent to fix it in canvas.json.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не обновлено: %@. Команда не сработала: попросите агента исправить её в canvas.json."
+          }
+        }
+      }
+    },
+    "A size is two numbers from 100 to 4000, such as 1280 × 800.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер — два числа от 100 до 4000, например 1280 × 800."
+          }
+        }
+      }
+    },
+    "Pause (Space)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза (пробел)"
+          }
+        }
+      }
+    },
+    "ran long": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дольше нужного"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

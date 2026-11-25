@@ -142,7 +142,7 @@ final class MotionExportPopover: NSObject {
     }
 
     /// The popover's width, as the system's are.
-    static let width: CGFloat = 300
+    static let width = Metrics.popoverWidth
 
     @objc private func saveFrame() {
         popover.performClose(nil)

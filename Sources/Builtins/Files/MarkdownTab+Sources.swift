@@ -74,13 +74,12 @@ extension MarkdownTab {
         let asked = sources.map(\.run).filter { !allowed.contains($0) }
         if sources.isEmpty || onlyAllowed && !asked.isEmpty { return }
         if !asked.isEmpty {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Run this dashboard’s commands?")
-            alert.informativeText =
-                String(localized: "Its agent wrote them to read its numbers. Kelp runs them on Update from now on:")
-                + "\n\n" + asked.joined(separator: "\n")
-            alert.addButton(withTitle: String(localized: "Allow and Update"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
+            let why = String(
+                localized: "Its agent wrote them to read its numbers. Kelp runs them on Update from now on.")
+            let alert = NSAlert(
+                question: String(localized: "Run this dashboard’s commands?"), detail: why,
+                action: String(localized: "Allow and Update"))
+            alert.accessoryView = NSScrollView.readOnly(asked.joined(separator: "\n"), lines: min(asked.count, 6))
             guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             app.uiState[allowedKey] = .array((allowed.union(asked)).sorted().map(JSONValue.string))
         }
@@ -108,8 +107,10 @@ extension MarkdownTab {
             if next != file.text { _ = await app.call(FilesWrite(path: path, text: next, base: file.stamp)) }
         }
         if !failed.isEmpty {
+            let names = failed.joined(separator: ", ")
             Banner.show(
-                String(localized: "Not updated: \(failed.joined(separator: ", ")) (its command failed)"), style: .error)
+                String(localized: "Not updated: \(names). Its command failed: ask the agent to fix it in canvas.json."),
+                style: .error)
         }
     }
 }

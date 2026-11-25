@@ -1,16 +1,18 @@
 import AppKit
 import DesignKit
+import KelpKit
 import WebKit
 
-/// Where a page's web view sits: the whole pane (as designed), or a device's screen on a checked background, scaled
-/// down to fit while the page lays out at the device's own width (`pageZoom`). It follows the web view's hiding.
+/// Where a page's web view sits: the whole pane (as designed), or a device's screen on the grey under a page (as
+/// Safari's Responsive Design Mode shows one), scaled down to fit while the page lays out at the device's own width
+/// (`pageZoom`). It follows the web view's hiding.
 @MainActor
 final class DeviceStage: NSView {
     let web: WKWebView
     /// The device's size in CSS pixels; nil fills the pane.
     var device: NSSize? {
         didSet {
-            layer?.backgroundColor = device == nil ? nil : NSColor(patternImage: Self.checks).cgColor
+            needsDisplay = true
             web.layer?.cornerRadius = device == nil ? 0 : Metrics.radiusXL
             needsLayout = true
         }
@@ -32,6 +34,13 @@ final class DeviceStage: NSView {
 
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError("not from a nib") }
 
+    override var wantsUpdateLayer: Bool { true }
+
+    /// Here, not when the device is set, so the grey follows the window into dark and back.
+    override func updateLayer() {
+        layer?.backgroundColor = device == nil ? nil : NSColor.underPageBackgroundColor.cgColor
+    }
+
     override func layout() {
         super.layout()
         guard let device else {
@@ -46,16 +55,6 @@ final class DeviceStage: NSView {
             x: bounds.midX - size.width / 2, y: bounds.maxY - Metrics.pageInset - size.height, width: size.width,
             height: size.height)
         web.pageZoom = k
-    }
-
-    /// Two greys in squares of 8, from the window's own colours.
-    private static let checks: NSImage = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { r in
-        NSColor.underPageBackgroundColor.setFill()
-        r.fill()
-        NSColor.quinaryLabel.setFill()
-        NSRect(x: 0, y: 0, width: 8, height: 8).fill()
-        NSRect(x: 8, y: 8, width: 8, height: 8).fill()
-        return true
     }
 }
 
@@ -130,7 +129,9 @@ final class DeviceControls: NSStackView {
                 initial: size.map(Self.text) ?? "1280 × 800")
         else { return }
         let numbers = answer.split(whereSeparator: { !$0.isNumber }).compactMap { Double($0) }
-        guard numbers.count == 2, numbers.allSatisfy({ (100...4000).contains($0) }) else { return NSSound.beep() }
+        guard numbers.count == 2, numbers.allSatisfy({ (100...4000).contains($0) }) else {
+            return Banner.show(String(localized: "A size is two numbers from 100 to 4000, such as 1280 × 800."))
+        }
         choose(NSSize(width: numbers[0], height: numbers[1]))
     }
 
