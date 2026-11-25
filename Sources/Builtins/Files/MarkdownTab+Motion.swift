@@ -234,13 +234,12 @@ extension MarkdownTab {
 
     /// Asks where to save the video, then records it as `options` say.
     func exportVideo(_ options: MotionExport) {
-        guard let window = view.window else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [options.type]
         panel.nameFieldStringValue =
             url.deletingLastPathComponent().lastPathComponent + "." + (options.type.preferredFilenameExtension ?? "mp4")
-        panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let to = panel.url, let self else { return }
+        Task { [weak self] in
+            guard await runSheet(panel) == .OK, let to = panel.url, let self else { return }
             let item = MotionExports.Item(to)
             motionStudio.exports.insert(item, at: 0)
             item.task = Task { @MainActor in await self.record(to: to, options, item) }

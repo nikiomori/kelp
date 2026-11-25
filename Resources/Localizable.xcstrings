@@ -42551,6 +42551,26 @@
           }
         }
       }
+    },
+    "Only a picture can be replaced: choose one on the page first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить можно только картинку: сначала выберите её на странице."
+          }
+        }
+      }
+    },
+    "Make a Page from “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать страницу из «%@»"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

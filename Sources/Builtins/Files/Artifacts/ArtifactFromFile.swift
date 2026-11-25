@@ -99,10 +99,10 @@ extension ArtifactsPanel {
     /// Asks what to make of `file` and with which agent, then makes the page, puts the file beside it and starts the
     /// agent on it.
     func startFrom(_ file: URL) {
-        guard let root = app.worktree(app.workbench.workspaceId)?.path, let window = view.window else { return }
+        guard let root = app.worktree(app.workbench.workspaceId)?.path else { return }
         Task {
             let alert = NSAlert()
-            alert.messageText = String(localized: "Make an Artifact from “\(file.lastPathComponent)”")
+            alert.messageText = String(localized: "Make a Page from “\(file.lastPathComponent)”")
             alert.informativeText = String(localized: "An agent makes it from the file, which is kept beside it.")
             let kind = PointerPopUpButton(), agent = PointerPopUpButton()
             kind.addItems(withTitles: ArtifactStart.choices.map(ArtifactStart.title))
@@ -122,7 +122,7 @@ extension ArtifactsPanel {
             alert.accessoryView = grid
             alert.addButton(withTitle: String(localized: "Start"))
             alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await alert.beginSheetModal(for: window) == .alertFirstButtonReturn else { return }
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             let who = agents.indices.contains(agent.indexOfSelectedItem) ? agents[agent.indexOfSelectedItem].id : nil
             guard ArtifactStart.choices.indices.contains(kind.indexOfSelectedItem) else {
                 let design = DesignSystem.dir(root: root).path

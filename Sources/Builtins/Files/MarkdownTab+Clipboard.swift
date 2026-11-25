@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Core
 import KelpKit
 
@@ -77,19 +78,14 @@ extension MarkdownTab {
     }
 
     private func insertPicture(_ board: String, after id: String) {
-        guard let window = view.window else { return }
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let picked = panel.url else { return }
-            Task { @MainActor in
-                guard let self else { return }
-                let folder = self.url.deletingLastPathComponent().path
-                guard let made = await self.app.call(FilesCopy(paths: [picked.path], into: folder))?.made.first
-                else { return }
-                let name = (made as NSString).lastPathComponent
-                self.put(#"<img data-id="picture" src="\#(name)" style="max-width: 100%">"#, on: board, after: id)
-            }
+        Task { [weak self] in
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.image]
+            guard await runSheet(panel) == .OK, let picked = panel.url, let self else { return }
+            let folder = url.deletingLastPathComponent().path
+            guard let made = await app.call(FilesCopy(paths: [picked.path], into: folder))?.made.first else { return }
+            let name = (made as NSString).lastPathComponent
+            put(#"<img data-id="picture" src="\#(name)" style="max-width: 100%">"#, on: board, after: id)
         }
     }
 }

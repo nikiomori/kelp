@@ -184,14 +184,13 @@ extension MarkdownTab {
     private func askForImage(_ board: String, _ id: String) async {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         let source = path == url.path ? editor.text : await app.quiet(FilesRead(path: path))?.text
-        guard let window = view.window, BoardEdit.element(source ?? "", id: id)?.lowercased().hasPrefix("<img") == true
-        else { return NSSound.beep() }
+        guard BoardEdit.element(source ?? "", id: id)?.lowercased().hasPrefix("<img") == true else {
+            return Banner.show(String(localized: "Only a picture can be replaced: choose one on the page first."))
+        }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
-        panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let picked = panel.url else { return }
-            Task { @MainActor in await self?.setImage(board, id, to: picked) }
-        }
+        guard await runSheet(panel) == .OK, let picked = panel.url else { return }
+        await setImage(board, id, to: picked)
     }
 
     /// Copies `file` into the page's folder (as "name copy.png" when the name is taken) and sets image `id`'s `src`.

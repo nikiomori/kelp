@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Core
 import ImageIO
 import KelpKit
@@ -33,14 +34,13 @@ extension MarkdownTab {
 
     /// Frame as PNG…: asks where, then saves the frame shown now at the stage's own size (a poster, a thumbnail).
     func saveFrame() {
-        guard let window = view.window else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.nameFieldStringValue =
             url.deletingLastPathComponent().lastPathComponent + " " + MotionStudio.clock(motionStudio.at) + ".png"
-        panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let to = panel.url else { return }
-            Task { @MainActor in await self?.writeFrame(to) }
+        Task { [weak self] in
+            guard await runSheet(panel) == .OK, let to = panel.url else { return }
+            await self?.writeFrame(to)
         }
     }
 

@@ -108,13 +108,11 @@ extension MarkdownTab {
 
     /// Asks for a font file and brings it into the page.
     private func addFont(_ element: (board: String, id: String)) {
-        guard let window = view.window else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = ["ttf", "otf", "woff", "woff2"].compactMap { UTType(filenameExtension: $0) }
-        panel.beginSheetModal(for: window) { [weak self] answer in
-            guard answer == .OK, let file = panel.url else { return }
-            let family = file.deletingPathExtension().lastPathComponent
-            Task { @MainActor in await self?.bringFont(file, family: family, element) }
+        Task { [weak self] in
+            guard await runSheet(panel) == .OK, let file = panel.url else { return }
+            await self?.bringFont(file, family: file.deletingPathExtension().lastPathComponent, element)
         }
     }
 
