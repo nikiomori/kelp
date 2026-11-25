@@ -84,6 +84,30 @@ extension AppOfItsOwn {
         #expect(titles(nil) == ["Git doesn’t track this line"])
     }
 
+    /// The editor's right-click menu shows the keys of the items that are commands, as they stand after a rebinding, so
+    /// ⌥⌘↩ is learnt where Send to Agent is clicked.
+    @Test func aFilesMenuShowsTheKeysOfItsCommands() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        _ = NSApplication.shared   // the themes a reload applies set its appearance
+        rig.app.extensions.reload()
+        let tab = await opened(try file("a\n"), in: rig)
+        func keys() -> [String: String] {
+            let menu = NSMenu()
+            tab.contextMenu(menu)
+            return Dictionary(
+                menu.items.filter { !$0.keyEquivalent.isEmpty }.map {
+                    (
+                        $0.title,
+                        KeyBindings.display(KeySpec(key: $0.keyEquivalent, mods: .init($0.keyEquivalentModifierMask)))
+                    )
+                }, uniquingKeysWith: { a, _ in a })
+        }
+        #expect(keys() == ["Send to Agent": "⌥⌘↩", "Copy Path and Line": "⌥⇧⌘C", "Toggle Comment": "⌘/"])
+        rig.app.settings.set("keys", .object(["editor.sendToAgent": .string("ctrl+cmd+return")]))
+        #expect(keys()["Send to Agent"] == "⌃⌘↩")
+    }
+
     /// The close sheet says Save writes a deleted file at its old place again, and it does: it used to leave the tab open with
     /// no word. A plain save still doesn't write over what it hasn't seen.
     @Test func saveInTheCloseSheetPutsADeletedFileBack() async throws {
@@ -321,6 +345,7 @@ extension AppOfItsOwn {
         #expect(tab.badge == nil && tab.terminalGrid == nil)
         tab.goTo(line: 3)
         #expect(file.editor?.cursor?.line == 3)
+        #expect(tab.sendSelectionToAgent())   // ⌥⌘↩: a file always has its path to hand over
         #expect(await tab.close())   // nothing edited: closes without asking
     }
 

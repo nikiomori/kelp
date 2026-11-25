@@ -195,6 +195,13 @@ final class SyncPopover: NSViewController {
         } changed: { [weak self] _ in
             self?.update()
         }
+        // A background fetch that fails says why on the line; one that works moves its time.
+        track(owner: self) { [app, wid] in
+            Values(BackgroundFetch.of(app).trouble(wid), BackgroundFetch.of(app).fetches)
+        } changed: { [weak self] _ in
+            self?.listKey = ""
+            self?.update()
+        }
     }
 
     /// The popover opens for a pull or a push, not for typing, so the commit field waits for a click. The popover's

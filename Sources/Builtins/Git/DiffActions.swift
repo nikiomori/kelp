@@ -115,6 +115,16 @@ extension DiffViewController {
             if !table.selectedRowIndexes.contains(row) { table.selectRowIndexes([row], byExtendingSelection: false) }
             addComment()
         }
+        if line.newLine != nil {   // a removed line isn't in the file the agent reads
+            let send = menu.add(String(localized: "Send to Agent")) { [weak self] in
+                guard let self else { return }
+                if !table.selectedRowIndexes.contains(row) {
+                    table.selectRowIndexes([row], byExtendingSelection: false)
+                }
+                sendSelectionToAgent()
+            }
+            app.extensions.showKey("editor.sendToAgent", on: send)
+        }
         if let number = line.newLine {
             menu.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, number) }
         }
@@ -122,6 +132,25 @@ extension DiffViewController {
             copyText(line.text)
         }
     }
+    /// Types the selected lines into the agent's prompt as "path:44-45", as the editor's Send to Agent does, without
+    /// pressing Return. Returns false when no line the file still has is selected.
+    @discardableResult func sendSelectionToAgent() -> Bool {
+        guard let root = app.worktree(worktreeId)?.path,
+            let (file, lines) = Self.agentLines(table.selectedRowIndexes.compactMap { shownLine($0) })
+        else { return false }
+        FileActions(app).sendToAgent(root + "/" + file, lines: lines)
+        return true
+    }
+
+    /// The file and lines a selection names for an agent: the first selected file's, by the numbers the file has now
+    /// (the new side). Removed lines have none, so a selection of only those names nothing.
+    static func agentLines(_ shown: [(String, DiffLine)]) -> (String, ClosedRange<Int>)? {
+        guard let file = shown.first?.0 else { return nil }
+        let numbers = shown.filter { $0.0 == file }.compactMap(\.1.newLine)
+        guard let first = numbers.min(), let last = numbers.max() else { return nil }
+        return (file, first...last)
+    }
+
     private func setComment(_ id: String, _ state: String) {
         let set = CommentSetState(id: id, state: state)
         Task {

@@ -1,6 +1,220 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Continue from where you stopped.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжи с того места, где остановился."
+          }
+        }
+      }
+    },
+    "Cut short when Kelp closed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прерван: Kelp закрылся"
+          }
+        }
+      }
+    },
+    "Cut short: Kelp closed at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прерван: Kelp закрылся в %@"
+          }
+        }
+      }
+    },
+    "They’re paused since %@. Agents you paused yourself aren’t affected.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они на паузе с %@. Агентов, которых вы усыпили сами, это не касается."
+          }
+        }
+      }
+    },
+    "Continue All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить все"
+          }
+        }
+      }
+    },
+    "Click to open Kelp with Continue All.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите: Kelp откроется с «Продолжить все»"
+          }
+        }
+      }
+    },
+    "Continue working agents after a crash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После сбоя продолжать работавших агентов"
+          }
+        }
+      }
+    },
+    "One by one, with a pause. Agents you paused yourself wait for you.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По одному, с паузой. Кого вы усыпили сами, ждут вас."
+          }
+        }
+      }
+    },
+    "When Kelp closes unexpectedly or the Mac restarts while agents are in the middle of a turn, they go on by themselves once Kelp is back, instead of waiting for Continue All. Uses their plans while you’re away.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если Kelp неожиданно закрылся или Mac перезагрузился посреди хода агентов, они сами продолжат, когда Kelp снова запустится, а не будут ждать «Продолжить все». Тратит их тарифы, пока вас нет."
+          }
+        }
+      }
+    },
+    "Kelp closed while %lld agents were working": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp closed while %lld agent was working"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp closed while %lld agents were working"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работал %lld агент"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агента"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агентов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агента"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld agents stopped: Kelp closed at %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@ stopped: Kelp closed at %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg agent"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg agents"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@: Kelp закрылся в %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агент прервался"
+                    }
+                  },
+                  "few": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агента прервались"
+                    }
+                  },
+                  "many": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агентов прервались"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агента прервались"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     " · %@%lld%% on the %lld days before (%@)": {
       "localizations": {
         "ru": {
@@ -5186,6 +5400,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ещё %lld"
+          }
+        }
+      }
+    },
+    "%lld more matches": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё %lld"
+          }
+        }
+      }
+    },
+    "In Terminal Output": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В выводе терминалов"
           }
         }
       }
@@ -12692,6 +12926,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "На этом экране нет агента. Запустите его (%@) и отправьте снова."
+          }
+        }
+      }
+    },
+    "No other agent on this screen. Start one with %@, then send again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране нет другого агента. Запустите его (%@) и отправьте снова."
           }
         }
       }
@@ -21578,6 +21822,99 @@
         }
       }
     },
+    "Fetch in the background": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получать в фоне"
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане."
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front, and at once when you come back to it, for the projects in the sidebar. Never asks for a password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане, и сразу, когда вы к нему возвращаетесь, для проектов в боковой панели. Никогда не спрашивает пароль."
+          }
+        }
+      }
+    },
+    "offline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет сети"
+          }
+        }
+      }
+    },
+    "couldn’t fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не удалось получить"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти, нажмите «Получить»"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти, нажмите «Получить»"
+          }
+        }
+      }
+    },
     "fetched %@ ago": {
       "localizations": {
         "ru": {
@@ -23632,6 +23969,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перенести в группу"
+          }
+        }
+      }
+    },
+    "Back to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@"
+          }
+        }
+      }
+    },
+    "Back to %@ · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@ · %@"
           }
         }
       }

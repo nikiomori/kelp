@@ -189,18 +189,6 @@ extension Workbench {
         _ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [QuickItem]
     ) { app.quickOpen.showList(placeholder, keys: keys, rows: rows) }
 
-    /// ⇧⌘U shows the next agent that asked something or finished, wherever it is.
-    package func showNextNeedingAttention() {
-        let current = editor?.layout.focusedGroup?.selectedTab.map(\.uri).flatMap {
-            TabURI.scheme($0) == "session" ? TabURI.body($0) : nil
-        }
-        guard let session = AttentionQueue(app).next(after: current) else {
-            NSSound.beep()
-            return
-        }
-        focus(session: session.id)
-    }
-
     package func closeTab(uri: String, remember: Bool = true) {
         guard let area = window?.editors.current, area.layout.tab(uri: uri) != nil,
             let tab = area.layout.tab(uri: uri)

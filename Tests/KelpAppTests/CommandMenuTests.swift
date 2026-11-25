@@ -238,3 +238,43 @@ extension OneAtATime {
         }
     }
 }
+
+/// ⇧⌘U when no agent needs you.
+extension OneAtATime {
+    /// With nobody waiting, ⇧⌘U goes back to the agent last prompted, and its menu item says so by name. Anyone who
+    /// waits still comes first, and an agent that ended is nowhere to go back to. A turn counts as a prompt only when
+    /// an agent's chat went to work from another state.
+    @Test func shiftCmdUGoesBackToTheAgentLastPromptedWhenNoneNeedsYou() {
+        _ = testHome
+        let delegate = AppDelegate(builtins: Builtins.all), app = delegate.app, bench = app.workbench
+        app.repos = [Repo(id: "r", name: "web-shop", path: "/web-shop")]
+        app.worktrees = [Worktree(id: "w", repoId: "r", branch: "main", path: "/web-shop")]
+        func chat(_ id: String, _ status: AgentStatus, agent: String = "claude") -> Session {
+            Session(id: id, worktreeId: "w", cwd: "/", command: agent, agent: agent, status: status, title: "Claude")
+        }
+        let item = NSMenuItem()
+        item.identifier = NSUserInterfaceItemIdentifier("agents.nextNeedingYou")
+        func title() -> String {
+            _ = delegate.validateMenuItem(item)
+            return item.title
+        }
+        let idle = chat("x", .idle), working = chat("x", .working)
+        for (now, was, began) in [
+            (working, idle, true), (working, chat("x", .waiting), true),   // a task, or an answer to its question
+            (working, working, false), (working, nil, false),   // already at work; started elsewhere
+            (chat("x", .done), working, false), (chat("t", .working, agent: "shell"), chat("t", .idle), false)
+        ] as [(Session, Session?, Bool)] {
+            #expect(Workbench.turnBegan(now, was: was) == began)
+        }
+
+        app.upsert(working)
+        #expect(bench.needingYouTarget() == nil && title() == "Show Agent Needing You")   // nobody prompted: a beep
+        bench.lastPrompted = "x"
+        #expect(bench.needingYouTarget()?.session.id == "x" && title() == "Back to Claude · web-shop")
+        app.upsert(chat("q", .waiting))
+        #expect(bench.needingYouTarget()?.session.id == "q" && title() == "Show Agent Needing You")
+        app.upsert(chat("q", .idle))
+        app.upsert(chat("x", .exited))
+        #expect(bench.needingYouTarget() == nil && title() == "Show Agent Needing You")
+    }
+}

@@ -7,6 +7,9 @@ public enum SettingKeys {
     public static let defaultAgent = Setting("agents.default", Session.claudeAgent)
     public static let editInKelp = Setting("agents.editInKelp", true)
     public static let hibernateMinutes = Setting<Double>("sessions.hibernateMinutes", 0)
+    /// Whether the agents Kelp's going down cut off mid-turn go on by themselves when it starts again, instead of
+    /// waiting for Continue All.
+    public static let resumeAfterCrash = Setting("sessions.resumeAfterCrash", false)
     public static let updateIdle = Setting("agents.updateIdle", true)
     public static let recap = Setting("agents.recap", true)
     public static let childReports = Setting("agents.childReports", true)

@@ -393,7 +393,7 @@ extension Methods {
         SessionList.self, SessionAttach.self, SessionStream.self, SessionDetach.self, SessionWrite.self,
         SessionSend.self, SessionResize.self, SessionKill.self, SessionChoose.self, SessionPermissionWait.self,
         AgentSetSecret.self, AgentSave.self, SessionBusy.self, SessionCommands.self, SessionWhy.self, SessionTrail.self,
-        SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionContinueAt.self,
-        SessionLastReply.self
+        SessionRead.self, SessionFind.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self,
+        SessionContinueAt.self, SessionLastReply.self
     ]
 }

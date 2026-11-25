@@ -14,6 +14,7 @@ extension Builtins {
     ) { app in
         let changed = ChangedFiles(app: app)
         let panel: LivePanel = app.part { LivePanel() }   // the one the panel on screen was built with, at every reload
+        _ = BackgroundFetch.of(app)   // fetches while Kelp is in front, from the start
         return Contributions(
             panels: [
                 PanelSpec(
@@ -91,6 +92,13 @@ extension Builtins {
                             help:
                                 "Each project’s branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp’s own folder.",
                             placeholder: "~/worktrees"),
+                        // BackgroundFetch keeps it.
+                        s(
+                            SettingKeys.fetchInBackground, "Fetch in the background", .boolean,
+                            "Every 5 minutes while Kelp is in front.",
+                            help:
+                                "Every 5 minutes while Kelp is in front, and at once when you come back to it, for the projects in the sidebar. Never asks for a password."
+                        ),
                         // Where a branch's CI shows. RowMarks keeps it, and gh / glab are asked only for what one of
                         // these places shows.
                         s(
@@ -143,7 +151,8 @@ extension Builtins {
                     let controller = SyncPopover(app: app, worktree: worktree)
                     controller.popover = popover
                     return controller
-                }),
+                },
+                fetch: { BackgroundFetch.of(app).chip($0) }),
             // The CI and PR marks beside folders and on the window bar, and the PR in a folder's hover card.
             ci: FolderCI(
                 rows: { RowMarks.of(app).sidebarMarks },

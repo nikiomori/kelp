@@ -217,7 +217,16 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
     // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
-    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: an agent's pane shows where a dragged file will land with the editor's own hint (`DropHint`, its
+    // `show(over:)` and `hide`), so a drop looks the same on every pane.
+    // +2: a built-in's rows for whatever is typed in ⌘P, under its own heading (`QuickSection`, its `init`), so Agents
+    // lists the lines open terminals printed without the shell knowing terminals.
+    // +2: agents Kelp's going down cut short are offered to go on by the Agents built-in, which reads whether one was
+    // (`Session.interrupted`) and continues them in the sidebar's order (`inSidebarOrder`).
+    // +1: a right-click menu's item shows its command's key as it stands (`showKey`), so Send to Agent teaches ⌥⌘↩
+    // in the editor, the diff and the terminal.
+    // +1: a tab's own answer to ⌥⌘↩ (`sendSelectionToAgent`), "nothing selected" by default.
+    #expect(declared == 386, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -233,8 +242,10 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         let t = String(l)
         return declaration.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil
     }
-    #expect(requirements.count <= 14, "\(requirements)")
-    #expect(requirements.count >= 14, "fewer now: lower the ceiling")
+    // 15: ⌥⌘↩ hands the selection of whatever tab is in front to an agent (`sendSelectionToAgent`): a file's, a diff's
+    // and a terminal's each answer it, and the command can't know their kinds.
+    #expect(requirements.count <= 15, "\(requirements)")
+    #expect(requirements.count >= 15, "fewer now: lower the ceiling")
 }
 
 /// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.
@@ -312,8 +323,8 @@ func codeOnly(_ s: String) -> String {
             l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 374, "lines over 120: \(over120)")
-    #expect(over120 >= 374, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 373, "lines over 120: \(over120)")
+    #expect(over120 >= 373, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -495,6 +506,10 @@ func codeOnly(_ s: String) -> String {
             1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
         ),
         "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
+        "Builtins/Git/BackgroundFetch.swift": (
+            1,
+            "a fetch every 5 minutes while Kelp is in front: a remote announces nothing, and only the app knows it's in front"
+        ),
         "Builtins/Agents/Session/PaneView.swift": (
             1, "a terminal out of sight lets go of its agent once it could pause idle"
         ),
@@ -527,6 +542,9 @@ func codeOnly(_ s: String) -> String {
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
         "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
+        "Builtins/Agents/Session/InterruptedAgents.swift": (
+            1, "Continue All wakes the agents Kelp's going down cut short a second apart, so a dozen don't start at once"
+        ),
         "KelpKit/Shell/WorkspaceActions+Idle.swift": (
             1, "an empty group's row shows its sand run out for a moment before the group goes"
         ),

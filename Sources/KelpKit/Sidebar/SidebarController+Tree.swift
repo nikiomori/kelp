@@ -47,11 +47,7 @@ extension SidebarController {
         let menu = NSMenu(), app = app
         for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
             guard let command = app.extensions.command(id) else { continue }
-            let item = menu.add(command.title) { app.extensions.run(id) }
-            if let shortcut = app.extensions.key(id) {
-                item.keyEquivalent = shortcut.key
-                item.keyEquivalentModifierMask = shortcut.mods.flags
-            }
+            app.extensions.showKey(id, on: menu.add(command.title) { app.extensions.run(id) })
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }

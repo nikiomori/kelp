@@ -17,9 +17,9 @@ extension SyncPopover {
             attributes: [.font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.labelColor])
         name.image = .symbol("chevron.down", String(localized: "Switch Branch"))
         name.isEnabled = info != nil && running == nil
-        state.stringValue =
+        state.attributedStringValue = line(
             Self.standing(upstream: info?.upstream, ahead: ahead, behind: behind, hasRemote: hasRemote)
-            + (unsynced?.fetched.map { " · " + Self.fetched(Date(timeIntervalSince1970: $0)) } ?? "")
+                + (unsynced?.fetched.map { " · " + Self.fetched(Date(timeIntervalSince1970: $0)) } ?? ""))
 
         fetch.isHidden = !hasRemote
         fetch.isEnabled = running == nil
@@ -72,8 +72,24 @@ extension SyncPopover {
         }
     }
 
+    /// The standing line, and why the background fetch fails, if it does ("offline"), in the text's colour: the counts
+    /// before it may be old.
+    private func line(_ standing: String) -> NSAttributedString {
+        let quiet: [NSAttributedString.Key: Any] = [
+            .font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        let line = NSMutableAttributedString(string: standing, attributes: quiet)
+        if let trouble = BackgroundFetch.of(app).trouble(wid) {
+            line.append(NSAttributedString(string: " · ", attributes: quiet))
+            var loud = quiet
+            loud[.foregroundColor] = NSColor.labelColor
+            line.append(NSAttributedString(string: BackgroundFetch.words(trouble, inPopover: true), attributes: loud))
+        }
+        return line
+    }
+
     /// "fetched 4m ago", which says how old the counts may be.
-    private static func fetched(_ date: Date) -> String {
+    static func fetched(_ date: Date) -> String {
         let ago = shortAgo(date)
         let words =
             ago == String(localized: "now")

@@ -292,6 +292,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         outline.delegate = self
         outline.target = self
         outline.action = #selector(clicked(_:))
+        // A file dragged out to Finder or another app is copied there, never moved.
+        outline.setDraggingSourceOperationMask(.copy, forLocal: false)
         let menu = NSMenu()
         menu.delegate = self
         outline.menu = menu

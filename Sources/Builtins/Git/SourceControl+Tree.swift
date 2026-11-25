@@ -247,12 +247,15 @@ extension SourceControlController {
         return true
     }
     func outlineView(_ outline: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { outline.listRowView() }
-    /// A changed file drags out as itself: into a terminal (an agent's prompt), Finder, or another app. A deleted file
-    /// has nothing to drag.
+    /// A changed file drags out as itself: into a terminal (an agent's prompt), an editor pane, Finder or another app.
+    /// So does a file under a commit, unless that commit or a change not yet committed deleted it: then there's none.
     func outlineView(_ outline: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard case .file(let file, _)? = (item as? Node)?.kind, let root = app.worktree(worktreeId)?.path else {
-            return nil
+        let file: FileChange? = switch (item as? Node)?.kind {
+        case .file(let change, _)?: change
+        case .commitFile(_, let c)? where c.index != "D": changes.first { $0.path == c.path } ?? c
+        default: nil
         }
+        guard let file, let root = app.worktree(worktreeId)?.path else { return nil }
         let gone = file.worktree == "D" || (file.index == "D" && file.worktree == ".")
         return gone ? nil : URL(fileURLWithPath: root).appendingPathComponent(file.path) as NSURL
     }

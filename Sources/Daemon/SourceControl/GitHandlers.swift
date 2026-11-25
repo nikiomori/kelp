@@ -260,6 +260,15 @@ extension GitRemoteOp: Handled {
         return Done()
     }
 }
+extension GitFetchQuietly: Handled {
+    /// Kelp's own clock fetches; an agent fetches with git in its terminal. A remote project's host is fetched over a
+    /// connection already open: Kelp never dials a host by itself.
+    func handle(_ scm: SourceControl) throws -> QuietFetch {
+        let path = try scm.folder(worktreeId)
+        guard scm.remotes.connected(path) else { return QuietFetch(ran: false) }
+        return try Git.fetchQuietly(path, remotes: scm.remotes)
+    }
+}
 extension GitStash: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
         try Git.stash(scm.folder(id), pop: pop == true, remotes: scm.remotes)
@@ -315,7 +324,8 @@ extension Methods {
         GitCommitFiles.self, GitCommitDetails.self, GitCommitAct.self, GitLineOrigin.self, GitDiscard.self,
         GitDiscardHunk.self,
         GitUndoDiscard.self,
-        GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self, FilesIgnored.self,
+        GitRemoteOp.self, GitFetchQuietly.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self,
+        FilesIgnored.self,
         FilesSearch.self
     ]
 }

@@ -9,8 +9,12 @@ extension Session {
         progress != nil && !isAgent ? .working : status
     }
     /// The status the mark on the session's row shows. A paused agent's row is dimmed, but a finished result you
-    /// haven't read keeps its bright mark.
-    package var shownStatus: AgentStatus { status == .paused && unread ? .done : markStatus }
+    /// haven't read keeps its bright mark. An agent Kelp's going down cut short isn't a result: it stays paused.
+    package var shownStatus: AgentStatus { status == .paused && unread && interruptedAt == nil ? .done : markStatus }
+    /// Whether the agent's turn was cut short when Kelp went down (`interruptedAt`), and it waits to go on.
+    package var interrupted: Bool { status == .paused && interruptedAt != nil }
+    /// Whether the row says the agent was cut short: its mark and a bold name, until it is looked at or goes on.
+    var showsInterrupted: Bool { interrupted && unread }
     /// The status in words, such as "Working · 40 %" when the session says how far it got.
     /// A session whose connection to its host dropped says so, because "Ended" would read as finished.
     package var statusWords: String {
@@ -100,6 +104,7 @@ extension Session {
         return isChat && (st == .waiting || st == .error || (st == .done && unread))
     }
 
-    /// Whether there is something to look at: finished or asking, and not opened since (shown bold, like unread mail).
-    var isNews: Bool { unread && [.done, .waiting, .error].contains(shownStatus) }
+    /// Whether there is something to look at: finished, asking or cut short, and not opened since (shown bold, like
+    /// unread mail).
+    var isNews: Bool { unread && [.done, .waiting, .error].contains(shownStatus) || showsInterrupted }
 }

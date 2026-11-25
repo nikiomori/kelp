@@ -68,6 +68,9 @@ package final class StatusMark: NSView {
     var waitsForCommand = false { didSet { if waitsForCommand != oldValue { update() } } }
     /// True when a plan limit stopped the agent, read or not. It shows a clock until the agent does something else.
     var limited = false { didSet { if limited != oldValue { changed() } } }
+    /// True when Kelp's going down cut the paused agent's turn short and it hasn't been looked at
+    /// (`Session.showsInterrupted`). It shows a turning-back arrow instead of the moon.
+    var interrupted = false { didSet { if interrupted != oldValue { changed() } } }
     /// True when the status is read off the screen (`Session.guessed`). It shows a whole ring of dashes, so the guess
     /// looks like one.
     var guessed = false { didSet { if guessed != oldValue { update() } } }
@@ -85,6 +88,7 @@ package final class StatusMark: NSView {
     /// folded project's logos none, so one agent stood as a ring of dots in its tab and turned as an arc in the list.
     package func follow(_ session: Session) {
         limited = session.limitHit != nil
+        interrupted = session.showsInterrupted
         compacting = session.compacting
         waitsForCommand = session.waitsForCommand
         guessed = session.guessed == true
@@ -246,6 +250,15 @@ package final class StatusMark: NSView {
             image.image = .symbol("clock", String(localized: "Stopped at its limit"))
             image.symbolConfiguration = .chrome(size - 1)
             image.contentTintColor = .textOrange
+            return
+        }
+        if interrupted, shown == .paused {
+            let words = String(localized: "Cut short when Kelp closed")
+            toolTip = words
+            setAccessibilityLabel(words)
+            image.image = .symbol("arrow.counterclockwise", words)
+            image.symbolConfiguration = .chrome(size - 1)
+            image.contentTintColor = .secondaryLabelColor
             return
         }
         image.image = .symbol(shown.symbol, shown.words)

@@ -199,8 +199,7 @@ extension Git {
     /// popover.
     static func lastFetch(_ path: String, remotes: Remotes) throws -> Double? {
         guard remotes.of(path) == nil else { return nil }
-        let file = try line(
-            ["rev-parse", "--path-format=absolute", "--git-path", "FETCH_HEAD"], cwd: path, remotes: remotes)
+        let file = try fetchHead(path, remotes: remotes)
         return file.isEmpty ? nil : FileManager.default.modified(file)?.timeIntervalSince1970
     }
 

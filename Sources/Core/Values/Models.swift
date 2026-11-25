@@ -148,6 +148,7 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         didSet {
             guard status != oldValue else { return }
             statusAt = Date()
+            if status != .paused { interruptedAt = nil }   // back at work (or ended): no longer cut short
             // A Stop that waits for a subagent keeps the session working. When the turn is cut short, no hook says the
             // subagents ended, so they are cleared here.
             if status != .working && status != .waiting {
@@ -210,6 +211,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// When Kelp types "continue" into the session, if the agent is still where the limit stopped it
     /// (`session.continueAt`).
     public var continueAt: Date?
+    /// When Kelp went down (a crash, the Mac shutting down) while the agent was mid-turn, so Kelp offers to go on with
+    /// it. nil for an agent paused any other way, and once it wakes.
+    public var interruptedAt: Date?
     /// The agent that started this one (`kelp session new --agent`). The parent hears how this agent is doing, and ends
     /// it when the parent ends.
     public var parent: String?
