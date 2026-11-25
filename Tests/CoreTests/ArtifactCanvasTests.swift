@@ -66,3 +66,18 @@ import Testing
     #expect(dashboard.contains("kelp artifact new dashboard") && dashboard.contains("data-source"))
     #expect(try #require(Artifacts.guide("slides", whereTo: "local")).contains("guide design deck"))
 }
+
+/// A canvas is a deck when every board is a 16:9 frame; a screen as tall as its content or a phone isn't a slide.
+@Test(
+    arguments: [
+        ([(1920, 1080), (1280, 720)], true),
+        ([(1920, 1080), (390, 844)], false),
+        ([(1920, nil)], false),
+        ([], false)
+    ] as [([(Int, Int?)], Bool)])
+func aCanvasIsADeckWhenEveryBoardIsASlide(sizes: [(Int, Int?)], deck: Bool) {
+    let boards = sizes.enumerated().map {
+        ArtifactCanvas.Board(file: "boards/\($0.offset).html", w: $0.element.0, h: $0.element.1)
+    }
+    #expect(ArtifactCanvas(boards: boards).isDeck == deck)
+}

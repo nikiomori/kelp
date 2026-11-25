@@ -142,7 +142,8 @@ extension Artifacts {
         - The first slide is the title; one idea a slide; nothing smaller than 24px; at most 4–5 sizes.
         - A slide is laid out to fit its frame (the check says when one runs over): too much is two slides, not
           smaller type.
-        - The user presents it with Present in the canvas's bar (← → step, Esc ends) and prints a page a slide.
+        - The user presents it with Present in the canvas's bar (← → step, Esc ends) and exports it as a PDF or a
+          PowerPoint (`kelp artifact export <name> pdf|pptx` when they ask you to).
 
         """
 

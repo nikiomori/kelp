@@ -2,9 +2,12 @@ import AVFoundation
 import AppKit
 import Core
 import Foundation
+import PDFKit
 import Testing
 
 @testable import BuiltinFiles
+@testable import EditorKit
+@testable import KelpKit
 
 /// A PowerPoint of pictures has its parts: a slide and a picture for each, each slide in the deck's list and in the
 /// package's types.
@@ -228,4 +231,34 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     #expect(slide.contains(#"sz="4000" b="1""#) && slide.contains(#"<a:srgbClr val="1D1D1F"/>"#))
     #expect(slide.contains("<a:t>Q3 &amp; beyond</a:t>") && slide.contains("<a:t>&lt;next&gt;</a:t>"))
     #expect(slide.components(separatedBy: #"<a:pPr algn="ctr"/>"#).count == 3)
+}
+
+/// A deck made as a design leaves as slides do: a PDF page a board at the board's size, and a PowerPoint slide a board
+/// whose words are a text box over its picture.
+@MainActor @Test func aDeckMadeAsADesignLeavesAsSlides() async throws {
+    _ = NSApplication.shared
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "kelp-deck-\(UUID().uuidString)/.kelp/artifacts/deck")
+    try FileManager.default.createDirectory(
+        at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent().deletingLastPathComponent()) }
+    for name in ["a", "b"] {
+        try #"<body style="margin:0"><h1 style="margin:40px">Slide \#(name)</h1></body>"#.write(
+            to: folder.appendingPathComponent("boards/\(name).html"), atomically: true, encoding: .utf8)
+    }
+    let canvas =
+        #"{"boards": [{"file": "boards/a.html", "w": 1280, "h": 720}, {"file": "boards/b.html", "w": 1280, "h": 720}]}"#
+    let url = folder.appendingPathComponent("canvas.json")
+    try canvas.write(to: url, atomically: true, encoding: .utf8)
+    let tab = MarkdownTab(editor: CodeEditor(text: canvas, url: url), url: url, app: AppModel())
+    #expect(tab.isDeck)
+    let pdf = folder.appendingPathComponent("deck.pdf")
+    try await tab.exportBoardsPDF(pdf)
+    let document = try #require(PDFDocument(url: pdf))
+    #expect(document.pageCount == 2)
+    #expect(document.page(at: 0)?.bounds(for: .mediaBox).size == CGSize(width: 1280, height: 720))
+    #expect(document.page(at: 1)?.string?.contains("Slide b") == true)
+    let (slides, texts) = try await tab.deckSlides(editable: true)
+    #expect(slides.count == 2 && NSBitmapImageRep(data: slides[0])?.pixelsWide == 1920)
+    #expect(texts.map { $0.map(\.words) } == [["Slide a"], ["Slide b"]])
 }

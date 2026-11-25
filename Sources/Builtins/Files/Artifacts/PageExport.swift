@@ -24,9 +24,9 @@ enum PageExport: String, CaseIterable {
     }
 
     /// The exports a page of kind `page` has.
-    static func formats(for page: MarkdownTab.Page) -> [PageExport] {
+    static func formats(for page: MarkdownTab.Page, deck: Bool = false) -> [PageExport] {
         switch page {
-        case .canvas: [.png, .html, .zip]
+        case .canvas: deck ? [.png, .pdf, .pptx, .html, .zip] : [.png, .html, .zip]
         case .slides: [.pdf, .pptx, .html, .zip]
         default: [.html, .zip]
         }
@@ -48,7 +48,7 @@ extension ArtifactBar {
     /// ⋯'s Export section, for this page's kind.
     func exportItems(_ menu: NSMenu) {
         menu.addItem(.sectionHeader(title: String(localized: "Export")))
-        for format in PageExport.formats(for: markdown.page) {
+        for format in PageExport.formats(for: markdown.page, deck: markdown.isDeck) {
             menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
         }
         if markdown.takesRows {   // only a page whose elements take a table's columns
@@ -103,8 +103,10 @@ extension MarkdownTab {
         do {
             switch format {
             case .png: try await exportBoards(into: to)
-            case .pdf: try await exportSlidesPDF(to)
-            case .pptx: try await exportSlidesPowerPoint(to, editable: editable)
+            case .pdf: try await page == .canvas ? exportBoardsPDF(to) : exportSlidesPDF(to)
+            case .pptx:
+                try await page == .canvas
+                    ? exportBoardsPowerPoint(to, editable: editable) : exportSlidesPowerPoint(to, editable: editable)
             case .html: try await exportHTML(to)
             case .zip: try await zip(url.deletingLastPathComponent(), to: to, keepFolder: true)
             }
@@ -141,6 +143,15 @@ extension MarkdownTab {
     /// A page file (or `html` in its place) drawn `width` wide without its scripts (as the canvas shows a board), as
     /// tall as `height` or else its content, as PNG at twice the size.
     static func picture(of file: URL, html: String? = nil, width: Double, height: Double?) async throws -> Data {
+        let (web, size) = try await drawn(file, html: html, width: width, height: height)
+        return try await shot(web, size)
+    }
+
+    /// A page file (or `html` in its place) loaded in a web view of its own `width` wide without its scripts, sized
+    /// `height` tall or else to its content.
+    static func drawn(_ file: URL, html: String? = nil, width: Double, height: Double?) async throws -> (
+        WKWebView, NSSize
+    ) {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         // Short at first, so a page shorter than the view measures as itself.
@@ -159,10 +170,16 @@ extension MarkdownTab {
                 "return document.documentElement.scrollHeight", contentWorld: .defaultClient) as? Double
         let size = NSSize(width: width, height: min(max(height ?? tall ?? 800, 40), 8000))
         web.setFrameSize(size)
+        return (web, size)
+    }
+
+    /// What `web` shows, `size` large, as PNG at `scale` times the size.
+    static func shot(_ web: WKWebView, _ size: NSSize, scale: Double = 2) async throws -> Data {
         let shot = WKSnapshotConfiguration()
         shot.snapshotWidth = NSNumber(value: size.width)
         let image = try await web.takeSnapshot(configuration: shot)
-        guard let png = Self.png(image, width: Int(size.width) * 2, height: Int(size.height) * 2) else {
+        let w = Int((size.width * scale).rounded()), h = Int((size.height * scale).rounded())
+        guard let png = Self.png(image, width: w, height: h) else {
             throw CocoaError(.fileWriteUnknown)
         }
         return png
@@ -226,6 +243,11 @@ extension MarkdownTab {
             if editable { _ = try await web.callAsyncJavaScript(Self.showWords, contentWorld: Self.world) }
             if let png = Self.png(image, width: 1920, height: 1080) { slides.append(png) }
         }
+        try await writePowerPoint(slides, texts: texts, to: to)
+    }
+
+    /// A PowerPoint of `slides` (PNG pictures) with `texts` over them, at `to`.
+    func writePowerPoint(_ slides: [Data], texts: [[PowerPoint.Text]], to: URL) async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try PowerPoint.write(slides, texts: texts, into: folder)
         try await zip(folder, to: to, keepFolder: false)
@@ -290,7 +312,9 @@ extension Builtins {
         else {
             guard let tab = artifactPage(app) else { return NSSound.beep() }
             let menu = NSMenu()
-            for format in PageExport.formats(for: tab.page) { menu.add(format.title) { tab.chooseExport(format) } }
+            for format in PageExport.formats(for: tab.page, deck: tab.isDeck) {
+                menu.add(format.title) { tab.chooseExport(format) }
+            }
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
             return
         }

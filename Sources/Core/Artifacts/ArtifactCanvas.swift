@@ -41,6 +41,11 @@ public struct ArtifactCanvas: Codable, Equatable, Sendable {
         return rows
     }
 
+    /// A deck made as a design (`kelp artifact guide design deck`): every board is a 16:9 frame, a slide.
+    public var isDeck: Bool {
+        !boards.isEmpty && boards.allSatisfy { b in b.w.map { w in b.h.map { w * 9 == $0 * 16 } ?? false } ?? false }
+    }
+
     /// Reads the canvas in `json`, or returns nil when it isn't one (half-written, or not a canvas).
     public static func read(_ json: String) -> ArtifactCanvas? {
         let canvas: ArtifactCanvas

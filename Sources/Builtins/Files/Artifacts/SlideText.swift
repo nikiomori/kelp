@@ -25,8 +25,15 @@ extension MarkdownTab {
 
     /// Slide `i`'s blocks of text, hidden after they are read (`showWords` puts them back).
     func slideTexts(_ i: Int) async throws -> [PowerPoint.Text] {
-        let found = try await web.callAsyncJavaScript(Self.takeWords, arguments: ["i": i], contentWorld: Self.world)
-        return (found as? [[String: Any]] ?? []).compactMap { t in
+        let found = try await web.callAsyncJavaScript(
+            Self.takeWords(of: "kelpSlides[i]", box: "slide.getBoundingClientRect()"), arguments: ["i": i],
+            contentWorld: Self.world)
+        return Self.texts(found)
+    }
+
+    /// The blocks of text `takeWords` found.
+    static func texts(_ found: Any?) -> [PowerPoint.Text] {
+        (found as? [[String: Any]] ?? []).compactMap { t in
             let number = { (key: String) in (t[key] as? NSNumber)?.doubleValue ?? 0 }
             guard let words = t["words"] as? String, !words.isEmpty else { return nil }
             return PowerPoint.Text(
@@ -37,8 +44,12 @@ extension MarkdownTab {
         }
     }
 
-    static let takeWords = """
-        const slide = kelpSlides[i], b = slide.getBoundingClientRect(), k = 1920 / b.width;
+    /// The script that reads and hides the words of `slide` (a JS expression), placed in `box` (one, as a rect).
+    static func takeWords(of slide: String, box: String) -> String {
+        "const slide = \(slide), b = \(box), k = 1920 / b.width;\n" + takeWords
+    }
+
+    private static let takeWords = """
         const shown = e => { const s = getComputedStyle(e); return s.display !== 'none' && s.visibility !== 'hidden'; };
         const block = e => !getComputedStyle(e).display.startsWith('inline');
         const words = e => (e.innerText || '').trim();

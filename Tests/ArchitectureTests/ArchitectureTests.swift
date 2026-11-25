@@ -758,6 +758,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel"),
         "Builtins/Files/MarkdownTab+Motion.swift": (2, "a video's half taken away on Cancel, a failed mix's leftover"),
         "Builtins/Files/Artifacts/MotionMovie.swift": (1, "a video written over the file picked in a save panel"),
+        "Builtins/Files/Artifacts/DeckExport.swift": (1, "a deck made as a design, as a PDF where the user picked"),
         "Builtins/Files/Artifacts/PageExport.swift": (
             9,
             "a page exported where the user picked (a save panel, or kelp artifact export's path) and its folder of "
