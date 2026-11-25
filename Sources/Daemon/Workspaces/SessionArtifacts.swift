@@ -63,8 +63,8 @@ extension ArtifactAdd: Handled {
     func handle(_ store: Store) throws -> Bool {
         guard url.hasPrefix("https://") else { throw RPCError.invalidParams("a page's link starts with https://") }
         let root = try artifactsRoot(store, cwd: cwd, session: session)
-        return try Artifacts.addNative(url: url, title: title, type: type, root: root, session: session, page: page)
-            != nil
+        return try Artifacts.addNative(
+            url: url, title: title, type: type, root: root, session: session, page: page, serviceId: serviceId) != nil
     }
 }
 
@@ -136,4 +136,28 @@ extension Methods {
         ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
         ArtifactRename.self, ArtifactRoundCost.self, ArtifactChange.self
     ]
+}
+
+extension Artifacts {
+    /// Returns what opens the page a hook says a tool starts on (`SessionHook.page(of:)`): a file in an artifact's
+    /// folder, or a page on the service by its id or link, looked for in `roots` (the agent's folders). nil when no
+    /// page of Kelp's is there.
+    static func target(of touch: SessionHook.PageTouch, roots: [String]) -> String? {
+        if let file = touch.file, let at = file.range(of: "/\(folder)/") {
+            let root = String(file[..<at.lowerBound])
+            guard let slug = file[at.upperBound...].split(separator: "/").first.map(String.init),
+                let record = record(in: dir(root: root).appendingPathComponent(slug))
+            else { return nil }
+            return target(slug, record, root: root)
+        }
+        guard let id = touch.service else { return nil }
+        for root in roots {
+            if let page = list(root: root).first(where: { _, r in
+                r.serviceId == id || r.url == id || r.url?.hasSuffix("/" + id) == true
+            }) {
+                return target(page.slug, page.record, root: root)
+            }
+        }
+        return nil
+    }
 }

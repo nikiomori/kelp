@@ -274,6 +274,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                     hook.goal = SessionHook.goal(of: payload)
                     hook.endedTasks = SessionHook.endedTasks(of: payload)
                     hook.edited = SessionHook.edited(of: payload)
+                    hook.page = SessionHook.page(of: payload)
                     if hook.hookName == "Stop" { hook.reply = payload["last_assistant_message"]?.string }
                 }
                 try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
@@ -291,7 +292,8 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                 }
                 if ev == "command", let payload = hookPayload, let page = Artifacts.published(hook: payload) {
                     await notePublished(
-                        page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                        page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id,
+                        serviceId: Artifacts.serviceId(hook: payload))
                 }
             default:
                 let client = try connect()

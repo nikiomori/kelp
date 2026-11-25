@@ -218,11 +218,14 @@ extension Main {
     /// user's signed-in browser would take the focus. The agent gives the link instead. This never fails the hook,
     /// because the agent's tool already did its work.
     static func notePublished(
-        _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String
+        _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String,
+        serviceId: String?
     ) async {
         do {
             _ = try await connect().call(
-                ArtifactAdd(url: p.url, title: p.title, type: p.type, cwd: cwd, session: session, page: p.page))
+                ArtifactAdd(
+                    url: p.url, title: p.title, type: p.type, cwd: cwd, session: session, page: p.page,
+                    serviceId: serviceId))
         } catch {
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             FileHandle.standardError.write(Data("kelp: couldn't keep \(p.url): \(why)\n".utf8))

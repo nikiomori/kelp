@@ -124,6 +124,12 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
                     NSTextField.label(
                         note.text, font: .ui(TextSize.caption), color: note.waits ? .textOrange : .secondaryLabelColor))
             }
+            let agents = PageAgents.on(item.target, app)
+            if !agents.isEmpty {
+                let faces = PageAgentsView(app: app)
+                faces.show(agents)
+                views.append(faces)
+            }
             let cell = NSStackView(views: views)
             cell.spacing = Metrics.gap
             cell.toolTip = item.title

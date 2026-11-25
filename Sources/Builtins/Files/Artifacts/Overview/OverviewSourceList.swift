@@ -45,7 +45,10 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
 
     /// Lists the sources for `pages`, keeping the chosen one chosen.
     func show(_ pages: [OverviewPage]) {
-        let fixed: [OverviewSource] = [.all, .waiting, .pinned, .archive]
+        let busy = model.busy
+        // Now shows while an agent works with a page: an empty row would only say that none does.
+        let fixed: [OverviewSource] =
+            [.all] + (pages.contains { busy.contains($0.id) } ? [.now] : []) + [.waiting, .pinned, .archive]
         let projects = OverviewPages.projects(pages), kinds = OverviewPages.kinds(pages)
         var next = fixed.map(Row.source)
         // The project on screen stays listed while its pages are on their way.
@@ -56,7 +59,7 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
         if !kinds.isEmpty { next += [.heading(String(localized: "Kinds"))] + kinds.map { .source(.kind($0)) } }
         let tags = OverviewPages.tags(pages)
         if !tags.isEmpty { next += [.heading(String(localized: "Tags"))] + tags.map { .source(.tag($0)) } }
-        counts = OverviewPages.counts(pages, next.compactMap(\.source), pinned: model.pinned)
+        counts = OverviewPages.counts(pages, next.compactMap(\.source), pinned: model.pinned, busy: busy)
         rows = next
         table.reloadData()
         if let at = rows.firstIndex(of: .source(model.source)), table.selectedRow != at {
@@ -108,6 +111,7 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
     func title(_ source: OverviewSource) -> String {
         switch source {
         case .all: String(localized: "All")
+        case .now: String(localized: "Now")
         case .waiting: String(localized: "Waiting for You")
         case .pinned: String(localized: "Pinned")
         case .archive: String(localized: "Archive")
@@ -136,6 +140,7 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
         let symbol: String =
             switch source {
             case .all: "doc.richtext"
+            case .now: "bolt"
             case .waiting: "checklist"
             case .pinned: "pin"
             case .archive: "archivebox"

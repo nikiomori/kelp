@@ -129,9 +129,9 @@ final class OverviewController: NSViewController {
         } changed: { [weak self] _ in
             self?.reload()
         }
-        // A chat starting or stopping changes the "is writing" lines.
+        // A chat starting or stopping, or moving to another page, changes the faces and the "is editing" lines.
         track(owner: self, now: false) { [model] in
-            model.app.sessions.map { "\($0.id)\($0.status)" }
+            PageAgents.watched(model.app)
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -168,7 +168,7 @@ final class OverviewController: NSViewController {
             ? "" : String(localized: "\(pages.count) pages · \(projects) projects")
         sources.show(pages)
         let shown = OverviewPages.shown(
-            pages, in: model.source, pinned: model.pinned, find: model.find, words: model.words)
+            pages, in: model.source, pinned: model.pinned, busy: model.busy, find: model.find, words: model.words)
         grid.show(OverviewPages.sections(shown, pinned: model.pinned, source: model.source, now: Date()))
         list.show(shown)
         failureBar.show(model.failures.isEmpty ? nil : model.failures.joined(separator: "; "))
@@ -183,6 +183,7 @@ final class OverviewController: NSViewController {
         if !model.find.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "No Pages Found") }
         return switch model.source {
         case .waiting: String(localized: "Nothing Waits for You")
+        case .now: String(localized: "No Agent Works on a Page")
         case .pinned: String(localized: "No Pinned Pages")
         case .archive: String(localized: "The Archive Is Empty")
         case .tag: String(localized: "No Pages with This Tag")

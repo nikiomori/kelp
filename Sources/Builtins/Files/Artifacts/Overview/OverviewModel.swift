@@ -149,6 +149,9 @@ final class OverviewModel {
         Task { _ = await app.uiState.save(Self.changesSeenKey, .double(change.at)) }
     }
 
+    /// The pages agents work with now.
+    var busy: Set<String> { PageAgents.busy(app) }
+
     /// The tags in use, most used first.
     var tags: [String] { OverviewPages.tags(pages) }
 

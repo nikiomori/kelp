@@ -9,10 +9,11 @@ struct OverviewPage: Equatable, Sendable {
     var time: Double { item.modified ?? item.created }
 }
 
-/// What the overview's column of sources picks: every page, those waiting for the user, the pinned or archived ones,
-/// one project's, one kind's, one tag's, or the pages an agent's last change touched (the bar's Show).
+/// What the overview's column of sources picks: every page, those agents work with now, those waiting for the user,
+/// the pinned or archived ones, one project's, one kind's, one tag's, or the pages an agent's last change touched (the
+/// bar's Show).
 enum OverviewSource: Hashable, Sendable {
-    case all, waiting, pinned, archive
+    case all, now, waiting, pinned, archive
     case project(String)
     case kind(String)
     case tag(String)
@@ -35,13 +36,17 @@ enum OverviewPages {
     }
 
     /// Whether `page` belongs to `source`. Archived pages belong only to Archive, and to the change that archived them.
-    static func belongs(_ page: OverviewPage, to source: OverviewSource, pinned: Set<String>) -> Bool {
+    /// `busy` are the pages agents work with now.
+    static func belongs(_ page: OverviewPage, to source: OverviewSource, pinned: Set<String>, busy: Set<String> = [])
+        -> Bool
+    {
         let away = page.item.archived == true
         switch source {
         case .changed(let session): return page.item.agentChange?.session == session
         case .archive: return away
         case _ where away: return false
         case .all: return true
+        case .now: return busy.contains(page.id)
         case .waiting: return waits(page.item)
         case .pinned: return pinned.contains(page.id)
         case .project(let repo): return page.repo == repo
@@ -52,14 +57,14 @@ enum OverviewPages {
 
     /// The pages of `source` whose words hold `find`, newest first. A `#word` in `find` asks for that tag.
     static func shown(
-        _ pages: [OverviewPage], in source: OverviewSource, pinned: Set<String>, find: String = "",
-        words: (OverviewPage) -> String = { $0.item.title }
+        _ pages: [OverviewPage], in source: OverviewSource, pinned: Set<String>, busy: Set<String> = [],
+        find: String = "", words: (OverviewPage) -> String = { $0.item.title }
     ) -> [OverviewPage] {
         let parts = find.split(separator: " ")
         let tags = parts.filter { $0.hasPrefix("#") }.compactMap { Artifacts.tag(String($0)) }
         let text = parts.filter { !$0.hasPrefix("#") }.joined(separator: " ")
         return pages.filter { page in
-            belongs(page, to: source, pinned: pinned)
+            belongs(page, to: source, pinned: pinned, busy: busy)
                 && tags.allSatisfy { page.item.tags?.contains($0) == true }
                 && (text.isEmpty || words(page).localizedCaseInsensitiveContains(text))
         }
@@ -67,11 +72,13 @@ enum OverviewPages {
     }
 
     /// How many pages each of `sources` holds.
-    static func counts(_ pages: [OverviewPage], _ sources: [OverviewSource], pinned: Set<String>)
-        -> [OverviewSource: Int]
-    {
+    static func counts(
+        _ pages: [OverviewPage], _ sources: [OverviewSource], pinned: Set<String>, busy: Set<String> = []
+    ) -> [OverviewSource: Int] {
         var counts: [OverviewSource: Int] = [:]
-        for source in sources { counts[source] = pages.count(where: { belongs($0, to: source, pinned: pinned) }) }
+        for source in sources {
+            counts[source] = pages.count(where: { belongs($0, to: source, pinned: pinned, busy: busy) })
+        }
         return counts
     }
 

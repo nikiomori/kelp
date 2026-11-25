@@ -22,6 +22,16 @@ extension LiveSession {
         }
     }
 
+    /// Records the page the agent works on (nil when its turn ends). Returns the record when that changed: a second
+    /// step on the same page in the same way only moves its time, which nobody shows.
+    func works(on page: SessionPage?) -> Session? {
+        state.withLock { st in
+            let same = st.record.page?.target == page?.target && st.record.page?.doing == page?.doing
+            st.record.page = page
+            return same ? nil : st.record
+        }
+    }
+
     /// Records a hook's `cwd`, where the agent works now, and the worktree of its own that is in (`branchFolder`, kept
     /// when it goes back). Returns the record when either changed.
     func workIn(_ dir: String) -> Session? {

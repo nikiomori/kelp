@@ -63,6 +63,10 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     #expect(titles(.kind("review")) == ["Review"])
     #expect(titles(.tag("design")) == ["Review", "Sidebar"])
     #expect(titles(.changed(by: "s")) == ["Old"])
+    #expect(
+        OverviewPages.shown(pages, in: .now, pinned: pinned, busy: ["/kuarka/Calculator"]).map(\.item.title) == [
+            "Calculator"
+        ])
     #expect(titles(.all, find: "calc") == ["Calculator"])
     #expect(titles(.all, find: "#Review") == ["Review"])
     #expect(titles(.all, find: "#design side") == ["Sidebar"])
@@ -178,7 +182,19 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     #expect(model.tags == ["design-system", "review"])
     #expect(controller.grid.sections.flatMap(\.pages).count == 4)
 
-    if let dir = ProcessInfo.processInfo.environment["KELP_SHOT"] { try shoot(controller, window, to: dir) }
+    // A chat edits the review now: its face is on the card and the card says so; the Now source lists it.
+    var chat = Session(id: "c1", cwd: rig.repo, command: "claude")
+    chat.agent = Session.claudeAgent
+    chat.status = .working
+    chat.page = SessionPage(target: review.id, doing: .editing, at: Date())
+    app.sessions.append(chat)
+    #expect(try await waitFor(10) { ArtifactActions.note(review.item, app)?.text.hasSuffix(" is editing") == true })
+    #expect(OverviewPages.shown(model.pages, in: .now, pinned: [], busy: model.busy).map(\.id) == [review.id])
+
+    if let dir = ProcessInfo.processInfo.environment["KELP_SHOT"] {
+        for _ in 0..<3 { await mainActorTurns() }   // the tab follows the chat a turn later
+        try shoot(controller, window, to: dir)
+    }
     model.undo(try #require(model.agentChange))
     #expect(try await waitFor(10) { model.pages.allSatisfy { $0.item.archived != true && $0.item.tags == nil } })
     #expect(model.agentChange == nil)

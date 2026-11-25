@@ -45,12 +45,13 @@ extension Artifacts {
     /// updates the record's time and, when the call gives them, its title and kind.
     static func addNative(
         url: String, title: String, type: String, root: String, session: String?, page: PublishedPage? = nil,
-        now: Date = Date()
+        serviceId: String? = nil, now: Date = Date()
     ) throws -> URL? {
         if let known = list(root: root).first(where: { $0.record.url == url }) {
             let folder = dir(root: root).appendingPathComponent(known.slug)
             var record = known.record
             record.updated = now
+            if let serviceId { record.serviceId = serviceId }
             if title != url { record.title = title }
             if type != "page" { record.type = type }
             try save(record, in: folder)
@@ -58,7 +59,9 @@ extension Artifacts {
             return nil
         }
         let folder = try newFolder(title, root: root)
-        try save(ArtifactRecord(type: type, title: title, created: now, session: session, url: url), in: folder)
+        var record = ArtifactRecord(type: type, title: title, created: now, session: session, url: url)
+        record.serviceId = serviceId
+        try save(record, in: folder)
         try keepPage(page, in: folder)
         return folder
     }

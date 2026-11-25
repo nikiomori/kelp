@@ -5198,6 +5198,10 @@
             "description" : "The session whose program asked for this one (`session.create` from inside a session, `--outlive` too). The daemon sets it from the caller's process, never from what the caller sent, so an agent may act on what it started and nothing more.",
             "type" : "string"
           },
+          "page" : {
+            "$ref" : "#/components/schemas/SessionPage",
+            "description" : "The artifact page the agent works with in this turn (`SessionPage`), from its hooks: Artifacts Overview shows its face on that page. nil between turns, and while the turn touched no page."
+          },
           "parent" : {
             "description" : "The agent that started this one (`kelp session new --agent`). The parent hears how this agent is doing, and ends it when the parent ends.",
             "type" : "string"
@@ -5520,6 +5524,52 @@
           "session"
         ],
         "type" : "object"
+      },
+      "SessionHook.PageTouch" : {
+        "properties" : {
+          "doing" : {
+            "$ref" : "#/components/schemas/SessionPage.Doing"
+          },
+          "file" : {
+            "type" : "string"
+          },
+          "service" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "doing"
+        ],
+        "type" : "object"
+      },
+      "SessionPage" : {
+        "description" : "An artifact page an agent works with now: what opens it (`ArtifactItem.target`), what the agent does with it, and when it last did.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "doing" : {
+            "$ref" : "#/components/schemas/SessionPage.Doing"
+          },
+          "target" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "doing",
+          "target"
+        ],
+        "type" : "object"
+      },
+      "SessionPage.Doing" : {
+        "enum" : [
+          "editing",
+          "reading",
+          "answering"
+        ],
+        "type" : "string"
       },
       "SessionRole" : {
         "description" : "The job Kelp started a session for (`Session.role`). A `reviewer` session reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text meant for \"the agent\" never go to it.",
@@ -7459,6 +7509,14 @@
           "required" : false,
           "schema" : {
             "$ref" : "#/components/schemas/PublishedPage"
+          }
+        },
+        {
+          "description" : "The page's id on the service (`ArtifactRecord.serviceId`).",
+          "name" : "serviceId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         },
         {
@@ -14076,6 +14134,14 @@
           "required" : false,
           "schema" : {
 
+          }
+        },
+        {
+          "description" : "The artifact page a tool starts on (`SessionHook.page(of:)`): a file in `.kelp/artifacts`, or a page on claude.ai by its id or link.",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/SessionHook.PageTouch"
           }
         },
         {

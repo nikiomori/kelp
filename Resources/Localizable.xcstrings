@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ asks you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спрашивает вас"
+          }
+        }
+      }
+    },
     "%@ can't go back: %@ The files still can.": {
       "localizations": {
         "ru": {
@@ -11,12 +21,52 @@
         }
       }
     },
+    "%@ is answering": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ отвечает"
+          }
+        }
+      }
+    },
+    "%@ is editing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ правит"
+          }
+        }
+      }
+    },
+    "%@ is reading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ читает"
+          }
+        }
+      }
+    },
     "%@ · version %lld, %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · версия %2$lld, %3$@"
+          }
+        }
+      }
+    },
+    "%@: go to the chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: перейти в чат"
           }
         }
       }
@@ -175,6 +225,16 @@
         }
       }
     },
+    "Click to go to the chat.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите, чтобы перейти в чат."
+          }
+        }
+      }
+    },
     "Edit Tag “%@”": {
       "localizations": {
         "ru": {
@@ -311,6 +371,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Новый тег…"
+          }
+        }
+      }
+    },
+    "No Agent Works on a Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты сейчас не работают со страницами"
           }
         }
       }

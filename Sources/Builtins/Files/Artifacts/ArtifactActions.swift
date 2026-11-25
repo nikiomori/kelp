@@ -145,6 +145,7 @@ extension ArtifactActions {
     /// A page's second line in a list, only when there's something to say: the agent is writing the page, the marks
     /// to check or with the agent, or how much of a review is answered.
     static func note(_ item: ArtifactItem, _ app: AppModel) -> (text: String, waits: Bool)? {
+        if let now = PageAgents.line(PageAgents.on(item.target, app), app) { return now }
         if writing(item, app), let session = item.session.flatMap(app.session) {
             return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
         }

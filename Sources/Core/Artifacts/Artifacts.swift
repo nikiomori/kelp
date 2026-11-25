@@ -16,6 +16,9 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var versions: [ArtifactVersion]?
     /// For a page on a service, when the agent last published it again. nil when it was published only once.
     public var updated: Date?
+    /// The page's id on its service (claude.ai's slug), which the agent's tools name it by. nil for a page on this Mac,
+    /// and for one published before Kelp kept ids, until it is published again.
+    public var serviceId: String?
     /// True for a page on a service that was published before Kelp kept copies. Kelp read the chat's transcript to
     /// recover it (`recoverPages`).
     public var recovered: Bool?

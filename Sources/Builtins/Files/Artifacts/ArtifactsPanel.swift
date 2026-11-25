@@ -97,7 +97,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             self?.reload()
         }
         track(owner: self) { [app] in
-            app.sessions.map { "\($0.id)\($0.status)" }
+            PageAgents.watched(app)
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -162,7 +162,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         // Rows move only within one workspace's list: another workspace's pages are a new list.
         let places = listed == app.workbench.workspaceId ? table.rowPlaces(rowKey) : [:]
         let old = Set(rows.indices.compactMap(rowKey))
-        rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
+        rows = Self.rows(found, title: { self.title($0, project) }, now: Date(), busy: PageAgents.busy(app))
         listed = app.workbench.workspaceId
         filterBar.isHidden = count == 0 && find.isEmpty
         if let failed, kept == nil {
@@ -190,19 +190,25 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    /// Returns the rows: headings by when each page last changed, and one row per title, holding the latest page with
-    /// that title and the earlier ones (the list comes latest first).
-    nonisolated static func rows(_ items: [ArtifactItem], title: (ArtifactItem) -> String, now: Date) -> [Row] {
+    /// Returns the rows: the pages agents work with now (`busy`) under Now, then headings by when each page last
+    /// changed, and one row per title, holding the latest page with that title and the earlier ones (the list comes
+    /// latest first).
+    nonisolated static func rows(
+        _ items: [ArtifactItem], title: (ArtifactItem) -> String, now: Date, busy: Set<String> = []
+    ) -> [Row] {
         var order: [String] = [], groups: [String: [ArtifactItem]] = [:]
         for item in items {
             let key = title(item).lowercased()
             if groups[key] == nil { order.append(key) }
             groups[key, default: []].append(item)
         }
+        let working = { (key: String) in groups[key]?.first.map { busy.contains($0.target) } == true }
+        order = order.filter(working) + order.filter { !working($0) }
         var rows: [Row] = [], heading: String?
         for key in order {
             guard let group = groups[key], let latest = group.first else { continue }
-            let section = Self.section(latest.modified ?? latest.created, now: now)
+            let section =
+                working(key) ? String(localized: "Now") : Self.section(latest.modified ?? latest.created, now: now)
             if section != heading {
                 rows.append(.heading(section))
                 heading = section

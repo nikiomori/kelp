@@ -16,6 +16,7 @@ final class OverviewCard: NSCollectionViewItem {
     private let line = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let mark = NSImageView()
     private let tags = NSStackView()
+    private var faces: PageAgentsView?
     private var shown: OverviewPage?
 
     /// How tall a card of `width` is: the picture at the panel card's proportions, then the title, the tags and the
@@ -81,6 +82,7 @@ final class OverviewCard: NSCollectionViewItem {
         let when = shortAgo(Date(timeIntervalSince1970: page.time))
         line.stringValue = note?.text ?? "\(model.projectName(page.repo)) · \(when)"
         line.textColor = note?.waits == true ? .textOrange : .secondaryLabelColor
+        showFaces(PageAgents.on(item.target, app), app)
         tags.setViews([TagCapsule.line(item.tags ?? [], styles: model.styles)], in: .leading)
         tags.isHidden = item.tags?.isEmpty != false
         mark.image = item.url == nil ? nil : app.catalog.icon(Session.claudeAgent, size: Metrics.iconSmall)
@@ -91,6 +93,25 @@ final class OverviewCard: NSCollectionViewItem {
         view.setAccessibilityRole(.button)
         view.setAccessibilityLabel("\(item.title), \(line.stringValue)")
         showPicture(model)
+    }
+
+    /// The agents working with the page, in the picture's corner on a plate of the window's colour, so their logos read
+    /// on any picture.
+    private func showFaces(_ sessions: [Session], _ app: AppModel) {
+        if faces == nil, !sessions.isEmpty {
+            let made = PageAgentsView(app: app)
+            made.edgeInsets = NSEdgeInsets(
+                top: Metrics.gapTight, left: Metrics.gapTight, bottom: Metrics.gapTight, right: Metrics.gapTight)
+            made.plated = true
+            made.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(made)
+            NSLayoutConstraint.activate([
+                made.trailingAnchor.constraint(equalTo: picture.trailingAnchor, constant: -Metrics.gap),
+                made.bottomAnchor.constraint(equalTo: picture.bottomAnchor, constant: -Metrics.gap)
+            ])
+            faces = made
+        }
+        faces?.show(sessions)
     }
 
     /// Puts in the page's picture once it is drawn.

@@ -31,13 +31,19 @@ public struct ArtifactAdd: RPCMethod {
     /// One of `Artifacts.Kind`, or "page" for any other kind.
     public var type: String
     public var cwd: String, session: String?, page: PublishedPage?
-    public init(url: String, title: String, type: String, cwd: String, session: String?, page: PublishedPage? = nil) {
+    /// The page's id on the service (`ArtifactRecord.serviceId`).
+    public var serviceId: String?
+    public init(
+        url: String, title: String, type: String, cwd: String, session: String?, page: PublishedPage? = nil,
+        serviceId: String? = nil
+    ) {
         self.url = url
         self.title = title
         self.type = type
         self.cwd = cwd
         self.session = session
         self.page = page
+        self.serviceId = serviceId
     }
 }
 

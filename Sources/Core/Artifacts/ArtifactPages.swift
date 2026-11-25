@@ -24,6 +24,13 @@ public struct PublishedPage: Codable, Equatable, Sendable {
 }
 
 extension Artifacts {
+    /// Returns the published page's id on its service, as the tool's answer (or its input) names it: claude.ai's slug.
+    public static func serviceId(hook payload: JSONValue) -> String? {
+        if let slug = payload["tool_input"]?["slug"]?.string, !slug.isEmpty, !slug.contains("/") { return slug }
+        let answer = payload["tool_response"].map { strings(in: $0).joined(separator: "\n") } ?? ""
+        return answer.firstMatch(of: /\\?"slug\\?"\s*:\s*\\?"([A-Za-z0-9-]{8,})/).map { String($0.output.1) }
+    }
+
     /// Kelp's copy of a page that lives on a service, kept in the artifact's folder.
     public static let pageCopy = "page.html"
 
