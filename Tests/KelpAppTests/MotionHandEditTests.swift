@@ -689,3 +689,20 @@ extension OneAtATime {
     #expect(MarkdownTab.ratioText(21) == "21.0:1" && MarkdownTab.ratioText(3).hasPrefix("3.0:1 · "))
     #expect(MarkdownTab.hex(try #require(NSColor(css: "#0a84ff"))) == "#0a84ff")
 }
+
+extension OneAtATime {
+    /// ⌘C then ⌘V on a chosen element puts a copy after the element chosen then, its data-ids numbered anew.
+    @Test func anElementCopiedIsPastedAfterTheChosenOne() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-paste/.kelp/artifacts/launch/motion.html")
+        let page =
+            #"<body data-width="1920" data-height="1080"><h1 data-id="title">Hi</h1><p data-id="sub">Go</p></body>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        NSPasteboard.general.clearContents()
+        _ = tab.canvasMessage("copyElement", ["board": "motion.html", "id": "title"])
+        #expect(try await waitFor(5) { NSPasteboard.general.string(forType: MarkdownTab.elementType) != nil })
+        _ = tab.canvasMessage("pasteElement", ["board": "motion.html", "id": "sub"])
+        #expect(try await waitFor(5) { editor.text.contains(#"<p data-id="sub">Go</p><h1 data-id="title-2">Hi</h1>"#) })
+    }
+}

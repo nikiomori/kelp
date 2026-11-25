@@ -217,8 +217,9 @@ enum CanvasHandles {
             const t = ev.target;
             if (K.mode() !== 'edit' || !at) return;
             if (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+            const key = ev.metaKey && !ev.shiftKey && !ev.altKey ? ev.key.toLowerCase() : '';
             const kind = ev.key === 'Backspace' || ev.key === 'Delete' ? 'remove'
-              : ev.metaKey && ev.key.toLowerCase() === 'd' ? 'duplicate' : null;
+              : { d: 'duplicate', c: 'copyElement', v: 'pasteElement' }[key] || null;
             if (!kind) return;
             ev.preventDefault();
             K.post({ kind, board: at.f.dataset.board, id: K.need(at.f, at.e) });

@@ -13,5 +13,6 @@ let artifactPagesTouchFiles: [String: (Int, String)] = [
     ),
     "Builtins/Files/Artifacts/PowerPoint.swift": (
         3, "a PowerPoint's parts in a temporary folder, and a page's pictures put inside its one-file export"
-    )
+    ),
+    "Builtins/Files/MarkdownTab+Clipboard.swift": (1, "a pasted picture written to the temporary folder, then copied in"),
 ]

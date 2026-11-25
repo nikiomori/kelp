@@ -17,11 +17,13 @@ extension MarkdownTab {
             giveID(body)
             return true
         }
-        guard ["remove", "duplicate", "menu"].contains(kind) else { return false }
+        guard ["remove", "duplicate", "menu", "copyElement", "pasteElement"].contains(kind) else { return false }
         guard let board = body["board"] as? String, let id = body["id"] as? String else { return true }
         switch kind {
         case "remove": removeElement(board, id)
         case "duplicate": duplicateElement(board, id)
+        case "copyElement": copyElement(board, id)
+        case "pasteElement": pasteElement(board, after: id)
         default:
             elementMenu(
                 board, id, image: body["image"] as? Bool ?? false, media: body["media"] as? Bool ?? false,

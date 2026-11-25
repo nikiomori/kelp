@@ -242,7 +242,14 @@ public enum BoardEdit {
     /// id.
     public static func duplicate(_ source: String, id: String) -> (text: String, id: String)? {
         guard let range = elementRange(source, id: id) else { return nil }
-        guard let (renamed, newID) = renamed(String(source[range]), in: source) else { return nil }
+        return insert(String(source[range]), after: id, in: source)
+    }
+
+    /// `source` with `html` (an element copied, here or from another board) right after element `id`, its data-ids
+    /// numbered so none is one `source` has yet. Returns it and the new element's id.
+    public static func insert(_ html: String, after id: String, in source: String) -> (text: String, id: String)? {
+        guard let range = elementRange(source, id: id) else { return nil }
+        guard let (renamed, newID) = renamed(html, in: source) else { return nil }
         let indent = source[..<range.lowerBound].reversed().prefix(while: { $0 == " " || $0 == "\t" })
         let alone = source[..<range.lowerBound].dropLast(indent.count).last.map { $0 == "\n" } ?? true
         var out = source
