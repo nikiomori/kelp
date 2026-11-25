@@ -150,17 +150,18 @@ public struct ArtifactRename: InternalMethod {
 
 /// Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in
 /// Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its
-/// `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back. Returns the page's
-/// tags after the change.
+/// `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back; `keep` (the user
+/// closing the change's bar) forgets it, so a later change by that chat is undone on its own. Returns the page's tags
+/// after the change.
 public struct ArtifactChange: RPCMethod {
     public static let name = "artifact.change"
     public typealias Result = [String]
     public var folder: String
     public var add: [String]?, remove: [String]?, archived: Bool?
-    public var session: String?, undo: Bool?
+    public var session: String?, undo: Bool?, keep: Bool?
     public init(
         folder: String, add: [String]? = nil, remove: [String]? = nil, archived: Bool? = nil, session: String? = nil,
-        undo: Bool? = nil
+        undo: Bool? = nil, keep: Bool? = nil
     ) {
         self.folder = folder
         self.add = add
@@ -168,12 +169,13 @@ public struct ArtifactChange: RPCMethod {
         self.archived = archived
         self.session = session
         self.undo = undo
+        self.keep = keep
     }
 }
 
 /// Keeps the files an agent uploaded for its pages (`upload_asset`, from its hook), by their id on the service, in the
 /// project that holds `cwd`: Kelp's copies of the pages show them without the network. Returns how many were kept.
-public struct ArtifactKeepAssets: RPCMethod {
+public struct ArtifactKeepAssets: InternalMethod {
     public static let name = "artifact.keepAssets"
     public typealias Result = Int
     public struct Asset: Codable, Equatable, Sendable {

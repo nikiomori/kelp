@@ -42,9 +42,10 @@ extension Artifacts {
         let blobs = Set(text.matches(of: /\/_blob\/([0-9A-Za-z]+)/).map { String($0.output.1) })
         let nearby = text.matches(of: /(src|href)\s*=\s*["']([^"'#?]+)["']/).compactMap { match -> String? in
             let path = String(match.output.2)
-            guard !path.contains(":"), !path.hasPrefix("/"), match.output.1 == "src" || path.hasSuffix(".css") else {
-                return nil
-            }
+            // A value a script fills in (`${…}`, `{{…}}`, `' + x + '`) names no file.
+            let filled = ["${", "{{", "+", "<", " "].contains { path.contains($0) }
+            guard !filled, !path.contains(":"), !path.hasPrefix("/"), match.output.1 == "src" || path.hasSuffix(".css")
+            else { return nil }
             return path
         }
         return (blobs, nearby)
@@ -76,7 +77,10 @@ extension Artifacts {
             let files = payload["tool_input"]?["files"]?.array
         else { return nil }
         let answer = payload["tool_response"].map { strings(in: $0).joined(separator: "\n") } ?? ""
-        let ids = answer.matches(of: /\/_blob\/([0-9A-Za-z]+)/).map { String($0.output.1) }
+        var ids: [String] = []   // in order, each once: an answer may name an asset twice (its link and a snippet)
+        for match in answer.matches(of: /\/_blob\/([0-9A-Za-z]+)/) where !ids.contains(String(match.output.1)) {
+            ids.append(String(match.output.1))
+        }
         let paths = files.compactMap { $0["path"]?.string }
         guard !ids.isEmpty, ids.count == paths.count else { return nil }
         return Array(zip(paths, ids)).map { (path: $0.0, id: $0.1) }
@@ -87,6 +91,12 @@ extension Artifacts {
         if let slug = payload["tool_input"]?["slug"]?.string, !slug.isEmpty, !slug.contains("/") { return slug }
         let answer = payload["tool_response"].map { strings(in: $0).joined(separator: "\n") } ?? ""
         return answer.firstMatch(of: /\\?"slug\\?"\s*:\s*\\?"([A-Za-z0-9-]{8,})/).map { String($0.output.1) }
+    }
+
+    /// Whether Sync can bring a page whole: a claude.ai artifact (`url`), whose files its tools fetch. A Claude Docs
+    /// page (a "doc" with a link) can't be fetched that way, so it isn't counted.
+    public static func syncs(url: String?, type: String) -> Bool {
+        url?.hasPrefix("https://claude.ai/artifact/") == true && type != Kind.doc.rawValue
     }
 
     /// The copy of a page on a service that opens without the network, beside `pageCopy` (`artifact.offline`).
@@ -109,9 +119,15 @@ extension Artifacts {
                 files.first { $0.served == "index.html" || $0.served == "project/Main.dc.html" }
                 ?? files.first { $0.served.hasSuffix(".html") }
             var sent = page.map { PublishedPage.file($0.path) }
-            let others = files.filter { $0.served != page?.served }
+            // Kept where the page loads them from: relative to the page's own folder (a canvas's project/), as the
+            // copy sits at the top of the artifact's folder. Files outside that folder aren't the page's.
+            let base = page.map { ($0.served as NSString).deletingLastPathComponent } ?? ""
+            let prefix = base.isEmpty ? "" : base + "/"
+            let others = files.filter { $0.served != page?.served && $0.served.hasPrefix(prefix) }
             if !others.isEmpty {
-                sent?.others = Dictionary(others.map { ($0.served, $0.path) }) { first, _ in first }
+                sent?.others = Dictionary(others.map { (String($0.served.dropFirst(prefix.count)), $0.path) }) {
+                    first, _ in first
+                }
             }
             return (sent, canvas)
         }

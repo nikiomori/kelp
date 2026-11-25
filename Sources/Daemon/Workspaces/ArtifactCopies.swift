@@ -11,19 +11,21 @@ extension Artifacts {
         "artifact.json", pageCopy, offlineCopy, ArtifactMarks.file, "versions", "_blob", "boards"
     ]
 
-    /// Keeps the files sent beside a page (`PublishedPage.others`) in its folder, where they are served from. A path
-    /// that climbs out of the folder, starts with a dot or takes one of Kelp's names is left out, and so is a file
-    /// over 16 MB.
-    static func keepOthers(_ others: [String: String], in folder: URL) throws {
+    /// Keeps the files sent beside a page (`PublishedPage.others`) in its folder, where the page loads them from. A
+    /// path that climbs out of the folder, starts with a dot or takes one of Kelp's names is left out, and so is a
+    /// file over 16 MB. A file that can't be written is logged and left out: the page's copy stays.
+    static func keepOthers(_ others: [String: String], in folder: URL) {
         for (served, path) in others {
             let parts = served.split(separator: "/").map(String.init)
             guard !parts.isEmpty, !served.hasPrefix("/"), !parts.contains(where: { $0 == ".." || $0.hasPrefix(".") }),
                 !ownNames.contains(parts[0]), let data = small(path, limit: 16 << 20)
             else { continue }
             let to = parts.reduce(folder) { $0.appendingPathComponent($1) }
-            let parent = to.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-            try data.write(to: to, options: .atomic)
+            Log.session.attempt("keeping \(served) beside a page's copy") {
+                try FileManager.default.createDirectory(
+                    at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: to, options: .atomic)
+            }
         }
     }
 

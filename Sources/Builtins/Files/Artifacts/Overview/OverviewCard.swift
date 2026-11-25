@@ -90,7 +90,7 @@ final class OverviewCard: NSCollectionViewItem {
         mark.toolTip = String(localized: "On claude.ai: opens in your browser")
         view.toolTip = item.title
         // Without the network a page on claude.ai with no copy here can't open: it fades, and says why.
-        let away = Reach.offline && item.url != nil && item.copy == nil
+        let away = item.url != nil && item.copy == nil && Reach.offline   // asked only of a page it would fade
         view.alphaValue = away ? Metrics.unavailable : 1
         if away { view.toolTip = String(localized: "No copy on this Mac: it opens once you're online") }
         view.setAccessibilityElement(true)

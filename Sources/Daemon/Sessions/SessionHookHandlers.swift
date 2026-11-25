@@ -42,7 +42,6 @@ extension SessionHook: Handled {
             ls.edited(edited)
             sessions.touchEdits(ls)
         }
-        notePage(ls, sessions)
         if event == .subagent {   // a subagent starting or stopping says nothing of the turn; its Stop does
             ls.trail.add(trailLine)
             if ls.subagent(agentId, kind: hookName == "SubagentStart" ? agentType ?? "" : nil) { sessions.publish(ls) }
@@ -54,9 +53,11 @@ extension SessionHook: Handled {
         }
         if event == .command {   // a tool started or ended, which says something of its turn
             ls.tool(hookName, agent: agentId)
+            notePage(ls, sessions)
             return Done()
         }
         ls.trail.add(trailLine)
+        leavePage(ls, sessions)
         guard event == .done else {
             ls.hook(
                 event, trigger: trigger,
@@ -67,7 +68,6 @@ extension SessionHook: Handled {
         }
         // The turn is over, and so is every command of it, so a question Kelp asked for one of them goes unanswered.
         sessions.permissions.endKelpQuestions(id)
-        leavePage(ls, sessions)
         let limit = notification.flatMap(Hooks.limitHit)
         if let limit { ls.hitLimit(limit) }
         let path = ls.transcriptPath
@@ -133,7 +133,8 @@ extension SessionHook: Handled {
 }
 
 extension SessionHook {
-    /// Puts on the agent's row the page its own thread's tool starts on (`page`), for its face on that page.
+    /// Puts on the agent's row the page its own thread's tool starts on (`page`), for its face on that page. Only a
+    /// hook newer than what the session said since gets here (`newest`), so a late one puts back no page.
     fileprivate func notePage(_ ls: LiveSession, _ sessions: Sessions) {
         guard let page, agentId == nil else { return }
         let roots = [ls.snapshot.cwd] + [ls.snapshot.workDir].compactMap { $0 }
@@ -143,9 +144,10 @@ extension SessionHook {
         sessions.publish(ls)
     }
 
-    /// The turn is over: the agent leaves the page it worked on.
+    /// A new prompt starts a new turn, which hasn't touched a page yet. (A turn's end keeps it: a held Stop goes on
+    /// working, and the faces show only while the chat works or waits.)
     fileprivate func leavePage(_ ls: LiveSession, _ sessions: Sessions) {
-        if ls.works(on: nil) != nil { sessions.publish(ls) }
+        if hookName == "UserPromptSubmit", ls.works(on: nil) != nil { sessions.publish(ls) }
     }
 }
 

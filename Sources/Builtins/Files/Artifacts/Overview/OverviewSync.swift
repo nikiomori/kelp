@@ -18,7 +18,7 @@ enum OverviewSync {
         """
 
     static func ask(_ model: OverviewModel) {
-        let pages = model.pages.filter { $0.item.url != nil }
+        let pages = model.pages.filter { PageCopies.syncs($0.item) }
         let partial = pages.count { $0.item.copy == .partial }, none = pages.count { $0.item.copy == nil }
         let alert = NSAlert()
         alert.messageText = String(localized: "Sync Pages from claude.ai")

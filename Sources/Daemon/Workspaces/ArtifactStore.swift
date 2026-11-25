@@ -271,12 +271,12 @@ extension Artifacts {
     /// applied. When there is no copy yet, edits write nothing.
     static func keepPage(_ page: PublishedPage?, in folder: URL) throws {
         let copy = folder.appendingPathComponent(pageCopy)
-        if let others = page?.others { try keepOthers(others, in: folder) }
         if let html = page?.html {
             try Data(html.utf8).write(to: copy, options: .atomic)
         } else if let path = page?.file {
             guard path.hasSuffix(".html"), let data = small(path, limit: 16 << 20) else { return }
             try data.write(to: copy, options: .atomic)
+            if let others = page?.others { keepOthers(others, in: folder) }   // after the page, which matters most
         } else if let edits = page?.edits {
             guard let data = small(copy.path) else { return }
             var text = String(decoding: data, as: UTF8.self)

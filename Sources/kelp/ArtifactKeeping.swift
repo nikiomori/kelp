@@ -109,7 +109,8 @@ extension Main {
         var all = 0
         var short: [(url: String, folder: String, state: String)] = []
         for root in try await roots(every: every, cwd, c) {
-            for (slug, record) in Artifacts.list(root: root.path) where record.url != nil {
+            for (slug, record) in Artifacts.list(root: root.path)
+            where Artifacts.syncs(url: record.url, type: record.type) {
                 all += 1
                 let folder = Artifacts.dir(root: root.path).appendingPathComponent(slug)
                 let state = Artifacts.copyState(folder: folder, root: root.path)
@@ -124,7 +125,7 @@ extension Main {
                 For each page below, with your claude-artifacts tools: list its files (list_files, by its link), then
                 save them to disk with read_file's paths, without reading them into the conversation. The page
                 (index.html, or project/Main.dc.html for a canvas) goes to <folder>/page.html; every other file to
-                <folder>/<the path it is served at>; each uploaded picture (list_assets, read_asset) to
+                <folder>/<its path from the page's own folder>; each uploaded picture (list_assets, read_asset) to
                 <folder>/_blob/<its id>. Then run `kelp artifact sync --check\(every ? " --all" : "")`.
                 """)
         }

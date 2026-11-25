@@ -4,11 +4,18 @@ import DesignKit
 import KelpKit
 import SystemConfiguration
 
-/// Whether this Mac reaches claude.ai's network now, as the system tells at once (no request goes out). Without it, a
-/// page on claude.ai opens from Kelp's copy (`PageCopies`) instead of the browser.
+/// Whether this Mac has a network now, as the system tells at once: asked of an address, not a name, so no lookup
+/// runs (on the main thread, a name's could wait on DNS). Without one, a page on claude.ai opens from Kelp's copy
+/// (`PageCopies`) instead of the browser.
 enum Reach {
     static var offline: Bool {
-        guard let target = SCNetworkReachabilityCreateWithName(nil, "claude.ai") else { return false }
+        var any = sockaddr_in()
+        any.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        any.sin_family = sa_family_t(AF_INET)
+        let reach = withUnsafePointer(to: &any) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { SCNetworkReachabilityCreateWithAddress(nil, $0) }
+        }
+        guard let target = reach else { return false }
         var flags = SCNetworkReachabilityFlags()
         guard SCNetworkReachabilityGetFlags(target, &flags) else { return false }
         return !flags.contains(.reachable) || flags.contains(.connectionRequired)
@@ -21,6 +28,9 @@ enum Reach {
 enum PageCopies {
     /// Whether the page has a copy on this Mac to open.
     static func has(_ item: ArtifactItem) -> Bool { item.url != nil && item.copy != nil }
+
+    /// Whether Sync can bring the page whole (`Artifacts.syncs`).
+    static func syncs(_ item: ArtifactItem) -> Bool { Artifacts.syncs(url: item.url, type: item.type) }
 
     /// Opens the copy that works without the network in a page's tab. The daemon writes it first, beside the copy.
     static func open(_ app: AppModel, _ item: ArtifactItem) {

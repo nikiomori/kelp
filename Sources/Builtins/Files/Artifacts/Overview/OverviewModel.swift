@@ -135,15 +135,25 @@ final class OverviewModel {
     /// The last agent's change still to undo, unless the user closed its bar.
     var agentChange: OverviewAgentChange? { OverviewPages.agentChange(pages, seen: changesSeen) }
 
-    /// Puts back every page the agent's change touched.
-    func undo(_ change: OverviewAgentChange) {
-        let touched = pages.filter { $0.item.agentChange?.session == change.session }
-        self.change(touched) { ArtifactChange(folder: $0, undo: true) }
-        dismiss(change)
+    /// The pages the agent's change touched.
+    private func touched(by change: OverviewAgentChange) -> [OverviewPage] {
+        pages.filter { $0.item.agentChange?.session == change.session }
     }
 
-    /// Closes the bar: this change and the ones before it aren't offered again.
+    /// Puts back every page the agent's change touched.
+    func undo(_ change: OverviewAgentChange) {
+        self.change(touched(by: change)) { ArtifactChange(folder: $0, undo: true) }
+        seen(change)
+    }
+
+    /// Closes the bar: the user keeps what the agent did, and the pages forget what they had before, so a later
+    /// change by the same chat offers to undo only itself.
     func dismiss(_ change: OverviewAgentChange) {
+        self.change(touched(by: change)) { ArtifactChange(folder: $0, keep: true) }
+        seen(change)
+    }
+
+    private func seen(_ change: OverviewAgentChange) {
         changesSeen = change.at
         let app = self.app
         Task { _ = await app.uiState.save(Self.changesSeenKey, .double(change.at)) }

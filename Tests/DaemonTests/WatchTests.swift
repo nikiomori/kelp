@@ -595,7 +595,7 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
 }
 
 /// The page an agent's tool starts on comes on its row while the turn runs, with what it does: a page file it edits,
-/// a page on claude.ai by its id, a page it answers on with `kelp artifact reply`. The turn's end takes it off.
+/// a page on claude.ai by its id, a page it answers on with `kelp artifact reply`. The next prompt takes it off.
 @Test func theRowSaysWhichPageTheAgentWorksOn() async throws {
     let w = try await world()
     defer { w.d.stop() }
@@ -641,6 +641,7 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     let asset = ArtifactKeepAssets.Asset(path: picture.path, id: "ab12")
     #expect(try await w.c.call(ArtifactKeepAssets(cwd: wt.path, session: s.id, assets: [asset])) == 1)
     #expect(FileManager.default.fileExists(atPath: Artifacts.blobs(root: wt.path).appendingPathComponent("ab12").path))
-    _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))
+    _ = try await w.c.call(
+        "session.hook", .obj(["id": .string(s.id), "event": "working", "hook_event_name": "UserPromptSubmit"]))
     #expect(try await waitFor(10) { heard.events(Session.self).last { $0.id == s.id }.map { $0.page == nil } == true })
 }

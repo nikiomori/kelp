@@ -160,9 +160,10 @@ extension ArtifactChange: Handled {
         guard dir.deletingLastPathComponent().path.hasSuffix("/" + Artifacts.folder),
             let record = Artifacts.record(in: dir)
         else { throw RPCError.invalidParams("not an artifact's folder in .kelp/artifacts: \(folder)") }
-        let next = Artifacts.changed(
+        var next = Artifacts.changed(
             record, add: add ?? [], remove: remove ?? [], archived: archived, session: session, undo: undo == true,
             now: Date())
+        if keep == true { next.agentChange = nil }   // the user keeps what the agent did
         if next != record { try Artifacts.save(next, in: dir) }
         return next.tags ?? []
     }

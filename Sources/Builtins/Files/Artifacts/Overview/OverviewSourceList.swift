@@ -62,8 +62,12 @@ final class OverviewSourceList: NSObject, NSTableViewDataSource, NSTableViewDele
         counts = OverviewPages.counts(pages, next.compactMap(\.source), pinned: model.pinned, busy: busy)
         rows = next
         table.reloadData()
-        if let at = rows.firstIndex(of: .source(model.source)), table.selectedRow != at {
-            table.selectRowIndexes([at], byExtendingSelection: false)
+        // The chosen source's row, or none (Show's pages, a tag or Now emptied): a stale highlight would be a row a
+        // click can't choose.
+        if let at = rows.firstIndex(of: .source(model.source)) {
+            if table.selectedRow != at { table.selectRowIndexes([at], byExtendingSelection: false) }
+        } else {
+            table.deselectAll(nil)
         }
     }
 

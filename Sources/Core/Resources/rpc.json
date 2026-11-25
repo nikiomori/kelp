@@ -7625,7 +7625,7 @@
       }
     },
     {
-      "description" : "Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back. Returns the page's tags after the change.",
+      "description" : "Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back; `keep` (the user closing the change's bar) forgets it, so a later change by that chat is undone on its own. Returns the page's tags after the change.",
       "name" : "artifact.change",
       "paramStructure" : "by-name",
       "params" : [
@@ -7651,6 +7651,13 @@
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "keep",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
           }
         },
         {
@@ -7768,7 +7775,8 @@
         "schema" : {
           "type" : "integer"
         }
-      }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases nothing. Returns whether a version was kept.",
@@ -7908,7 +7916,7 @@
       }
     },
     {
-      "description" : "Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and styles beside it, linked from there. Returns that file, which a preview tab shows.",
+      "description" : "Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and styles beside it, linked from there. Returns that file, which opens in a page's tab.",
       "name" : "artifact.offline",
       "paramStructure" : "by-name",
       "params" : [

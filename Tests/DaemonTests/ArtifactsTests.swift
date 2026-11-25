@@ -289,7 +289,7 @@ private func tempRoot() throws -> URL {
     ])
     let canvas = try #require(Artifacts.published(hook: hook("publish_files", .obj(["files": files]))))
     #expect(canvas.type == "design" && canvas.page?.file == board.path)
-    #expect(canvas.page?.others == ["project/canvas.json": "/nowhere/canvas.json"])
+    #expect(canvas.page?.others == ["canvas.json": "/nowhere/canvas.json"])   // where the page loads it from
     _ = try Artifacts.addNative(
         url: url, title: canvas.title, type: canvas.type, root: root.path, session: nil, page: canvas.page)
     #expect(Artifacts.items(root: root.path).first { $0.url == url }?.type == "design")
@@ -306,7 +306,9 @@ private func tempRoot() throws -> URL {
     for (name, text) in [("site.css", "p{}"), ("logo.png", "PNG"), ("evil.json", "{}")] {
         try text.write(to: sent.appendingPathComponent(name), atomically: true, encoding: .utf8)
     }
-    let html = #"<link href="css/site.css" rel="stylesheet"><img src="/_blob/abc123"><img src='/_blob/def456'>"#
+    let html =
+        #"<link href="css/site.css" rel="stylesheet"><img src="/_blob/abc123"><img src='/_blob/def456'>"#
+        + #"<script>row.innerHTML = `<img src="${p.logo}">`</script>"#   // a script's value names no file
     try html.write(to: sent.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
     var page = PublishedPage.file(sent.appendingPathComponent("index.html").path)
     page.others = [
@@ -331,7 +333,8 @@ private func tempRoot() throws -> URL {
                 .obj(["path": .string(sent.appendingPathComponent("logo.png").path)])
             ])
         ]),
-        "tool_response": .string(#"{"assets":[{"url":"/_blob/abc123"},{"url":"/_blob/def456"}]}"#)
+        "tool_response": .string(
+            #"{"assets":[{"url":"/_blob/abc123","markdown":"![](/_blob/abc123)"},{"url":"/_blob/def456"}]}"#)
     ])
     let assets = try #require(Artifacts.uploaded(hook: upload)).map {
         ArtifactKeepAssets.Asset(path: $0.path, id: $0.id)
@@ -547,7 +550,13 @@ private func tempRoot() throws -> URL {
     #expect(tagged == ["launch"])
     let listed = try #require(Artifacts.items(root: root.path).first)
     #expect(listed.tags == ["launch"] && listed.archived == true && listed.agentChange?.session == "s2")
-    #expect(try ArtifactChange(folder: folder.path, undo: true).handle(NoService()).isEmpty)
+    // Kept by the user, the change is forgotten: the same chat's next one is undone on its own.
+    _ = try ArtifactChange(folder: folder.path, keep: true).handle(NoService())
+    #expect(Artifacts.record(in: folder)?.agentChange == nil)
+    _ = try ArtifactChange(folder: folder.path, add: ["more"], session: "s2").handle(NoService())
+    #expect(Artifacts.record(in: folder)?.agentChange?.tags == ["launch"])
+    #expect(try ArtifactChange(folder: folder.path, undo: true).handle(NoService()) == ["launch"])
+    _ = try ArtifactChange(folder: folder.path, remove: ["launch"], archived: false).handle(NoService())
     #expect(Artifacts.record(in: folder).map { ($0.archived, $0.agentChange) } ?? (true, nil) == (nil, nil))
     #expect(throws: RPCError.self) { try ArtifactChange(folder: root.path, add: ["x"]).handle(NoService()) }
     #expect(try ArtifactRoundCost(session: "no-such-chat", from: 0, to: 1).handle(NoService()) == nil)
