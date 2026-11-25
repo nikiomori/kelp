@@ -43,10 +43,14 @@ extension SourceControlController {
                 }
             out.append(node)
         }
-        let grouped = changes.grouped
-        section(.merge, grouped.merge)
-        section(.staged, grouped.staged)
-        section(.changes, grouped.changes)
+        if let repos {
+            out = repoSections(repos, &rows)
+        } else {
+            let grouped = changes.grouped
+            section(.merge, grouped.merge)
+            section(.staged, grouped.staged)
+            section(.changes, grouped.changes)
+        }
         if changes.isEmpty, info != nil { out.append(rows.note(String(localized: "No changes"))) }
         if changes.count >= FileChange.limit {
             out.append(rows.note(String(localized: "Showing the first \(FileChange.limit) changes")))
@@ -70,6 +74,7 @@ extension SourceControlController {
     private static func rowName(_ node: Node) -> String {
         switch node.kind {
         case .section(let section): "s \(section.rawValue)"
+        case .repo(let name): "r \(name)"
         case .file(let file, _): file.path
         case .note(let text): "n \(text)"
         case .commit, .commitFile: ""
@@ -214,7 +219,6 @@ extension SourceControlController {
         } else {
             collapsed.insert(section.rawValue)
         }
-        UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed")
         turning = section
         // What folds isn't moved row by row. It fades into what's there next, as a panel does, rather than at once.
         if view.window != nil { (section == .graph ? view : outline).crossfade(Motion.base) }
@@ -236,7 +240,7 @@ extension SourceControlController {
     func outlineView(_ outline: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { false }
     func outlineView(_ outline: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         switch (item as? Node)?.kind {
-        case .section?, .note?: TextSize.of(Metrics.rowSection)
+        case .section?, .note?, .repo?: TextSize.of(Metrics.rowSection)
         case .commit(let index)?:
             commits.indices.contains(index) ? CommitCell.height(commits[index].refs) : CommitCell.lineHeight
         default: TextSize.of(Metrics.row)
@@ -282,7 +286,9 @@ extension SourceControlController {
                 file, icon: app.fileIcons.image((file.path as NSString).lastPathComponent),
                 letter: Self.letter(file, section),
                 indent: SectionCell.indent, actions: fileActions(file, section), shared: shared[file.path] ?? [],
-                commit: section == .merge ? nil : worktreeId.flatMap { plans[$0]?.number(of: file.path) })
+                commit: section == .merge ? nil : worktreeId.flatMap { plans[$0]?.number(of: file.path) },
+                // Under its repository's row, a file's folder starts inside the repository.
+                inside: repos == nil ? nil : Self.repo(of: file.path))
             return cell
         case .commit(let index):
             if more, !loadingMore, index >= commits.count - 30 { loadMore() }
@@ -300,6 +306,7 @@ extension SourceControlController {
             let cell = outline.makeView(withIdentifier: NoteCell.id, owner: nil) as? NoteCell ?? NoteCell()
             cell.show(text)
             return cell
+        case .repo(let name): return repoCell(outline, node, name)
         }
     }
 
@@ -338,6 +345,7 @@ extension SourceControlController {
         let split: SplitDirection? = NSApp.currentEvent?.modifierFlags.contains(.option) == true ? .right : nil
         switch node.kind {
         case .section(let section): toggle(section)
+        case .repo(let name): toggleRepo(name)
         case .file(let file, let section): open(file, section, split: split)
         case .commit(let index): toggle(commit: commits[index].hash)
         case .commitFile(let hash, let fileChange):
@@ -371,29 +379,5 @@ extension SourceControlController {
             commitFiles[hash] = files
             rebuildGraph()
         }
-    }
-}
-
-// MARK: status letters (VS Code's colors)
-extension SourceControlController {
-    func open(_ file: FileChange, _ section: Section, split: SplitDirection? = nil) {
-        guard let worktree = worktreeId else { return }
-        if section == .merge {
-            openFile(file, split: split)
-            return
-        }
-        // When a review beside it shows the file, the review scrolls there instead.
-        if DiffViewController.reveal(file.path, worktree: worktree) { return }
-        app.workbench.open(
-            DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged), split: split)
-    }
-    func openFile(_ file: FileChange, split: SplitDirection? = nil) {
-        guard let worktree = app.worktree(worktreeId) else { return }
-        app.workbench.open(TabURI.file(worktree.path + "/" + file.path), split: split)
-    }
-
-    static func letter(_ file: FileChange, _ section: Section) -> (String, NSColor) {
-        let code = file.letter(inWorktree: section == .changes, merging: section == .merge)
-        return (code, .gitLetter(code))
     }
 }

@@ -9,7 +9,7 @@ extension SyncPopover {
 
     func update() {
         let was = view.window == nil ? nil : root.fittingSize
-        let info = app.latest(GitEvent.self, folder)?.branches, running = GitSync.state(app).running[wid]?.title
+        let info = app.latest(GitEvent.self, folder)?.shownBranches, running = GitSync.state(app).running[wid]?.title
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(
