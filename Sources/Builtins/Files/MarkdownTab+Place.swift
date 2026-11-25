@@ -21,6 +21,12 @@ extension MarkdownTab {
         return (number(kept?["zoom"]), number(kept?["y"]) ?? 0)
     }
 
+    /// The canvas zoomed by its capsule or keys: kept for the next drawing and the next opening.
+    func zoomed(_ zoom: Double?) {
+        canvasZoom = zoom
+        keepPlace()
+    }
+
     /// Takes the kept zoom before the page is first drawn.
     func restorePlace() { canvasZoom = keptPlace.zoom }
 

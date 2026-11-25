@@ -18,6 +18,10 @@ extension MarkdownTab {
         switch kind {
         case "marks":
             sendMarks(drafts(body), queue: body["queue"] as? Bool ?? false, seen: (body["seen"] as? NSNumber)?.intValue)
+        case "stopAgent":   // Esc, as typed in its terminal: the turn stops and its marks come back to check
+            if let author = pageAuthor, author.status == .working {
+                Task { await app.call(SessionWrite(id: author.id, text: "\u{1b}")) }
+            }
         case "marksTo":
             let list = drafts(body), seen = (body["seen"] as? NSNumber)?.intValue
             let menu = NSMenu()
