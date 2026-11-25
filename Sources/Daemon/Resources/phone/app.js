@@ -83,6 +83,7 @@ const EN = {
   pushBlocked: 'Blocked. Allow notifications for Kelp in the Settings app, then come back.',
   pushUnavailable: 'Not available in this browser.',
   pushFailed: "Couldn't change notifications. Try again.",
+  pushRenew: 'Your Mac changed its notification key. Turn notifications on again.',
   addToHome: 'For notifications Kelp has to be on the Home Screen, paired there: scan the code in Kelp › Settings › Phone again and follow the steps.',
   disconnect: 'Disconnect This Phone…',
   disconnectAsk: mac => `Disconnect this phone from ${mac || 'your Mac'}? To connect again, scan a new code in Kelp.`,
@@ -160,6 +161,7 @@ const RU = {
   pushBlocked: 'Запрещены. Разрешите уведомления для Kelp в приложении «Настройки» и вернитесь.',
   pushUnavailable: 'В этом браузере недоступно.',
   pushFailed: 'Не удалось изменить уведомления. Попробуйте ещё раз.',
+  pushRenew: 'Mac сменил ключ уведомлений. Включите уведомления ещё раз.',
   addToHome: 'Для уведомлений Kelp должен быть на экране «Домой» и подключён там: отсканируйте код в Kelp › Настройки › Телефон ещё раз и следуйте шагам.',
   disconnect: 'Отключить этот телефон…',
   disconnectAsk: mac => `Отключить этот телефон от ${mac || 'вашего Mac'}? Чтобы подключить снова, отсканируйте новый код в Kelp.`,
@@ -1023,6 +1025,7 @@ let pushWork = Promise.resolve(), pushOn = false, pushProblem = '';
 function changePush(wanted) {
   pushWork = pushWork.then(async () => {
     pushProblem = '';
+    let renewing = false;
     try {
       const reg = await registration;
       if (!reg?.pushManager) return;
@@ -1040,11 +1043,13 @@ function changePush(wanted) {
       if (sub && (bytes.length !== current.length || !bytes.every((byte, i) => byte === current[i]))) {
         await sub.unsubscribe();
         sub = null;
+        // Without a tap the browser may refuse the new subscription: then the switch says to turn it on again.
+        renewing = !wanted;
       }
       sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
       await kelp.subscribe(sub.toJSON());
       pushOn = true;
-    } catch (error) { pushProblem = error?.status === 0 ? S.failed(mac) : S.pushFailed; }
+    } catch (error) { pushProblem = renewing ? S.pushRenew : error?.status === 0 ? S.failed(mac) : S.pushFailed; }
   });
   return pushWork;
 }

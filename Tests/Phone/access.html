@@ -78,13 +78,14 @@ async function run() {
   catch (error) { check(error.status === 401, 'Consumed QR refused'); }
   check(reopened.paired(id) && !reopened.recovering(), 'An unsuccessful pairing keeps the previous device');
 
-  let rotated = 0, sub = { options: { applicationServerKey: Uint8Array.of(9).buffer }, async unsubscribe() { sub = null; } };
+  let refuse = false, rotated = 0, sub = { options: { applicationServerKey: Uint8Array.of(9).buffer }, async unsubscribe() { sub = null; } };
   const pushManager = {
     async getSubscription() { return sub; },
     async subscribe({ applicationServerKey }) {
+      if (refuse) throw new DOMException('Subscribing for push requires a user gesture', 'NotAllowedError');
       check(!sub && String(applicationServerKey) === String(pushKey), 'Rotated the stale VAPID key');
       rotated++;
-      return sub = { options: { applicationServerKey }, toJSON: () => ({ endpoint: 'new' }) };
+      return sub = { options: { applicationServerKey }, toJSON: () => ({ endpoint: 'new' }), async unsubscribe() { sub = null; } };
     }
   };
   Object.defineProperty(navigator, 'serviceWorker', { value: { register: async () => ({ pushManager }), addEventListener() {} } });
@@ -123,6 +124,14 @@ async function run() {
   lists.shift()({ agents: [], revision: 4 });
   await wait(() => registrations === 3 && !document.getElementById('push-toggle').checked);
   check(sub !== null, 'A browser subscription alone does not show notifications as enabled');
+
+  // The Mac's key changed, and the browser refuses a new subscription without a tap.
+  [allowPush, refuse, pushKey[0]] = [true, true, 7];
+  dispatchEvent(new Event('online'));
+  await wait(() => lists.length === 1);
+  lists.shift()({ agents: [], revision: 5 });
+  await wait(() => /key|ключ/.test(document.getElementById('push-state').textContent));
+  check(sub === null && !document.getElementById('push-toggle').checked, 'A refused key change asks for a tap');
 }
 const result = document.createElement('pre');
 result.id = 'test-result';
