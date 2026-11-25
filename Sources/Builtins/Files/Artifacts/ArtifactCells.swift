@@ -14,10 +14,13 @@ struct ArtifactCells {
         "dashboard": "chart.bar", "proof": "checkmark.seal", "motion": "film"
     ]
 
+    /// The symbol of a kind of page, as its row and its tab show it.
+    static func symbol(_ kind: String) -> String { symbols[kind] ?? "doc.richtext" }
+
     func heading(_ text: String) -> NSView { SectionHeading(text) }
 
     func item(_ item: ArtifactItem, earlier: Int) -> NSView {
-        let icon = NSImageView(image: .symbol(Self.symbols[item.type] ?? "doc.richtext"))
+        let icon = NSImageView(image: .symbol(Self.symbol(item.type)))
         icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let project = panel.app.projectName(panel.app.worktree(panel.app.workbench.workspaceId)?.repoId)

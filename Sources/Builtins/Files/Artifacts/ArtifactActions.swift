@@ -31,6 +31,142 @@ enum ArtifactActions {
     }
 }
 
+extension ArtifactActions {
+    /// Opens a page: its file in a tab, or its page on a service in the user's browser, which is signed in to it and
+    /// Kelp's tabs aren't. Only https opens, because the record may come from a cloned repository (`Artifacts.record`
+    /// refuses any other scheme too).
+    static func open(_ app: AppModel, _ item: ArtifactItem) {
+        guard item.url != nil else { return app.workbench.open(item.target) }
+        if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
+    }
+
+    /// What Artifacts Overview adds to a page's menu: pin it, and move it to its archive or back.
+    struct Keeping {
+        var pinned: Bool, archived: Bool
+        var pin: @MainActor () -> Void, archive: @MainActor () -> Void
+    }
+
+    /// A page's menu, the same in the Artifacts panel and Artifacts Overview: open it, look at it, the chat that made
+    /// it; its name, its link or its file; then what takes it out of sight. `earlier` are the pages of the same title
+    /// (the panel's folded rows), and `keeping` is the overview's own items.
+    static func addItems(
+        to menu: NSMenu, _ app: AppModel, _ item: ArtifactItem, open: @escaping @MainActor (ArtifactItem) -> Void,
+        quickLook: @escaping @MainActor () -> Void, earlier: [ArtifactItem] = [], keeping: Keeping? = nil
+    ) {
+        menu.add(item.url == nil ? String(localized: "Open") : String(localized: "Open in Browser")) { open(item) }
+        if item.preview != nil { menu.add(String(localized: "Quick Look"), quickLook) }
+        if !earlier.isEmpty {
+            let versions = NSMenu()
+            for old in earlier {
+                let when = Date(timeIntervalSince1970: old.modified ?? old.created)
+                versions.add(when.formatted(date: .abbreviated, time: .shortened)) { open(old) }
+            }
+            menu.addItem(withTitle: String(localized: "Earlier Versions"), action: nil, keyEquivalent: "").submenu =
+                versions
+        }
+        if let session = item.session.flatMap(app.session), session.status != .exited {
+            menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
+        }
+        menu.addItem(.separator())
+        if let keeping { menu.add(keeping.pinned ? String(localized: "Unpin") : String(localized: "Pin"), keeping.pin) }
+        if item.url == nil {
+            menu.add(String(localized: "Rename…")) { rename(app, page: item.target, title: item.title) }
+            if keeping != nil { addExport(to: menu, app, item) }
+        }
+        if let link = item.url {
+            menu.add(String(localized: "Copy Link")) { copyText(link) }
+        } else {
+            WorkspaceActions.addLocate(to: menu, path: item.target)
+        }
+        guard keeping != nil || item.url == nil else { return }
+        menu.addItem(.separator())
+        if let keeping {
+            menu.add(
+                keeping.archived ? String(localized: "Move Out of Archive") : String(localized: "Move to Archive"),
+                keeping.archive)
+        }
+        if item.url == nil { menu.add(String(localized: "Move to Trash")) { trash(app, page: item.target) } }
+    }
+
+    /// Export ›, with what the page's own ⋯ exports. The page opens beside to be drawn, and is written where the user
+    /// chose (`Builtins.exportPage`).
+    private static func addExport(to menu: NSMenu, _ app: AppModel, _ item: ArtifactItem) {
+        let page: MarkdownTab.Page
+        switch Artifacts.Kind(rawValue: item.type) {
+        case .design, .dashboard: page = .canvas
+        case .slides: page = .slides
+        case .doc, .review, .proof: page = .markdown
+        default: return   // a motion page exports a video, from its own bar
+        }
+        let formats = NSMenu()
+        for format in PageExport.formats(for: page) {
+            formats.add(format.title(page)) {
+                Task {
+                    let name = URL(fileURLWithPath: item.target).deletingLastPathComponent().lastPathComponent
+                    guard let (to, editable) = await MarkdownTab.askWhere(format, name: name) else { return }
+                    Builtins.exportPage(
+                        app,
+                        [
+                            "path": .string(item.target), "format": .string(format.rawValue), "to": .string(to.path),
+                            "editable": .bool(editable)
+                        ])
+                }
+            }
+        }
+        menu.add(String(localized: "Export"), submenu: formats)
+    }
+}
+
+extension ArtifactActions {
+    /// Whether the agent is writing the page: it was saved in the last two minutes and its chat is working.
+    static func writing(_ item: ArtifactItem, _ app: AppModel) -> Bool {
+        guard let modified = item.modified, app.session(item.session ?? "")?.status == .working else { return false }
+        return Date().timeIntervalSince1970 - modified < 120
+    }
+
+    /// A page's second line in a list, only when there's something to say: the agent is writing the page, the marks
+    /// to check or with the agent, or how much of a review is answered.
+    static func note(_ item: ArtifactItem, _ app: AppModel) -> (text: String, waits: Bool)? {
+        if writing(item, app), let session = item.session.flatMap(app.session) {
+            return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
+        }
+        if let marks = item.marks, marks.check > 0 { return (String(localized: "To check: \(marks.check)"), true) }
+        if let marks = item.marks, marks.sent > 0 {
+            let who = item.session.flatMap(app.session).map { app.catalog.name($0.agent) }
+            return (
+                who.map { String(localized: "With \($0): \(marks.sent)") } ?? String(localized: "Sent: \(marks.sent)"),
+                false
+            )
+        }
+        guard let points = item.points, points > 0 else { return nil }
+        let answered = item.answered ?? 0
+        return (String(localized: "\(answered) of \(points) answered"), answered < points)
+    }
+}
+
+/// Which pages the user has seen: opened from a list or shown in a tab. It is one list in the window's state for the
+/// panel and the overview alike, at most the 500 latest. Until anything was listed nothing counts as new, so the first
+/// list doesn't light up every page.
+@MainActor
+enum ArtifactSeen {
+    static let key = "artifacts.seen"
+
+    static func started(_ app: AppModel) -> Bool { app.uiState[key] != nil }
+    static func isNew(_ item: ArtifactItem, _ app: AppModel) -> Bool {
+        started(app) && !app.uiState.strings(key).contains(item.target)
+    }
+
+    /// Adds `targets` to the seen pages. Returns whether the list changed.
+    static func mark(_ targets: [String], _ app: AppModel) async -> Bool {
+        var list = app.uiState.strings(key)
+        let added = targets.filter { !list.contains($0) }
+        guard !added.isEmpty || !started(app) else { return false }
+        list = Array((list + added).suffix(500))
+        _ = await app.uiState.save(key, .array(list.map { .string($0) }))
+        return true
+    }
+}
+
 extension ArtifactsPanel {
     /// What the filter finds a page by: its title, its kind and the agent that made it ("slides", "Codex").
     func words(_ item: ArtifactItem, _ project: String?) -> String {

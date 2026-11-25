@@ -76,6 +76,7 @@ extension Builtins {
             commands: [
                 cmd("files.quickOpen", "Open Quickly…", "cmd+p") { app.workbench.openQuickly() },
                 cmd("files.new", "New File", "opt+cmd+n") { app.workbench.open(UntitledTab.next(app)) },
+                cmd("artifacts.overview", "Artifacts Overview") { app.workbench.open(OverviewTab.uri) },
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
                     markdown(app)?.cycleMode()
                 },
@@ -260,7 +261,10 @@ extension Builtins {
                     placeholder: { _ in (String(localized: "Prompt"), .symbol("text.bubble"), nil) }),
                 TabProvider(
                     schemes: ["disk"], make: { diskUsageTab(uri: $0, app: app, sizes: disk) },
-                    placeholder: { _ in (String(localized: "Disk Usage"), .symbol("internaldrive"), nil) })
+                    placeholder: { _ in (String(localized: "Disk Usage"), .symbol("internaldrive"), nil) }),
+                TabProvider(
+                    schemes: [OverviewTab.scheme], make: { OverviewTab(uri: $0, app: app) },
+                    placeholder: { _ in (OverviewTab.title, .symbol("square.grid.2x2"), nil) })
             ],
             languages: Languages.all,
             skills: [artifactsSkill],
