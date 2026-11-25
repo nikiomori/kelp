@@ -122,16 +122,18 @@ extension PhoneBridge {
         }
         guard beginPublicationWork() else { return }
         defer { publications.leave() }
-        await withdrawPublication()
+        await withdrawPublication(leavingLiveKelp: true)
     }
 
-    private func withdrawPublication() async {
+    /// `leavingLiveKelp`: the route is a previous process's, so one that another Kelp serves now (a second Kelp home on
+    /// the same port) stays.
+    private func withdrawPublication(leavingLiveKelp: Bool = false) async {
         cleanupRetry?.cancel()
         let tailscale = tailscale
         do {
-            let outstanding = try await Slots.elsewhere { try tailscale.withdraw() }
+            // A route left in a profile that isn't selected goes at the next launch or Phone change, not on a timer.
+            _ = try await Slots.elsewhere { try tailscale.withdraw(leavingLiveKelp: leavingLiveKelp) }
             cleanupError = nil
-            if outstanding { retryWithdrawal() }
         } catch { retryWithdrawal(error) }
     }
 
@@ -279,18 +281,30 @@ struct PhoneTailscale: Sendable {
     }
 
     /// Returns true if another profile still has a recorded publication. Its config is visible only when selected.
-    func withdraw() throws -> Bool {
+    func withdraw(leavingLiveKelp: Bool = false) throws -> Bool {
         var owners = try owners()
         guard !owners.isEmpty else { return false }
-        guard let program = executable() else { throw RPCError.invalidParams("Tailscale isn't installed on this Mac.") }
+        guard let program = executable() else {   // Tailscale is gone, and its routes with it
+            try store.setDaemonState(Self.ownersKey, nil as [String: UInt16]?)
+            return false
+        }
         let status = try Subprocess.output([program, "status", "--json"], cwd: "/", timeLimit: 15)
         guard let address = Self.address(status: status, requireRunning: false), let port = owners[address] else {
             return true
         }
-        try Self.remove(program, address: address, port: port)
+        if !leavingLiveKelp || !Self.kelpServes(port) { try Self.remove(program, address: address, port: port) }
         owners.removeValue(forKey: address)
         try store.setDaemonState(Self.ownersKey, owners.isEmpty ? nil : owners)
         return !owners.isEmpty
+    }
+
+    /// Whether a Kelp's phone page answers on `port` of this Mac now.
+    static func kelpServes(_ port: UInt16) -> Bool {
+        do {
+            let page = try Subprocess.output(
+                ["/usr/bin/curl", "-sf", "-m", "2", "http://127.0.0.1:\(port)/"], cwd: "/", timeLimit: 5)
+            return String(decoding: page, as: UTF8.self).contains("id=\"a-retry\"")
+        } catch { return false }
     }
 
     private static func remove(_ program: String, address: String, port: UInt16) throws {

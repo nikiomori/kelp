@@ -200,8 +200,9 @@ extension PhoneBridge {
         tailscaleSteps = nil
         // Keep the port bound until the previous publication has finished withdrawing.
         await previous?.value
-        if asker != nil { await recoverPublication() }
+        // Stopped before recovery, which keeps a route while a Kelp still answers on its port.
         oldServer?.stop()
+        if asker != nil { await recoverPublication() }
         guard let want else { return }
         guard let identity = load() else {
             following = Task {

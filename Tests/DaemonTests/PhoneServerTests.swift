@@ -183,6 +183,29 @@ private func phoneBridge(_ daemon: Daemon, program: URL) -> PhoneBridge {
     #expect(try Data(contentsOf: route) == original, "an identical borrowed route belongs to whoever set it up")
 }
 
+/// A route another Kelp serves now (a second Kelp home on the same port) outlives a stale record of this one's. With
+/// Tailscale gone, so are its routes, and the record goes too instead of failing again every minute.
+@Test func aRouteAnotherKelpServesStaysAndNoTailscaleEndsTheRecord() async throws {
+    let daemon = try Daemon(root: tmp()), folder = tmp(), program = try tailscaleFixture(folder)
+    let (fd, held) = try boundPort(), port = try #require(UInt16(exactly: held))
+    close(fd)
+    let other = try PhoneServer(
+        port: port, page: PhoneHTTP.page, call: { _, _, _, _, _ in .refused(503) }, left: { _ in })
+    defer { other.stop() }
+    other.start { _ in }
+    try #require(try await waitFor { PhoneTailscale.kelpServes(port) })
+    let tailscale = PhoneTailscale(store: daemon.store, executable: { program.path })
+    _ = try tailscale.serve(port).get()
+    let route = folder.appendingPathComponent("route"), served = try Data(contentsOf: route)
+    #expect(try !tailscale.withdraw(leavingLiveKelp: true))
+    #expect(try Data(contentsOf: route) == served)
+    #expect(try daemon.store.daemonState(PhoneTailscale.ownersKey, as: [String: UInt16].self) == nil)
+
+    try daemon.store.setDaemonState(PhoneTailscale.ownersKey, [testAddress: port])
+    #expect(try !PhoneTailscale(store: daemon.store, executable: { nil }).withdraw())
+    #expect(try daemon.store.daemonState(PhoneTailscale.ownersKey, as: [String: UInt16].self) == nil)
+}
+
 /// A free port of localhost, for the server to take.
 private func boundPort() throws -> (fd: Int32, port: Int) {
     let fd = socket(AF_INET, SOCK_STREAM, 0)
