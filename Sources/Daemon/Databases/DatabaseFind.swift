@@ -21,8 +21,8 @@ struct FoundDatabase: Equatable {
 /// Finds where a project says its databases are: `.env` files (`DATABASE_URL` and the like), compose services of
 /// postgres or mysql images, Rails' config/database.yml, and SQLite files near the top. It only reads files and never
 /// connects.
-/// Limit: YAML is read line by line (the shapes these files take), not parsed; values from ERB or anchors aren't
-/// followed.
+/// Limit: YAML is read line by line (the shapes these files take, anchors written out as text), not parsed; values
+/// from ERB aren't followed.
 enum DatabaseFind {
     static let composeFiles = ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"]
     static let sqliteExtensions: Set<String> = ["sqlite", "sqlite3", "db", "db3", "duckdb", "ddb"]
@@ -40,7 +40,8 @@ enum DatabaseFind {
         let files = (composeFiles + envs + ["config/database.yml", "prisma/schema.prisma"] + parts).compactMap { name in
             read(root, name).map { (name, $0) }
         }
-        return unique(parse(files, root: root) + ideConnections(in: root) + sqliteFiles(in: root))
+        let found = parse(files, root: root) { read(root, $0) }
+        return unique(found + ideConnections(in: root) + sqliteFiles(in: root))
     }
 
     /// Reads the connections an IDE keeps in the project: JetBrains' .idea/dataSources.xml (with the user from the
@@ -79,8 +80,11 @@ enum DatabaseFind {
     }
 
     /// Reads the databases that the project's files name, given each file's path in the project: compose files, .env
-    /// files, config/database.yml and prisma/schema.prisma.
-    static func parse(_ files: [(name: String, text: String)], root: String) -> [FoundDatabase] {
+    /// files, config/database.yml and prisma/schema.prisma. `more` reads another file they name (a compose file's
+    /// env_file) that isn't among them.
+    static func parse(
+        _ files: [(name: String, text: String)], root: String, more: (String) -> String? = { _ in nil }
+    ) -> [FoundDatabase] {
         // Compose fills in ${VAR} from the .env beside the compose file.
         var envs: [String: [String: String]] = [:]
         for (name, text) in files where (name as NSString).lastPathComponent == ".env" {
@@ -89,7 +93,9 @@ enum DatabaseFind {
         return files.flatMap { name, text -> [FoundDatabase] in
             let file = (name as NSString).lastPathComponent
             if composeFiles.contains(file) {
-                return compose(text, source: name, env: envs[(name as NSString).deletingLastPathComponent] ?? [:])
+                return compose(text, source: name, env: envs[(name as NSString).deletingLastPathComponent] ?? [:]) {
+                    path in files.first { $0.name == path }?.text ?? more(path)
+                }
             }
             if name == "config/database.yml" { return rails(text, source: name, root: root) }
             if name == "prisma/schema.prisma" { return prisma(text, source: name, root: root) }
@@ -125,7 +131,8 @@ enum DatabaseFind {
     /// Whether a changed file can change what `find` says.
     static func matters(_ path: String) -> Bool {
         let name = (path as NSString).lastPathComponent
-        return composeFiles.contains(name) || name == ".env" || name.hasPrefix(".env.") || name == "database.yml"
+        return composeFiles.contains(name) || name.hasSuffix(".env") || name.hasPrefix(".env.")
+            || name == "database.yml"
             || name.hasPrefix("dataSources") || name == "settings.json"
             || sqliteExtensions.contains((name as NSString).pathExtension.lowercased())
     }
@@ -141,7 +148,7 @@ enum DatabaseFind {
     /// Reads a database URL such as postgres://user:pass@host:5432/db, mysql://…, sqlite:///path or file:./dev.db.
     /// Returns nil for anything else.
     static func url(_ text: String, name: String? = nil, source: String, root: String) -> FoundDatabase? {
-        let text = text.trimmingCharacters(in: .whitespaces)
+        let text = DatabaseAddress.withoutDriver(text.trimmingCharacters(in: .whitespaces))
         if text.hasPrefix("file:") || text.hasPrefix("sqlite:") {
             var path = text.replacingOccurrences(of: "sqlite://", with: "").replacingOccurrences(
                 of: "sqlite:", with: "")
@@ -169,15 +176,46 @@ enum DatabaseFind {
     // MARK: .env
 
     /// Reads lines such as `DATABASE_URL=…` or `export PG_URL="…"`, where the key ends in URL and names a database,
-    /// and the value is a database URL.
+    /// and the value is a database URL, and a database given in separate variables (`separate`).
     static func env(_ text: String, source: String, root: String) -> [FoundDatabase] {
-        pairs(text).compactMap { key, value in
+        let urls = pairs(text).compactMap { key, value -> FoundDatabase? in
             let key = key.uppercased()
             guard key.hasSuffix("URL"),
                 ["DATABASE", "DB", "POSTGRES", "PG", "MYSQL", "SQLITE"].contains(where: key.contains)
             else { return nil }
             return url(value, source: source, root: root)
         }
+        return urls + separate(variables(text), source: source, root: root)
+    }
+
+    /// Reads a database given in separate variables: Laravel's and Django's DB_HOST, DB_PORT, DB_DATABASE (or DB_NAME),
+    /// DB_USERNAME (or DB_USER) and DB_PASSWORD, with DB_CONNECTION (or DB_ENGINE) or the port saying the engine, and
+    /// libpq's PGHOST, PGPORT, PGDATABASE, PGUSER and PGPASSWORD.
+    static func separate(_ vars: [String: String], source: String, root: String) -> [FoundDatabase] {
+        func value(_ keys: [String]) -> String? { keys.lazy.compactMap { vars[$0] }.first { !$0.isEmpty } }
+        func server(_ engine: DatabaseInfo.Engine, _ keys: [[String]]) -> [FoundDatabase] {
+            let host = value(keys[0]), database = value(keys[2])
+            guard let name = database ?? host else { return [] }
+            let db = DatabaseInfo(
+                name: name, engine: engine, source: source, host: host ?? "localhost",
+                port: value(keys[1]).flatMap(Int.init) ?? engine.defaultPort, database: database, user: value(keys[3]))
+            return [FoundDatabase(database: db, password: value(keys[4]))]
+        }
+        let pg = server(.postgres, [["PGHOST"], ["PGPORT"], ["PGDATABASE"], ["PGUSER"], ["PGPASSWORD"]])
+        let laravel = [
+            ["DB_HOST"], ["DB_PORT"], ["DB_DATABASE", "DB_NAME"], ["DB_USERNAME", "DB_USER"], ["DB_PASSWORD"]
+        ]
+        let kind = value(["DB_CONNECTION", "DB_ENGINE"])?.lowercased() ?? "", port = value(["DB_PORT"])
+        if kind.contains("sqlite") {
+            return pg + (value(laravel[2]).flatMap { url("file:" + $0, source: source, root: root) }.map { [$0] } ?? [])
+        }
+        if kind.contains("pgsql") || kind.contains("postgres") || kind.isEmpty && port == "5432" {
+            return pg + server(.postgres, laravel)
+        }
+        if kind.contains("mysql") || kind.contains("mariadb") || kind.isEmpty && port == "3306" {
+            return pg + server(.mysql, laravel)
+        }
+        return pg
     }
 
     static func unquoted(_ text: String) -> String {
@@ -196,7 +234,7 @@ enum DatabaseFind {
     /// Reads the development and test blocks of config/database.yml.
     static func rails(_ text: String, source: String, root: String) -> [FoundDatabase] {
         var blocks: [String: [String: String]] = [:], current: String?
-        for raw in text.split(whereSeparator: \.isNewline) {
+        for raw in expandingAnchors(text).split(whereSeparator: \.isNewline) {
             let line = String(raw), trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
             if !line.hasPrefix(" "), trimmed.hasSuffix(":") {
@@ -295,19 +333,24 @@ enum DatabaseFind {
     }
 
     /// Keeps one entry per place. The same server, port and database found twice (compose and .env) is kept once, as
-    /// first found. Two places under one name get "-2", "-3".
+    /// first found. Two places under one name get "-2", "-3". A compose service that publishes no port is a place of
+    /// its own, whatever its database is called.
     static func unique(_ found: [FoundDatabase]) -> [FoundDatabase] {
         var kept: [FoundDatabase] = [], names: Set<String> = []
+        func place(_ item: FoundDatabase) -> String {
+            let service = item.service.map { "\u{1F}" + (item.database.source ?? "") + "\u{1F}" + $0.name }
+            return item.database.place + (item.database.host == nil ? service ?? "" : "")
+        }
         for var item in found {
             let db = item.database
-            if kept.contains(where: { $0.database.place == db.place }) { continue }
+            if kept.contains(where: { place($0) == place(item) }) { continue }
             var name = db.name, n = 2
             while names.contains(name) {
                 name = "\(db.name)-\(n)"
                 n += 1
             }
             item.database.name = name
-            if isRemote(item.database) { item.database.access = .read }
+            if isRemote(item.database) { item.database.access = item.database.access.atMost(.read) }
             names.insert(name)
             kept.append(item)
         }

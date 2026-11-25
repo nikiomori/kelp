@@ -3,31 +3,6 @@ import Foundation
 // Value types for a project's databases. kelpd finds, runs and keeps them, and the app shows them (the `db.*` methods
 // are in DatabaseMethods).
 
-/// Builds and reads the address of a database tab, `db:<workspace>/<name>`. The tab can show one run (`?run=`) or one
-/// table (`?table=`). The name and the table are percent-encoded, because an imported name may hold a "?" or "/". This
-/// is the only place that builds the address (for the tab, the agent's row and `kelp db`) and the only place that reads
-/// it (`parts`). The daemon decides whether an agent may open a tab by the workspace and database the tab will show, so
-/// both sides must read an address the same way.
-public enum DatabaseTabURI {
-    /// Returns the workspace and database that `uri` names, and the text after its "?". Returns nil when `uri` isn't a
-    /// database tab's address.
-    public static func parts(_ uri: String) -> (worktree: String, name: String, query: String?)? {
-        guard let colon = uri.firstIndex(of: ":"), uri[..<colon].lowercased() == "db" else { return nil }
-        let body = uri[uri.index(after: colon)...].split(separator: "?", maxSplits: 1)
-        let parts = body.first?.split(separator: "/", maxSplits: 1).map(String.init) ?? []
-        guard parts.count == 2 else { return nil }
-        return (parts[0], parts[1].removingPercentEncoding ?? parts[1], body.count > 1 ? String(body[1]) : nil)
-    }
-
-    public static func uri(worktree: String, name: String, run: String? = nil, table: String? = nil) -> String {
-        var allowed = CharacterSet.urlPathAllowed
-        allowed.remove(charactersIn: "?/")
-        let name = name.addingPercentEncoding(withAllowedCharacters: allowed) ?? name
-        let table = table.map { "?table=" + ($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0) }
-        return "db:\(worktree)/\(name)" + (run.map { "?run=" + $0 } ?? table ?? "")
-    }
-}
-
 /// A project's database, either found in the project's files (compose, .env, database.yml, a SQLite file) or added by
 /// hand.
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
@@ -64,14 +39,19 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         /// The character the engine's SQL quotes a name in: "orders", or `orders` in MySQL.
         public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
 
-        /// The engine a container image runs, judged by the image's name and not its registry or owner. Examples are
-        /// postgres:16, bitnami/postgresql, timescale/timescaledb-ha, mariadb and percona-server. nil for other images.
+        /// The engine a container image runs, judged by a whole word of the image's name (its last path part, split at
+        /// "-") and not its registry or owner. Examples are postgres:16, bitnami/postgresql-repmgr,
+        /// timescale/timescaledb-ha, mariadb and percona-server. nil for other images, such as postgrest,
+        /// mysqld-exporter or postgres-exporter, which only have a database's name in theirs or are a tool for one.
         public init?(image: String) {
             let last = image.lowercased().split(separator: "/").last ?? ""
             let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
-            if ["postgres", "postgis", "timescale", "pgvector"].contains(where: name.contains) {
+            let words = Set(name.split(separator: "-").map(String.init))
+            let tools: Set = ["exporter", "admin", "operator", "backup", "proxy", "router", "client", "cli", "tools"]
+            guard words.isDisjoint(with: tools) else { return nil }
+            if !words.isDisjoint(with: ["postgres", "postgresql", "postgis", "timescaledb", "pgvector"]) {
                 self = .postgres
-            } else if ["mysql", "mariadb", "percona"].contains(where: name.contains) {
+            } else if !words.isDisjoint(with: ["mysql", "mariadb", "percona"]) {
                 self = .mysql
             } else {
                 return nil
@@ -81,11 +61,19 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
     /// Whether a host is this Mac (or its Docker), meaning a loopback address or this Mac's own name. A `.local` name
     /// doesn't count, because whoever answers for it on the network could be another machine. A name without a dot
-    /// doesn't count either, because it may be a compose service or a host in a search domain.
+    /// doesn't count either, because it may be a compose service or a host in a search domain. A name that only starts
+    /// with "127." ("127.evil.example") is a name, not the loopback address.
     public static func isLocal(_ host: String) -> Bool {
         let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
-            || host.hasPrefix("127.") || host.hasSuffix(".localhost")
+            || isLoopbackIPv4(host) || host.hasSuffix(".localhost")
+    }
+
+    /// An address in 127.0.0.0/8 written as four numbers.
+    private static func isLoopbackIPv4(_ host: String) -> Bool {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 4 && parts[0] == "127"
+            && parts.allSatisfy { $0.allSatisfy { ("0"..."9").contains($0) } && UInt8($0) != nil }
     }
 
     /// Read with gethostname rather than ProcessInfo.hostName, because gethostname does no DNS lookup.
@@ -103,10 +91,20 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         let at = host.map { Self.isLocal($0) ? "localhost" : $0.lowercased() } ?? ""
         return [engine.rawValue, at, port.map(String.init) ?? "", database ?? "", ssh ?? ""].joined(separator: "\u{1F}")
     }
-    /// What agents may do with the database: not see it, read it, change it once the user allows each change, or change
-    /// it freely.
+    /// What agents may do with the database: not see it, see only its structure (tables, columns, row counts: no rows),
+    /// read it, change it once the user allows each change, or change it freely. Each allows what the one before it
+    /// does, and more.
     public enum Access: String, Codable, Sendable, CaseIterable {
-        case hidden, read, ask, free
+        case hidden, structure, read, ask, free
+
+        /// Whether agents don't read its rows: hidden, or its structure only. A copy of such a database stays so.
+        public var unseenRows: Bool { self == .hidden || self == .structure }
+
+        /// This, or `limit` where this allows more.
+        public func atMost(_ limit: Access) -> Access {
+            let all = Self.allCases
+            return all[min(all.firstIndex(of: self) ?? 0, all.firstIndex(of: limit) ?? 0)]
+        }
     }
     /// The database's environment, tagged the way TablePlus and TablePro tag theirs. It sets the database's colour
     /// everywhere it shows (green, blue, orange, red). Agents may only read a Production database.
@@ -123,8 +121,9 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var host: String?, port: Int?, database: String?, user: String?
     /// The absolute path of a SQLite database's file.
     public var path: String?
-    /// Whether to use TLS to the server, in libpq's words: "disable" or "require". nil or "prefer" means TLS is used
-    /// when the server offers it.
+    /// Whether to use TLS to the server, in libpq's words: "disable", "require", or "verify-ca" and "verify-full",
+    /// which also check the server's certificate (and its name). nil or "prefer" means TLS is used when the server
+    /// offers it.
     public var ssl: String?
     /// A host from ~/.ssh/config that the server is reached through, by a port forwarded over Kelp's shared connection.
     public var ssh: String?
@@ -177,7 +176,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// The access agents actually get, because a production database can at most be read.
-    public var agentAccess: Access { production && access != .hidden ? .read : access }
+    public var agentAccess: Access { production ? access.atMost(.read) : access }
 
     /// The address shown to people, such as "postgres://app@localhost:5432/app_dev" or the SQLite file's path. It never
     /// holds a password.
@@ -221,6 +220,9 @@ public struct QueryResult: Codable, Sendable, Equatable {
     /// The statements run in one transaction (`kelp db query "a; b"`), each with the number of rows it changed. Either
     /// all of them were kept or none was. nil for a single statement.
     public var statements: [StatementResult]?
+    /// What makes an asked change's trial worth a second look (no WHERE, a DROP…), for the card that asks. nil for a
+    /// plain change, and on every other result.
+    public var risk: ChangeRisk?
     /// How many rows of a result Kelp keeps, and how far it counts rows beyond that. `total` stops at `counted`.
     public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {
@@ -315,15 +317,24 @@ public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+extension [DatabaseRun] {
+    /// The change `session`'s row asks about now: the oldest of its runs that asks, since the row asks its questions
+    /// oldest first and runs are listed newest first (`db.activity`). What shows a change to allow shows this one.
+    public func asked(by session: String) -> DatabaseRun? { last { $0.session == session && $0.state == .asks } }
+}
+
 /// A database's tables, as an agent reads them before it writes a query.
 public struct DatabaseSchema: Codable, Sendable, Equatable {
     public var tables: [Table]
     /// The names of the database's own functions ("schema.name" outside the default schema). nil for engines where Kelp
     /// doesn't read functions.
     public var functions: [String]?
-    public init(tables: [Table], functions: [String]? = nil) {
+    /// The migrations, when the database has a migration tool's table (read with the whole schema only).
+    public var migrations: DatabaseMigrations?
+    public init(tables: [Table], functions: [String]? = nil, migrations: DatabaseMigrations? = nil) {
         self.tables = tables
         self.functions = functions
+        self.migrations = migrations
     }
 
     public struct Table: Codable, Sendable, Equatable {
@@ -353,7 +364,7 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
     public struct Column: Codable, Sendable, Equatable {
         public var name: String, type: String
         public var nullable: Bool, primary: Bool
-        /// "users.id" for a foreign key.
+        /// "users.id" for a foreign key, with the table's schema where it has one ("auth.users.id").
         public var references: String?
         public init(name: String, type: String, nullable: Bool, primary: Bool, references: String? = nil) {
             self.name = name
@@ -361,6 +372,14 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
             self.nullable = nullable
             self.primary = primary
             self.references = references
+        }
+
+        /// The table and column `references` names: the column is what follows its last ".".
+        public var target: (table: String, column: String)? {
+            guard let references, let dot = references.lastIndex(of: "."), dot != references.startIndex else {
+                return nil
+            }
+            return (String(references[..<dot]), String(references[references.index(after: dot)...]))
         }
     }
 }

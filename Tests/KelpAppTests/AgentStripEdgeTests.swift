@@ -65,9 +65,40 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     #expect(StripModel.stays(.done) < StripModel.stays(.failed) && StripModel.stays(.failed) < StripModel.stays(.asks))
 }
 
+/// Takes what the strip tests put on the screen (the row, its card, tip and edge handle: all `StripPanel`s) off it once
+/// the suite ends (not after each test: a recursive trait crashes the run). Left up, a strip floats over every app until
+/// the whole run ends.
+struct StripsPutAway: SuiteTrait, TestScoping {
+    func provideScope(
+        for test: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void
+    ) async throws {
+        do { try await function() } catch {
+            await Self.putAway()
+            throw error
+        }
+        await Self.putAway()
+    }
+
+    @MainActor static func putAway() {
+        for case let panel as StripPanel in NSApplication.shared.windows { panel.orderOut(nil) }
+    }
+}
+
+@MainActor @Test func aStripATestLeftUpGoesWhenTheTestEnds() async throws {
+    let test = try #require(Test.current)
+    try await StripsPutAway().provideScope(for: test, testCase: nil) {
+        await MainActor.run {
+            let panel = StripPanel.floating(NSView(), radius: 4, fullScreen: false)
+            panel.setFrame(NSRect(x: 0, y: 0, width: 40, height: 40), display: false)
+            panel.orderFrontRegardless()
+        }
+    }
+    #expect(!NSApplication.shared.windows.contains { $0 is StripPanel && $0.isVisible })
+}
+
 /// Where the strip stands is one value on this Mac: the tests that save it, and those whose strip reads it as it starts
 /// (`extension StripPlaceTests`), go one at a time.
-@MainActor @Suite(.serialized) struct StripPlaceTests {
+@MainActor @Suite(.serialized, StripsPutAway()) struct StripPlaceTests {
     private func session(_ place: String, _ status: AgentStatus, summary: String = "") -> Session {
         var s = Session(cwd: "/", command: "x", agent: "claude", status: status, summary: summary)
         s.worktreeId = place

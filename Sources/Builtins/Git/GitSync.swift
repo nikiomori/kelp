@@ -27,18 +27,21 @@ enum GitSync {
     /// nil. A push starts CI, so the branch chip looks for its run now. While one runs on the branch, another is
     /// refused.
     static func run(_ app: AppModel, _ wid: String, _ ops: [GitRemoteOp.Step], title: String? = nil) async -> String? {
-        guard state(app).running[wid] == nil else {
-            return String(localized: "A pull or push is already running on this branch.")
+        guard state(app).running[wid] == nil, let first = ops.first else {
+            return ops.isEmpty ? nil : String(localized: "A pull or push is already running on this branch.")
         }
+        state(app).running[wid] = .init(title: title ?? Self.title(first), op: first)
         defer {
             state(app).running[wid] = nil
             app.watchAgain(.git, app.gitKey(wid))
         }
+        await BackgroundFetch.of(app).settle(wid)   // a background fetch of the project's refs ends first
         for op in ops {
             state(app).running[wid] = .init(title: title ?? Self.title(op), op: op)
             if let error = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return error }
             if op == .push { app.watchAgain(.ci, app.gitKey(wid)) }
         }
+        if ops.contains(.fetch) || ops.contains(.pull) { BackgroundFetch.of(app).fetchedByHand(wid) }
         return nil
     }
 

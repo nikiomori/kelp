@@ -16,6 +16,12 @@ extension Databases {
         // This runs off the pool, because a remote project's databases are read on its host and reached through a
         // forwarded port.
         let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
+        if forAgent, target.database.agentAccess == .structure {
+            throw RPCError.refused(
+                "\(name) shows agents its structure only: `kelp db schema` reads its tables, columns and row counts, "
+                    + "but no statement runs on it for agents. Write the query and ask the user to run it, or to let "
+                    + "agents read it.")
+        }
         let all: [String]
         do { all = try SQLText.several(databaseQuery.sql, target.database.engine) } catch let failure as DatabaseFailure
         {
@@ -47,7 +53,7 @@ extension Databases {
             return finish(databaseQuery, &run, rows, started: started, agent: forAgent)
         } catch DatabaseFailure.change {
             switch access {
-            case .hidden, .read:
+            case .hidden, .structure, .read:
                 run.state = .refused
                 run.error = "\(target.database.name) is read-only for agents."
                 note(databaseQuery.worktreeId, run)
@@ -76,13 +82,17 @@ extension Databases {
                 let tried = access == .ask ? result(wid, id) : forAgent ? await triedFirst(target, sql, id) : nil
                 let started = Date()
                 // The change may touch only the number of rows the user allowed, because the table can change while
-                // the user is asked
-                let asked = access == .ask ? run.changed : nil
+                // the user is asked. A change whose count isn't its rows' (`changesUncounted`) is still held to the
+                // count its trial reported, so a different one isn't committed.
+                let asked = access == .ask ? tried?.changed ?? run.changed : nil
+                await turnChanging(session, target, wid)   // a branch's Postgres copy is kept for Undo Turn
                 do {
                     let saying = Self.saying(sql, target.database.engine, tried: tried)
                     let rows = try await DatabaseEngines.write(target, saying, allowed: asked, off: offloads)
                     run.state = .done
-                    return finish(databaseQuery, &run, rows, started: started, agent: forAgent, tried: tried)
+                    let sent = finish(databaseQuery, &run, rows, started: started, agent: forAgent, tried: tried)
+                    await turnChanged(run)
+                    return sent
                 } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
             }
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
@@ -169,9 +179,10 @@ extension Databases {
 
     func failed(_ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
         run.state = .failed
-        run.error = failure.message
+        // A statement the user stopped fails however its engine ended it (a closed connection, a killed client)
+        run.error = DatabaseStop.current.flatMap { $0.stopped ? $0.said : nil } ?? failure.message
         note(databaseQuery.worktreeId, run)
-        return RPCError.invalidParams(failure.message)
+        return RPCError.invalidParams(run.error ?? failure.message)
     }
 
     /// Tries the change and rolls it back, then asks the user on the agent's row. Returns whether the user allowed it.
@@ -197,11 +208,17 @@ extension Databases {
                     + "(a standby, a file's rights)."
             )
         }
-        var change: RowChange?
-        if let trial { change = await rowChange(databaseConnection, sql, trial) }
+        var change: RowChange?, kept: QueryResult?
+        if let trial {
+            change = await rowChange(databaseConnection, sql, trial)
+            kept = Self.kept(trial, id: run.id, change: change)
+            let risk = await risk(databaseConnection, sql, change: kept?.change)
+            kept?.risk = risk
+        }
         run.state = .asks
-        run.changed = trial?.changed
-        note(databaseQuery.worktreeId, run, result: trial.map { Self.kept($0, id: run.id, change: change) })
+        // Only a row change's count is the rows that would change: a DDL's 0 or a WITH's selected rows isn't
+        run.changed = SQLText.countsItsRows(sql) ? trial?.changed : nil
+        note(databaseQuery.worktreeId, run, result: kept)
         let question = Self.question(
             sql, database: databaseConnection.database.name, changed: trial?.changed,
             held: DatabaseEngines.runner(databaseConnection, off: offloads).holdsAllowed)
@@ -235,7 +252,7 @@ extension Databases {
     ) async -> Bool {
         ls.askForKelp(question)
         let answer = await permissions.waitForKelp(
-            asker.session ?? "", question: question, within: DatabaseQuery.answerWithin, asker: asker.pid)
+            asker.session ?? "", question: question, within: DatabaseQuery.answerWithin, asker: asker.pid, run: run.id)
         ls.kelpAsked(question)
         guard answer == "allow" else {
             run.state = .denied
@@ -272,7 +289,7 @@ extension Databases {
     /// `held` says whether the change is held to that many rows (`DatabaseRunner.holdsAllowed`). When it isn't, the
     /// question says the number is only what the trial changed.
     static func question(_ sql: String, database: String, changed: Int?, held: Bool = true) -> String {
-        if let changed, ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(SQLText.verb(sql)) {
+        if let changed, SQLText.countsItsRows(sql) {
             let rows = "\(changed) \(changed == 1 ? "row" : "rows")"
             let of = table(sql).map { " of \($0)" } ?? ""
             guard held else { return "Allow changing rows\(of) in \(database)? Tried just now, it changed \(rows)." }
@@ -281,10 +298,11 @@ extension Databases {
         // Show the whole statement on one line. A statement too long to read there says it's cut, and where the rest is
         let code = SQLText.code(sql)
         let whole = code.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        guard whole.count > 160 else { return "Allow \(whole) in \(database)?" }
+        let uncounted = SQLText.changesUncounted(sql) ? " Kelp can’t count the rows it changes." : ""
+        guard whole.count > 160 else { return "Allow \(whole) in \(database)?" + uncounted }
         let lines = code.split(whereSeparator: \.isNewline).count
         let rest = lines > 1 ? "\(lines) lines" : "\(whole.count) characters"
-        return "Allow \(whole.prefix(140))… (\(rest), whole in Databases) in \(database)?"
+        return "Allow \(whole.prefix(140))… (\(rest), whole in Databases) in \(database)?" + uncounted
     }
 
     /// Returns the table a change names, as in UPDATE orders, DELETE FROM "orders" or INSERT OR REPLACE INTO
@@ -305,9 +323,12 @@ extension Databases {
         let target = try await offloads.run { [self] in
             try reach(connection(worktreeId, name, agent: agent), worktreeId)
         }
-        do { return try await DatabaseEngines.schema(target, table: table, off: offloads) } catch let failure
-            as DatabaseFailure
-        {
+        do {
+            let schema = try await DatabaseEngines.schema(target, table: table, off: offloads)
+            // An agent that sees only the structure isn't shown the migrations table's rows
+            let rows = !agent || target.database.agentAccess != .structure
+            return table == nil && rows ? await withMigrations(schema, target, worktreeId) : schema
+        } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
     }

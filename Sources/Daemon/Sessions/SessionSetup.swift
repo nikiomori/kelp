@@ -21,6 +21,8 @@ final class SessionSetup: Sendable {
     /// Whether this Codex takes Kelp's hooks (`CodexHooks`), once per binary.
     let codexHooks = CodexHookCheck()
     let openCode2 = OpenCode2()
+    /// `kelp browser` for agents on a host (HostBrowser.swift), with the ports brought from hosts it shares.
+    let hostBrowser: HostBrowser
 
     init(
         root: URL, socketPath: String, store: Store, settings: SettingsStore, remotes: Remotes, agentUsage: AgentUsage
@@ -31,17 +33,20 @@ final class SessionSetup: Sendable {
         self.settings = settings
         self.remotes = remotes
         self.agentUsage = agentUsage
+        hostBrowser = HostBrowser(root: root, remotes: remotes, forwards: Forwards(store: store), store: store)
     }
 
     /// The command line that runs: `argv` itself, or for a remote project, ssh running it in the project's folder on
     /// the host. Records keep the plain argv, so a restart or a wake wraps it once (older records kept the ssh line,
     /// which runs as it is).
+    /// An agent on a host gets `kelp browser` there (`hostBrowsing`), set up anew at each start and attach.
     func launchArgv(
         _ argv: [String], cwd: String, manifest: AgentManifest, tmux: String? = nil, env: [String: String] = [:]
     ) throws -> [String] {
         var run = argv
         if let remote = remotes.of(cwd), argv.first != remote.ssh {
-            let (own, secret) = Self.hostEnv(manifest, env), envFile = try Self.sendEnv(secret, to: remote)
+            var (own, secret) = Self.hostEnv(manifest, env)
+            let envFile = try Self.sendEnv(secret, to: remote)
             // A command line (`.custom`: zsh -lc "…") goes to sh there, because the host may have no zsh.
             var onHost = Session.customCommand(agent: manifest.id, argv).map { ["sh", "-c", $0] } ?? argv
             // Added here, not in the record, so every start gets this kelpd's hook settings, and a title or a restart
@@ -51,6 +56,11 @@ final class SessionSetup: Sendable {
             }
             if tmux != nil, manifest.hooks == .codexConfig, !onHost.isEmpty, codexHooks.agrees(on: remote) {
                 onHost.insert(contentsOf: CodexHooks.hostArgs, at: 1)
+            }
+            if HostBrowser.wanted(manifest, tmux: tmux), let session = env["KELP_SESSION"],
+                let browsing = hostBrowsing(session, cwd: cwd, remote)
+            {
+                onHost = Self.withHostKelp(onHost, &own, browsing, flag: manifest.pluginDirFlag)
             }
             let loginShell = manifest.id == Session.shellAgent && Tmux.session(argv) == nil
             let command =
@@ -75,6 +85,23 @@ final class SessionSetup: Sendable {
         // Codex's hooks are added here, not stored in the record (as on a host), so a wake gets this kelpd's hooks.
         let hooks = tmux == nil && box == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
         return [resolved] + hooks + run.dropFirst()
+    }
+
+    /// What an agent on a host gets for `kelp browser`: the folder Kelp keeps there, the socket in it, and whether it
+    /// gets the browser skill.
+    struct HostBrowsing: Equatable {
+        var dir: String, socket: String, skill: Bool
+    }
+
+    /// Runs `argv` on the host with Kelp's socket in its environment (`own`), the browser skill's plugin folder
+    /// (`flag`), and Kelp's `kelp` first on PATH. PATH is set after the login shell's files ran, which would otherwise
+    /// set it anew.
+    static func withHostKelp(
+        _ argv: [String], _ own: inout [String: String], _ browsing: HostBrowsing, flag: String?
+    ) -> [String] {
+        own["KELP_SOCKET"] = browsing.socket
+        let skill = browsing.skill ? flag.map { [$0, browsing.dir + "/plugin"] } ?? [] : []
+        return ["sh", "-c", #"PATH="$0/bin:$PATH"; export PATH; exec "$@""#, browsing.dir] + argv + skill
     }
 
     /// The machine that `cwd`'s project runs its terminals in (Run Terminals In on its menu), while that machine exists

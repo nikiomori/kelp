@@ -168,11 +168,24 @@ extension QuickOpen {
             let items = await rows(term)
             guard let self, !Task.isCancelled, field.stringValue == asked else { return }
             setRows(
-                items.map { row in
-                    Item(
-                        kind: "", icon: row.icon, title: row.title, detail: row.detail, action: row.open,
-                        split: row.split, image: row.image, accessory: row.accessory)
-                }, grouped: false, heading: items.isEmpty ? String(localized: "No matches") : nil)
+                items.map { Self.item($0) }, grouped: false,
+                heading: items.isEmpty ? String(localized: "No matches") : nil)
+        }
+    }
+
+    /// Adds the built-ins' sections (`QuickSection`) under ⌘P's own matches, once they are read, and keeps the row
+    /// chosen meanwhile.
+    func addSections(_ query: String, after own: [Item]) async {
+        var more: [Item] = []
+        for section in app.extensions.all.quickSections {
+            more += await section.rows(query).map { Self.item($0, kind: section.heading) }
+            guard !Task.isCancelled else { return }
+        }
+        guard !more.isEmpty else { return }
+        let kept = own.isEmpty ? -1 : table.selectedRow
+        setRows(own + more, grouped: true)
+        if rows.indices.contains(kept), rows[kept].isItem {
+            table.selectRowIndexes([kept], byExtendingSelection: false)
         }
     }
 

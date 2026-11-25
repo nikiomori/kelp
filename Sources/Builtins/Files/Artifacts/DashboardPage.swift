@@ -61,8 +61,8 @@ enum DashboardPage {
         .kelp-views { top: 10px; right: 14px; }
         .kelp-with-col .kelp-views { right: 274px; }
         .kelp-src { position: absolute; z-index: 25; display: none; max-width: 280px; padding: 6px 9px;
-          border-radius: 8px;
-          background: var(--k-float); color: var(--k-label); font: 12px/1.35 -apple-system, sans-serif;
+          border-radius: var(--k-radius-md);
+          background: var(--k-float); color: var(--k-label); font: var(--k-text-row)/1.35 -apple-system, sans-serif;
           box-shadow: 0 0 0 .5px var(--k-sep), 0 4px 14px rgba(0,0,0,.18); pointer-events: none; }
         .kelp-src-none { color: var(--k-sec); }   /* a hint, not a wait: grey */
         """

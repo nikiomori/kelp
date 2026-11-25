@@ -18,7 +18,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case database(DatabaseInfo, library: Bool)
         /// A group of All My Databases (TablePlus' group, DBeaver's folder, or one made here), with its rows under it.
         case group(String, count: Int)
-        case problem(DatabaseInfo, DatabaseHealth)
+        case problem(DatabaseInfo, DatabaseHealth), migrations(DatabaseInfo, notApplied: Int)
         /// The project's card: its own row, then its databases, then Use a Database… (`empty` when it uses none yet).
         case project(count: Int)
         case use(empty: Bool)
@@ -206,7 +206,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             DatabasePanelList(
                 databases: databases, library: library, runs: event?.runs ?? [],
                 find: search.stringValue.trimmingCharacters(in: .whitespaces).lowercased(), libraryOpen: libraryOpen,
-                activityOpen: activityOpen, only: only, folded: folded, health: health, libraryHealth: libraryHealth
+                activityOpen: activityOpen, only: only, folded: folded, health: health, libraryHealth: libraryHealth,
+                migrations: event?.migrations ?? [:]
             ).rows
         if let failed, kept == nil {
             empty.showError(String(localized: "Couldn’t Read the Databases"), text: failed, buttons: [tryAgain])
@@ -291,7 +292,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .heading, .problem, .project, .use, .group: false
+        case .heading, .problem, .migrations, .project, .use, .group: false
         default: true
         }
     }
@@ -299,8 +300,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let base =
             switch rows[row] {
             case .heading: TextSize.of(Metrics.rowSection)
-            case .database, .asks, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
-            case .problem, .run, .group, .project, .use: TextSize.of(Metrics.row)
+            case .database, .asks, .problem, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
+            case .migrations, .run, .group, .project, .use: TextSize.of(Metrics.row)
             }
         let part = cards[row]
         return base + (part?.first == true ? ListRowView.cardPad : 0) + (part?.last == true ? ListRowView.cardPad : 0)
@@ -325,7 +326,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .project, .use, .database(_, library: false): "project"
         case .group(let name, _): "g:" + name
         case .database(let db, library: true): db.groupName.map { "g:" + $0 }
-        case .problem: row > 0 ? owner(rows, row - 1) : nil
+        case .problem, .migrations: row > 0 ? owner(rows, row - 1) : nil
         default: nil
         }
     }
@@ -351,6 +352,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
                 used: library && projectNames.contains(db.name), color: color(of: db.name, group: false),
                 under: !library && Self.nested(db, among: app.latest(DatabasesEvent.self, workspace)?.databases ?? []))
         case .problem(let db, let checked): parts.problem(db, checked)
+        case .migrations(_, let count): parts.migrations(count)
         case .project(let count): parts.projectHead(count: count)
         case .use(let empty): parts.use(empty: empty)
         case .group(let name, let count):

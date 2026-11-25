@@ -49,7 +49,8 @@ final class PaneView: NSView {
         sessionId = session.id
         self.app = app
         self.embedded = embedded
-        attachedTo = app.connections
+        // An agent Kelp's going down cut short shows what it printed last, not woken, and attaches once it goes on.
+        attachedTo = session.interrupted ? -1 : app.connections
         commands = CommandsBar(session: session.id, app: app, watch: session.isAgent)
         super.init(frame: .zero)
         wantsLayer = true
@@ -61,7 +62,8 @@ final class PaneView: NSView {
             commands.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         buildEndedBar()
-        buildTerminal(session)
+        attached = !session.interrupted
+        buildTerminal(session, session.interrupted ? Self.replay(session) : nil)
         commands.onClosed = { [weak self] in self?.focus() }
         registerForDraggedTypes([.fileURL, .png, .tiff, .string])
         update(session)
@@ -111,8 +113,8 @@ final class PaneView: NSView {
             env: ["KELP_SOCKET": Paths.socket.path, "KELP_HOME": Paths.root.path])
     }
 
-    private func buildTerminal(_ session: Session) {
-        let id = session.id, terminal = Self.terminal(session)
+    private func buildTerminal(_ session: Session, _ shown: GhosttyTerminalView? = nil) {
+        let id = session.id, terminal = shown ?? Self.terminal(session)
         ghostty = terminal
         terminal.translatesAutoresizingMaskIntoConstraints = false
         addSubview(terminal, positioned: .below, relativeTo: nil)
@@ -189,10 +191,13 @@ final class PaneView: NSView {
         let session = app.session(sessionId), model = app
         if session?.status == .paused, let was = lastStatus, was != .paused { attached = false }
         lastStatus = session?.status
+        let cutShort = session?.interrupted == true   // it waits for Continue: the stream from a daemon gone is over
+        if cutShort, model.connections != attachedTo { attached = false }
         // A session whose connection to its host dropped (after a sleep or a network change) attaches again when it
         // is shown, as a paused one does. It attaches to its agent, which still runs in tmux on the host under the
         // same session.
-        if let session, session.status != .exited || session.connectionLost && shown, model.connected, window != nil,
+        if let session, !cutShort, session.status != .exited || session.connectionLost && shown, model.connected,
+            window != nil,
             model.connections != attachedTo || shown && !attached
         {
             reattach(session)
@@ -234,10 +239,10 @@ final class PaneView: NSView {
         let lost = session?.connectionLost == true
         endedLabel.stringValue =
             paused
-            ? String(localized: "Paused")
+            ? Self.pausedWords(session)
             : lost ? String(localized: "Connection lost") : String(localized: "Session ended")
         restartButton.title =
-            paused ? String(localized: "Resume") : lost ? String(localized: "Reconnect") : String(localized: "Restart")
+            paused ? Self.pausedButton(session) : lost ? String(localized: "Reconnect") : String(localized: "Restart")
     }
 
     private func reattach(_ session: Session) {
@@ -342,9 +347,7 @@ final class PaneView: NSView {
         ).target = terminal
         menu.addItem(.separator())
         let shell = app.session(sessionId)?.isTerminal == true
-        if shell, let text = terminal.selection, !text.isEmpty {   // hands a build's error to the agent without a copy
-            menu.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
-        }
+        addSend(to: menu, selection: terminal.selection)
         menu.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
         if shell { menu.add(String(localized: "Clear")) { _ = terminal.perform(action: "clear_screen") } }
         if embedded { return menu }
@@ -364,6 +367,7 @@ final class PaneView: NSView {
     /// On a paused pane the button is Resume, and on a pane whose host dropped it is Reconnect. Both attach again,
     /// which wakes the agent. Otherwise the button is Restart, and the session starts over.
     @objc private func restartTapped() {
+        if !attached, Self.continueCutShort(app.session(sessionId), app) { return }   // attached once it goes on
         if !attached, let session = app.session(sessionId), session.status == .paused || session.connectionLost {
             reattach(session)
             settle()
@@ -374,20 +378,6 @@ final class PaneView: NSView {
 
     var findBar: FindCard?
 
-    // MARK: drops: files/images/text into the agent's prompt
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pb = sender.draggingPasteboard
-        var paths = (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.map { TerminalPaths.onHost($0.path) } ?? []
-        if paths.isEmpty, let png = TerminalPaste.savedImage(pb) { paths = [png] }
-        if paths.isEmpty, let text = pb.string(forType: .string) {
-            insert(text)
-            return true
-        }
-        guard !paths.isEmpty else { return false }
-        insert(TerminalPaste.paths(paths))
-        focus()
-        return true
-    }
+    /// Where a dragged file will land, as on an editor pane; made at the first drag (`PaneView+Drops.swift`).
+    lazy var dropHint = DropHint()
 }

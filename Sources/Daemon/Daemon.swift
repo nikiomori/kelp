@@ -150,14 +150,12 @@ public final class Daemon: Sendable {
         }
         if handover != nil { _ = fcntl(lockFD, F_SETFD, FD_CLOEXEC) }   // so no child keeps the home locked
         running.withLock { $0.instanceLock = lockFD }
-        // Sessions from a previous daemon run lost their PTYs, unless it handed them over; resumable ones come back as
-        // paused, the rest as exited.
+        // Sessions from a previous daemon run lost their PTYs, unless it handed them over (`Interruptions.settle`).
         let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         let adopted = Set(handover?.sessions.map(\.id) ?? [])
         do {
             for var session in try store.sessions() where session.status != .exited && !adopted.contains(session.id) {
-                session.status = Sessions.resumable(session, manifests) ? .paused : .exited
-                session.progress = nil   // the old run's progress won't move any more
+                Interruptions.settle(&session, manifests, root: root)
                 try store.save(session)
             }
         } catch { Log.store.error("couldn't mark the last run's sessions paused or ended: \(error)") }
@@ -212,13 +210,7 @@ public final class Daemon: Sendable {
             }
         }
         settingsEvents.watch()
-        // The phone's calls are answered as the daemon's own (`conn` -1), which count as the user's, because an Allow
-        // tapped on the phone has to.
-        sessions.phone.hear(
-            .started { [weak self] method, params in
-                guard let self else { throw RPCError.internalError("The background service stopped.") }
-                return try await answer(method, params, conn: -1)
-            })
+        hearFromAfar()
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
         ticker.setEventHandler { [self] in tick() }
@@ -236,6 +228,7 @@ public final class Daemon: Sendable {
         ticker.resume()
         prune.resume()
         workspaces.routines.start(workspaces: workspaces)
+        if !takingBack, settings[SettingKeys.resumeAfterCrash] { Interruptions.resumeAll(sessions) }
         // but not if the daemon was stopped meanwhile
         workspaces.headQueue.async { [weak self] in
             if self?.isServing == true {
@@ -264,6 +257,7 @@ public final class Daemon: Sendable {
         workspaces.routines.stop()
         let probes = agentUsage.openProbes.endAll()   // half-done usage probes, whose agents would outlive us
         sessions.phone.hear(.stop)
+        Interruptions.markWorking(sessions.live.all, AgentManifest.load(dir: Paths.agents(in: root)))
         sessions.pauseAll()
         Sessions.waitGone(probes)
         lsp.stopAll()

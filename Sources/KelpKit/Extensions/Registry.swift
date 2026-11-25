@@ -244,6 +244,13 @@ package final class ExtensionRegistry {
     /// Returns `title` with command `id`'s key after it, as a tooltip says it ("Close Tab (⌘W)"), and `title` alone
     /// when the command has no key. A key typed into the tooltip's own text stayed the old one after a rebinding.
     package func hint(_ title: String, _ id: String) -> String { keyText(id).map { "\(title) (\($0))" } ?? title }
+    /// Puts command `id`'s key, as it stands, on a menu item that does what the command does (a right-click menu's),
+    /// so the menu teaches the key; nothing when the command has none.
+    package func showKey(_ id: String, on item: NSMenuItem) {
+        guard let shortcut = key(id) else { return }
+        item.keyEquivalent = shortcut.key
+        item.keyEquivalentModifierMask = shortcut.mods.flags
+    }
     /// Runs the command (from a menu item or a key). A command whose extension is off does nothing.
     package func run(_ id: String, _ args: [String: JSONValue] = [:]) { command(id)?.run(args) }
 }

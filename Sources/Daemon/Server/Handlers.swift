@@ -103,6 +103,7 @@ extension SessionProcesses: DaemonService {
     static func of(_ daemon: Daemon) -> SessionProcesses { daemon.sessions.processes }
 }
 extension Turns: DaemonService { static func of(_ daemon: Daemon) -> Turns { daemon.sessions.turns } }
+extension SessionTable: DaemonService { static func of(_ daemon: Daemon) -> SessionTable { daemon.sessions.live } }
 extension PermissionWaits: DaemonService {
     static func of(_ daemon: Daemon) -> PermissionWaits { daemon.sessions.permissions }
 }
@@ -293,7 +294,7 @@ extension Daemon {
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
             + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
             + Methods.cloneMethods + Methods.phoneMethods + Methods.portMethods + Methods.processMethods
-            + Methods.recapMethods + Methods.suggestMethods + Methods.workMethods
+            + Methods.recapMethods + Methods.suggestMethods + Methods.workMethods + Methods.historyMethods
             + Methods.remoteMethods + Methods.routineMethods + Methods.runMethods + Methods.scriptMethods
             + Methods.artifactMethods + Methods.sessionEditMethods + Methods.sessionMethods + Methods.hookMethods
             + Methods.skillMethods + Methods.settingsMethods + Methods.tmuxMethods + Methods.trackerMethods

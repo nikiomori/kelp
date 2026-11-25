@@ -82,15 +82,17 @@ public struct SessionKill: RPCMethod {
 }
 /// Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns
 /// false when there is no menu. `question` is what the answer was given to (the session's summary that a banner
-/// showed), and the call also returns false once the agent asks something else, or several things at once.
+/// showed), and the call also returns false once the agent asks something else, or several things at once. `run` is
+/// the database run (`DatabaseRun.id`) whose change was shown: the answer goes to that change's question alone.
 public struct SessionChoose: RPCMethod {
     public static let name = "session.choose"
     public typealias Result = Bool
-    public var id: String, answer: String, question: String?
-    public init(id: String, answer: String, question: String? = nil) {
+    public var id: String, answer: String, question: String?, run: String?
+    public init(id: String, answer: String, question: String? = nil, run: String? = nil) {
         self.id = id
         self.answer = answer
         self.question = question
+        self.run = run
     }
 }
 /// The hook for a permission question (Claude Code's PermissionRequest) waits here for Allow or Deny given in Kelp.

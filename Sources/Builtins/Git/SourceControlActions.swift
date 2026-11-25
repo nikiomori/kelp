@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 /// What the rows and buttons do: stage, commit, sync, branches, and the context menu.
 extension SourceControlController {
@@ -187,6 +188,7 @@ extension SourceControlController {
     }
 
     @objc func sync() {
+        if repos != nil { return syncSeveral() }
         guard let info, !busy else { return }
         if info.upstream == nil {
             remote([.push], done: String(localized: "Published \(info.current ?? "HEAD")"))
@@ -214,6 +216,7 @@ extension SourceControlController {
     }
 
     @objc func branchMenu() {
+        if repos != nil { return repoBranchMenu() }
         guard let info else { return }
         let menu = NSMenu()
         menu.addBranches(info) { [weak self] menu in
@@ -242,6 +245,14 @@ extension SourceControlController {
         }
         menu.add(String(localized: "Fetch")) { [weak self] in self?.fetchPressed() }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reloadAll() }
+        // A stash, a pull request and a merge are each one repository's: in a folder of several, they're done there.
+        if repos != nil {
+            menu.addItem(.separator())
+            menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) }
+            let anchor: NSView = moreButton ?? view
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+            return
+        }
         menu.addItem(.separator())
         menu.add(String(localized: "Stash Changes")) { [weak self] in
             self?.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) }
@@ -330,6 +341,8 @@ extension SourceControlController {
                 menu.addItem(.separator())
                 menu.add(discard.title) { discard.run() }
             }
+        case .repo where !node.files.isEmpty:
+            for act in sectionActions(.changes, node).reversed() { menu.add(act.title) { act.run() } }
         case .section(let section) where section != .graph:
             // The same as the row's hover buttons, with what throws work away last.
             if section != .merge, let wid = worktreeId {
@@ -354,5 +367,29 @@ extension SourceControlController {
             }
         default: break
         }
+    }
+}
+
+// MARK: status letters (VS Code's colors)
+extension SourceControlController {
+    func open(_ file: FileChange, _ section: Section, split: SplitDirection? = nil) {
+        guard let worktree = worktreeId else { return }
+        if section == .merge {
+            openFile(file, split: split)
+            return
+        }
+        // When a review beside it shows the file, the review scrolls there instead.
+        if DiffViewController.reveal(file.path, worktree: worktree) { return }
+        app.workbench.open(
+            DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged), split: split)
+    }
+    func openFile(_ file: FileChange, split: SplitDirection? = nil) {
+        guard let worktree = app.worktree(worktreeId) else { return }
+        app.workbench.open(TabURI.file(worktree.path + "/" + file.path), split: split)
+    }
+
+    static func letter(_ file: FileChange, _ section: Section) -> (String, NSColor) {
+        let code = file.letter(inWorktree: section == .changes, merging: section == .merge)
+        return (code, .gitLetter(code))
     }
 }

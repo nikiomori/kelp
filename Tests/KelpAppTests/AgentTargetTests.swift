@@ -31,6 +31,12 @@ import Testing
     #expect(actions.agent(in: "w") == nil)   // two, and the user with neither: asked, not guessed
     app.workbench.lastSession = "second"
     #expect(actions.agent(in: "w")?.id == "second")
+    // Text from an agent's own terminal goes to another agent, though the user is with that one: the only other, or
+    // asked among the others.
+    #expect(actions.agents(in: "w", except: "second").map(\.id) == ["coder"])
+    #expect(actions.agent(in: "w", except: "second")?.id == "coder")
+    add("third", "claude")
+    #expect(actions.agent(in: "w", except: "second") == nil)
 }
 
 /// A remote project's empty workspace offers the agents its host has (or says the host has none), once the host

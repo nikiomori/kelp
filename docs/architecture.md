@@ -76,6 +76,16 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   stays in a tmux option, and each connection starts by printing it, so a turn that ended while the connection was down
   still shows. tmux sends only the cells that changed, so a menu's options are picked by number. Without tmux the agent
   answers the terminal's probe and reports for itself; an agent with neither is read from the screen.
+- **`kelp browser` from a host** (Claude Code in tmux there, `HostBrowser.wanted`): as it starts, one ssh call puts
+  `/tmp/kelp-<uid>` on the host (0700, never the home folder: `bin/kelp`, a sh script that knows only `kelp browser`, and
+  the browser skill as a plugin folder, `HostKelp`), and the open connection brings a socket there to one of the
+  session's here (`ssh -O forward -R`, no new login). kelpd reads the words as the CLI does (`BrowserWords`) and answers
+  as that session's agent (`Daemon.answerFromHost`); the socket does nothing else. The page is on the host's network:
+  `open localhost:3000` forwards the port (`Forwards`), and the page loads the rest through a SOCKS proxy on the
+  connection (`ssh -O forward -D`), because WebKit never sends loopback through a proxy. This Mac's loopback is closed to
+  the page but for the forwarded ports (a content rule, `BrowserTab.onHost`), and the host shows before the address.
+  Files cross over the connection: an upload is read there, a screenshot, recording or download is copied there.
+  `--shared` and `preview:` are refused from a host. Without a connection the script says Kelp isn't there.
 - **Remote agents** run in a tmux session of their own on the host when it has tmux (`Session.tmux`,
   `RemoteHost.command(_:inTmux:)`): the agent keeps working through a dropped connection or a daemon restart, a wake or
   Restart attaches to it again ("Connection lost" › Reconnect), closing the tab ends it. After attaching, tmux's redraw
@@ -308,13 +318,18 @@ deleting it stays the user's. A project's terminals can run in a machine (`machi
 port forwarded over SSH), through `psql`/`mysql` in a compose container that publishes no port, SQLite in kelpd (GRDB),
 DuckDB through `duckdb -safe`, Appwrite over its REST API (a narrow SQL Kelp translates, `AppwriteWire`). No password
 reaches an agent. A database's `agentAccess` says what agents may do there:
-nothing (hidden), read (in a read-only transaction, a read-only file), ask (the change is tried and rolled back, then
-asked on the agent's row like a permission dialog), or change freely; a production one is read-only. An asked change
-waits on its asking program (`PermissionWaits.waitForKelp`): cut off (Esc, a tool's time limit), it isn't run by a
-late Allow; two asked at once wait their turn, oldest first; what agents may do is read again after the answer, and
-the Allow is for the rows the trial changed: where the change runs in kelpd (SQLite, over the wire) it's committed
-only if it changes as many, else nothing is changed; through a client (DuckDB, a container's psql or mysql) a table
-changed while it was asked can change a different number, so the question there says the number is only the trial's.
+nothing (hidden), its structure (`db.schema`, row counts too; `db.query` and a tab of it are refused), read (in a
+read-only transaction, a read-only file), ask (the change is tried and rolled back, then asked on the agent's row like
+a permission dialog), or change freely; a production one is at most read. An asked change waits on its asking program
+(`PermissionWaits.waitForKelp`): cut off (Esc, a tool's time limit), it isn't run by a late Allow; two asked at once
+wait their turn, oldest first, and an Allow on a change's card, panel row or tab goes to that change
+(`session.choose`'s `run`); what agents may do is read again after the answer, and the Allow is for the rows the trial
+changed: where the change runs in kelpd (SQLite, over the wire) it's committed only if it changes as many, else nothing
+is changed; through a client (DuckDB, a container's psql or mysql) a table changed while it was asked can change a
+different number, so the question there says the number is only the trial's. A change inside a query (a WITH or
+EXPLAIN ANALYZE around it, a function that writes) reports what it returns, not its rows: it's held to that count, and
+its question says Kelp can't count the rows it changes. The card names a risky change (no WHERE, a DROP or TRUNCATE, a
+dropped column, one Undo This Change couldn't put back: `ChangeRisk`), and `kelp db query` prints rows framed as data.
 A call past its time is stopped on the server too (MySQL's `KILL QUERY`, whose own limit stops only a SELECT), and
 said as one that may have finished; the calls' deadlines are the work's own times added up (`DatabaseTimes`), so a
 caller isn't told "timed out" of a change still made. A MySQL server that takes the connection and never greets is given
@@ -322,7 +337,8 @@ caller isn't told "timed out" of a change still made. A MySQL server that takes 
 table tab's edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query`,
 all three in their own workspaces; `databases.agents` (the default access) and the window's watch of the databases
 are the user's. A database's tab reads as the user, so an agent's `kelp db open` opens one only of a database it could
-read itself (`Databases.connection`: not a hidden one, nor an address from the project's files the user hasn't opened).
+read itself (`Databases.connection`: not a hidden one, nor one that shows agents its structure only, nor an address
+from the project's files the user hasn't opened).
 
 What read-only doesn't stop: a function the database runs with its owner's rights (a `SECURITY DEFINER` function that
 writes), or what the user granted that role. It holds the

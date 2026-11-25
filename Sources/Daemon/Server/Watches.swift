@@ -313,4 +313,25 @@ final class BranchMemo: Sendable {
     private let last = OSAllocatedUnfairLock<(seen: Seen, work: Work)?>(initialState: nil)
     func known(_ seen: Seen) -> Work? { last.withLock { $0.flatMap { $0.seen == seen ? $0.work : nil } } }
     func keep(_ seen: Seen, _ work: Work) { last.withLock { $0 = (seen, work) } }
+    /// The memo of repository `name` inside the watched folder, when it holds several (`RepoKey`).
+    func inner(_ name: String) -> BranchMemo {
+        inners.withLock { all in
+            if let memo = all[name] { return memo }
+            let memo = BranchMemo()
+            all[name] = memo
+            return memo
+        }
+    }
+    private let inners = OSAllocatedUnfairLock<[String: BranchMemo]>(initialState: [:])
+}
+
+extension Watches {
+    /// A file's folder, and a test for the events that name the file, as given or as FSEvents names it (/tmp is
+    /// /private/tmp). Only the folder is resolved, because the file itself may not be there to resolve.
+    /// Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
+    static func fileFolder(_ path: String) -> (String, @Sendable ([FileWatcher.Change]) -> Bool) {
+        let dir = (path as NSString).deletingLastPathComponent, name = (path as NSString).lastPathComponent
+        let names = Set([path, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
+        return (dir, { $0.contains { names.contains($0.path) } })
+    }
 }

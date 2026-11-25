@@ -24,18 +24,31 @@ extension Builtins {
 
     /// A command for a button on the bar over the agent's page in front (`ArtifactBar.button(for:)`), enabled while
     /// the button shows there and can be pressed; elsewhere it beeps.
-    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String) -> CommandSpec {
+    fileprivate static func artifactCommand(_ app: AppModel, _ id: String, _ title: String, key: String? = nil)
+        -> CommandSpec
+    {
         let button: @MainActor () -> NSControl? = {
             (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar?.button(for: id)
         }
         return CommandSpec(
-            id: id, title: title, enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
+            id: id, title: title, key: key,
+            enabled: { button().map { !$0.isHiddenOrHasHiddenAncestor && $0.isEnabled } ?? false }
         ) { _ in
             guard let control = button(), !control.isHiddenOrHasHiddenAncestor, control.isEnabled else {
                 return NSSound.beep()
             }
             control.sendAction(control.action, to: control.target)
         }
+    }
+
+    /// View, Mark or Edit on the agent's page in front, as its bar's switch does.
+    fileprivate static func artifactMode(
+        _ app: AppModel, _ mode: MarkdownTab.CanvasMode, _ title: String, key: String
+    ) -> CommandSpec {
+        let bar = { @MainActor in (app.workbench.focusedContent as? FileTab)?.markdown?.artifactBar }
+        return CommandSpec(
+            id: "artifact.\(mode)", title: title, key: key, enabled: { bar()?.canChoose(mode) ?? false }
+        ) { _ in bar()?.choose(mode) }
     }
 
     /// The project whose Disk Usage tab is in front.
@@ -68,8 +81,11 @@ extension Builtins {
                 },
                 // What the bar over an agent's page does, as its buttons do.
                 artifactCommand(app, "artifact.present", "Artifact: Present"),
-                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version"),
-                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version"),
+                artifactCommand(app, "artifact.olderVersion", "Artifact: Older Version", key: "ctrl+cmd+left"),
+                artifactCommand(app, "artifact.newerVersion", "Artifact: Newer Version", key: "ctrl+cmd+right"),
+                artifactMode(app, .view, "Artifact: View", key: "opt+cmd+1"),
+                artifactMode(app, .mark, "Artifact: Mark", key: "opt+cmd+2"),
+                artifactMode(app, .edit, "Artifact: Edit", key: "opt+cmd+3"),
                 artifactCommand(app, "artifact.showLatest", "Artifact: Show Latest"),
                 artifactCommand(app, "artifact.restore", "Artifact: Restore"),
                 artifactCommand(app, "artifact.update", "Artifact: Update"),
@@ -202,13 +218,11 @@ extension Builtins {
                 cmd("editor.foldAll", "Fold All") { CodeEditor.focused?.foldAll() },
                 cmd("editor.foldLevel2", "Fold Level 2") { CodeEditor.focused?.foldAll(level: 2) },
                 cmd("editor.foldLevel3", "Fold Level 3") { CodeEditor.focused?.foldAll(level: 3) },
-                // ⌥⌘↩ types "path:12-30" into the agent's prompt without pressing Return. The agent reads the file
-                // itself.
+                // ⌥⌘↩ hands what the tab in front has selected to the agent: a file's or a diff's lines as "path:12-30"
+                // (the agent reads the file itself), a terminal's text to another agent, typed into its prompt without
+                // pressing Return.
                 cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
-                    if let tab = fileTab(app) {
-                        FileActions(app).sendToAgent(
-                            tab.path, lines: tab.selectedText?.isEmpty == false ? tab.selectedLines : nil)
-                    }
+                    if app.workbench.focusedContent?.sendSelectionToAgent() != true { NSSound.beep() }
                 },
                 cmd("editor.copyReference", "Copy Path and Line", "opt+shift+cmd+c") {
                     if let tab = fileTab(app) {
@@ -225,7 +239,7 @@ extension Builtins {
                 cmd("editor.format", "Format Document", "ctrl+shift+i") {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }
-            ],
+            ] + artifactPageCommands(app),
             settings: [editorSettings(app), languagesSettings(app)],
             tabs: [
                 TabProvider(

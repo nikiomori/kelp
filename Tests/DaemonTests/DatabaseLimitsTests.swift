@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import GRDB
+import TestSupport
 import Testing
 import os
 
@@ -55,4 +56,15 @@ import os
         }
     }
     #expect(try queue.read { try $0.tableExists("big") } == false)
+}
+
+/// An Appwrite answer past the limit is refused whole, as a client's output is, not read on.
+@Test func anAppwriteAnswerPastTheLimitIsRefused() async throws {
+    let file = tmp().appendingPathComponent("answer-\(UUID().uuidString).json")
+    try Data(repeating: 0x20, count: 100).write(to: file)
+    defer { try? FileManager.default.removeItem(at: file) }
+    #expect(try await DatabaseEngines.answer(URLRequest(url: file), from: "cloud", limit: 100).0.count == 100)
+    await #expect(throws: DatabaseFailure.self) {
+        _ = try await DatabaseEngines.answer(URLRequest(url: file), from: "cloud", limit: 99)
+    }
 }

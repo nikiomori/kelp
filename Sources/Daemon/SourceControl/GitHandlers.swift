@@ -8,7 +8,8 @@ import GitKit
 extension GitStatus: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
-        try Git.status(scm.folder(id), limit: FileChange.limit, remotes: scm.remotes)
+        try scm.each(scm.folder(id)) { try Git.status($0, limit: FileChange.limit, remotes: scm.remotes) }
+            .flatMap { repo in repo.value.map { $0.under(repo.name) } }
     }
 }
 extension GitBranches: Handled {
@@ -34,7 +35,7 @@ extension GitPush: Handled {
 extension GitDiff: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
-        let workspace = try scm.store.worktree(named: id)
+        let workspace = try scm.store.gitPlace(named: id)
         var dir = workspace.path
         let src: DiffSource
         switch source ?? .all {
@@ -54,6 +55,7 @@ extension GitDiff: Handled {
             src = .commit(try clientRef(commit) ?? "")
         case .all: src = .allUncommitted
         }
+        if (source ?? .all) != .turn, scm.repos(in: dir) != nil { return try several(scm, dir, src) }
         return try Git.diff(
             dir, source: src, file: file, ignoreSpace: ignoreSpace == true, context: context ?? 3,
             remotes: scm.remotes)
@@ -62,7 +64,7 @@ extension GitDiff: Handled {
 
 extension GitLineOrigin: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
-        let folder = try scm.store.worktree(named: worktreeId).path
+        let (folder, file) = try scm.place(scm.store.gitPlace(named: worktreeId).path, self.file)
         let head = try Git.head(folder, remotes: scm.remotes)
         // Only turns begun on this HEAD count, because older turns' changes are in commits now, and those commits say
         // who made them.
@@ -86,7 +88,7 @@ extension GitLineOrigin: Handled {
 extension GitLog: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
-        let workspace = try scm.store.worktree(named: id)
+        let workspace = try scm.store.gitPlace(named: id)
         let base = all == true ? nil : try scm.store.repo(workspace.repoId)?.baseBranch
         return try Git.log(workspace.path, base: base, remotes: scm.remotes).map {
             Entry(hash: $0.hash, subject: $0.subject)
@@ -103,13 +105,17 @@ extension GitUnsynced: Handled {
 
 extension GitStage: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        try Git.stage(scm.folder(id), files: files ?? [], remotes: scm.remotes)
+        for place in try scm.places(scm.folder(id), files ?? []) {
+            try Git.stage(place.folder, files: place.files, remotes: scm.remotes)
+        }
         return Done()
     }
 }
 extension GitUnstage: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        try Git.unstage(scm.folder(id), files: files ?? [], remotes: scm.remotes)
+        for place in try scm.places(scm.folder(id), files ?? []) {
+            try Git.unstage(place.folder, files: place.files, remotes: scm.remotes)
+        }
         return Done()
     }
 }
@@ -118,18 +124,16 @@ extension GitHunk: Handled {
     // Staging or unstaging a hunk writes the index, so an agent may do it only in its own workspaces.
     static let agents = AgentAccess.acts
     func handle(_ scm: SourceControl) throws -> Done {
-        let workspace = try scm.store.worktree(named: id), rev = reverse == true
-        let diff = try Git.diff(
-            workspace.path, source: rev ? .staged : .unstaged, file: file, remotes: scm.remotes
-        )
-        .first
+        let rev = reverse == true
+        let (folder, file) = try scm.place(scm.store.gitPlace(named: id).path, self.file)
+        let diff = try Git.diff(folder, source: rev ? .staged : .unstaged, file: file, remotes: scm.remotes).first
         guard let diff, let index = diff.shown(fingerprint: fingerprint, header: header, number: hunk) else {
             throw RPCError.invalidParams(
                 rev
                     ? "The file changed since it was shown; nothing was unstaged."
                     : "The file changed since it was shown; nothing was staged.")
         }
-        try Git.applyHunk(workspace.path, diff: diff, hunk: index, reverse: rev, remotes: scm.remotes)
+        try Git.applyHunk(folder, diff: diff, hunk: index, reverse: rev, remotes: scm.remotes)
         return Done()
     }
 }
@@ -146,16 +150,21 @@ extension FileDiff {
 }
 
 extension GitCommit: Handled {
+    /// In a folder of repositories (`RepoKey`), one message makes a commit in each repository that has something to
+    /// commit: what is staged there, or with `all` every change. It returns each one's name and hash.
     func handle(_ scm: SourceControl) throws -> String {
-        try Git.commit(
-            scm.folder(id), message: message, all: all == true, amend: amend == true, remotes: scm.remotes
-        )
+        let folder = try scm.folder(id)
+        guard let names = scm.repos(in: folder) else {
+            return try Git.commit(
+                folder, message: message, all: all == true, amend: amend == true, remotes: scm.remotes)
+        }
+        return try scm.commitInEach(folder, names, message: message, all: all == true, amend: amend == true)
     }
 }
 
 extension GitMerge: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
-        try scm.merge(scm.store.worktree(named: id), keepConflicts: keepConflicts == true)
+        try scm.merge(scm.store.gitPlace(named: id), keepConflicts: keepConflicts == true)
     }
 }
 
@@ -196,35 +205,44 @@ extension GitCommitDetails: Handled {
     }
 }
 extension GitDiscard: Handled {
+    /// What is thrown away is kept by the repository it is put back in (`GitUndoDiscard`).
     func handle(_ scm: SourceControl) throws -> Done {
-        let path = try scm.folder(id)
-        _ = try Git.discard(path, files: files ?? [], remotes: scm.remotes) { back in
-            try scm.keepDiscard(.init(patch: back, hunk: false), folder: path, name: undo)
+        for place in try scm.places(scm.folder(id), files ?? []) {
+            _ = try Git.discard(place.folder, files: place.files, remotes: scm.remotes) { back in
+                try scm.keepDiscard(.init(patch: back, hunk: false), folder: place.folder, name: undo)
+            }
         }
         return Done()
     }
 }
 extension GitDiscardHunk: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        let worktree = try scm.store.worktree(named: id)
+        let (folder, file) = try scm.place(scm.store.gitPlace(named: id).path, self.file)
         // The hunk is found as `git.hunk` finds it, wherever it is in the file now. `header` always comes, so the
         // hunk is never found by number.
-        guard let diff = try Git.diff(worktree.path, source: .unstaged, file: file, remotes: scm.remotes).first,
+        guard let diff = try Git.diff(folder, source: .unstaged, file: file, remotes: scm.remotes).first,
             let hunk = diff.shown(fingerprint: fingerprint, header: header, number: nil)
         else {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }
         // The patch is kept before anything changes, as Git.discard does, so nothing is thrown away unkept.
-        try scm.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: worktree.path, name: undo)
-        try Git.discardHunk(worktree.path, diff: diff, hunk: hunk, remotes: scm.remotes)
+        try scm.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: folder, name: undo)
+        try Git.discardHunk(folder, diff: diff, hunk: hunk, remotes: scm.remotes)
         return Done()
     }
 }
 
 extension GitUndoDiscard: Handled {
+    /// In a folder of repositories, each one puts back what it kept under the name.
     func handle(_ scm: SourceControl) throws -> Done {
-        let path = try scm.folder(id)
-        let undone = try scm.undoDiscard(folder: path, name: undo) { discard in
+        var undone = false
+        for place in try scm.places(scm.folder(id), []) where try putBack(scm, place.folder) { undone = true }
+        guard undone else { throw RPCError.invalidParams("There's no discard to undo here any more.") }
+        return Done()
+    }
+
+    private func putBack(_ scm: SourceControl, _ path: String) throws -> Bool {
+        try scm.undoDiscard(folder: path, name: undo) { discard in
             do {
                 try Git.putBack(path, patch: discard.patch, hunk: discard.hunk, remotes: scm.remotes)
             } catch let partly
@@ -238,8 +256,6 @@ extension GitUndoDiscard: Handled {
                 throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
             }
         }
-        guard undone else { throw RPCError.invalidParams("There's no discard to undo here any more.") }
-        return Done()
     }
 }
 
@@ -255,14 +271,38 @@ extension GitRemoteOp: Handled {
                 : "A \(op) is the user's: an agent fetches; it pulls and pushes with git in its own terminal, "
                     + "which the user sees.")
     }
+    /// In a folder of repositories, each one: a pull where it follows a remote branch, a push where there is
+    /// something to send (a branch with nothing of its own isn't published). A failure in one doesn't stop the others,
+    /// and all of them are said at the end.
     func handle(_ scm: SourceControl) throws -> Done {
-        try Git.remote(scm.folder(id), op, remotes: scm.remotes)
+        let folder = try scm.folder(id)
+        guard let names = scm.repos(in: folder) else {
+            try Git.remote(folder, op, remotes: scm.remotes)
+            return Done()
+        }
+        try scm.remoteInEach(folder, names, op)
         return Done()
+    }
+}
+extension GitFetchQuietly: Handled {
+    /// Kelp's own clock fetches; an agent fetches with git in its terminal. A remote project's host is fetched over a
+    /// connection already open: Kelp never dials a host by itself.
+    func handle(_ scm: SourceControl) throws -> QuietFetch {
+        let path = try scm.folder(worktreeId)
+        guard scm.remotes.connected(path) else { return QuietFetch(ran: false) }
+        // In a folder of repositories, each is fetched; the first trouble is the one said.
+        let all = try scm.each(path) { try Git.fetchQuietly($0, remotes: scm.remotes) }.map(\.value)
+        return all.first { $0.trouble != nil } ?? all[0]
     }
 }
 extension GitStash: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        try Git.stash(scm.folder(id), pop: pop == true, remotes: scm.remotes)
+        let folder = try scm.folder(id)
+        // A pop in each repository would bring back old stashes that have nothing to do with each other.
+        guard scm.repos(in: folder) == nil else {
+            throw RPCError.invalidParams("Stash in one repository at a time: this folder holds several.")
+        }
+        try Git.stash(folder, pop: pop == true, remotes: scm.remotes)
         return Done()
     }
 }
@@ -315,7 +355,8 @@ extension Methods {
         GitCommitFiles.self, GitCommitDetails.self, GitCommitAct.self, GitLineOrigin.self, GitDiscard.self,
         GitDiscardHunk.self,
         GitUndoDiscard.self,
-        GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self, FilesIgnored.self,
+        GitRemoteOp.self, GitFetchQuietly.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self,
+        FilesIgnored.self,
         FilesSearch.self
     ]
 }

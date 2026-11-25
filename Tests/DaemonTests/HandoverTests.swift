@@ -32,7 +32,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
         "goalAsked",
         "stopKeyAt",
         "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent",
-        "turnPrompt",
+        "turnPrompt", "turnSent",
         "retries",   // its `continueAt` is the record's: an update only starts the count of retries again
         "kelpQuestions"   // its commands' waits end with the daemon they waited on
     ]

@@ -199,8 +199,7 @@ extension Git {
     /// popover.
     static func lastFetch(_ path: String, remotes: Remotes) throws -> Double? {
         guard remotes.of(path) == nil else { return nil }
-        let file = try line(
-            ["rev-parse", "--path-format=absolute", "--git-path", "FETCH_HEAD"], cwd: path, remotes: remotes)
+        let file = try fetchHead(path, remotes: remotes)
         return file.isEmpty ? nil : FileManager.default.modified(file)?.timeIntervalSince1970
     }
 
@@ -363,6 +362,17 @@ extension Git {
             let hasUpstream = succeeds(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, remotes: remotes)
             try run(hasUpstream ? ["push"] : ["push", "-u", "origin", branch], cwd: path, remotes: remotes)
         }
+    }
+
+    /// Whether the checkout's branch follows a remote branch.
+    public static func hasUpstream(_ path: String, remotes: Remotes) -> Bool {
+        succeeds(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, remotes: remotes)
+    }
+
+    /// Whether a push would send anything: commits its remote branch lacks, or, with none yet, commits beyond `base`.
+    public static func hasWorkToPush(_ path: String, base: String, remotes: Remotes) throws -> Bool {
+        let range = hasUpstream(path, remotes: remotes) ? "@{upstream}..HEAD" : try rev(base) + "..HEAD"
+        return try line(["rev-list", "--count", range], cwd: path, remotes: remotes) != "0"
     }
 
     /// Pop puts staged changes back as staged when it can (`--index`), like VS Code.

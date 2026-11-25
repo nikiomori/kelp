@@ -109,6 +109,14 @@ private func rows() async throws -> Rows {
             + trackers.map { (agent, $0, false, "not a tracker's issues, teams or transitions") })
 }
 
+private func export(_ root: String, to: String) -> UICommand {
+    UICommand(
+        id: "artifacts.export",
+        args: .object([
+            "path": .string(root + "/.kelp/artifacts/home/index.html"), "format": .string("zip"), "to": .string(to)
+        ]))
+}
+
 /// What acts in the IDE or a machine: in its own workspace, and only what an agent's skills do.
 @Test func whoMayActInTheIDEAndMachines() async throws {
     let r = try await rows()
@@ -131,6 +139,9 @@ private func rows() async throws -> Rows {
             ),
             (agent, UICommand(id: "editor.goToLine"), true, "a command that shows something"),
             (agent, UICommand(id: "git.commit"), false, "not one of the user's"),
+            (agent, export(r.wt.path, to: r.wt.path + "/home.png"), true, "a page of its project exported into it"),
+            (agent, export(r.wt.path, to: NSHomeDirectory() + "/.zshrc"), false, "not over a file elsewhere"),
+            (agent, export(r.elsewhere.path, to: r.elsewhere.path + "/a.zip"), false, "nor another workspace's page"),
             (
                 agent, UICommand(id: "scripts.openPage"), false,
                 "nor ⇧⌘O, whose page tab is logged in as the user (its page can go on to any site)"

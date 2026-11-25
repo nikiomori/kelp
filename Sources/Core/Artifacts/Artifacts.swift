@@ -53,6 +53,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     /// The file the preview shows: the artifact's file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`).
     /// nil when there is nothing to show.
     public var preview: String?
+    /// The page's marks that are with an agent, and those waiting for the user's check. nil when there are none.
+    public var marks: ArtifactMarkCounts?
 
     public init(
         slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
@@ -72,11 +74,31 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     }
 }
 
+/// How many of a page's marks are with an agent, how many wait for the user's check, and how many of those have the
+/// agent's reply.
+public struct ArtifactMarkCounts: Codable, Equatable, Sendable {
+    public var sent: Int, check: Int, replies: Int
+    /// The agent's questions waiting for the user, and its suggestions shown.
+    public var asked: Int?, suggested: Int?
+    public init(sent: Int, check: Int, replies: Int = 0) {
+        self.sent = sent
+        self.check = check
+        self.replies = replies
+    }
+}
+
 public enum Artifacts {
-    /// The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.
+    /// The kinds of artifact Kelp makes on this Mac: a Markdown file, a canvas of boards, or a motion page (an HTML
+    /// page whose CSS animations Kelp plays and records as a video).
     public enum Kind: String, Codable, CaseIterable, Sendable {
-        case doc, review, slides, design, dashboard, proof
-        public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
+        case doc, review, slides, design, dashboard, proof, motion
+        public var file: String {
+            switch self {
+            case .design, .dashboard: "canvas.json"
+            case .motion: "motion.html"
+            default: "\(rawValue).md"
+            }
+        }
         /// True for a canvas of boards that Kelp draws (`ArtifactCanvas`), and false for a Markdown page.
         public var isCanvas: Bool { self == .design || self == .dashboard }
     }
@@ -105,6 +127,9 @@ public enum Artifacts {
         return names.compactMap { name in record(in: base.appendingPathComponent(name)).map { (name, $0) } }
             .sorted { $0.record.created > $1.record.created }
     }
+
+    /// Held while a version of a page is kept (the daemon's `keepVersion`), one at a time in this process.
+    public static let versionLock = NSLock()
 
     /// Reads the record in an artifact's folder, or returns nil for a folder that isn't one (or a half-written record).
     /// A repository can commit a record, so only what Kelp writes is accepted: a link to a web page, or a file in the
@@ -214,6 +239,8 @@ public enum Artifacts {
         } else if kind == Kind.proof.rawValue {
             out +=
                 "Proofs stay in the project, even if you can publish artifacts elsewhere: their pictures are files beside the page.\n"
+        } else if kind == Kind.motion.rawValue {
+            out += "Motion pages stay in the project: Kelp plays them beside you and records them as a video.\n"
         } else if whereTo == "local" {
             out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
@@ -238,6 +265,7 @@ public enum Artifacts {
         - Name code as path:line (Sources/App.swift:88): the user opens it from the page.
         - No HTML, no images from the web.
 
+        \(marksRule)
         """,
         "review": """
         - One H1, the title, and a line on what the choices are for.
@@ -261,6 +289,28 @@ public enum Artifacts {
           each).
         - For a deck in the project's own look, make a design instead: `kelp artifact guide design deck`.
 
+        \(marksRule)
+        """,
+        "motion": """
+        - One HTML page, motion.html: Kelp plays it beside you, frame by frame, and exports it as an MP4. Its scripts
+          don't run: everything moves with CSS (@keyframes, transitions as keyframes), which Kelp's timeline drives.
+        - The stage is the body: `<body data-duration="8">` (seconds), 1920×1080 unless the body sets `data-width` and
+          `data-height` (1080×1920 for a phone video). Give the body its size and `overflow: hidden` in CSS.
+        - Time is one timeline from 0: each animation starts at its `animation-delay`, with `animation-fill-mode:
+          both`, no `infinite`. A scene is an element with `data-start` and `data-duration` (seconds): Kelp shows it
+          only then, and lists it as a scene. Give every scene, and every element that moves or holds text, a
+          `data-id` and a `data-title`: the user moves, retimes and retypes them by hand in Kelp's studio, which
+          writes `translate`, `animation-delay` and `animation-duration` on the element itself. Keep those, and
+          `data-hidden`. A picture or a video with its own `data-start` and `data-duration` is a layer of its own
+          for that time (the user drops them in), not a scene. So is music: `<audio data-start data-duration
+          src>` (`data-volume`, `data-from`, `data-fade-in`, `data-fade-out` optional), played and mixed into the
+          video; `kelp artifact beats <name>` gives its tempo and beats at the page's seconds, to cut scenes on.
+          `kelp artifact captions <name> --text <file>` makes subtitles from a script, a line each.
+        - Fonts from the system or files beside the page; images and videos are files beside motion.html. No web
+          requests.
+        - Tell the user it plays beside them (Space plays, ← → step a frame) and that Export Video in its bar makes
+          the MP4.
+
         """,
         "proof": """
         - For a change you made: what you checked and what you saw, for the user to look at before they commit. Not a
@@ -278,6 +328,35 @@ public enum Artifacts {
 
         """
     ]
+
+    /// What every page that takes marks (a design, a doc, slides) tells the agent about them.
+    package static let marksRule = """
+        - The user's marks arrive as `Marks on <page> (version N)`, a line each: `#3 boards/A.html [data-id=cta]
+          «Start»: bigger`. Change only what each points at, in place; an area or a pen mark comes with a picture:
+          read it. The user edits these files by hand too: read a file again before you edit it, and never undo a
+          change you didn't make (`Edited by the user` lines name them). If you can't do a mark or need an answer,
+          say so with `kelp artifact reply <name> <#> "…"`, one line. You never close a mark: the user checks each
+          one. `kelp artifact marks <name>` lists those still open. Unsure about an element? Do what you can and ask
+          on it: `kelp artifact ask <name> <data-id> "…"`, with `--choice "…"` for each answer you can take (the user
+          clicks one, and it comes to you at once). At the end of a turn you may offer up to three next steps:
+          `kelp artifact suggest <name> "…" "…"`.
+
+        """
+
+    /// A new motion page: a black 1920×1080 stage, five seconds long, for the agent to fill.
+    public static func motionStart(_ title: String) -> String {
+        """
+        <!doctype html>
+        <html><head><meta charset="utf-8"><title>\(BoardEdit.escape(title))</title>
+        <style>
+        body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #111; color: #fff;
+          font: 64px -apple-system, BlinkMacSystemFont, sans-serif; }
+        </style></head>
+        <body data-duration="5">
+        </body></html>
+
+        """
+    }
 
     private static func article(_ kind: String) -> String { kind == "slides" ? "slides" : "a \(kind)" }
 

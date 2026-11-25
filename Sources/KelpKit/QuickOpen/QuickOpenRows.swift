@@ -25,8 +25,10 @@ extension QuickOpen {
         var key = ""
         /// Whether it was run from here lately, which puts it on top of ⇧⌘P's empty list, under Recently Used.
         var recent = false
-        /// For a built-in's row, a view at its end (`QuickItem`).
+        /// For a built-in's row, a view at its end, grey words there, and a monospaced title (`QuickItem`).
         var accessory: (@MainActor () -> NSView?)?
+        var note = ""
+        var mono = false
     }
     /// A setting's choices on screen: the setting's key, the saved value to go back to, whether moving the selection
     /// tries each choice on, and the query to return to.
@@ -40,6 +42,13 @@ extension QuickOpen {
     enum Row {
         case heading(String), item(Item)
         var isItem: Bool { if case .item = self { true } else { false } }
+    }
+
+    /// The item for a built-in's row, in group `kind` (a heading, or "" for a list of its own).
+    static func item(_ row: QuickItem, kind: String = "") -> Item {
+        Item(
+            kind: kind, icon: row.icon, title: row.title, detail: row.detail, action: row.open, split: row.split,
+            image: row.image, accessory: row.accessory, note: row.note, mono: row.mono)
     }
 
     static func group(_ it: Item) -> String {
@@ -74,13 +83,14 @@ extension QuickOpen {
 
 extension QuickOpen {
     /// Returns the title with what was typed in bold, each word of the query where it first occurs.
-    static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(TextSize.body)])
+    /// A line of output is set monospaced (`mono`), a size smaller as code is in the chrome.
+    static func highlighted(_ title: String, _ query: String, mono: Bool = false) -> NSAttributedString {
+        let font = mono ? NSFont.uiMono(TextSize.row) : .ui(TextSize.body)
+        let bold = mono ? NSFont.uiMono(TextSize.row, weight: .semibold) : .ui(TextSize.body, weight: .semibold)
+        let text = NSMutableAttributedString(string: title, attributes: [.font: font])
         for word in query.split(separator: " ") where !word.isEmpty {
             let range = (title as NSString).range(of: String(word), options: .caseInsensitive)
-            if range.location != NSNotFound {
-                text.addAttribute(.font, value: NSFont.ui(TextSize.body, weight: .semibold), range: range)
-            }
+            if range.location != NSNotFound { text.addAttribute(.font, value: bold, range: range) }
         }
         return text
     }

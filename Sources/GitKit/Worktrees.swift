@@ -163,7 +163,7 @@ extension Git {
         return left
     }
 
-    private static func place(
+    static func place(
         _ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void
     ) {
         // Only paths inside the project: "/etc", "../x" or "a/../../b" would link (or create folders) outside it.

@@ -52,6 +52,11 @@ import Testing
     let core = try #require(Artifacts.guide("design", whereTo: "local", system: true))
     #expect(core.contains("kelp artifact new design") && core.contains("kelp artifact check"))
     #expect(core.contains("read DESIGN.md"))
+    let motion = try #require(Artifacts.guide("motion", whereTo: "agent"))
+    #expect(motion.contains("stay in the project") && motion.contains("data-duration") && motion.contains("data-start"))
+    for kind in ["design", "doc", "slides"] {
+        #expect(try #require(Artifacts.guide(kind, whereTo: "local")).contains("kelp artifact reply <name> <#>"))
+    }
     #expect(core.utf8.count < 4800, "the core stays near 1k tokens: \(core.utf8.count) bytes")
     #expect(try #require(Artifacts.guide("design", whereTo: "local")).contains("guide design system"))
     for part in Artifacts.designParts { #expect(Artifacts.guide("design", whereTo: "local", part: part) != nil) }
@@ -60,4 +65,38 @@ import Testing
     let dashboard = try #require(Artifacts.guide("dashboard", whereTo: "local", system: true))
     #expect(dashboard.contains("kelp artifact new dashboard") && dashboard.contains("data-source"))
     #expect(try #require(Artifacts.guide("slides", whereTo: "local")).contains("guide design deck"))
+}
+
+/// A canvas is a deck when every board is a 16:9 frame; a screen as tall as its content or a phone isn't a slide.
+@Test(
+    arguments: [
+        ([(1920, 1080), (1280, 720)], true),
+        ([(1920, 1080), (390, 844)], false),
+        ([(1920, nil)], false),
+        ([], false)
+    ] as [([(Int, Int?)], Bool)])
+func aCanvasIsADeckWhenEveryBoardIsASlide(sizes: [(Int, Int?)], deck: Bool) {
+    let boards = sizes.enumerated().map {
+        ArtifactCanvas.Board(file: "boards/\($0.offset).html", w: $0.element.0, h: $0.element.1)
+    }
+    #expect(ArtifactCanvas(boards: boards).isDeck == deck)
+}
+
+/// A version the user saved stays when it is older than the last twenty; its name reads back as written.
+@Test func aSavedVersionOutlivesTheLastTwenty() throws {
+    let versions = (1...25).map { ArtifactVersion(n: $0, at: 0, label: "turn \($0)") }
+    #expect(Artifacts.kept(versions, saved: []).map(\.n) == Array(6...25))
+    #expect(Artifacts.kept(versions, saved: [2]).map(\.n) == [2] + Array(6...25))
+    let json = try Artifacts.savedJSON([2: "Approved \"v1\""])
+    #expect(try Artifacts.saved(json) == [2: "Approved \"v1\""] && Artifacts.saved(nil).isEmpty)
+    #expect(throws: (any Error).self) { try Artifacts.saved("{") }
+}
+
+/// The boards a turn changed: those whose text differs, and those it added or took away.
+@Test func aSnapshotSaysWhichBoardsChanged() {
+    let before = CanvasSnapshot(
+        canvas: "{}", boards: ["boards/A.html": "a", "boards/B.html": "b", "boards/C.html": "c"])
+    let after = CanvasSnapshot(
+        canvas: "{}", boards: ["boards/A.html": "a", "boards/B.html": "B!", "boards/D.html": "d"])
+    #expect(after.changed(since: before) == ["boards/B.html", "boards/C.html", "boards/D.html"])
 }

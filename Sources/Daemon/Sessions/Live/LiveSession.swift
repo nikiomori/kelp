@@ -33,7 +33,8 @@ final class LiveSession: Sendable {
         /// to keep (`SessionTurns`).
         var turnStarted: (@Sendable (SessionTurns.Mark, String?) -> Void)?
         /// A turn started by this prompt ended, so the pages its agent made keep a version (`Artifacts.keepVersions`).
-        var turnEnded: (@Sendable (String) -> Void)?
+        /// A turn ended: the prompt that started it, and what was sent while it ran.
+        var turnEnded: (@Sendable (String, [String]) -> Void)?
     }
 
     let pty: PTY
@@ -146,6 +147,8 @@ final class LiveSession: Sendable {
     /// Where the agent worked when its last turn started: `turnBase` is a snapshot of that folder.
     var turnDir: String? { state.withLock { $0.turnFolder } }
     var lastTurn: Turn? { state.withLock { $0.turnResult } }
+    /// When the turn the agent is in began, or nil between turns.
+    var turnStarted: Date? { state.withLock { $0.inTurn ? $0.turnStart : nil } }
     var snapshot: Session { state.withLock { $0.record } }
 
     /// Trims the log to its own last `ringLimit` bytes, read from the file, and returns its new size. After a wake the

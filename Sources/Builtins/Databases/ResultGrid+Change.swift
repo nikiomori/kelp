@@ -21,6 +21,31 @@ extension ResultGrid {
         table.reloadData()
     }
 
+    /// The row's number, with a mark before it of what saving does to it, so it isn't told by its colour alone:
+    /// • edited, − deleted, and + for a new row in place of a number.
+    func number(_ row: Int, new: Bool) -> NSAttributedString {
+        let mark = edits.deleted.contains(row) ? "− " : edits.cells[row] != nil ? "• " : ""
+        // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.
+        return NSAttributedString(
+            string: new ? "+" : mark + String(row + 1),
+            attributes: [
+                .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor,
+                .paragraphStyle: Self.aligned(.right)
+            ])
+    }
+
+    /// What VoiceOver says of a row's number: the row, and what is to happen to it or what an agent did.
+    func rowName(_ row: Int) -> String {
+        if row >= rows.count { return String(localized: "New row") }
+        let number = String(row + 1)
+        if edits.deleted.contains(row) || change?.kind == .delete {
+            return String(localized: "Row \(number), to be deleted")
+        }
+        if edits.cells[row] != nil { return String(localized: "Row \(number), changed") }
+        if marked.contains(row) { return String(localized: "Row \(number), changed by an agent") }
+        return String(localized: "Row \(number)")
+    }
+
     /// Shows a cell an update changed as "was → becomes"; returns false when the cell isn't one.
     func showChange(_ value: String?, in field: NSTextField, row: Int, column: Int) -> Bool {
         guard let was = change?.before, was.indices.contains(row), was[row].indices.contains(column),

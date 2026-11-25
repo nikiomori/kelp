@@ -584,6 +584,10 @@
             "description" : "Seconds since 1970, like `modified`.",
             "type" : "number"
           },
+          "marks" : {
+            "$ref" : "#/components/schemas/ArtifactMarkCounts",
+            "description" : "The page's marks that are with an agent, and those waiting for the user's check. nil when there are none."
+          },
           "modified" : {
             "description" : "When the artifact's file was last saved. nil for a page on a service.",
             "type" : "number"
@@ -632,6 +636,276 @@
         ],
         "type" : "object"
       },
+      "ArtifactMark" : {
+        "description" : "A mark the user puts on an agent's page (Mark in its bar): what it points at and what should change. A mark lives until the user says it's done. It is a draft until sent, then the agent's while its turn runs, then the user's to check (what the agent did to the marked thing, against the version it was sent with), then done or sent again. Its number stays the same throughout, so the user and the agent both say \"#3\" for it.",
+        "properties" : {
+          "area" : {
+            "description" : "An area's x, y, width and height in the board's own pixels.",
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "asked" : {
+            "description" : "The agent's question, when the agent put the mark (`kelp artifact ask`): the user's note answers it.",
+            "type" : "string"
+          },
+          "board" : {
+            "description" : "The board's file (`boards/A.html`), empty on a doc.",
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer"
+          },
+          "inState" : {
+            "description" : "The board's state it was made in (`data-states`), when not the board's first.",
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ArtifactMark.Kind"
+          },
+          "language" : {
+            "description" : "The language view it was made in: `longer` (text 40% longer) or `rtl` (right to left).",
+            "type" : "string"
+          },
+          "like" : {
+            "description" : "The class the mark is about, when it is about every element like the one marked (`.card`), not only that one.",
+            "type" : "string"
+          },
+          "note" : {
+            "description" : "The note the user is writing now: a draft's note, empty once sent.",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "A stroke as an SVG path in the board's own pixels.",
+            "type" : "string"
+          },
+          "picture" : {
+            "description" : "The picture of an area or a stroke, or of a motion page's frame, relative to the page's folder (`marks/2.png`).",
+            "type" : "string"
+          },
+          "reference" : {
+            "description" : "A picture the user gave as an example (pasted or dropped into the note), relative to the page's folder (`marks/3-ref.png`).",
+            "type" : "string"
+          },
+          "rounds" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark.Round"
+            },
+            "type" : "array"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/ArtifactMark.State"
+          },
+          "target" : {
+            "description" : "The element: `[data-id=title]`, or its tag. For an area or a stroke, the element it starts on.",
+            "type" : "string"
+          },
+          "text" : {
+            "description" : "The start of the element's text, or the quoted words.",
+            "type" : "string"
+          },
+          "time" : {
+            "description" : "On a motion page, the second of the video it was made at.",
+            "type" : "number"
+          },
+          "width" : {
+            "description" : "The width the board was seen at, in points, when not its own (390 for a phone's).",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "board",
+          "id",
+          "kind",
+          "note",
+          "rounds",
+          "state",
+          "target",
+          "text"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMark.Kind" : {
+        "enum" : [
+          "element",
+          "area",
+          "pen",
+          "quote"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMark.Outcome" : {
+        "description" : "What the agent's turn did to the marked thing.",
+        "enum" : [
+          "changed",
+          "same",
+          "gone"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMark.Round" : {
+        "description" : "One sending of the mark: the note it went with, and what came of it.",
+        "properties" : {
+          "after" : {
+            "type" : "integer"
+          },
+          "at" : {
+            "description" : "When it was sent, in seconds since 1970, and the chat it went to.",
+            "type" : "number"
+          },
+          "before" : {
+            "description" : "The version of the page it was sent with, and the version the agent's turn left.",
+            "type" : "integer"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "$ref" : "#/components/schemas/ArtifactMark.Outcome"
+          },
+          "reply" : {
+            "description" : "What the agent said about this mark (`kelp artifact reply`).",
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "note"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMark.State" : {
+        "enum" : [
+          "draft",
+          "sent",
+          "check",
+          "done"
+        ],
+        "type" : "string"
+      },
+      "ArtifactMarkCounts" : {
+        "description" : "How many of a page's marks are with an agent, how many wait for the user's check, and how many of those have the agent's reply.",
+        "properties" : {
+          "asked" : {
+            "description" : "The agent's questions waiting for the user, and its suggestions shown.",
+            "type" : "integer"
+          },
+          "check" : {
+            "type" : "integer"
+          },
+          "replies" : {
+            "type" : "integer"
+          },
+          "sent" : {
+            "type" : "integer"
+          },
+          "suggested" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "check",
+          "replies",
+          "sent"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks" : {
+        "description" : "A page's marks, kept in `notes.json` beside it, and the hand edits waiting to go with them.",
+        "properties" : {
+          "edits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/HandEdit"
+            },
+            "type" : "array"
+          },
+          "marks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark"
+            },
+            "type" : "array"
+          },
+          "next" : {
+            "description" : "The number the next mark gets.",
+            "type" : "integer"
+          },
+          "suggestions" : {
+            "description" : "What the agent suggests the user asks next, shown under the marks until the next send.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "marks"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks.Change" : {
+        "description" : "What the window or an agent changes in the marks. The daemon applies each change to the file as it is then, so the window's drafts, an agent's reply and the end of a turn never write over each other.",
+        "properties" : {
+          "before" : {
+            "type" : "integer"
+          },
+          "drafts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactMark"
+            },
+            "type" : "array"
+          },
+          "edit" : {
+            "$ref" : "#/components/schemas/HandEdit"
+          },
+          "id" : {
+            "type" : "integer"
+          },
+          "ids" : {
+            "items" : {
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ArtifactMarks.Change.Kind"
+          },
+          "lines" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "kind"
+        ],
+        "type" : "object"
+      },
+      "ArtifactMarks.Change.Kind" : {
+        "enum" : [
+          "drafts",
+          "send",
+          "done",
+          "again",
+          "reply",
+          "edit",
+          "ask",
+          "suggest",
+          "reference",
+          "retarget"
+        ],
+        "type" : "string"
+      },
       "ArtifactVersion" : {
         "description" : "A page as one of its agent's turns left it, kept as `versions/<n>.md` (or `.html`) beside the page and labelled with the prompt that started the turn.",
         "properties" : {
@@ -639,10 +913,18 @@
             "description" : "Seconds since 1970.",
             "type" : "number"
           },
+          "byUser" : {
+            "description" : "Whether the user's hand edits made it: its label then names what they changed, not a prompt.",
+            "type" : "boolean"
+          },
           "label" : {
             "type" : "string"
           },
           "n" : {
+            "type" : "integer"
+          },
+          "restored" : {
+            "description" : "The version the user brought back to make it (Restore), when it is one.",
             "type" : "integer"
           }
         },
@@ -654,14 +936,15 @@
         "type" : "object"
       },
       "Artifacts.Kind" : {
-        "description" : "The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.",
+        "description" : "The kinds of artifact Kelp makes on this Mac: a Markdown file, a canvas of boards, or a motion page (an HTML page whose CSS animations Kelp plays and records as a video).",
         "enum" : [
           "doc",
           "review",
           "slides",
           "design",
           "dashboard",
-          "proof"
+          "proof",
+          "motion"
         ],
         "type" : "string"
       },
@@ -1102,6 +1385,40 @@
         ],
         "type" : "object"
       },
+      "ChangeRisk" : {
+        "description" : "What makes an agent's change worth a second look before Allow (`QueryResult.risk`): the card that asks says it in a line of its own. Only these kinds have one; a plain change has none, so the line isn't read past.",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ChangeRisk.Kind"
+          },
+          "table" : {
+            "description" : "The table (or what is dropped) as the statement names it, quotes included.",
+            "type" : "string"
+          },
+          "values" : {
+            "description" : "How many rows (or a column's values that aren't NULL) go, when Kelp counted them.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "kind",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "ChangeRisk.Kind" : {
+        "enum" : [
+          "noWhere",
+          "drop",
+          "truncate",
+          "dropColumn",
+          "noUndo"
+        ],
+        "type" : "string"
+      },
       "ChangedEvent" : {
         "description" : "Sent when projects or workspaces changed, so clients read the lists again. The params are just the word. It is still sent for clients that read lists, while the changed records themselves come as `event.repo`, `event.worktree` and `event.removed`.",
         "enum" : [
@@ -1441,6 +1758,74 @@
         ],
         "type" : "object"
       },
+      "DatabaseComparison" : {
+        "description" : "How a branch's copy of a database differs from the database it copies (`db.diff`), table by table: the columns and the number of rows. The rows themselves aren't compared.",
+        "properties" : {
+          "branch" : {
+            "type" : "string"
+          },
+          "copy" : {
+            "description" : "The copy's name, the name of the database it copies, and the branch the copy is for.",
+            "type" : "string"
+          },
+          "original" : {
+            "type" : "string"
+          },
+          "tables" : {
+            "description" : "Every table of either, by name.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseComparison.Table"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "branch",
+          "copy",
+          "original",
+          "tables"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table" : {
+        "properties" : {
+          "change" : {
+            "$ref" : "#/components/schemas/DatabaseComparison.Table.Change"
+          },
+          "columns" : {
+            "description" : "The columns that differ: \"+ paid_at TEXT\", \"− note TEXT\", \"total INTEGER → REAL\".",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "description" : "The table's rows in the copy and in the original; nil where it isn't, or they couldn't be counted.",
+            "type" : "integer"
+          },
+          "was" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "change",
+          "columns",
+          "name"
+        ],
+        "type" : "object"
+      },
+      "DatabaseComparison.Table.Change" : {
+        "enum" : [
+          "same",
+          "changed",
+          "added",
+          "dropped"
+        ],
+        "type" : "string"
+      },
       "DatabaseHealth" : {
         "properties" : {
           "name" : {
@@ -1523,7 +1908,7 @@
             "type" : "string"
           },
           "ssl" : {
-            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\" or \"require\". nil or \"prefer\" means TLS is used when the server offers it.",
+            "description" : "Whether to use TLS to the server, in libpq's words: \"disable\", \"require\", or \"verify-ca\" and \"verify-full\", which also check the server's certificate (and its name). nil or \"prefer\" means TLS is used when the server offers it.",
             "type" : "string"
           },
           "user" : {
@@ -1539,9 +1924,10 @@
         "type" : "object"
       },
       "DatabaseInfo.Access" : {
-        "description" : "What agents may do with the database: not see it, read it, change it once the user allows each change, or change it freely.",
+        "description" : "What agents may do with the database: not see it, see only its structure (tables, columns, row counts: no rows), read it, change it once the user allows each change, or change it freely. Each allows what the one before it does, and more.",
         "enum" : [
           "hidden",
+          "structure",
           "read",
           "ask",
           "free"
@@ -1567,6 +1953,47 @@
           "production"
         ],
         "type" : "string"
+      },
+      "DatabaseMigrations" : {
+        "description" : "A database's migrations, read from the table its migration tool keeps (Rails' schema_migrations, Prisma's _prisma_migrations…) and the tool's folder in the project, so the ones not applied yet show. Kelp only reads them.",
+        "properties" : {
+          "all" : {
+            "description" : "Every migration either side knows of, oldest first.",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseMigrations.Migration"
+            },
+            "type" : "array"
+          },
+          "table" : {
+            "description" : "The tool's table, as the schema names it. The tab lists it under Migrations instead of among the tables.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "all",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "DatabaseMigrations.Migration" : {
+        "properties" : {
+          "applied" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "description" : "The migration's version or number (\"20261122\", \"0003\") and the rest of its name (\"add_paid_at\").",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "applied",
+          "id",
+          "name"
+        ],
+        "type" : "object"
       },
       "DatabaseRun" : {
         "description" : "A statement run on a project's database, either by an agent (`session`) or by the user.",
@@ -1634,6 +2061,10 @@
             },
             "type" : "array"
           },
+          "migrations" : {
+            "$ref" : "#/components/schemas/DatabaseMigrations",
+            "description" : "The migrations, when the database has a migration tool's table (read with the whole schema only)."
+          },
           "tables" : {
             "items" : {
               "$ref" : "#/components/schemas/DatabaseSchema.Table"
@@ -1658,7 +2089,7 @@
             "type" : "boolean"
           },
           "references" : {
-            "description" : "\"users.id\" for a foreign key.",
+            "description" : "\"users.id\" for a foreign key, with the table's schema where it has one (\"auth.users.id\").",
             "type" : "string"
           },
           "type" : {
@@ -1732,6 +2163,13 @@
               "$ref" : "#/components/schemas/DatabaseInfo"
             },
             "type" : "array"
+          },
+          "migrations" : {
+            "additionalProperties" : {
+              "type" : "integer"
+            },
+            "description" : "How many migrations each database hasn't applied, by name, for those whose schema was read since kelpd started (`DatabaseSchema.migrations`).",
+            "type" : "object"
           },
           "runs" : {
             "items" : {
@@ -2237,6 +2675,20 @@
           "only" : {
             "description" : "What closing a branch group's folder would lose (nil for other folders). `only` counts the branch's commits that no other branch or remote has. `dirty` means files aren't committed, by the rule its removal follows (a new link doesn't count).",
             "type" : "integer"
+          },
+          "repoBranches" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/BranchInfo"
+            },
+            "description" : "Each of `repos`' branches, by name, as its own status read them.",
+            "type" : "object"
+          },
+          "repos" : {
+            "description" : "The repositories inside a folder that isn't one itself but holds several, by folder name (`RepoKey`); nil for any other folder. Then `changes`, `stats`, `branchFiles`, `only` and `dirty` sum them all up, with each one's paths under its name, and `branches` is nil: each one's own status comes from a watch of its key.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "stats" : {
             "$ref" : "#/components/schemas/LineStats"
@@ -2785,6 +3237,33 @@
           "refs",
           "subject",
           "top"
+        ],
+        "type" : "object"
+      },
+      "HandEdit" : {
+        "description" : "A change the user made to a board by hand (Edit), kept until it goes to the agent with the next marks.",
+        "properties" : {
+          "board" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "what" : {
+            "description" : "`text`, or the style property or tweak changed.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "board",
+          "id",
+          "what"
         ],
         "type" : "object"
       },
@@ -3929,6 +4408,10 @@
           "ms" : {
             "type" : "integer"
           },
+          "risk" : {
+            "$ref" : "#/components/schemas/ChangeRisk",
+            "description" : "What makes an asked change's trial worth a second look (no WHERE, a DROP…), for the card that asks. nil for a plain change, and on every other result."
+          },
           "rows" : {
             "items" : {
               "items" : {
@@ -3958,6 +4441,39 @@
           "total"
         ],
         "type" : "object"
+      },
+      "QuietFetch" : {
+        "description" : "What a background fetch did (`GitFetchQuietly`): whether it ran, why it failed, and when the last fetch that worked was.",
+        "properties" : {
+          "fetched" : {
+            "description" : "When the last fetch that worked was (FETCH_HEAD), in seconds since 1970; nil for a remote project.",
+            "type" : "number"
+          },
+          "host" : {
+            "description" : "The remote's host, as git named it in its error (\"github.com\"), when it did.",
+            "type" : "string"
+          },
+          "ran" : {
+            "description" : "False when it didn't run: a remote project whose host has no connection open.",
+            "type" : "boolean"
+          },
+          "trouble" : {
+            "$ref" : "#/components/schemas/QuietFetch.Trouble"
+          }
+        },
+        "required" : [
+          "ran"
+        ],
+        "type" : "object"
+      },
+      "QuietFetch.Trouble" : {
+        "description" : "Why a fetch failed, as far as git's words tell: no network (or a host that doesn't answer), a remote that wants a sign-in or a key it can't use without asking, or anything else.",
+        "enum" : [
+          "offline",
+          "signIn",
+          "other"
+        ],
+        "type" : "string"
       },
       "RemoteHostKey.Key" : {
         "properties" : {
@@ -4634,6 +5150,11 @@
           "id" : {
             "type" : "string"
           },
+          "interruptedAt" : {
+            "description" : "When Kelp went down (a crash, the Mac shutting down) while the agent was mid-turn, so Kelp offers to go on with it. nil for an agent paused any other way, and once it wakes.",
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
           "limitHit" : {
             "$ref" : "#/components/schemas/LimitHit",
             "description" : "The plan limit that stopped the agent. It goes back to nil once the agent does anything else."
@@ -4911,6 +5432,60 @@
         ],
         "type" : "object"
       },
+      "SessionFound" : {
+        "description" : "A session's lines with what was looked for: the newest one, cut to the part around it, and how many there are.",
+        "properties" : {
+          "count" : {
+            "type" : "integer"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "count",
+          "id",
+          "line"
+        ],
+        "type" : "object"
+      },
+      "SessionHistory.Change" : {
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/AgentStatus"
+          }
+        },
+        "required" : [
+          "at",
+          "status"
+        ],
+        "type" : "object"
+      },
+      "SessionHistory.Entry" : {
+        "properties" : {
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SessionHistory.Change"
+            },
+            "type" : "array"
+          },
+          "session" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "changes",
+          "session"
+        ],
+        "type" : "object"
+      },
       "SessionRole" : {
         "description" : "The job Kelp started a session for (`Session.role`). A `reviewer` session reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text meant for \"the agent\" never go to it.",
         "enum" : [
@@ -5018,8 +5593,33 @@
         ],
         "type" : "object"
       },
+      "SessionTurnUndo.Database" : {
+        "description" : "One database the undo puts back: its file's name or its own (\"shop.sqlite\"), what the turn did to it, as in \"Claude Code changed it 3 times in this turn: 214 rows of orders.\" (nil when only the project's code changed it), and why it can't go back, when it can't (someone was connected to the Postgres copy). The files still go.",
+        "properties" : {
+          "cannot" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name"
+        ],
+        "type" : "object"
+      },
       "SessionTurnUndo.Plan" : {
         "properties" : {
+          "databases" : {
+            "description" : "The databases the turn changed that go back with the files: a SQLite or DuckDB file, or a branch's own Postgres copy, as Kelp kept them when the turn began (or before its first change). nil when there are none.",
+            "items" : {
+              "$ref" : "#/components/schemas/SessionTurnUndo.Database"
+            },
+            "type" : "array"
+          },
           "files" : {
             "items" : {
               "type" : "string"
@@ -6864,6 +7464,40 @@
       }
     },
     {
+      "description" : "`kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the user answers in its note; the answer comes with the user's next marks. Returns the mark's number.",
+      "name" : "artifact.ask",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "integer"
+        }
+      }
+    },
+    {
       "description" : "`kelp artifact check` returns what Kelp's window finds wrong on a design's canvas (`path`, its canvas.json) once it has drawn the canvas again from the files: text cut off, low contrast, a board wider than its frame, a missing file. Empty when nothing is wrong. The window must have the canvas open (the CLI opens it first), and this call waits for the window's answer.",
       "name" : "artifact.check",
       "paramStructure" : "by-name",
@@ -6909,6 +7543,101 @@
       "x-internal" : true
     },
     {
+      "description" : "Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases nothing. Returns whether a version was kept.",
+      "name" : "artifact.keepRestored",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Keeps a version of a page (`path`, its file) as the user's hand edits left it, labelled with what they changed. Nothing is kept when the page is the same as its last version. Returns whether a version was kept.",
+      "name" : "artifact.keepVersion",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "label",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Changes the marks on a page (`path`, its file) as the window asks: its drafts, a send, done, again, a hand edit. The daemon applies the change to `notes.json` as it is then. A send first keeps a version of the page as the user sends it, when it changed since the last one, so the marks are checked against what the user saw; `pictures` holds the PNG of each area or stroke being sent, by mark number. Returns the marks as written.",
+      "name" : "artifact.marks",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "change",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/ArtifactMarks.Change"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "pictures",
+          "required" : false,
+          "schema" : {
+            "additionalProperties" : {
+              "contentEncoding" : "base64",
+              "type" : "string"
+            },
+            "type" : "object"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactMarks"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Makes a new page of `kind` titled `title`, with its first lines written, and returns its file. The page goes in the artifacts of the workspace that holds `cwd`, preferring the workspace of chat `session` when it holds `cwd`. When no workspace holds `cwd`, the page goes under `cwd` itself.",
       "name" : "artifact.new",
       "paramStructure" : "by-name",
@@ -6947,6 +7676,133 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      }
+    },
+    {
+      "description" : "Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns whether it was renamed.",
+      "name" : "artifact.rename",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "`kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark must be with the agent or waiting for the user's check; closing it is the user's.",
+      "name" : "artifact.reply",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      }
+    },
+    {
+      "description" : "What chat `session` spent from `from` to `to` (seconds since 1970): one round of marks on a page, from their send to its turn's end. nil when nothing is known (an agent whose spending Kelp doesn't read).",
+      "name" : "artifact.roundCost",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "type" : "number"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "`kelp artifact suggest`: what the agent suggests the user asks next about a page (`path`, its file), three at most, shown under its marks until the next send; a click makes one a mark to send.",
+      "name" : "artifact.suggest",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "lines",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
         }
       }
     },
@@ -7672,6 +8528,27 @@
       "x-internal" : true
     },
     {
+      "description" : "Stops the user's statement that runs under `id` (`DatabaseQuery.cancelId`) in the database, not only its wait: SQLite is interrupted, a client program is ended, and a server's connection is closed (MySQL's `KILL QUERY` too). The statement's call then fails with `stopped`. A statement that already ended is left as it is.",
+      "name" : "db.cancel",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Connects with what the sheet says and reports what is there: the server's version, its tables and its other databases. It throws the server's own words when it can't connect. A nil `password` uses the one kept for `database.name`, if any. `versionOnly` reads only the version (for a tab's capsule) on one connection, without counting tables or listing databases.",
       "name" : "db.check",
       "paramStructure" : "by-name",
@@ -7786,6 +8663,33 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "Compares a branch's copy of a database (`DatabaseInfo.copy`) with the database it copies: each table's columns and number of rows. `database` names the copy; nil means the workspace's only copy. Agents compare only what they may read.",
+      "name" : "db.diff",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseComparison"
+        }
+      }
     },
     {
       "description" : "Brings the connections `ids` of `source` into All my projects as copies, which Import Again reads again. With `passwords`, the passwords are taken now, from the app's file or its keychain (macOS asks for each). Without it, a password in another app's keychain is read when the database is first opened (`DatabaseInfo.passwordIn`). With `useHere`, the databases are also used in the workspace's project.",
@@ -7930,6 +8834,14 @@
       "name" : "db.query",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "A name the caller gives this run, by which `db.cancel` stops it.",
+          "name" : "cancelId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
         {
           "name" : "database",
           "required" : true,
@@ -9203,6 +10115,27 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "Fetches workspace `worktreeId`'s remotes for Kelp's background fetch (Settings › Source Control): as Fetch does, but without a password or passphrase prompt nobody would see, and giving up sooner. A failure is the answer, not an error. A remote project is fetched only over a connection already open: Kelp doesn't dial a host by itself.",
+      "name" : "git.fetchQuietly",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/QuietFetch"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Returns the history as graph rows, at most `limit`. `more` says there are more rows.",
@@ -12425,7 +13358,7 @@
       }
     },
     {
-      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once.",
+      "description" : "Answers the menu on screen with `answer`: allow, deny, or one of the session's `choices` by its label. Returns false when there is no menu. `question` is what the answer was given to (the session's summary that a banner showed), and the call also returns false once the agent asks something else, or several things at once. `run` is the database run (`DatabaseRun.id`) whose change was shown: the answer goes to that change's question alone.",
       "name" : "session.choose",
       "paramStructure" : "by-name",
       "params" : [
@@ -12445,6 +13378,13 @@
         },
         {
           "name" : "question",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "run",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -12744,6 +13684,40 @@
       }
     },
     {
+      "description" : "Finds `query` in what each of the running sessions `ids` printed lately (the last megabyte the daemon keeps), for ⌘P. It matches as the terminal's own find does, ignoring the case of ASCII letters. Sessions without it, or not running, are left out.",
+      "name" : "session.find",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "ids",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SessionFound"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Starts a new chat beside this one, in the same folder, from a copy of its conversation; this chat goes on as it was. Only Claude Code and Codex fork a conversation (`--fork-session`, `codex fork`), so other agents are refused.",
       "name" : "session.fork",
       "paramStructure" : "by-name",
@@ -12873,6 +13847,31 @@
           "$ref" : "#/components/schemas/Session"
         }
       }
+    },
+    {
+      "description" : "Returns the status changes of every session that changed since `since`, oldest first, read from the trail the daemon keeps beside each session's history (`session.trail`). The Agents Overview draws each chat's day from them and sums the week. A session lists the status it had at `since` as its first change, at `since`; one with no change since then isn't listed.",
+      "name" : "session.history",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "since",
+          "required" : true,
+          "schema" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SessionHistory.Entry"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Sent by a running agent's hooks (`kelp hook`): `event`, plus what Claude Code's hook payload says.",
@@ -13643,7 +14642,7 @@
       }
     },
     {
-      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are.",
+      "description" : "Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are. The databases the turn changed (`Plan.databases`) go back with the files. With `apply`, `databases` names those the sheet listed (their `Plan.databases` names): only those go back, so one that changed since isn't put back unasked. nil puts back each the turn changed, as found now.",
       "name" : "session.turnUndo",
       "paramStructure" : "by-name",
       "params" : [
@@ -13652,6 +14651,16 @@
           "required" : false,
           "schema" : {
             "type" : "boolean"
+          }
+        },
+        {
+          "name" : "databases",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
         {

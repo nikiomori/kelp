@@ -360,7 +360,8 @@ struct AppwriteWire: DatabaseRunner {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         let (data, response): (Data, URLResponse)
-        do { (data, response) = try await URLSession.shared.data(for: request) } catch let error as URLError {
+        let host = URL(string: endpoint.base)?.host ?? endpoint.base
+        do { (data, response) = try await DatabaseEngines.answer(request, from: host) } catch let error as URLError {
             throw failure(error, endpoint)
         }
         var object: [String: Any] = [:]

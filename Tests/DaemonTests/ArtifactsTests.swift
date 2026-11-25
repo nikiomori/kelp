@@ -73,6 +73,9 @@ private func tempRoot() throws -> URL {
     #expect(
         try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
     #expect(try Artifacts.create(.proof, title: "Fix", root: root.path, session: nil).lastPathComponent == "proof.md")
+    let motion = try Artifacts.create(.motion, title: "Launch <1>", root: root.path, session: nil)
+    #expect(motion.lastPathComponent == "motion.html")
+    #expect(try String(contentsOf: motion, encoding: .utf8).contains(#"<title>Launch &lt;1&gt;</title>"#))
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
     #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.json"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
@@ -190,6 +193,42 @@ private func tempRoot() throws -> URL {
     try "# Plan\n\n24\n".write(to: page, atomically: true, encoding: .utf8)
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn 24") == 1)
     #expect(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions?.last?.n == 24)
+    // Version 5, saved by the user, stays when the next turns would let it go with the oldest.
+    try Artifacts.savedJSON([5: "Approved"]).write(
+        to: page.deletingLastPathComponent().appendingPathComponent(Artifacts.savedFile), atomically: true,
+        encoding: .utf8)
+    for i in 25...27 {
+        try "# Plan\n\n\(i)\n".write(to: page, atomically: true, encoding: .utf8)
+        try Artifacts.keepVersions(root: root.path, session: "s1", label: "turn \(i)")
+    }
+    let kept = try #require(Artifacts.items(root: root.path).first { $0.title == "Plan" }?.versions).map(\.n)
+    #expect(kept.first == 5 && kept.count == 21 && !kept.contains(6))
+    #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: page.path, 5)))
+}
+
+/// A page made before its chat started (From File) is that chat's once a turn's prompt names it: it keeps versions
+/// of that turn and of the next ones.
+@Test func aPageNamedInAChatsPromptIsThatChats() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.doc, title: "From file", root: root.path, session: nil)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "Make a page") == 0)
+    #expect(
+        try Artifacts.keepVersions(root: root.path, session: "s1", label: "Fill \(Artifacts.projectPath(page.path))")
+            == 1)
+    try "# More\n".write(to: page, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "and more") == 1)
+    #expect(Artifacts.items(root: root.path).first?.session == "s1")
+}
+
+/// A version kept from a record read before another version was kept takes the next number, not the same one.
+@Test func versionsKeptFromAnOldRecordDontOverwriteEachOther() throws {
+    let root = try tempRoot()
+    let page = try Artifacts.create(.doc, title: "Plan", root: root.path, session: "s1")
+    let (slug, stale) = try #require(Artifacts.list(root: root.path).first)
+    #expect(try Artifacts.keepVersion(slug, stale, root: root.path, label: "turn", now: Date()))
+    try "# Plan\n\nBy hand.\n".write(to: page, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersion(slug, stale, root: root.path, label: "By hand", byUser: true, now: Date()))
+    #expect(Artifacts.items(root: root.path).first?.versions?.map(\.n) == [1, 2])
 }
 
 /// A cloned repository can commit `.kelp/artifacts/x/artifact.json`: it lists only a web page's link or a file in its
@@ -362,4 +401,95 @@ private func tempRoot() throws -> URL {
     #expect(try lines(nil) == 2)
     #expect(try lines(try Date("2026-11-13T10:00:00Z", strategy: .iso8601)) == 1)
     #expect(try lines(try Date("2026-11-13T10:00:01Z", strategy: .iso8601)) == 0)
+}
+
+/// A mark goes to a chat with the page as the user saw it kept as a version, the chat may answer it, and the end of
+/// the turn its prompt was about hands it back to the user with what the turn did to the marked thing.
+@Test func marksComeBackToTheUserAfterTheTurnThatGotThem() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = try tempRoot()
+    let canvas = try Artifacts.create(.design, title: "Home", root: root.path, session: "s1")
+    try #"{"boards": [{"file": "boards/A.html"}, {"file": "boards/B.html"}]}"#.write(
+        to: canvas, atomically: true, encoding: .utf8)
+    let folder = canvas.deletingLastPathComponent()
+    let a = folder.appendingPathComponent("boards/A.html"), b = folder.appendingPathComponent("boards/B.html")
+    try #"<h1 data-id="title">Hi</h1><p data-id="cta">Start</p>"#.write(to: a, atomically: true, encoding: .utf8)
+    try "<p>b</p>".write(to: b, atomically: true, encoding: .utf8)
+    try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it")
+    let path = canvas.path, page = Artifacts.projectPath(path)
+    // The window's two drafts and a hand edit the user made before sending.
+    var marks = try ArtifactMarksChange(
+        path: path,
+        change: .drafts([
+            ArtifactMark(board: "boards/A.html", target: "[data-id=title]", note: "bigger"),
+            ArtifactMark(kind: .area, board: "boards/B.html", area: [0, 0, 10, 10], note: "a screen here")
+        ])
+    ).handle(NoService())
+    #expect(marks.marks.map(\.id) == [1, 2])
+    try #"<h1 data-id="title">Hi</h1><p data-id="cta">Go</p>"#.write(to: a, atomically: true, encoding: .utf8)
+    _ = try ArtifactMarksChange(
+        path: path,
+        change: .edit(
+            HandEdit(
+                board: "boards/A.html", id: "cta", what: "text",
+                from: "Start", to: "Go"))
+    ).handle(NoService())
+    marks = try ArtifactMarksChange(
+        path: path, change: .send(ids: [1, 2], to: "s2", before: nil), pictures: ["2": Data([1, 2, 3])]
+    ).handle(NoService())
+    let versions = try #require(Artifacts.record(in: folder)?.versions)
+    #expect(versions.map(\.n) == [1, 2] && versions[1].byUser == true && versions[1].label == "cta")
+    #expect(marks.marks.allSatisfy { $0.state == .sent && $0.rounds.last?.before == 2 } && marks.edits.isEmpty)
+    #expect(
+        FileManager.default.contents(atPath: folder.appendingPathComponent("marks/2-1.png").path) == Data([1, 2, 3]))
+    // An example picture given to #2 is kept beside its own, and named in the message.
+    let example = try ArtifactMarksChange(path: path, change: .reference(id: 2), pictures: ["2": Data([4, 5])])
+        .handle(NoService())
+    #expect(example.marks.first { $0.id == 2 }?.reference == "marks/2-ref.png")
+    #expect(FileManager.default.contents(atPath: folder.appendingPathComponent("marks/2-ref.png").path) == Data([4, 5]))
+    #expect(Artifacts.items(root: root.path).first?.marks == ArtifactMarkCounts(sent: 2, check: 0))
+    // The agent answers #2 through kelp; a mark that isn't there is refused.
+    #expect(try await c.call(ArtifactReply(path: path, id: 2, text: "Which screen?")))
+    await #expect(throws: RPCError.self) { try await c.call(ArtifactReply(path: path, id: 9, text: "?")) }
+    // The chat works on the title only; a turn about something else leaves the marks with it.
+    try #"<h1 data-id="title" style="font-size: 40px">Hi</h1><p data-id="cta">Go</p>"#.write(
+        to: a, atomically: true, encoding: .utf8)
+    try Artifacts.keepVersions(root: root.path, session: "s2", label: "fix the tests")
+    try Artifacts.settleMarks(root: root.path, session: "s2", prompt: "fix the tests")
+    #expect(ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).counts[.sent] == 2)
+    try Artifacts.settleMarks(root: root.path, session: "s2", prompt: "Marks on \(page) (version 2)…")
+    let back = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).marks
+    #expect(back.map(\.state) == [.check, .check])
+    #expect(back.map { $0.rounds.last?.outcome } == [.changed, .same])
+    #expect(back[1].rounds.last?.reply == "Which screen?" && back[0].rounds.last?.after == 3)
+    // A pause in hand edits keeps them as the user's version, named by what they changed.
+    try #"<h1 data-id="title" style="font-size: 48px">Hi</h1><p data-id="cta">Go</p>"#.write(
+        to: a, atomically: true, encoding: .utf8)
+    #expect(try ArtifactKeepVersion(path: path, label: "title").handle(NoService()))
+    #expect(try !ArtifactKeepVersion(path: path, label: "title").handle(NoService()), "nothing new since")
+    let last = try #require(Artifacts.record(in: folder)?.versions?.last)
+    #expect((last.n, last.label, last.byUser) == (4, "title", true))
+    // The agent asks about the title: a mark of its own, on the board that has it, for the user to answer; it suggests
+    // what to ask next, until the user's next send.
+    let asked = try ArtifactAsk(path: path, id: "title", text: "Bigger still?").handle(NoService())
+    let withQuestion = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path))
+    #expect(
+        withQuestion.marks.last.map { ($0.id, $0.board, $0.target, $0.asked, $0.state) }
+            ?? (0, "", "", nil, .done) == (asked, "boards/A.html", "[data-id=title]", "Bigger still?", .draft))
+    #expect(throws: RPCError.self) { try ArtifactAsk(path: path, id: "nothing", text: "?").handle(NoService()) }
+    #expect(
+        try ArtifactSuggest(path: path, lines: ["Dark version", " ", "Reviews", "More", "Fourth"]).handle(NoService()))
+    #expect(
+        ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent("notes.json").path)).suggestions
+            == ["Dark version", "Reviews", "More"])
+    // Version 3 brought back is kept as a new version that says so, even when the page reads as the last one.
+    #expect(try ArtifactKeepRestored(path: path, from: 3).handle(NoService()))
+    let restored = try #require(Artifacts.record(in: folder)?.versions?.last)
+    #expect((restored.n, restored.restored, restored.byUser) == (5, 3, true))
+    // The user names it; a name of only spaces changes nothing.
+    #expect(try ArtifactRename(path: path, title: "  Launch page ").handle(NoService()))
+    #expect(Artifacts.record(in: folder)?.title == "Launch page")
+    #expect(try !ArtifactRename(path: path, title: "   ").handle(NoService()))
+    #expect(try ArtifactRoundCost(session: "no-such-chat", from: 0, to: 1).handle(NoService()) == nil)
 }

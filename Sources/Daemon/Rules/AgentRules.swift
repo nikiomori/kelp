@@ -167,11 +167,18 @@ private struct FenceCheck {
         // A database tab reads its tables and rows as the user, and `kelp shot` hands the agent the picture. So an
         // agent opens a tab only of a database it may read itself (`Databases.connection`: what `db.list` gives it).
         // That excludes an address from the project's files that the user hasn't opened yet, which the tab would have
-        // kelpd dial. A refusal from `connection` says why.
+        // kelpd dial, and a database whose structure only agents see, whose rows the tab shows. A refusal says why.
         if let tab = (method as? UIOpen).flatMap({ DatabaseTabURI.parts($0.uri) }) {
-            do { _ = try databases.connection(tab.worktree, tab.name, agent: true) } catch let error as RPCError
-                where !error.isRefusal
-            {
+            do {
+                if try databases.connection(tab.worktree, tab.name, agent: true).database.agentAccess == .structure {
+                    throw RPCError.refused("\(tab.name) shows agents its structure only: a tab would show its rows.")
+                }
+                // A comparison tab reads the original too (`db.diff` as the user), so the agent must be allowed to read
+                // it, as `kelp db diff` checks
+                if tab.query?.hasPrefix("compare=") == true {
+                    _ = try databases.pair(tab.worktree, tab.name, agent: true)
+                }
+            } catch let error as RPCError where !error.isRefusal {
                 throw RPCError.refused("An agent opens a tab only of a database it may use: `kelp db list` says which.")
             }
         }
@@ -218,7 +225,8 @@ extension Store {
             }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
-        return try strings(params, depth: 0).filter { UUID(uuidString: $0) != nil }
+        // A repository inside a workspace's folder (`RepoKey`) names that workspace.
+        return try strings(params, depth: 0).map { RepoKey.parts($0)?.id ?? $0 }.filter { UUID(uuidString: $0) != nil }
     }
 
     /// Whether an agent may work in `workspace`. It may in the workspace of `own` or of a session that started it, in a
@@ -226,7 +234,8 @@ extension Store {
     /// With `typed`, an agent typed into `own` (the user's terminal) may work in that terminal's workspace, where it
     /// runs, and in the ones it made or started a session in. It may not work in those the user made or worked in from
     /// that terminal.
-    func works(_ own: String, in workspace: String, typed: Bool = false) throws -> Bool {
+    func works(_ own: String, in place: String, typed: Bool = false) throws -> Bool {
+        let workspace = RepoKey.parts(place)?.id ?? place   // a repository in its folder (`RepoKey`) is the workspace
         let line = try lineage(own)
         if line.contains(where: { $0.worktreeId == workspace }) { return true }
         let maker = try worktree(workspace)?.madeBy

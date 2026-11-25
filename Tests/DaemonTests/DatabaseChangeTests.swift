@@ -70,6 +70,26 @@ private func free(_ w: World, _ worktree: String) async throws {
     #expect(done.run.state == .done && done.result?.change == trial.change)
 }
 
+/// A change to as many rows as a change keeps (1000), more than one SQL expression may name (SQLite stops at a depth
+/// of 1000), still reads its rows as they were, a few hundred at a time.
+@Test func aChangeToEveryRowOfABigTableKeepsItsRowsAsTheyWere() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try changeDB(in: wt.path)
+    try await DatabaseQueue(path: path).write { db in
+        try db.execute(
+            sql: "INSERT INTO orders (status) SELECT 'paid' FROM (SELECT 1 FROM orders a, orders b, orders c,"
+                + " orders d, orders e, orders f, orders g) LIMIT 997")
+    }
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    try await free(w, wt.id)
+    _ = try await w.d.workspaces.databases.query(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'x'"), origin: agent.id)
+    let change = try #require(try await latest(w, wt.id).result?.change)
+    #expect(change.before?.count == 1000)
+}
+
 /// Where agents change freely, a change is tried first all the same: a DELETE's rows are the ones it removed, an
 /// INSERT's the ones it added, each with the key that finds them again.
 @Test func aFreeChangeKeepsWhatItDidToItsRows() async throws {

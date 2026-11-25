@@ -19,27 +19,28 @@ package struct FileActions {
 
     /// Returns the sessions in a workspace (the one on screen when nil) that text for "the agent" may go to. Each one
     /// is running and is an agent, not a terminal (whose shell would run the text's lines) or a plain command. It is
-    /// also not a reviewer (`SessionRole`), because a reviewer reports on others' work rather than changing it.
-    package func agents(in workspace: String? = nil) -> [Session] {
+    /// also not a reviewer (`SessionRole`), because a reviewer reports on others' work rather than changing it, nor
+    /// `source`, the session the text comes from (an agent's own output goes to another agent).
+    package func agents(in workspace: String? = nil, except source: String? = nil) -> [Session] {
         let wid = workspace ?? app.workbench.workspaceId
         return app.sessions.filter {
-            $0.worktreeId == wid && $0.status != .exited && $0.isAgent && $0.role != .reviewer
+            $0.worktreeId == wid && $0.status != .exited && $0.isAgent && $0.role != .reviewer && $0.id != source
         }
     }
 
     /// Returns the agent that text goes to without asking: the one the user was last with, else the only one. It is
     /// nil when there's none, or when there are several and the user was last with none of them.
-    package func agent(in workspace: String? = nil) -> Session? {
-        let live = agents(in: workspace)
+    package func agent(in workspace: String? = nil, except source: String? = nil) -> Session? {
+        let live = agents(in: workspace, except: source)
         if let last = app.workbench.lastSession, let session = live.first(where: { $0.id == last }) { return session }
         return live.count == 1 ? live[0] : nil
     }
 
     /// Returns `agent(in:)`, or else asks the user which of several agents to use, because findings sent to the wrong
     /// agent would have it change code it didn't write. Returns nil when there's none or the user picked none.
-    package func pickAgent(in workspace: String? = nil) async -> Session? {
-        if let sure = agent(in: workspace) { return sure }
-        let live = agents(in: workspace)
+    package func pickAgent(in workspace: String? = nil, except source: String? = nil) async -> Session? {
+        if let sure = agent(in: workspace, except: source) { return sure }
+        let live = agents(in: workspace, except: source)
         guard live.count > 1 else { return nil }
         let titles = Self.distinct(live.map(\.displayTitle))
         let id = await pick(
@@ -63,17 +64,22 @@ package struct FileActions {
         sendToAgent(text: reference(path, lines: lines))
     }
 
-    /// Types words into the agent's prompt without sending them, so the user adds what to do with them.
-    package func sendToAgent(text: String) {
-        guard !agents().isEmpty else {
+    /// Types words into the agent's prompt without sending them, so the user adds what to do with them. Text from a
+    /// session (`source`) goes to an agent other than that one.
+    package func sendToAgent(text: String, except source: String? = nil) {
+        guard !agents(except: source).isEmpty else {
             let new = NewTabChoices.defaultKey(app).map(KeyBindings.display) ?? String(localized: "New Agent")
             Banner.show(
-                String(localized: "No agent on this screen. Start one with \(new), then send again."), style: .error)
+                source.flatMap(app.session)?.isAgent == true
+                    ? String(localized: "No other agent on this screen. Start one with \(new), then send again.")
+                    : String(localized: "No agent on this screen. Start one with \(new), then send again."),
+                style: .error)
             return
         }
         Task {
-            guard let agent = await pickAgent() else { return }
+            guard let agent = await pickAgent(except: source) else { return }
             await app.call(SessionSend(id: agent.id, text: text + " ", enter: false))
+            app.workbench.lastPrompted = agent.id
             app.workbench.focus(session: agent.id)
         }
     }

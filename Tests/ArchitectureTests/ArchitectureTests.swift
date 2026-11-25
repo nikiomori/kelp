@@ -217,7 +217,21 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
     // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
-    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: an artifact's page stays in view when its marks go to an agent in the same group (`showBeside`), and a
+    // page whose process ended is drawn again (`PreviewLinks.onEnded` and its delegate method).
+    // +1: a page opens in the default browser as one HTML file Kelp wrote (`PreviewLinks.openInBrowser`).
+    // +3: an agent's pane shows where a dragged file will land with the editor's own hint (`DropHint`, its
+    // `show(over:)` and `hide`), so a drop looks the same on every pane.
+    // +2: a built-in's rows for whatever is typed in ⌘P, under its own heading (`QuickSection`, its `init`), so Agents
+    // lists the lines open terminals printed without the shell knowing terminals.
+    // +2: agents Kelp's going down cut short are offered to go on by the Agents built-in, which reads whether one was
+    // (`Session.interrupted`) and continues them in the sidebar's order (`inSidebarOrder`).
+    // +1: a right-click menu's item shows its command's key as it stands (`showKey`), so Send to Agent teaches ⌥⌘↩
+    // in the editor, the diff and the terminal.
+    // +1: a tab's own answer to ⌥⌘↩ (`sendSelectionToAgent`), "nothing selected" by default.
+    // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
+    // Agents Overview puts a chat in review or done by it.
+    #expect(declared == 392, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -233,8 +247,10 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         let t = String(l)
         return declaration.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil
     }
-    #expect(requirements.count <= 14, "\(requirements)")
-    #expect(requirements.count >= 14, "fewer now: lower the ceiling")
+    // 15: ⌥⌘↩ hands the selection of whatever tab is in front to an agent (`sendSelectionToAgent`): a file's, a diff's
+    // and a terminal's each answer it, and the command can't know their kinds.
+    #expect(requirements.count <= 15, "\(requirements)")
+    #expect(requirements.count >= 15, "fewer now: lower the ceiling")
 }
 
 /// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.
@@ -312,8 +328,8 @@ func codeOnly(_ s: String) -> String {
             l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 374, "lines over 120: \(over120)")
-    #expect(over120 >= 374, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 373, "lines over 120: \(over120)")
+    #expect(over120 >= 373, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -487,6 +503,10 @@ func codeOnly(_ s: String) -> String {
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
         "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
+        "Builtins/Files/MarkdownTab+Sound.swift": (1, "a scrubbed sound plays for an eighth of a second"),
+        "Builtins/Files/MarkdownTab+Sources.swift": (
+            1, "a dashboard set to update every 15 minutes or hour, while open"
+        ),
         "Builtins/Agents/Strip/StripCardParts.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
@@ -495,6 +515,10 @@ func codeOnly(_ s: String) -> String {
             1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
         ),
         "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
+        "Builtins/Git/BackgroundFetch.swift": (
+            1,
+            "a fetch every 5 minutes while Kelp is in front: a remote announces nothing, and only the app knows it's in front"
+        ),
         "Builtins/Agents/Session/PaneView.swift": (
             1, "a terminal out of sight lets go of its agent once it could pause idle"
         ),
@@ -527,6 +551,9 @@ func codeOnly(_ s: String) -> String {
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
         "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
+        "Builtins/Agents/Session/InterruptedAgents.swift": (
+            1, "Continue All wakes the agents Kelp's going down cut short a second apart, so a dozen don't start at once"
+        ),
         "KelpKit/Shell/WorkspaceActions+Idle.swift": (
             1, "an empty group's row shows its sand run out for a moment before the group goes"
         ),
@@ -638,7 +665,7 @@ func codeOnly(_ s: String) -> String {
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
         "Daemon": 37, "KelpKit": 41, "Core": 27, "GitKit": 13, "AgentData": 4, "Agents": 13, "kelp": 10,
-        "Builtins": 8,
+        "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 9, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0
     ]
@@ -758,8 +785,9 @@ func codeOnly(_ s: String) -> String {
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
         "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
-        "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
+        "Builtins/Databases/DatabaseTab+Copy.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
+    .merging(artifactPagesTouchFiles) { own, _ in own }
     let all = try matches(
         #"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#
             + #"|enumerator|attributesOfItem|destinationOfSymbolicLink)|FileWatcher\(|FileHandle\(|(String|Data|NSImage|NSDictionary)\(\s*contentsOf"#

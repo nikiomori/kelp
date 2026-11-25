@@ -103,6 +103,7 @@ enum DatabaseLook {
     static func meaning(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: String(localized: "Agents don’t see it.")
+        case .structure: String(localized: "Agents see tables and columns, no rows.")
         case .read: String(localized: "Agents read it; a change is refused.")
         case .ask: String(localized: "Agents read it; each change waits for your Allow.")
         case .free: String(localized: "Agents read and change it without asking.")
@@ -153,6 +154,7 @@ enum DatabaseLook {
     static func accessSymbol(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: "eye.slash"
+        case .structure: "tablecells"
         case .read: "eye"
         case .ask: "hand.raised"
         case .free: "pencil"
@@ -163,6 +165,7 @@ enum DatabaseLook {
     static func title(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: String(localized: "Can’t See")
+        case .structure: String(localized: "See Structure")
         case .read: String(localized: "Read")
         case .ask: String(localized: "Ask to Change")
         case .free: String(localized: "Change Freely")

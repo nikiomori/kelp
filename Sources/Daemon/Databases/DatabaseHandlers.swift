@@ -24,7 +24,9 @@ extension DatabaseSchemaRead: AsyncHandled {
 extension DatabaseQuery: AsyncHandled {
     static let agents = AgentAccess.acts
     func handle(_ dbs: Databases, conn: Int) async throws -> QueryResult {
-        try await dbs.query(self, origin: Sessions.asker, asker: dbs.clients.connection(conn)?.peerPID)
+        try await dbs.stoppable(cancelId) {
+            try await dbs.query(self, origin: Sessions.asker, asker: dbs.clients.connection(conn)?.peerPID)
+        }
     }
 }
 
@@ -69,6 +71,7 @@ extension DatabaseResultRead: Handled {
 extension Methods {
     static let databaseMethods: [any Answered.Type] = [
         DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self, DatabaseSave.self, DatabaseRemove.self,
-        DatabaseCopy.self, DatabaseCopyRemove.self, DatabaseActivity.self, DatabaseResultRead.self
+        DatabaseCopy.self, DatabaseCopyRemove.self, DatabaseActivity.self, DatabaseResultRead.self, DatabaseDiff.self,
+        DatabaseCancel.self
     ]
 }

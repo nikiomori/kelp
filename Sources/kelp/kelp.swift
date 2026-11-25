@@ -57,11 +57,20 @@ let usage = """
                                            missed while the Mac slept runs once when it wakes (--skip-missed: doesn't);
                                            an agent's asks the user on its row first
       routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
-      artifact guide <doc|review|slides|design|dashboard|proof> [part]   how and where to make one: read it first
-      artifact check <design>              what the window finds wrong on a design: cut-off text, contrast, sizes
-      artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
+      artifact guide <doc|review|slides|design|dashboard|motion|proof> [part]   how and where to make one: read it first
+      artifact check <name> [--width 390|768|1280]   what the window finds wrong on a page: cut-off text,
+                                           contrast, missing files
+      artifact links <design>              where its buttons and links go, board to board; → (nothing) is a dead end
+      artifact new <kind> <title> [--from <file>] [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere
+      artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
+      artifact ask <name> <data-id> <question> [--choice <a>]… | suggest <name> <request>…   ask on an element (a
+                                           choice is a button that answers at once); offer what's next
+      artifact export <name> <png|pdf|pptx|html|zip|docx|md|mp4|gif|mov> [to]   pictures, PDF, PowerPoint, HTML, ZIP,
+                                           Word, Markdown, video
+      artifact beats <name>                    a motion page's music: its tempo and beats, at the page's seconds
+      artifact captions <name> --text <file>   a motion page's subtitles from a script, a line each, timed by length
       \(Main.dbUsage)
                                            the project's databases (compose, .env, database.yml, SQLite files) through
                                            Kelp, which holds their passwords: one statement a call; an agent's change

@@ -1,6 +1,270 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ can't go back: %@ The files still can.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ не вернуть: %2$@ Файлы вернуть можно."
+          }
+        }
+      }
+    },
+    "And %@, as it was before the turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "И %@ — какой была до хода"
+          }
+        }
+      }
+    },
+    "Put %@ back as it was before this turn?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть %@ к состоянию до этого хода?"
+          }
+        }
+      }
+    },
+    "Put %@ back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть %@"
+          }
+        }
+      }
+    },
+    "Put %@ back as it was before the turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернул %@ к состоянию до хода"
+          }
+        }
+      }
+    },
+    "Continue from where you stopped.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжи с того места, где остановился."
+          }
+        }
+      }
+    },
+    "Cut short when Kelp closed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прерван: Kelp закрылся"
+          }
+        }
+      }
+    },
+    "Cut short: Kelp closed at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прерван: Kelp закрылся в %@"
+          }
+        }
+      }
+    },
+    "They’re paused since %@. Agents you paused yourself aren’t affected.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они на паузе с %@. Агентов, которых вы усыпили сами, это не касается."
+          }
+        }
+      }
+    },
+    "Continue All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить все"
+          }
+        }
+      }
+    },
+    "Click to open Kelp with Continue All.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите: Kelp откроется с «Продолжить все»"
+          }
+        }
+      }
+    },
+    "Continue working agents after a crash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После сбоя продолжать работавших агентов"
+          }
+        }
+      }
+    },
+    "One by one, with a pause. Agents you paused yourself wait for you.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По одному, с паузой. Кого вы усыпили сами, ждут вас."
+          }
+        }
+      }
+    },
+    "When Kelp closes unexpectedly or the Mac restarts while agents are in the middle of a turn, they go on by themselves once Kelp is back, instead of waiting for Continue All. Uses their plans while you’re away.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если Kelp неожиданно закрылся или Mac перезагрузился посреди хода агентов, они сами продолжат, когда Kelp снова запустится, а не будут ждать «Продолжить все». Тратит их тарифы, пока вас нет."
+          }
+        }
+      }
+    },
+    "Kelp closed while %lld agents were working": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp closed while %lld agent was working"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp closed while %lld agents were working"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работал %lld агент"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агента"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агентов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kelp закрылся, пока работали %lld агента"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld agents stopped: Kelp closed at %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@ stopped: Kelp closed at %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg agent"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg agents"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@: Kelp закрылся в %2$@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агент прервался"
+                    }
+                  },
+                  "few": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агента прервались"
+                    }
+                  },
+                  "many": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агентов прервались"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg агента прервались"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     " · %@%lld%% on the %lld days before (%@)": {
       "localizations": {
         "ru": {
@@ -3177,7 +3441,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Проверка"
+            "value": "Доказательство"
           }
         }
       }
@@ -5186,6 +5450,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ещё %lld"
+          }
+        }
+      }
+    },
+    "%lld more matches": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё %lld"
+          }
+        }
+      }
+    },
+    "In Terminal Output": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В выводе терминалов"
           }
         }
       }
@@ -8726,16 +9010,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Режим дизайна"
-          }
-        }
-      }
-    },
-    "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Режим дизайна: нажмите на элемент, чтобы отправить агенту его исходник, HTML, CSS и снимок (⌥-клик копирует их)"
           }
         }
       }
@@ -12696,6 +12970,16 @@
         }
       }
     },
+    "No other agent on this screen. Start one with %@, then send again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране нет другого агента. Запустите его (%@) и отправьте снова."
+          }
+        }
+      }
+    },
     "No changes": {
       "localizations": {
         "ru": {
@@ -14637,7 +14921,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Время сброса"
+            "value": "Сбросить время"
           }
         }
       }
@@ -20675,16 +20959,6 @@
         }
       }
     },
-    "Check Again": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проверить снова"
-          }
-        }
-      }
-    },
     "It runs in a terminal tab; then Try Again.": {
       "localizations": {
         "ru": {
@@ -21574,6 +21848,99 @@
           "stringUnit": {
             "state": "translated",
             "value": "получено только что"
+          }
+        }
+      }
+    },
+    "Fetch in the background": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получать в фоне"
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане."
+          }
+        }
+      }
+    },
+    "Every 5 minutes while Kelp is in front, and at once when you come back to it, for the projects in the sidebar. Never asks for a password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 5 минут, пока Kelp на переднем плане, и сразу, когда вы к нему возвращаетесь, для проектов в боковой панели. Никогда не спрашивает пароль."
+          }
+        }
+      }
+    },
+    "offline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет сети"
+          }
+        }
+      }
+    },
+    "couldn’t fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не удалось получить"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти"
+          }
+        }
+      }
+    },
+    "%@ wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ просит войти, нажмите «Получить»"
+          }
+        }
+      }
+    },
+    "the remote wants a sign-in, press Fetch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер просит войти, нажмите «Получить»"
           }
         }
       }
@@ -23632,6 +23999,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перенести в группу"
+          }
+        }
+      }
+    },
+    "Back to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@"
+          }
+        }
+      }
+    },
+    "Back to %@ · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к %@ · %@"
           }
         }
       }
@@ -26975,7 +27362,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Спросить %@"
+            "value": "Попросить: %@"
           }
         }
       }
@@ -33688,16 +34075,6 @@
         }
       }
     },
-    "No Issues": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проблем нет"
-          }
-        }
-      }
-    },
     "%lld to Fix": {
       "localizations": {
         "ru": {
@@ -34112,16 +34489,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Подстройки"
-          }
-        }
-      }
-    },
-    "What should change?": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Что изменить?"
           }
         }
       }
@@ -37219,16 +37586,6 @@
         }
       }
     },
-    "Project": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Проект"
-          }
-        }
-      }
-    },
     "Ran": {
       "localizations": {
         "ru": {
@@ -37505,6 +37862,5960 @@
           "stringUnit": {
             "state": "translated",
             "value": "worktree %@"
+          }
+        }
+      }
+    },
+    "What should change?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что поменять?"
+          }
+        }
+      }
+    },
+    "What isn’t right yet?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что ещё не так?"
+          }
+        }
+      }
+    },
+    "Look at this": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Посмотрите сюда"
+          }
+        }
+      }
+    },
+    "To Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить"
+          }
+        }
+      }
+    },
+    "New": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые"
+          }
+        }
+      }
+    },
+    "Your Edits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши правки"
+          }
+        }
+      }
+    },
+    "With %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено (%@)"
+          }
+        }
+      }
+    },
+    "Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё раз"
+          }
+        }
+      }
+    },
+    "Changed in version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменён в версии"
+          }
+        }
+      }
+    },
+    "Gone in version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убран в версии"
+          }
+        }
+      }
+    },
+    "Not changed: its chat may say why": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не изменился: почему — может быть в чате"
+          }
+        }
+      }
+    },
+    "%@ finished its turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ закончил ход"
+          }
+        }
+      }
+    },
+    "Before": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Было"
+          }
+        }
+      }
+    },
+    "After": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стало"
+          }
+        }
+      }
+    },
+    "Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Элемент"
+          }
+        }
+      }
+    },
+    "Area": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Область"
+          }
+        }
+      }
+    },
+    "Pen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перо"
+          }
+        }
+      }
+    },
+    "Click an element on a board to mark it, or drag over an area, then say what should change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на элемент на доске или обведите область, затем напишите, что поменять."
+          }
+        }
+      }
+    },
+    "To check: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить: %lld"
+          }
+        }
+      }
+    },
+    "With %@: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено (%@): %lld"
+          }
+        }
+      }
+    },
+    "Sent: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено: %lld"
+          }
+        }
+      }
+    },
+    "By hand: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вручную: %@"
+          }
+        }
+      }
+    },
+    "Esc to end": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esc — выйти"
+          }
+        }
+      }
+    },
+    "Previous Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущая пометка"
+          }
+        }
+      }
+    },
+    "Next Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая пометка"
+          }
+        }
+      }
+    },
+    "The page as the mark was sent with it (or hold Space)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница такой, какой была при отправке пометки (или держите пробел)"
+          }
+        }
+      }
+    },
+    "Scenes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сцены"
+          }
+        }
+      }
+    },
+    "A Frame Back (←)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадр назад (←)"
+          }
+        }
+      }
+    },
+    "A Frame Forward (→)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадр вперёд (→)"
+          }
+        }
+      }
+    },
+    "Play (Space)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизвести (пробел)"
+          }
+        }
+      }
+    },
+    "Export Video…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировать видео…"
+          }
+        }
+      }
+    },
+    "Exporting %lld%%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспорт %lld%%"
+          }
+        }
+      }
+    },
+    "frame %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "кадр %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Motion": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ролик"
+          }
+        }
+      }
+    },
+    "Couldn’t make the video: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сделать видео: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t change “%@” in the page as it is now: give it a data-id.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось изменить «%@» в странице: дайте элементу data-id."
+          }
+        }
+      }
+    },
+    "The page changed since that edit, so it can’t be taken back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница изменилась после этой правки, отменить её нельзя."
+          }
+        }
+      }
+    },
+    "Opacity": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прозрачность"
+          }
+        }
+      }
+    },
+    "Play it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Смотреть"
+          }
+        }
+      }
+    },
+    "Its animation moves it: change that instead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его двигает анимация: меняйте её"
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать"
+          }
+        }
+      }
+    },
+    "Bring to Front": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На передний план"
+          }
+        }
+      }
+    },
+    "Send to Back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На задний план"
+          }
+        }
+      }
+    },
+    "Replace Image…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить картинку…"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the picture.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать картинку."
+          }
+        }
+      }
+    },
+    "How fast it plays": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скорость воспроизведения"
+          }
+        }
+      }
+    },
+    "Play Again at the End": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторять с начала"
+          }
+        }
+      }
+    },
+    "Frame Rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частота кадров"
+          }
+        }
+      }
+    },
+    "Export…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировать…"
+          }
+        }
+      }
+    },
+    "An MP4 or a GIF of the whole page, frame by frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MP4 или GIF всей страницы, кадр за кадром"
+          }
+        }
+      }
+    },
+    "Drop a picture on an image with a data-id to replace it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бросьте картинку на изображение с data-id, чтобы заменить его."
+          }
+        }
+      }
+    },
+    "Couldn’t copy the file.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать файл."
+          }
+        }
+      }
+    },
+    "Rename “%@” without quotes or < > &, then drop it again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименуйте «%@» без кавычек и < > &, затем бросьте снова."
+          }
+        }
+      }
+    },
+    "Show in the Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать в ролике"
+          }
+        }
+      }
+    },
+    "Hide in the Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть в ролике"
+          }
+        }
+      }
+    },
+    "Play Again at the End: On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторять с начала: вкл."
+          }
+        }
+      }
+    },
+    "How close the timeline looks (or pinch, or ⌘ and scroll)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Масштаб таймлайна (или жест, или ⌘ и прокрутка)"
+          }
+        }
+      }
+    },
+    "The stage’s shape": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Форма кадра"
+          }
+        }
+      }
+    },
+    "↩ add  ·  ⌘↩ send  ·  ⎋ remove": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ добавить  ·  ⌘↩ отправить  ·  ⎋ убрать"
+          }
+        }
+      }
+    },
+    "Timeline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Таймлайн"
+          }
+        }
+      }
+    },
+    "%@, scene, %@ to %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, сцена, с %2$@ до %3$@ с"
+          }
+        }
+      }
+    },
+    "%@%@, %@ to %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@%2$@, с %3$@ до %4$@ с"
+          }
+        }
+      }
+    },
+    ", hidden": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", скрыт"
+          }
+        }
+      }
+    },
+    "Mark %lld, at %@ seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка %1$lld, на %2$@ с"
+          }
+        }
+      }
+    },
+    "Play or Pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизвести или пауза"
+          }
+        }
+      }
+    },
+    "Duplicate Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать элемент"
+          }
+        }
+      }
+    },
+    "Delete Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить элемент"
+          }
+        }
+      }
+    },
+    "Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время"
+          }
+        }
+      }
+    },
+    "Offset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвиг"
+          }
+        }
+      }
+    },
+    "Frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер"
+          }
+        }
+      }
+    },
+    "Start · Length": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начало · длина"
+          }
+        }
+      }
+    },
+    "auto": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "авто"
+          }
+        }
+      }
+    },
+    "Medium": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Средний"
+          }
+        }
+      }
+    },
+    "Semibold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полужирный"
+          }
+        }
+      }
+    },
+    "Back to the Page’s Own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как на странице"
+          }
+        }
+      }
+    },
+    "s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "с"
+          }
+        }
+      }
+    },
+    "Design System": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дизайн-система"
+          }
+        }
+      }
+    },
+    "On the Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На странице"
+          }
+        }
+      }
+    },
+    "The work area: I and O set it, a click here takes it away": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочая область: её задают I и O, щелчок здесь убирает её"
+          }
+        }
+      }
+    },
+    "Only the Work Area (%.1f–%.1f s)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только рабочий отрезок (%.1f–%.1f с)"
+          }
+        }
+      }
+    },
+    "Trim the Start to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать начало до линии"
+          }
+        }
+      }
+    },
+    "Trim the End to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать конец до линии"
+          }
+        }
+      }
+    },
+    "Crop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадрировать"
+          }
+        }
+      }
+    },
+    "Add Font…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить шрифт…"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the font.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать шрифт."
+          }
+        }
+      }
+    },
+    "Keyframe at the Time (K)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевой кадр на линии (K)"
+          }
+        }
+      }
+    },
+    "Choose an element to give it a keyframe.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите элемент, чтобы дать ему ключевой кадр."
+          }
+        }
+      }
+    },
+    "The time is outside the element’s animation.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Линия времени вне анимации элемента."
+          }
+        }
+      }
+    },
+    "Easing After It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавность после него"
+          }
+        }
+      }
+    },
+    "Ease In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разгон"
+          }
+        }
+      }
+    },
+    "Ease Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Торможение"
+          }
+        }
+      }
+    },
+    "Ease In Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разгон и торможение"
+          }
+        }
+      }
+    },
+    "Back Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С отскоком назад"
+          }
+        }
+      }
+    },
+    "Spring": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пружина"
+          }
+        }
+      }
+    },
+    "Edit Curve…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить кривую…"
+          }
+        }
+      }
+    },
+    "Move to the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передвинуть на линию"
+          }
+        }
+      }
+    },
+    "Delete Keyframe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить ключевой кадр"
+          }
+        }
+      }
+    },
+    "Keyframes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевые кадры"
+          }
+        }
+      }
+    },
+    "Easing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавность"
+          }
+        }
+      }
+    },
+    "Curve": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кривая"
+          }
+        }
+      }
+    },
+    "Wiggle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дрожь"
+          }
+        }
+      }
+    },
+    "Bounce": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отскок"
+          }
+        }
+      }
+    },
+    "Swings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колебаний"
+          }
+        }
+      }
+    },
+    "Ready Ones": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заготовки"
+          }
+        }
+      }
+    },
+    "Arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка"
+          }
+        }
+      }
+    },
+    "Label": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подпись"
+          }
+        }
+      }
+    },
+    "The Whole Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Весь ролик"
+          }
+        }
+      }
+    },
+    "Waiting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждут"
+          }
+        }
+      }
+    },
+    "No mark is done yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовых пометок пока нет."
+          }
+        }
+      }
+    },
+    "A mark about the whole video, not one moment of it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометка ко всему ролику, а не к одному моменту"
+          }
+        }
+      }
+    },
+    "Send %d": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить %d"
+          }
+        }
+      }
+    },
+    "Queue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В очередь"
+          }
+        }
+      }
+    },
+    "Send Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить сейчас"
+          }
+        }
+      }
+    },
+    "%@ is working": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ работает"
+          }
+        }
+      }
+    },
+    "%d queued": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в очереди %d"
+          }
+        }
+      }
+    },
+    "As Designed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как задумано"
+          }
+        }
+      }
+    },
+    "Computer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компьютер"
+          }
+        }
+      }
+    },
+    "Tablet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Планшет"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой"
+          }
+        }
+      }
+    },
+    "Custom Size…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой размер…"
+          }
+        }
+      }
+    },
+    "Custom Size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой размер"
+          }
+        }
+      }
+    },
+    "Width × height, in pixels.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина × высота, в пикселях."
+          }
+        }
+      }
+    },
+    "Turn the Device": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повернуть"
+          }
+        }
+      }
+    },
+    "The screen it is seen on": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран, на котором её смотрят"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия"
+          }
+        }
+      }
+    },
+    "Versions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версии"
+          }
+        }
+      }
+    },
+    "Search Prompts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по промптам"
+          }
+        }
+      }
+    },
+    "Restore v%lld…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть v%lld…"
+          }
+        }
+      }
+    },
+    "Restore…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть…"
+          }
+        }
+      }
+    },
+    "Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас"
+          }
+        }
+      }
+    },
+    "Restored": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Возвращена"
+          }
+        }
+      }
+    },
+    "The page as it is now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница, как она сейчас"
+          }
+        }
+      }
+    },
+    "%lld versions · Kelp keeps the last %lld turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версий: %lld · Kelp хранит последние %lld ходов"
+          }
+        }
+      }
+    },
+    "Restore version %lld?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть версию %lld?"
+          }
+        }
+      }
+    },
+    "The page becomes version %lld again, kept as a new version: nothing is erased.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница снова станет версией %lld и сохранится новой версией: ничего не сотрётся."
+          }
+        }
+      }
+    },
+    "Notes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметки"
+          }
+        }
+      }
+    },
+    "Slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайд"
+          }
+        }
+      }
+    },
+    "Notes for this slide: only you see them while presenting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметки к слайду: при показе их видите только вы"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза"
+          }
+        }
+      }
+    },
+    "Present with Notes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать с заметками"
+          }
+        }
+      }
+    },
+    "Presenter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окно докладчика"
+          }
+        }
+      }
+    },
+    "Coming Next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дальше"
+          }
+        }
+      }
+    },
+    "Go On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "Boards as PNG…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доски как PNG…"
+          }
+        }
+      }
+    },
+    "Slides as PDF…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды как PDF…"
+          }
+        }
+      }
+    },
+    "Slides as PowerPoint…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды как PowerPoint…"
+          }
+        }
+      }
+    },
+    "Page as One HTML…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница одним HTML…"
+          }
+        }
+      }
+    },
+    "Folder as ZIP…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка как ZIP…"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспорт"
+          }
+        }
+      }
+    },
+    "Export Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировать сюда"
+          }
+        }
+      }
+    },
+    "Couldn’t export: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось экспортировать: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t open the page to export it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть страницу для выгрузки."
+          }
+        }
+      }
+    },
+    "Best": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лучшее"
+          }
+        }
+      }
+    },
+    "Good": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хорошее"
+          }
+        }
+      }
+    },
+    "Small": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленький файл"
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Качество"
+          }
+        }
+      }
+    },
+    "ProRes 4444 · transparent background": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ProRes 4444 · прозрачный фон"
+          }
+        }
+      }
+    },
+    "sound": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "звук"
+          }
+        }
+      }
+    },
+    "%lld warnings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "предупреждений: %lld"
+          }
+        }
+      }
+    },
+    "The file doesn't open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается"
+          }
+        }
+      }
+    },
+    "No picture in the file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В файле нет картинки"
+          }
+        }
+      }
+    },
+    "The file doesn't open: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается: %@"
+          }
+        }
+      }
+    },
+    "%lld×%lld instead of %lld×%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld×%lld вместо %lld×%lld"
+          }
+        }
+      }
+    },
+    "%@ fps instead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ fps вместо %@"
+          }
+        }
+      }
+    },
+    "%@ s instead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ с вместо %@"
+          }
+        }
+      }
+    },
+    "No sound, though the page has some": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет звука, хотя на странице он есть"
+          }
+        }
+      }
+    },
+    "When Changing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При смене"
+          }
+        }
+      }
+    },
+    "As It Is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
+    },
+    "Moved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвинут"
+          }
+        }
+      }
+    },
+    "Gone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропал"
+          }
+        }
+      }
+    },
+    "Point Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указать заново"
+          }
+        }
+      }
+    },
+    "%@ asks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спрашивает"
+          }
+        }
+      }
+    },
+    "Your answer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш ответ"
+          }
+        }
+      }
+    },
+    "Next you might ask": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно спросить дальше"
+          }
+        }
+      }
+    },
+    "The Whole Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вся страница"
+          }
+        }
+      }
+    },
+    "Layers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слои"
+          }
+        }
+      }
+    },
+    "↑ parent · ↓ inside · ⇥ next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑ к родителю · ↓ внутрь · ⇥ соседний"
+          }
+        }
+      }
+    },
+    "All like this": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все такие же"
+          }
+        }
+      }
+    },
+    "on %d boards": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на %d досках"
+          }
+        }
+      }
+    },
+    "Duplicate Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дублировать доску"
+          }
+        }
+      }
+    },
+    "Remove Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать доску"
+          }
+        }
+      }
+    },
+    "copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "копия"
+          }
+        }
+      }
+    },
+    "Three More Like This": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё три как эта"
+          }
+        }
+      }
+    },
+    "canvas.json doesn't read: fix it first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "canvas.json не читается: сначала исправьте его."
+          }
+        }
+      }
+    },
+    "Build in Code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать в коде"
+          }
+        }
+      }
+    },
+    "Build in Code…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать в коде…"
+          }
+        }
+      }
+    },
+    "An agent writes it as working code that keeps this look, and says how to run and check it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент напишет рабочий код с тем же видом и скажет, как его запустить и проверить."
+          }
+        }
+      }
+    },
+    "With it: the page, the tokens, its pictures, %lld decided marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С собой: страница, токены, картинки, решённых пометок: %lld"
+          }
+        }
+      }
+    },
+    "What": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что"
+          }
+        }
+      }
+    },
+    "Stack": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стек"
+          }
+        }
+      }
+    },
+    "Run its sources again, or ask its agent to": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить её источники снова или попросить агента"
+          }
+        }
+      }
+    },
+    "Run this dashboard’s commands?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить команды этого дашборда?"
+          }
+        }
+      }
+    },
+    "Its agent wrote them to read its numbers. Kelp runs them on Update from now on:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их написал агент, чтобы получать числа. Дальше Kelp запускает их по кнопке «Обновить»:"
+          }
+        }
+      }
+    },
+    "Allow and Update": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить и обновить"
+          }
+        }
+      }
+    },
+    "Not updated: %@ (its command failed)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не обновлено: %@ (команда не сработала)"
+          }
+        }
+      }
+    },
+    "Entrance and Exit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появление и уход"
+          }
+        }
+      }
+    },
+    "Comes In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Появление"
+          }
+        }
+      }
+    },
+    "Goes Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уход"
+          }
+        }
+      }
+    },
+    "Length": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длина"
+          }
+        }
+      }
+    },
+    "Fade": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавно"
+          }
+        }
+      }
+    },
+    "Rise": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подъём"
+          }
+        }
+      }
+    },
+    "Pop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хлопок"
+          }
+        }
+      }
+    },
+    "By Letters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По буквам"
+          }
+        }
+      }
+    },
+    "By Words": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По словам"
+          }
+        }
+      }
+    },
+    "Rise Away": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уход вверх"
+          }
+        }
+      }
+    },
+    "Transition %@ s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход %@ с"
+          }
+        }
+      }
+    },
+    "Crossfade": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наплыв"
+          }
+        }
+      }
+    },
+    "Slide Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвиг влево"
+          }
+        }
+      }
+    },
+    "Wipe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шторка"
+          }
+        }
+      }
+    },
+    "Remove Transition": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать переход"
+          }
+        }
+      }
+    },
+    "Also in Other Formats…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё и в других форматах…"
+          }
+        }
+      }
+    },
+    "Also in Other Formats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё и в других форматах"
+          }
+        }
+      }
+    },
+    "Its agent makes each as a page of its own, laid out again for the shape, and exports them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сделает каждый отдельной страницей, переставив под форму, и выгрузит их."
+          }
+        }
+      }
+    },
+    "As it is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
+    },
+    "15 seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 секунд"
+          }
+        }
+      }
+    },
+    "6 seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 секунд"
+          }
+        }
+      }
+    },
+    "Subtitles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры"
+          }
+        }
+      }
+    },
+    "No subtitles in “%@”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» нет субтитров."
+          }
+        }
+      }
+    },
+    "Box": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плашка"
+          }
+        }
+      }
+    },
+    "Plain": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просто"
+          }
+        }
+      }
+    },
+    "Outline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обводка"
+          }
+        }
+      }
+    },
+    "Highlight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маркер"
+          }
+        }
+      }
+    },
+    "Middle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Посередине"
+          }
+        }
+      }
+    },
+    "Look": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вид"
+          }
+        }
+      }
+    },
+    "Place": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место"
+          }
+        }
+      }
+    },
+    "Sound": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук"
+          }
+        }
+      }
+    },
+    "Volume": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость"
+          }
+        }
+      }
+    },
+    "Starts in the File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начало в файле"
+          }
+        }
+      }
+    },
+    "Fade In · Out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нарастание · затухание"
+          }
+        }
+      }
+    },
+    "No": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет"
+          }
+        }
+      }
+    },
+    "Yes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Да"
+          }
+        }
+      }
+    },
+    "Opens in the same window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывается в том же окне"
+          }
+        }
+      }
+    },
+    "New Window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое окно"
+          }
+        }
+      }
+    },
+    "Picture": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинка"
+          }
+        }
+      }
+    },
+    "Description": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Описание"
+          }
+        }
+      }
+    },
+    "VoiceOver reads its description": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoiceOver читает описание"
+          }
+        }
+      }
+    },
+    "Decoration": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Декор"
+          }
+        }
+      }
+    },
+    "Decoration: VoiceOver skips it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Декор: VoiceOver пропускает её"
+          }
+        }
+      }
+    },
+    "Arrange": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раскладка"
+          }
+        }
+      }
+    },
+    "Direction": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Направление"
+          }
+        }
+      }
+    },
+    "Across": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поперёк"
+          }
+        }
+      }
+    },
+    "Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вниз"
+          }
+        }
+      }
+    },
+    "Distribute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распределить"
+          }
+        }
+      }
+    },
+    "Align": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять"
+          }
+        }
+      }
+    },
+    "End": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В конец"
+          }
+        }
+      }
+    },
+    "Space Between": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поровну между"
+          }
+        }
+      }
+    },
+    "Stretch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Растянуть"
+          }
+        }
+      }
+    },
+    "Use %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять %@"
+          }
+        }
+      }
+    },
+    "All %d": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все %d"
+          }
+        }
+      }
+    },
+    "Closest Token": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ближайший токен"
+          }
+        }
+      }
+    },
+    "Describe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать описание"
+          }
+        }
+      }
+    },
+    "Mark It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометить"
+          }
+        }
+      }
+    },
+    "Drag to see it at any width": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потяните, чтобы увидеть на любой ширине"
+          }
+        }
+      }
+    },
+    "Flow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход"
+          }
+        }
+      }
+    },
+    "Goes To": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ведёт на"
+          }
+        }
+      }
+    },
+    "Nowhere": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Никуда"
+          }
+        }
+      }
+    },
+    "To the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенту"
+          }
+        }
+      }
+    },
+    "Needs a screen after this: what happens when it's pressed?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен экран после этого: что происходит при нажатии?"
+          }
+        }
+      }
+    },
+    "As Is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как есть"
+          }
+        }
+      }
+    },
+    "+40%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+40 %"
+          }
+        }
+      }
+    },
+    "RTL": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RTL"
+          }
+        }
+      }
+    },
+    "Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видео"
+          }
+        }
+      }
+    },
+    "Speed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скорость"
+          }
+        }
+      }
+    },
+    "Loop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторять"
+          }
+        }
+      }
+    },
+    "Close Gap": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть промежуток"
+          }
+        }
+      }
+    },
+    "Close All Gaps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть все промежутки"
+          }
+        }
+      }
+    },
+    "Forever": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По кругу"
+          }
+        }
+      }
+    },
+    "Once": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один раз"
+          }
+        }
+      }
+    },
+    "GIF Plays": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GIF играет"
+          }
+        }
+      }
+    },
+    "Frame as PNG…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кадр как PNG…"
+          }
+        }
+      }
+    },
+    "Open with the Frame at %.2f s as Its Cover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать с кадра на %.2f с как с обложки"
+          }
+        }
+      }
+    },
+    "Couldn’t save the frame: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить кадр: %@"
+          }
+        }
+      }
+    },
+    "Subtitles from Text…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры из текста…"
+          }
+        }
+      }
+    },
+    "Subtitles from Text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субтитры из текста"
+          }
+        }
+      }
+    },
+    "Each line is a subtitle. They share the work area, or the rest from the time shown, by length.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждая строка — субтитр. Они делят рабочую область или время от указателя до конца по длине строк."
+          }
+        }
+      }
+    },
+    "Make Subtitles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать субтитры"
+          }
+        }
+      }
+    },
+    "Under a Voice": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Под голосом"
+          }
+        }
+      }
+    },
+    "Decibels quieter while another sound plays": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На сколько децибел тише, пока звучит другой звук"
+          }
+        }
+      }
+    },
+    "Level To": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять"
+          }
+        }
+      }
+    },
+    "Brought to this loudness (LUFS) in the video: −14 is what most sites play at": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость в ролике (LUFS): −14 — как играют большинство сайтов"
+          }
+        }
+      }
+    },
+    "Document": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ"
+          }
+        }
+      }
+    },
+    "Make an Artifact from “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать артефакт из «%@»"
+          }
+        }
+      }
+    },
+    "An agent makes it from the file, which is kept beside it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сделает его из файла, а файл останется рядом."
+          }
+        }
+      }
+    },
+    "Make from This": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать из этого"
+          }
+        }
+      }
+    },
+    "Rehearse": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетиция"
+          }
+        }
+      }
+    },
+    "Rehearse…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетировать…"
+          }
+        }
+      }
+    },
+    "Present with notes against a length; each slide is timed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показ с заметками на время: каждый слайд засекается."
+          }
+        }
+      }
+    },
+    "minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "минут"
+          }
+        }
+      }
+    },
+    "Rehearsal: %@ of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репетиция: %@ из %@"
+          }
+        }
+      }
+    },
+    "Slide %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайд %lld"
+          }
+        }
+      }
+    },
+    "aiming at": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "цель"
+          }
+        }
+      }
+    },
+    "on this slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на этом слайде"
+          }
+        }
+      }
+    },
+    "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them, ⇧-click copies its picture for an artifact's mark)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим дизайна: нажмите на элемент, чтобы отправить агенту его исходник, HTML, CSS и снимок (⌥-клик копирует их, ⇧-клик копирует его картинку для пометки артефакта)"
+          }
+        }
+      }
+    },
+    "Copied as a picture: paste it into a mark's note to make it the example": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано картинкой: вставьте в заметку пометки, чтобы она стала образцом"
+          }
+        }
+      }
+    },
+    "The Chart’s Numbers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Числа графика"
+          }
+        }
+      }
+    },
+    "Type over a number or a name. The agent draws the chart again from them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправьте число или название. Агент перерисует график по ним."
+          }
+        }
+      }
+    },
+    "Its words as text boxes over each slide's picture, or the slides as pictures, exactly as here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слова — текстовыми полями поверх картинки каждого слайда, или слайды картинками, точно как здесь."
+          }
+        }
+      }
+    },
+    "Text Can Be Changed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст можно править"
+          }
+        }
+      }
+    },
+    "As Pictures": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинками"
+          }
+        }
+      }
+    },
+    "From Data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из данных"
+          }
+        }
+      }
+    },
+    "Column": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Столбец"
+          }
+        }
+      }
+    },
+    "Not from Data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не из данных"
+          }
+        }
+      }
+    },
+    "“%@” has no columns.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В «%@» нет столбцов."
+          }
+        }
+      }
+    },
+    "Nothing on this page takes a column of a table yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этой странице пока ничто не берёт столбец таблицы."
+          }
+        }
+      }
+    },
+    "For Each Row of Its Table…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для каждой строки таблицы…"
+          }
+        }
+      }
+    },
+    "%@ didn’t answer it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответа от %@ нет"
+          }
+        }
+      }
+    },
+    "“%@” moves by an animation that never ends: change it in its code.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» двигает бесконечная анимация: меняйте её в коде."
+          }
+        }
+      }
+    },
+    "“%@” moves only while its animation runs: put the playhead there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» движется, только пока идёт его анимация: поставьте туда указатель времени."
+          }
+        }
+      }
+    },
+    "Fit Timeline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать таймлайн"
+          }
+        }
+      }
+    },
+    "Lock in Place": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Mark the Whole Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометить весь ролик"
+          }
+        }
+      }
+    },
+    "Numbers…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Числа…"
+          }
+        }
+      }
+    },
+    "Split at the Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать здесь"
+          }
+        }
+      }
+    },
+    "Take from a Table…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять из таблицы…"
+          }
+        }
+      }
+    },
+    "Turned or scaled: its corners would pull it askew": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повёрнут или масштабирован: углы потянут его вкривь"
+          }
+        }
+      }
+    },
+    "Unlock: Choose and Move It on the Stage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить: выбирать и двигать на сцене"
+          }
+        }
+      }
+    },
+    "Variations of This Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты этой доски"
+          }
+        }
+      }
+    },
+    "Variations of This Slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Варианты этого слайда"
+          }
+        }
+      }
+    },
+    "What should change? A picture dropped here is an example.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что изменить? Картинка, брошенная сюда, — пример."
+          }
+        }
+      }
+    },
+    "Work Area %.1f–%.1f s": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рабочая область %.1f–%.1f с"
+          }
+        }
+      }
+    },
+    "Check Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить снова"
+          }
+        }
+      }
+    },
+    "A video drawn as a page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ролик, нарисованный страницей"
+          }
+        }
+      }
+    },
+    "Pictures that a change works": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимки, что правка работает"
+          }
+        }
+      }
+    },
+    "Document as PDF…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как PDF…"
+          }
+        }
+      }
+    },
+    "Document as Word…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как Word…"
+          }
+        }
+      }
+    },
+    "Document as Markdown…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как Markdown…"
+          }
+        }
+      }
+    },
+    "When Opened": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При открытии"
+          }
+        }
+      }
+    },
+    "Every 15 Minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 15 минут"
+          }
+        }
+      }
+    },
+    "Every Hour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый час"
+          }
+        }
+      }
+    },
+    "Colours, fonts and parts from a website, brand files or the project’s code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвета, шрифты и детали с сайта, из файлов бренда или из кода проекта"
+          }
+        }
+      }
+    },
+    "Another Like This…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё одну такую…"
+          }
+        }
+      }
+    },
+    "Insert Block": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить блок"
+          }
+        }
+      }
+    },
+    "Name Plate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плашка с именем"
+          }
+        }
+      }
+    },
+    "Title Card": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Титр"
+          }
+        }
+      }
+    },
+    "Quote": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цитата"
+          }
+        }
+      }
+    },
+    "Big Number": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Большое число"
+          }
+        }
+      }
+    },
+    "Section Title": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заголовок раздела"
+          }
+        }
+      }
+    },
+    "Progress Bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полоса прогресса"
+          }
+        }
+      }
+    },
+    "Call to Action": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Призыв"
+          }
+        }
+      }
+    },
+    "End Card": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Финальная карточка"
+          }
+        }
+      }
+    },
+    "Pill": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Капсула"
+          }
+        }
+      }
+    },
+    "Serif": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С засечками"
+          }
+        }
+      }
+    },
+    "Quiet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тихий"
+          }
+        }
+      }
+    },
+    "Publish…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Опубликовать…"
+          }
+        }
+      }
+    },
+    "Open Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть ссылку"
+          }
+        }
+      }
+    },
+    "Update the Published Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить опубликованную страницу"
+          }
+        }
+      }
+    },
+    "Bring In Its Comments": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забрать комментарии"
+          }
+        }
+      }
+    },
+    "That one has formatting, a list or a quote in it: change it in Edit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В нём есть оформление, список или цитата: поменяйте это в Edit."
+          }
+        }
+      }
+    },
+    "Show the Text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать текст"
+          }
+        }
+      }
+    },
+    "Show as a Table": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать таблицей"
+          }
+        }
+      }
+    },
+    "%@ kept changing as you edited it, so that change isn’t written: drawn again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ менялся, пока вы правили, поэтому правка не записана: показано заново."
+          }
+        }
+      }
+    },
+    "The page stopped responding, so it was drawn again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница перестала отвечать, поэтому показана заново."
+          }
+        }
+      }
+    },
+    "Rename Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать страницу"
+          }
+        }
+      }
+    },
+    "Share…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться…"
+          }
+        }
+      }
+    },
+    "Copy as Picture": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать как картинку"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the picture: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось скопировать картинку: %@"
+          }
+        }
+      }
+    },
+    "Don’t Keep It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не хранить"
+          }
+        }
+      }
+    },
+    "Save This Version…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить эту версию…"
+          }
+        }
+      }
+    },
+    "Save Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить версию %lld"
+          }
+        }
+      }
+    },
+    "A saved version keeps its name and isn’t removed with the oldest.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённая версия хранит своё имя и не удаляется вместе со старыми."
+          }
+        }
+      }
+    },
+    "Saved versions: %@ doesn’t read.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённые версии: %@ не читается."
+          }
+        }
+      }
+    },
+    "Ready to check: %lld marks came back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно проверять: вернулось пометок — %lld"
+          }
+        }
+      }
+    },
+    "Keep its %lld pages in the project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить её страницы в проекте (%lld)"
+          }
+        }
+      }
+    },
+    "Its folder goes, and with it the pages agents made on this branch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка уйдёт, а с ней и страницы, которые агенты сделали в этой ветке."
+          }
+        }
+      }
+    },
+    "Artifact: View": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: просмотр"
+          }
+        }
+      }
+    },
+    "Artifact: Mark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: пометки"
+          }
+        }
+      }
+    },
+    "Artifact: Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Артефакт: правка"
+          }
+        }
+      }
+    },
+    "also changed %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ещё изменено: %@"
+          }
+        }
+      }
+    },
+    "What the agent’s turn on these marks cost: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько стоил ход агента по этим пометкам: %@"
+          }
+        }
+      }
+    },
+    "A question: the agent answers it and changes nothing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопрос: агент отвечает и ничего не меняет"
+          }
+        }
+      }
+    },
+    "Send To…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить…"
+          }
+        }
+      }
+    },
+    "No agent chats in this workspace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этой рабочей области нет чатов агентов"
+          }
+        }
+      }
+    },
+    "Undo the Agent’s Last Turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить последний ход агента"
+          }
+        }
+      }
+    },
+    "The page as version %lld was, kept as a new version: nothing is erased": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница как в версии %lld, сохранённая новой версией: ничего не стирается"
+          }
+        }
+      }
+    },
+    "Other Colour…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другой цвет…"
+          }
+        }
+      }
+    },
+    "too faint for text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слишком бледно для текста"
+          }
+        }
+      }
+    },
+    "%d chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрано: %d"
+          }
+        }
+      }
+    },
+    "Line Up Left Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по левому краю"
+          }
+        }
+      }
+    },
+    "Line Up Centres": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по центру"
+          }
+        }
+      }
+    },
+    "Line Up Right Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по правому краю"
+          }
+        }
+      }
+    },
+    "Line Up Tops": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по верху"
+          }
+        }
+      }
+    },
+    "Line Up Middles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по середине"
+          }
+        }
+      }
+    },
+    "Line Up Bottoms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по низу"
+          }
+        }
+      }
+    },
+    "Space Evenly Across": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распределить по горизонтали"
+          }
+        }
+      }
+    },
+    "Space Evenly Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распределить по вертикали"
+          }
+        }
+      }
+    },
+    "Insert": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить"
+          }
+        }
+      }
+    },
+    "Rectangle": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прямоугольник"
+          }
+        }
+      }
+    },
+    "Button": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопка"
+          }
+        }
+      }
+    },
+    "Picture…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинка…"
+          }
+        }
+      }
+    },
+    "Lines and Letters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строки и буквы"
+          }
+        }
+      }
+    },
+    "Line Height": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Межстрочный"
+          }
+        }
+      }
+    },
+    "Letter Spacing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Трекинг"
+          }
+        }
+      }
+    },
+    "Tight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плотно"
+          }
+        }
+      }
+    },
+    "Wide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свободно"
+          }
+        }
+      }
+    },
+    "Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Края"
+          }
+        }
+      }
+    },
+    "Border": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рамка"
+          }
+        }
+      }
+    },
+    "Shadow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тень"
+          }
+        }
+      }
+    },
+    "Hairline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкая"
+          }
+        }
+      }
+    },
+    "Accent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Акцент"
+          }
+        }
+      }
+    },
+    "Corners": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Углы"
+          }
+        }
+      }
+    },
+    "top": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сверху"
+          }
+        }
+      }
+    },
+    "right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "справа"
+          }
+        }
+      }
+    },
+    "bottom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "снизу"
+          }
+        }
+      }
+    },
+    "left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слева"
+          }
+        }
+      }
+    },
+    "Hide or Show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть или показать"
+          }
+        }
+      }
+    },
+    "Lock or Unlock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить или открепить"
+          }
+        }
+      }
+    },
+    "Align Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По левому краю"
+          }
+        }
+      }
+    },
+    "Centre": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По центру"
+          }
+        }
+      }
+    },
+    "Align Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По правому краю"
+          }
+        }
+      }
+    },
+    "Keys…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши…"
+          }
+        }
+      }
+    },
+    "Keys": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиши"
+          }
+        }
+      }
+    },
+    "Page: ⌥⌘1 View · ⌥⌘2 Mark · ⌥⌘3 Edit · ⌃⌘← ⌃⌘→ versions · ⌘F find": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница: ⌥⌘1 View · ⌥⌘2 Mark · ⌥⌘3 Edit · ⌃⌘← ⌃⌘→ версии · ⌘F поиск"
+          }
+        }
+      }
+    },
+    "Canvas: ⌘+ ⌘− zoom · ⌘9 fit · ⇧2 to the chosen element · Space and drag to move": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Холст: ⌘+ ⌘− масштаб · ⌘9 вписать · ⇧2 к выбранному · пробел и перетаскивание — сдвиг"
+          }
+        }
+      }
+    },
+    "Layers: ↑ parent · ↓ inside · ⇥ next · double-click renames": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слои: ↑ родитель · ↓ внутрь · ⇥ следующий · двойной клик — переименовать"
+          }
+        }
+      }
+    },
+    "Video: Space plays · S splits · [ ] trim · I O set the work area · K adds a key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ролик: пробел — пуск · S режет · [ ] обрезают · I O — рабочая область · K — ключ"
+          }
+        }
+      }
+    },
+    "Edit: click chooses · ⇧-click adds · arrows move (⇧ by 10) · ⌘C ⌘V copy and paste": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit: клик выбирает · ⇧-клик добавляет · стрелки двигают (⇧ — на 10) · ⌘C ⌘V копировать и вставить"
+          }
+        }
+      }
+    },
+    "⌘D duplicate · ⌫ remove · Esc chooses nothing · ⌘Z undo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘D дублировать · ⌫ удалить · Esc снимает выбор · ⌘Z отменить"
+          }
+        }
+      }
+    },
+    "%lld Branches": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Branch"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Branches"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ветки"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld веток"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ветка"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ветки"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ · %lld Repositories": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld Repository"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld Repositories"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld репозитория"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld репозиториев"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld репозиторий"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ · %lld репозитория"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Commit in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммит в %@"
+          }
+        }
+      }
+    },
+    "Commit in %lld Repositories": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Commit in %lld Repository"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Commit in %lld Repositories"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Коммит в %lld репозитория"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Коммит в %lld репозиториев"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Коммит в %lld репозиторий"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Коммит в %lld репозитория"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ is on %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ на ветке %2$@"
+          }
+        }
+      }
+    },
+    "Commit in each repository with changes, with this message (⌘↩ in the message)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммит в каждый репозиторий с изменениями, с этим сообщением (⌘↩ в сообщении)"
+          }
+        }
+      }
+    },
+    "%lld PR": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld PR"
+          }
+        }
+      }
+    },
+    "A new branch in each repository, side by side in a folder of its own: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая ветка в каждом репозитории, рядом, в своей папке: %@"
+          }
+        }
+      }
+    },
+    "Own Branch makes it in each repository: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Своя ветка — в каждом репозитории: %@"
+          }
+        }
+      }
+    },
+    "Thin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкая"
+          }
+        }
+      }
+    },
+    "The agent asks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент спрашивает"
+          }
+        }
+      }
+    },
+    "The name the panel and the tab show.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя, которое видно в панели и на вкладке."
+          }
+        }
+      }
+    },
+    "How many minutes to aim at? Each slide is timed while you present with notes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько минут вы хотите уложиться? Каждый слайд засекается, пока вы показываете с заметками."
+          }
+        }
+      }
+    },
+    "Search Versions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по версиям"
+          }
+        }
+      }
+    },
+    "Kept versions’ names can’t be read: fix %@ or remove it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имена хранимых версий не читаются: исправьте %@ или удалите его."
+          }
+        }
+      }
+    },
+    "Restore Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть версию %lld"
+          }
+        }
+      }
+    },
+    "Kept": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранится"
+          }
+        }
+      }
+    },
+    "Stop Keeping This Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше не хранить"
+          }
+        }
+      }
+    },
+    "Keep This Version…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранить эту версию…"
+          }
+        }
+      }
+    },
+    "Keep Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранить версию %lld"
+          }
+        }
+      }
+    },
+    "A kept version shows by its name and isn’t removed with the oldest.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранимая версия видна под своим именем и не удаляется вместе со старыми."
+          }
+        }
+      }
+    },
+    "Canvas": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Холст"
+          }
+        }
+      }
+    },
+    "View, Mark, Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вид, Пометки, Правка"
+          }
+        }
+      }
+    },
+    "Zoom to the Chosen Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приблизить к выбранному"
+          }
+        }
+      }
+    },
+    "Space-drag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пробел и тянуть"
+          }
+        }
+      }
+    },
+    "Move Around": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двигать холст"
+          }
+        }
+      }
+    },
+    "⇧-click": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇧-щелчок"
+          }
+        }
+      }
+    },
+    "Add to the Chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить к выбранным"
+          }
+        }
+      }
+    },
+    "Move (⇧ by 10)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвинуть (⇧ — на 10)"
+          }
+        }
+      }
+    },
+    "Copy and Paste": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать и вставить"
+          }
+        }
+      }
+    },
+    "Choose Nothing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять выбор"
+          }
+        }
+      }
+    },
+    "Parent, Inside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Родитель, внутрь"
+          }
+        }
+      }
+    },
+    "Double-click": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двойной щелчок"
+          }
+        }
+      }
+    },
+    "Split at Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать по указателю"
+          }
+        }
+      }
+    },
+    "Trim to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать до указателя"
+          }
+        }
+      }
+    },
+    "Set the Work Area": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задать рабочую область"
+          }
+        }
+      }
+    },
+    "Add Keyframe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить ключевой кадр"
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сочетания клавиш"
+          }
+        }
+      }
+    },
+    "Replace Picture…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить картинку…"
+          }
+        }
+      }
+    },
+    "Only a picture can be replaced: choose one on the page first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить можно только картинку: сначала выберите её на странице."
+          }
+        }
+      }
+    },
+    "Make a Page from “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать страницу из «%@»"
+          }
+        }
+      }
+    },
+    "Keep the pages made here in the project (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить страницы, сделанные здесь, в проекте (%lld)"
+          }
+        }
+      }
+    },
+    "Its agent wrote them to read its numbers. Kelp runs them on Update from now on.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их написал агент дашборда, чтобы читать его числа. С этого момента Kelp запускает их по «Обновить»."
+          }
+        }
+      }
+    },
+    "Not updated: %@. Its command failed: ask the agent to fix it in canvas.json.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не обновлено: %@. Команда не сработала: попросите агента исправить её в canvas.json."
+          }
+        }
+      }
+    },
+    "A size is two numbers from 100 to 4000, such as 1280 × 800.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер — два числа от 100 до 4000, например 1280 × 800."
+          }
+        }
+      }
+    },
+    "Pause (Space)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза (пробел)"
+          }
+        }
+      }
+    },
+    "ran long": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дольше нужного"
+          }
+        }
+      }
+    },
+    "Too faint for text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком бледно для текста"
+          }
+        }
+      }
+    },
+    "Other Color…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другой цвет…"
+          }
+        }
+      }
+    },
+    "Try On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Примерить"
+          }
+        }
+      }
+    },
+    "As Written": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как написано"
+          }
+        }
+      }
+    },
+    "Longer Text (+40%)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длинный текст (+40 %)"
+          }
+        }
+      }
+    },
+    "Right to Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справа налево"
+          }
+        }
+      }
+    },
+    "Needs a board after this: what happens when it’s pressed?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужна доска после этой: что будет при нажатии?"
+          }
+        }
+      }
+    },
+    "Show As": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать как"
+          }
+        }
+      }
+    },
+    "Delete Rows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить строки"
+          }
+        }
+      }
+    },
+    "No Columns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет колонок"
+          }
+        }
+      }
+    },
+    "Its first line names the columns, separated by commas.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первая строка называет колонки через запятую."
+          }
+        }
+      }
+    },
+    "Lock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Unlock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить"
+          }
+        }
+      }
+    },
+    "Line Up Centers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по центрам"
+          }
+        }
+      }
+    },
+    "Small Shadow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленькая тень"
+          }
+        }
+      }
+    },
+    "At Start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В начало"
+          }
+        }
+      }
+    },
+    "Move to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передвинуть к указателю"
+          }
+        }
+      }
+    },
+    "Presets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовые"
+          }
+        }
+      }
+    },
+    "Even Speed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Равномерно"
+          }
+        }
+      }
+    },
+    "Couldn’t find “%@” on the page any more. Ask the agent to make it editable.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось найти «%@» на странице. Попросите агента сделать его изменяемым."
+          }
+        }
+      }
+    },
+    "Publish": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Опубликовать"
+          }
+        }
+      }
+    },
+    "Bring In Comments as Marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забрать комментарии в пометки"
+          }
+        }
+      }
+    },
+    "Other Sizes and Lengths": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие размеры и длины"
+          }
+        }
+      }
+    },
+    "15 Seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 секунд"
+          }
+        }
+      }
+    },
+    "6 Seconds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 секунд"
+          }
+        }
+      }
+    },
+    "⎋ to end": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⎋ — закончить"
+          }
+        }
+      }
+    },
+    "Width · Height": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина · высота"
+          }
+        }
+      }
+    },
+    "Align Center": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По центру"
+          }
+        }
+      }
+    },
+    "That element isn’t in %@ any more: here it is as it is now.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этого элемента больше нет в %@: вот как она выглядит сейчас."
+          }
+        }
+      }
+    },
+    "%@ changed while you edited it, so that edit isn’t written.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доска %@ менялась, пока вы правили, поэтому правка не записана."
+          }
+        }
+      }
+    },
+    "Only a picture on the page can be replaced: drop it on one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить можно только картинку на странице: бросьте на неё."
+          }
+        }
+      }
+    },
+    "Add Keyframe at Playhead (K)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключевой кадр у указателя (K)"
+          }
+        }
+      }
+    },
+    "Fill the Frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заполнить кадр"
+          }
+        }
+      }
+    },
+    "Fit in the Frame": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать в кадр"
+          }
+        }
+      }
+    },
+    "Only the work area (%.1f–%.1f s)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только рабочая область (%.1f–%.1f с)"
+          }
+        }
+      }
+    },
+    "Use the frame at %.2f s as the cover": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обложка — кадр на %.2f с"
+          }
+        }
+      }
+    },
+    "Small File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маленький файл"
+          }
+        }
+      }
+    },
+    "Other Sizes and Lengths…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие размеры и длины…"
+          }
+        }
+      }
+    },
+    "Print…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напечатать…"
+          }
+        }
+      }
+    },
+    "Trim Start to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать начало до указателя"
+          }
+        }
+      }
+    },
+    "Trim End to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать конец до указателя"
+          }
+        }
+      }
+    },
+    "Page as HTML…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница как HTML…"
+          }
+        }
+      }
+    },
+    "The board list can’t be read: fix canvas.json or ask the agent.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список досок не читается: исправьте canvas.json или попросите агента."
+          }
+        }
+      }
+    },
+    "Delete Board": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить доску"
+          }
+        }
+      }
+    },
+    "The file doesn’t open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается"
+          }
+        }
+      }
+    },
+    "The file doesn’t open: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не открывается: %@"
+          }
+        }
+      }
+    },
+    "warnings: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "предупреждений: %lld"
+          }
+        }
+      }
+    },
+    "Copied as a picture: paste it into a mark’s note to make it the example": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано картинкой: вставьте её в заметку пометки как пример"
+          }
+        }
+      }
+    },
+    "Insert Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить ссылку"
+          }
+        }
+      }
+    },
+    "Previous": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий"
+          }
+        }
+      }
+    },
+    "That one has formatting, a list or a quote in it: change it in the text.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В нём есть оформление, список или цитата: измените это в тексте."
+          }
+        }
+      }
+    },
+    "Ready to check: the agent answered marks (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно проверить: агент ответил на пометки (%lld)"
+          }
+        }
+      }
+    },
+    "Versions: %lld · Kelp keeps the last %lld turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версий: %lld · Kelp хранит последние %lld ходов"
+          }
+        }
+      }
+    },
+    "With it: the page, the tokens, its pictures and the decided marks (%lld)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С ней: страница, токены, её картинки и решённые пометки (%lld)"
+          }
+        }
+      }
+    },
+    "Push In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наезд"
+          }
+        }
+      }
+    },
+    "%lld PR · %lld merged": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR: %lld · слито: %lld"
+          }
+        }
+      }
+    },
+    "%lld asking · %lld working": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждут: %lld · работают: %lld"
+          }
+        }
+      }
+    },
+    "%lld chats in 7 days": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat in 7 days"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats in 7 days"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат за 7 дней"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата за 7 дней"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов за 7 дней"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата за 7 дней"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld chats near a full context": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat near a full context"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats near a full context"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат почти исчерпал контекст"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата почти исчерпали контекст"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов почти исчерпали контекст"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата почти исчерпали контекст"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld chats need you": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat needs you"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats need you"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат ждёт вас"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата ждут вас"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов ждут вас"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата ждут вас"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "chats today: %lld · projects: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "чатов сегодня: %lld · проектов: %lld"
+          }
+        }
+      }
+    },
+    "%lld turns": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld turn"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld turns"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ход"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld хода"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld ходов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld хода"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "2 chats edit %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 чата правят %@"
+          }
+        }
+      }
+    },
+    "Agents Overview": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обзор агентов"
+          }
+        }
+      }
+    },
+    "Answer…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответить…"
+          }
+        }
+      }
+    },
+    "By Day": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дням"
+          }
+        }
+      }
+    },
+    "CI failed in #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI упал в #%lld"
+          }
+        }
+      }
+    },
+    "CI passed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI прошёл"
+          }
+        }
+      }
+    },
+    "Chats you start or talk to today show up here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появятся чаты, которые вы начнёте или продолжите сегодня."
+          }
+        }
+      }
+    },
+    "Done Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово сегодня"
+          }
+        }
+      }
+    },
+    "In PR": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В PR"
+          }
+        }
+      }
+    },
+    "In Progress": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В работе"
+          }
+        }
+      }
+    },
+    "To Review": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На проверку"
+          }
+        }
+      }
+    },
+    "Limit · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимит · %@"
+          }
+        }
+      }
+    },
+    "Longest Waits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дольше всего ждали"
+          }
+        }
+      }
+    },
+    "Needs Attention": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требует внимания"
+          }
+        }
+      }
+    },
+    "No Chats Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня чатов нет"
+          }
+        }
+      }
+    },
+    "Open Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть чат"
+          }
+        }
+      }
+    },
+    "Review waits %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ревью ждёт %@"
+          }
+        }
+      }
+    },
+    "Stages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стадии"
+          }
+        }
+      }
+    },
+    "Waited for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждали вас"
+          }
+        }
+      }
+    },
+    "Worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работали"
+          }
+        }
+      }
+    },
+    "a click opens the chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "клик открывает чат"
+          }
+        }
+      }
+    },
+    "agents waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас"
+          }
+        }
+      }
+    },
+    "agents waited for you · %lld %% of their work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас · %lld %% от их работы"
+          }
+        }
+      }
+    },
+    "agents waited for you · longest %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты ждали вас · дольше всех %@"
+          }
+        }
+      }
+    },
+    "agents worked today · up to %lld at once": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты работали сегодня · до %lld одновременно"
+          }
+        }
+      }
+    },
+    "agents worked · chats: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты работали · чатов: %lld"
+          }
+        }
+      }
+    },
+    "asks now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт сейчас"
+          }
+        }
+      }
+    },
+    "at once · peak %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "одновременно · пик %lld"
+          }
+        }
+      }
+    },
+    "below, worked; hatched, waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "низ — работали, штриховка — ждали вас"
+          }
+        }
+      }
+    },
+    "files in the last turns: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файлов в последних ходах: %lld"
+          }
+        }
+      }
+    },
+    "no one waits for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "никто не ждёт"
+          }
+        }
+      }
+    },
+    "pull requests of today’s chats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR сегодняшних чатов"
+          }
+        }
+      }
+    },
+    "the column is where the work is; the mark is what the agent does": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "колонка — где результат, метка — что делает агент"
+          }
+        }
+      }
+    },
+    "turns": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ходов"
+          }
+        }
+      }
+    },
+    "waited for you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждал вас"
+          }
+        }
+      }
+    },
+    "waits %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт %@"
+          }
+        }
+      }
+    },
+    "worked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "работал"
+          }
+        }
+      }
+    },
+    "“%@” failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» упал"
+          }
+        }
+      }
+    },
+    "“%@” has waited %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» ждёт уже %@"
+          }
+        }
+      }
+    },
+    "“%@” will compact soon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» скоро сожмёт разговор"
           }
         }
       }

@@ -78,6 +78,9 @@ extension NSColor {
     public static let fillRest = grey(0.05)
     public static let fillHover = grey(0.08)
     public static let fillSelected = grey(0.12)
+    /// What lies outside a chosen stretch (a timeline's work area): dimmed, more on dark.
+    public static let outside = dynamic(
+        light: NSColor.black.withAlphaComponent(0.08), dark: NSColor.black.withAlphaComponent(0.35))
     /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on
     /// it. Ask for it while drawing, because it's fixed to the current appearance, as `labelColor.withAlphaComponent`
     /// is.

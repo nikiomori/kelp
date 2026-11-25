@@ -6,13 +6,16 @@ import Testing
     // Straight in an async function, a program runs on one of Swift's few pool threads (a sync handler is offloaded
     // whole). Finding a program on the login PATH, or reading that PATH (`childPath`), may run the login shell, for seconds.
     // So does any function of GitKit's or Integrations' that runs git, gh or ssh: all of theirs but the ones that only
-    // read what they're given (`Git.isDirty(_:in:)`, a type's init).
+    // read what they're given (`Git.isDirty(_:in:)`, a type's init) or a folder's files (`Git.nestedRepos`,
+    // `Git.headBranch`: a listing and a HEAD file, no program).
     let blocking = try NSRegularExpression(
         pattern: #"LoginPath\.(resolve\(|value\b)|\bchildPath\b|(?<!await )Subprocess\.(run|checked|output)\("#
-            + #"|\b(?:Git|GitHub|GitLab|CIRuns|ProjectFiles|HostRepo|RepoFilters|BitbucketClient)\.(?!isDirty\([^)]*\bin:)[a-z]\w*\("#
+            + #"|\b(?:Git|GitHub|GitLab|CIRuns|ProjectFiles|HostRepo|RepoFilters|BitbucketClient)\."#
+            + #"(?!isDirty\([^)]*\bin:|nestedRepos\(|headBranch\()[a-z]\w*\("#
     )
     let off = try NSRegularExpression(
-        pattern: #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
+        pattern:
+            #"(offloads?\.run|\boffload(?:ed)?|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\(?\s*\{"#)
     let asyncFunc = try NSRegularExpression(pattern: #"\bfunc\b[^{]*?\basync\b[^{]*\{"#)
     func block(_ s: [Character], from start: Int) -> Int {   // the index past the brace that closes the one before start
         var depth = 1, i = start
@@ -113,16 +116,25 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
     let shared: [String: String] = [
         "Sources/Integrations/HostRepo.swift: known": "a remote folder's GitHub repository, keyed by the folder's path",
         "Sources/Integrations/HostRepo.swift: reading": "one read of a folder's origin at a time, whoever asks",
-        "Sources/GitKit/Git.swift: cache": "a repository's filter names, keyed by its config and read again when it changes",
-        "Sources/GitKit/Snapshot.swift: indexFiles": "a folder's index file, keyed by its path and asked again once gone",
+        "Sources/GitKit/Git.swift: cache":
+            "a repository's filter names, keyed by its config and read again when it changes",
+        "Sources/GitKit/Snapshot.swift: indexFiles":
+            "a folder's index file, keyed by its path and asked again once gone",
         "Sources/GitKit/LineStats.swift: lineCounts": "a file's line count, keyed by its path, size and date",
         "Sources/GitKit/Files.swift: searching":
             "the search box's rg in each folder, keyed by the folder: a newer search there stops it, whoever started it",
         "Sources/Core/Extensions/ExtensionFiles.swift: digests":
             "an extension folder's digest, keyed by its path and its files' stats",
-        "Sources/Core/System/Subprocess.swift: running": "the programs this process started: a fact of the process itself",
-        "Sources/AgentData/ClaudeBuiltIns.swift: known": "the skills built into the Claude Code on this Mac, the same for all",
-        "Sources/AgentData/ClaudeContext.swift: usages": "a transcript's context usage, keyed by its path, size and date",
+        "Sources/Core/Artifacts/Artifacts.swift: versionLock":
+            "one version kept at a time, whichever of a turn's end, hand edits or a send asks: no two take one number",
+        "Sources/Core/Artifacts/ArtifactMarks.swift: lock":
+            "one change at a time to a page's marks file, which is one file whichever daemon writes it",
+        "Sources/Core/System/Subprocess.swift: running":
+            "the programs this process started: a fact of the process itself",
+        "Sources/AgentData/ClaudeBuiltIns.swift: known":
+            "the skills built into the Claude Code on this Mac, the same for all",
+        "Sources/AgentData/ClaudeContext.swift: usages":
+            "a transcript's context usage, keyed by its path, size and date",
         "Sources/AgentData/Usage.swift: rollouts": "a Codex rollout's limits, keyed by its path, size and date"
     ]
     let locks = try found(
@@ -132,6 +144,7 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
         locks.map { hit in
             "\(hit.path): \(hit.code[hit.at].firstMatch(of: /let (\w+)/).map { String($0.1) } ?? "")"
         })
-    #expect(held.subtracting(shared.keys).sorted() == [], "a lock outside an instance: say why every daemon may share it")
+    #expect(
+        held.subtracting(shared.keys).sorted() == [], "a lock outside an instance: say why every daemon may share it")
     #expect(Set(shared.keys).subtracting(held).sorted() == [], "gone: take it off the list")
 }

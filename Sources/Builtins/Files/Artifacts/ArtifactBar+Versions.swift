@@ -22,6 +22,18 @@ extension ArtifactBar {
 
     /// The bar's buttons that commands repeat (`Builtins.files`), by command id. A command runs only while its button
     /// shows on the page in front and can be pressed (Present still counts while a narrow pane keeps it in ⋯).
+    /// Whether the switch offers `mode` (a dashboard and a review have fewer, an older version none).
+    func canChoose(_ mode: MarkdownTab.CanvasMode) -> Bool {
+        !modes.isHidden && modes.isEnabled && mode.rawValue < modes.segmentCount
+    }
+
+    /// The switch set to `mode`, as a click on it does.
+    func choose(_ mode: MarkdownTab.CanvasMode) {
+        guard canChoose(mode) else { return NSSound.beep() }
+        modes.selectedSegment = mode.rawValue
+        markdown.setCanvasMode(mode)
+    }
+
     func button(for id: String) -> NSControl? {
         switch id {
         case "artifact.present": present
@@ -59,47 +71,64 @@ extension ArtifactBar {
 
     func restoreShown() {
         guard let text = markdown.shownVersion else { return }
-        markdown.restore(text)
+        Task { await markdown.restore(text) }
         show(nil)
     }
 
-    func showVersions() {
-        let menu = NSMenu()
-        for (index, entry) in entries.enumerated().reversed() {
-            let when = [
-                Self.time(entry.at),
-                entry.version == nil && index == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
-                    ? String(localized: "now writing") : nil
-            ].compactMap { $0 }.joined(separator: " · ")
-            let item = menu.add("\(index + 1)  \(entry.label)") { [weak self] in
-                self?.show(index == (self?.entries.count ?? 0) - 1 ? nil : index)
-            }
-            item.state = index == (shown ?? entries.count - 1) ? .on : .off
-            item.toolTip = when
-            item.attributedTitle = Self.menuTitle("\(index + 1)  \(entry.label)", when)
-        }
-        menu.addItem(.separator())
-        menu.addItem(
-            withTitle: String(localized: "Kelp keeps the last \(Artifacts.keptVersions) turns"), action: nil,
-            keyEquivalent: ""
-        ).isEnabled = false
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
+    /// Brings version `version` back as the page, then keeps it as a new version that says so.
+    func restore(_ version: ArtifactVersion) async {
+        guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else { return }
+        show(nil)
+        guard await markdown.restore(file.text) else { return }
+        await app.call(ArtifactKeepRestored(path: path, from: version.n))
     }
+
+    /// The version before the agent's last turn: the one to bring back to undo that turn. nil when there is none.
+    var beforeLastTurn: ArtifactVersion? {
+        let versions = item?.versions ?? []   // the kept ones, the last too when the page reads as it
+        guard let i = versions.lastIndex(where: { $0.byUser != true && $0.restored == nil }), i > 0 else { return nil }
+        return versions[i - 1]
+    }
+
+    /// The boards the agent's last turn changed, outlined on the canvas until the user clicks it.
+    func outlineLastTurn() {
+        let versions = item?.versions ?? []   // the kept ones, the last too when the page reads as it
+        guard markdown.page == .canvas, let i = versions.lastIndex(where: { $0.byUser != true && $0.restored == nil }),
+            i > 0
+        else { return }
+        let (was, now) = (versions[i - 1].n, versions[i].n)
+        Task {
+            let read = { (n: Int) in
+                await self.app.quiet(FilesRead(path: Artifacts.versionPath(target: self.path, n))).flatMap {
+                    CanvasSnapshot.read($0.text)
+                }
+            }
+            guard let before = await read(was), let after = await read(now) else { return }
+            markdown.runJS("window.kelpTouched?.(\(MarkdownTab.js(after.changed(since: before))))")
+        }
+    }
+
+    /// The page's agent, by name, and its chat while it hasn't ended.
+    var agentName: String? { item?.session.flatMap(app.session).flatMap { app.catalog.name($0.agent) } }
+    var chat: String? { item?.session.flatMap { app.session($0)?.status == .exited ? nil : $0 } }
+
+    /// The column of versions beside the page (its "N of M"), opened or closed. One column at a time: it opens in
+    /// View, and Mark or Edit closes it again (`MarkdownTab.setCanvasMode`).
+    func showVersions() {
+        if let open = versionsPanel { return open.removeFromSuperview() }
+        if markdown.canvasMode != .view {
+            markdown.setCanvasMode(.view)
+            markdown.onPageMode?(.view)
+        }
+        markdown.split.addArrangedSubview(VersionsPanel(bar: self))
+    }
+
+    var versionsPanel: VersionsPanel? { markdown.split.arrangedSubviews.last as? VersionsPanel }
 
     static func time(_ seconds: Double?) -> String {
         guard let seconds else { return "" }
         let date = Date(timeIntervalSince1970: seconds)
         return Calendar.current.isDateInToday(date)
             ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
-    }
-
-    static func menuTitle(_ title: String, _ detail: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
-        guard !detail.isEmpty else { return text }
-        text.append(
-            NSAttributedString(
-                string: "\n" + detail,
-                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
-        return text
     }
 }

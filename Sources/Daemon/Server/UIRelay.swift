@@ -74,11 +74,25 @@ extension UIOpen: Handled {
 extension UICommand: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence {
-        Fence(
-            notForAgents: Self.forAgents.contains(id)
-                ? nil
-                : "“\(id)” is the user's to run: an agent runs only commands that show something, and starts sessions "
-                    + "with `kelp session`.")
+        guard Self.forAgents.contains(id) else {
+            return Fence(
+                notForAgents: "“\(id)” is the user's to run: an agent runs only commands that show something, and "
+                    + "starts sessions with `kelp session`.")
+        }
+        return id == "artifacts.export" ? exportFence() : Fence()
+    }
+
+    /// An export writes over whatever is at `to`, so an agent exports a page of its own project into that project.
+    private func exportFence() -> Fence {
+        guard case .object(let a) = args, case .string(let path) = a["path"], case .string(let to) = a["to"],
+            let root = path.range(of: "/.kelp/artifacts/").map({ String(path[..<$0.lowerBound]) })
+        else { return Fence(notForAgents: "An export names its page and where it goes.") }
+        let inside = { (p: String) in URL(fileURLWithPath: p).standardizedFileURL.resolvingSymlinksInPath().path }
+        guard inside(to).hasPrefix(inside(root) + "/") else {
+            return Fence(
+                notForAgents: "An agent exports into its project's folder (\(root)), never over a file elsewhere.")
+        }
+        return Fence(writesInFolder: root)
     }
     func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) }
 }
@@ -96,6 +110,11 @@ extension UIBrowser: AsyncHandled {
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         var call = self
+        // What a page driven from a host is told comes from kelpd alone (`HostBrowser.page`), never from the caller.
+        if case .object(var fields) = call.args ?? .object([:]) {
+            fields["remote"] = HostBrowser.page
+            call.args = .object(fields)
+        }
         // An agent drives the page as itself, whichever session it names, so the page's card, pointer and Done say
         // which agent it is.
         if case .some(let own) = relay.asks.store.agent(origin: Sessions.asker) {

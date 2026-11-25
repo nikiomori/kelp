@@ -80,22 +80,36 @@ extension Databases {
         guard at.count == key.count, keys.allSatisfy({ !$0.contains(nil) }), Set(keys).count == keys.count else {
             return nil
         }
-        let found = keys.map { values in
-            "(" + zip(key, values).map { "\(engine.quoted($0)) = \(engine.literal($1))" }.joined(separator: " AND ")
-                + ")"
-        }
         let columns = tried.columns.map(engine.quoted).joined(separator: ", ")
-        let asked = "SELECT \(columns) FROM \(table) WHERE " + found.joined(separator: " OR ")
         do {
-            let now = try await DatabaseEngines.read(databaseConnection, asked, off: offloads)
-            guard now.rows.count == keys.count, !now.opaque else { return nil }
-            let byKey = Dictionary(now.rows.map { row in (at.map { row[$0] }, row) }, uniquingKeysWith: { a, _ in a })
+            var read: [[String?]] = []
+            for asked in Self.reads(of: keys, by: key, columns: columns, from: table, engine) {
+                let now = try await DatabaseEngines.read(databaseConnection, asked, off: offloads)
+                guard !now.opaque else { return nil }
+                read += now.rows
+            }
+            guard read.count == keys.count else { return nil }
+            let byKey = Dictionary(read.map { row in (at.map { row[$0] }, row) }, uniquingKeysWith: { a, _ in a })
             let rows = keys.compactMap { byKey[$0] }
             return rows.count == keys.count ? rows : nil
         } catch {
             Log.session.info(
                 "db rows of \(table) in \(databaseConnection.database.name) before a change weren't read: \(error)")
             return nil
+        }
+    }
+
+    /// The reads that find rows by their keys, a few hundred keys each: SQLite refuses an expression deeper than 1000,
+    /// and one OR per row of a change to every row of a table would be deeper.
+    static func reads(
+        of keys: [[String?]], by key: [String], columns: String, from table: String, _ engine: DatabaseInfo.Engine
+    ) -> [String] {
+        stride(from: 0, to: keys.count, by: 400).map { start in
+            let found = keys[start..<min(start + 400, keys.count)].map { values in
+                "(" + zip(key, values).map { "\(engine.quoted($0)) = \(engine.literal($1))" }.joined(separator: " AND ")
+                    + ")"
+            }
+            return "SELECT \(columns) FROM \(table) WHERE " + found.joined(separator: " OR ")
         }
     }
 

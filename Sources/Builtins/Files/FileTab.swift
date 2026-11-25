@@ -19,6 +19,8 @@ final class FileTab: SavableTab {
     /// The bar shown over the text while the file holds merge conflicts.
     var conflicts: ConflictBar?
     private(set) var markdown: MarkdownTab?
+    /// A CSV file's table (`CSVGrid`), shown instead of its text.
+    var csv: CSVGrid?
     /// A page an agent made is named by its title, not "doc.md", and its icon shows what kind of page it is.
     private var pageTitle: String?
     private var pageKind: Artifacts.Kind?
@@ -224,11 +226,16 @@ final class FileTab: SavableTab {
             markdown = md
             // An agent's page has no status bar: its own bar says what it is, and its lines mean nothing in the page.
             if ArtifactBar.isPage(path) {
-                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view))
+                box.pin(stacked(bars(md.header(else: crumbs), conflictBar), md.view))
             } else {
-                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view, bar))
+                box.pin(stacked(bars(md.header(else: crumbs), conflictBar), md.view, bar))
             }
             md.attach(bar)
+        } else if ["csv", "tsv"].contains(url.pathExtension.lowercased()) {   // a table to change in place
+            let grid = CSVGrid(editor: codeEditor, path: path)
+            csv = grid
+            bar.show(modes: grid.modes)
+            box.pin(stacked(withTrustBar(crumbs), conflictBar, grid.view, bar))
         } else {
             box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
         }

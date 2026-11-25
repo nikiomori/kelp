@@ -108,3 +108,33 @@ import Testing
     #expect(kept.hasSuffix("\(lines - 1) \(filler)\n"))
     #expect(kept.split(separator: "\n").allSatisfy { $0.contains("  up ") && $0.hasSuffix(filler) })
 }
+
+/// The history the Agents Overview draws comes from the trails: each agent's status changes in the span, the status it had
+/// when the span began first, and nothing of a session that didn't change in it.
+@Test func historyIsTheTrailsStatusChanges() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await workspace(w, "history")
+    let start = Date()
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
+    #expect(
+        try await waitFor(10) {
+            let mine = try await w.c.call(SessionHistory(since: start)).first { $0.session == s.id }
+            return mine?.changes.map(\.status) == [.working, .done]
+        })
+    #expect(try await w.c.call(SessionHistory(since: Date().addingTimeInterval(60))).isEmpty)
+
+    let trail = """
+        2026-11-24T04:31:40.586+0300  up 992520  hook working UserPromptSubmit
+        2026-11-24T04:31:40.586+0300  up 992520  idle → working  hook: working
+        2026-11-24T04:44:26.521+0300  up 993286  working → done  hook: done
+        2026-11-24T05:44:37.596+0300  up 996897  done → hibernated
+        """
+    let since = try #require(ISO8601DateFormatter().date(from: "2026-11-24T01:40:00Z"))
+    let changes = StatusTrail.changes(trail, since: since)
+    #expect(changes.map(\.status) == [.working, .done, .paused])
+    #expect(changes.first?.at == since)
+    #expect(changes.last?.at == ISO8601DateFormatter().date(from: "2026-11-24T02:44:37Z")?.addingTimeInterval(0.596))
+}

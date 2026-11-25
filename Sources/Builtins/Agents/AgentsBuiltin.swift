@@ -34,6 +34,7 @@ extension Builtins {
                     app.workbench.showNextNeedingAttention()
                 },
                 cmd("agents.usage", "Usage", "opt+cmd+u") { app.workbench.open("usage:") },
+                cmd("agents.overview", "Agents Overview") { app.workbench.open("overview:") },
                 cmd("agents.history", "Session History", "shift+cmd+h") { HistoryWindow.of(app).show() },
                 // Works like Caffeine. While ticked, it keeps the Mac awake, and unticking it goes back to the
                 // setting's default.
@@ -67,6 +68,14 @@ extension Builtins {
                     },
                     placeholder: { _ in (String(localized: "Usage"), .symbol("chart.bar"), nil) }),
                 TabProvider(
+                    schemes: ["overview"],
+                    make: {
+                        HostedTabContent(
+                            uri: $0, title: String(localized: "Agents Overview"), icon: "rectangle.3.group", app: app,
+                            OverviewView(app: app))
+                    },
+                    placeholder: { _ in (String(localized: "Agents Overview"), .symbol("rectangle.3.group"), nil) }),
+                TabProvider(
                     schemes: ["subagent"], make: { SubagentTab(uri: $0, app: app) },
                     placeholder: { _ in (String(localized: "Subagent"), .symbol("list.bullet.rectangle"), nil) })
             ],
@@ -80,11 +89,13 @@ extension Builtins {
             pushed: [{ LimitWatch.of(app).landed($0) }],
             plans: PlanNote.words(app),
             // Starts the strip over the Dock, which shows while Kelp is behind another app, and puts its items in the
-            // Dock icon's menu. Also starts the context rings on agents' tabs, watched for the workspace on screen.
-            launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }],
+            // Dock icon's menu. Also starts the context rings on agents' tabs, watched for the workspace on screen, and
+            // the offer to continue the agents Kelp's going down cut short.
+            launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }, { InterruptedAgents.start(app) }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
             dockUsage: { LimitWatch.dockFace(app) },
-            skills: [terminalsSkill, agentsSkill]
+            skills: [terminalsSkill, agentsSkill],
+            quickSections: [OutputRows.section(app)]
         )
     }
 }

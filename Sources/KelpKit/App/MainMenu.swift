@@ -282,7 +282,8 @@ extension AppDelegate {
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
         menuBuilder.add(win, "workbench.ownWindow", "workbench.saveTemplate")
         win.addItem(.separator())
-        menuBuilder.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
+        menuBuilder.add(
+            win, "agents.nextNeedingYou", "agents.overview", "agents.usage", "workbench.scratch", "workspace.switch")
         let back = win.add(String(localized: "Previous Screen"), key: "\t") {
             app.extensions.run("workspace.switch", ["by": -1])
         }

@@ -103,6 +103,9 @@ enum DatabaseMenu {
         _ menu: NSMenu, _ db: DatabaseInfo, _ copy: BranchCopy, app: AppModel, worktreeId: String
     ) {
         let branch = app.worktree(worktreeId)?.branch ?? ""
+        menu.add(String(localized: "Compare with \(copy.of)")) {
+            app.workbench.open(DatabaseURI(worktree: worktreeId, name: db.name, compare: copy.of).uri)
+        }
         menu.add(String(localized: "Reset from \(copy.of)…")) {
             Task {
                 guard

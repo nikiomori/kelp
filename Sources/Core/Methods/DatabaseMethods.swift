@@ -37,6 +37,9 @@ public enum DatabaseTimes {
     /// The time limit for asking Postgres whether the role is a superuser (`Databases.query`, for a production
     /// database).
     public static let superuser: TimeInterval = 5
+    /// The time limit for counting what an asked change takes away (`ChangeRisk.values`): a DROP's rows, a column's
+    /// values.
+    public static let risk: TimeInterval = 5
     /// How much longer than its statement's time limit a call may take before it is given up (`DatabaseWire.within`, a
     /// client's run).
     public static let slack: TimeInterval = 10
@@ -57,10 +60,11 @@ public enum DatabaseTimes {
     }
 
     /// The sum of the time limits for each step of an agent's statement: the superuser check, trying it as a read, its
-    /// trial (MySQL's client asks first whether it can roll back), the user's answer, and the change.
+    /// trial (MySQL's client asks first whether it can roll back), counting what it takes away, the user's answer, the
+    /// copy Undo Turn keeps of a branch's Postgres copy (CREATE DATABASE … TEMPLATE), and the change.
     public static var query: TimeInterval {
-        reach + call(superuser) + call(longestRead) + call(read) + call(trial) + DatabaseQuery.answerWithin
-            + call(write)
+        reach + call(superuser) + call(longestRead) + call(read) + call(trial) + call(risk) + DatabaseQuery.answerWithin
+            + call(write) + call(write)
     }
     /// The time limit for applying the table's edits in one transaction. Limit: Appwrite's edits are one request each,
     /// and this time doesn't stretch to cover all of them.
@@ -81,12 +85,27 @@ public struct DatabaseQuery: RPCMethod {
     public static var timeout: TimeInterval? { DatabaseTimes.query + DatabaseTimes.slack }
     public static let answerWithin: TimeInterval = 600
     public var worktreeId: String, database: String, sql: String, limit: Int?
-    public init(worktreeId: String, database: String, sql: String, limit: Int? = nil) {
+    /// A name the caller gives this run, by which `db.cancel` stops it.
+    public var cancelId: String?
+    public init(worktreeId: String, database: String, sql: String, limit: Int? = nil, cancelId: String? = nil) {
         self.worktreeId = worktreeId
         self.database = database
         self.sql = sql
         self.limit = limit
+        self.cancelId = cancelId
     }
+}
+
+/// Stops the user's statement that runs under `id` (`DatabaseQuery.cancelId`) in the database, not only its wait:
+/// SQLite is interrupted, a client program is ended, and a server's connection is closed (MySQL's `KILL QUERY` too).
+/// The statement's call then fails with `stopped`. A statement that already ended is left as it is.
+public struct DatabaseCancel: InternalMethod {
+    public static let name = "db.cancel"
+    public typealias Result = Done
+    /// What a stopped statement's call says.
+    public static let stopped = "Stopped."
+    public var id: String
+    public init(id: String) { self.id = id }
 }
 
 /// Adds a database by hand, or changes one by name (what agents may do, production). A found database keeps its
@@ -153,6 +172,19 @@ public struct DatabaseCopyRemove: InternalMethod {
     }
 }
 
+/// Compares a branch's copy of a database (`DatabaseInfo.copy`) with the database it copies: each table's columns and
+/// number of rows. `database` names the copy; nil means the workspace's only copy. Agents compare only what they may
+/// read.
+public struct DatabaseDiff: RPCMethod {
+    public static let name = "db.diff"
+    public typealias Result = DatabaseComparison
+    public var worktreeId: String, database: String?
+    public init(worktreeId: String, database: String? = nil) {
+        self.worktreeId = worktreeId
+        self.database = database
+    }
+}
+
 /// Returns what the Databases panel shows: the databases and what was run on them lately.
 public struct DatabaseActivity: InternalMethod {
     public static let name = "db.activity"
@@ -183,14 +215,18 @@ public struct DatabasesEvent: RPCEvent, Equatable {
     public var library: [DatabaseInfo]?
     /// Why the databases couldn't be read, when they couldn't: there are none in the event then.
     public var error: String?
+    /// How many migrations each database hasn't applied, by name, for those whose schema was read since kelpd started
+    /// (`DatabaseSchema.migrations`).
+    public var migrations: [String: Int]?
     public init(
         worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun], library: [DatabaseInfo]? = nil,
-        error: String? = nil
+        error: String? = nil, migrations: [String: Int]? = nil
     ) {
         self.worktree = worktree
         self.databases = databases
         self.runs = runs
         self.library = library
         self.error = error
+        self.migrations = migrations
     }
 }

@@ -20,8 +20,6 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         case item(ArtifactItem, earlier: [ArtifactItem])
     }
     private static let seenKey = "artifacts.seen"
-    /// The filter field shows once the panel has more than this many pages.
-    private static let filterFrom = 12
 
     let app: AppModel
     let table = KeyTable()
@@ -60,6 +58,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.menu = NSMenu()
         table.menu?.delegate = self
         table.onSpace = { [weak self] in self?.togglePreview() }
+        table.registerForDraggedTypes([.fileURL])   // a file from Finder starts a page (`startFrom`)
         search.placeholderString = String(localized: "Filter")
         search.controlSize = .small
         search.sendsSearchStringImmediately = true
@@ -154,13 +153,13 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         count = items.count
         let find = search.stringValue.trimmingCharacters(in: .whitespaces)
         let project = app.projectName(app.worktree(app.workbench.workspaceId)?.repoId)
-        let found = items.filter { find.isEmpty || title($0, project).localizedCaseInsensitiveContains(find) }
+        let found = items.filter { find.isEmpty || words($0, project).localizedCaseInsensitiveContains(find) }
         // Rows move only within one workspace's list: another workspace's pages are a new list.
         let places = listed == app.workbench.workspaceId ? table.rowPlaces(rowKey) : [:]
         let old = Set(rows.indices.compactMap(rowKey))
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         listed = app.workbench.workspaceId
-        filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
+        filterBar.isHidden = count == 0 && find.isEmpty
         if let failed, kept == nil {
             empty.showError(String(localized: "Couldn’t Read the Pages"), text: failed, buttons: [tryAgain])
         } else {
@@ -310,11 +309,19 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return Date().timeIntervalSince1970 - modified < 120
     }
 
-    /// The row's second line, only when there's something to say: the agent is writing the page, or how much of a
-    /// review is answered.
+    /// The row's second line, only when there's something to say: the agent is writing the page, the marks to check or
+    /// with the agent, or how much of a review is answered.
     func note(_ item: ArtifactItem) -> (text: String, waits: Bool)? {
         if writing(item), let session = item.session.flatMap(app.session) {
             return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
+        }
+        if let marks = item.marks, marks.check > 0 { return (String(localized: "To check: \(marks.check)"), true) }
+        if let marks = item.marks, marks.sent > 0 {
+            let who = item.session.flatMap(app.session).map { app.catalog.name($0.agent) }
+            return (
+                who.map { String(localized: "With \($0): \(marks.sent)") } ?? String(localized: "Sent: \(marks.sent)"),
+                false
+            )
         }
         guard let points = item.points, points > 0 else { return nil }
         let answered = item.answered ?? 0
@@ -373,6 +380,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
         if let session = item.session.flatMap(app.session), session.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
+        }
+        if item.url == nil {
+            menu.add(String(localized: "Rename…")) { ArtifactActions.rename(app, page: item.target, title: item.title) }
+            menu.add(String(localized: "Move to Trash")) { ArtifactActions.trash(app, page: item.target) }
         }
         menu.addItem(.separator())
         if let link = item.url {

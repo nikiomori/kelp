@@ -7,7 +7,7 @@ extension Sessions {
     /// turn left it, named by the turn's prompt. A remote project's folder here holds only its marker, so its artifacts
     /// list is read again wherever it shows instead. That read asks the host for the pages the turn published
     /// (`pickUpHostArtifacts`).
-    func keepArtifactVersions(session: String, worktree: String?, prompt: String) {
+    func keepArtifactVersions(session: String, worktree: String?, prompt: String, sent: [String] = []) {
         Log.store.attempt("keeping the versions of \(session)'s artifacts") {
             guard let workspace = try store.worktree(worktree ?? "") else { return }
             if remotes.of(workspace.path) != nil {
@@ -15,7 +15,11 @@ extension Sessions {
                 return
             }
             guard FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path) else { return }
-            try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt)
+            // The marks are handed back even when a page's version couldn't be kept; that error is still told.
+            let kept = Result { try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt) }
+            try Artifacts.settleMarks(
+                root: workspace.path, session: session, prompt: ([prompt] + sent).joined(separator: "\n"))
+            _ = try kept.get()
         }
     }
 
@@ -115,8 +119,21 @@ extension ArtifactCost: Handled {
     }
 }
 
+extension ArtifactRoundCost: Handled {
+    func handle(_: NoService) throws -> ArtifactCost.Spent? {
+        guard let transcript = ClaudeHistory.transcript(id: session) else { return nil }
+        let spent = ClaudeUsage.spent(transcript: transcript, from: from, to: to)
+        guard spent.calls > 0 else { return nil }
+        return .init(
+            calls: spent.calls, output: spent.tokens.output,
+            read: spent.tokens.input + spent.tokens.cacheRead + spent.tokens.cacheWrite, cost: spent.cost)
+    }
+}
+
 extension Methods {
     static let artifactMethods: [any Answered.Type] = [
-        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self
+        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
+        ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
+        ArtifactRename.self, ArtifactRoundCost.self
     ]
 }

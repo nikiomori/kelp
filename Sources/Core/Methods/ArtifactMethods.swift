@@ -76,3 +76,106 @@ public struct ArtifactCost: InternalMethod {
     public var path: String
     public init(path: String) { self.path = path }
 }
+
+/// Changes the marks on a page (`path`, its file) as the window asks: its drafts, a send, done, again, a hand edit.
+/// The daemon applies the change to `notes.json` as it is then. A send first keeps a version of the page as the user
+/// sends it, when it changed since the last one, so the marks are checked against what the user saw; `pictures`
+/// holds the PNG of each area or stroke being sent, by mark number. Returns the marks as written.
+public struct ArtifactMarksChange: InternalMethod {
+    public static let name = "artifact.marks"
+    public typealias Result = ArtifactMarks
+    public var path: String, change: ArtifactMarks.Change
+    public var pictures: [String: Data]?
+    public init(path: String, change: ArtifactMarks.Change, pictures: [String: Data]? = nil) {
+        self.path = path
+        self.change = change
+        self.pictures = pictures
+    }
+}
+
+/// Keeps a version of a page (`path`, its file) as the user's hand edits left it, labelled with what they changed.
+/// Nothing is kept when the page is the same as its last version. Returns whether a version was kept.
+public struct ArtifactKeepVersion: InternalMethod {
+    public static let name = "artifact.keepVersion"
+    public typealias Result = Bool
+    public var path: String, label: String
+    public init(path: String, label: String) {
+        self.path = path
+        self.label = label
+    }
+}
+
+/// Keeps the page (`path`, its file) as a new version once the user brought version `from` back, so restoring erases
+/// nothing. Returns whether a version was kept.
+public struct ArtifactKeepRestored: InternalMethod {
+    public static let name = "artifact.keepRestored"
+    public typealias Result = Bool
+    public var path: String, from: Int
+    public init(path: String, from: Int) {
+        self.path = path
+        self.from = from
+    }
+}
+
+/// What chat `session` spent from `from` to `to` (seconds since 1970): one round of marks on a page, from their send
+/// to its turn's end. nil when nothing is known (an agent whose spending Kelp doesn't read).
+public struct ArtifactRoundCost: InternalMethod {
+    public static let name = "artifact.roundCost"
+    public typealias Result = ArtifactCost.Spent?
+    public var session: String, from: Double, to: Double
+    public init(session: String, from: Double, to: Double) {
+        self.session = session
+        self.from = from
+        self.to = to
+    }
+}
+
+/// Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns
+/// whether it was renamed.
+public struct ArtifactRename: InternalMethod {
+    public static let name = "artifact.rename"
+    public typealias Result = Bool
+    public var path: String, title: String
+    public init(path: String, title: String) {
+        self.path = path
+        self.title = title
+    }
+}
+
+/// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the
+/// user answers in its note; the answer comes with the user's next marks. Returns the mark's number.
+public struct ArtifactAsk: RPCMethod {
+    public static let name = "artifact.ask"
+    public typealias Result = Int
+    public var path: String, id: String, text: String
+    public init(path: String, id: String, text: String) {
+        self.path = path
+        self.id = id
+        self.text = text
+    }
+}
+
+/// `kelp artifact suggest`: what the agent suggests the user asks next about a page (`path`, its file), three at most,
+/// shown under its marks until the next send; a click makes one a mark to send.
+public struct ArtifactSuggest: RPCMethod {
+    public static let name = "artifact.suggest"
+    public typealias Result = Bool
+    public var path: String, lines: [String]
+    public init(path: String, lines: [String]) {
+        self.path = path
+        self.lines = lines
+    }
+}
+
+/// `kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark
+/// must be with the agent or waiting for the user's check; closing it is the user's.
+public struct ArtifactReply: RPCMethod {
+    public static let name = "artifact.reply"
+    public typealias Result = Bool
+    public var path: String, id: Int, text: String
+    public init(path: String, id: Int, text: String) {
+        self.path = path
+        self.id = id
+        self.text = text
+    }
+}

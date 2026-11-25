@@ -51,6 +51,7 @@ extension SidebarCell {
         faceMark.status = mark.status
         faceMark.unread = mark.unread
         faceMark.limited = mark.limited
+        faceMark.interrupted = mark.interrupted
         faceMark.compacting = mark.compacting
         faceMark.waitsForCommand = mark.waitsForCommand
         faceMark.guessed = mark.guessed
@@ -87,7 +88,8 @@ extension SidebarCell {
     /// (isNews), and its mark says which. The colour stays on the mark, because orange text on a light sidebar is 2:1.
     /// What the agent asks or did is on the hover card.
     func showState(_ session: Session) {
-        title.textColor = session.status == .paused ? .secondaryLabelColor : .labelColor
+        // An agent cut short when Kelp closed reads as news until it is looked at, though its logo stays grey.
+        title.textColor = session.status == .paused && !session.showsInterrupted ? .secondaryLabelColor : .labelColor
         trailing.textColor = selected ? Self.onPill : .secondaryLabelColor
         toolTip = nil
     }

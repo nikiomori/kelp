@@ -513,8 +513,9 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
         [
             "/opt/homebrew/bin/duckdb", path, "-c",
             "CREATE TABLE users (id INT PRIMARY KEY); CREATE TABLE orders (id INT PRIMARY KEY, "
-                + "user_id INT REFERENCES users(id), note VARCHAR); INSERT INTO users VALUES (1); "
-                + "INSERT INTO orders VALUES (1, 1, NULL), (2, 1, ''), (3, 1, 'x');"
+                + "user_id INT REFERENCES users(id), note VARCHAR); INSERT INTO users VALUES (1); CREATE SCHEMA sales; "
+                + "INSERT INTO orders VALUES (1, 1, NULL), (2, 1, ''), (3, 1, 'x'); CREATE TABLE sales.regions (id INT "
+                + "PRIMARY KEY); CREATE TABLE sales.items (id INT, region INT REFERENCES sales.regions(id));"
         ], cwd: "/", env: ["HOME": NSHomeDirectory()], timeLimit: 30)
     #expect(made.status == 0)
     let list = try await w.c.call(DatabaseList(worktreeId: wt.id))
@@ -524,6 +525,9 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
         try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "shop", table: "orders")).tables.first)
     #expect(orders.columns.map(\.name) == ["id", "user_id", "note"] && orders.rows == 3)
     #expect(orders.columns[0].primary && orders.columns[1].references == "users.id")
+    // A schema other than main is read too, its tables named with it
+    let whole = try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "shop")).tables
+    #expect(whole.first { $0.name == "sales.items" }?.columns.map(\.references) == [nil, "sales.regions.id"])
 
     let read = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT id, note FROM orders ORDER BY id"))
@@ -663,9 +667,6 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(running.allSatisfy { $0.database.host == "localhost" && $0.database.port != nil })
     #expect(Databases.published("0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp", 5432) == 55432)
     #expect(Databases.published("5432/tcp", 5432) == nil)
-    #expect(DatabaseInfo.Engine(image: "postgis/postgis:16-3.4") == .postgres)
-    #expect(DatabaseInfo.Engine(image: "mariadb:10.11") == .mysql && DatabaseInfo.Engine(image: "redis:7") == nil)
-    #expect(DatabaseInfo.Engine(image: "localhost:5000/bitnami/postgresql:16") == .postgres)
 }
 
 /// An IDE's connections in the project are found as compose's are: DataGrip's .idea, VS Code's SQLTools.

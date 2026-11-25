@@ -30,6 +30,9 @@ package protocol TabContent: AnyObject {
     func command(_ name: String) async -> String?
     /// Shows that line (for a link to a file that's already open at another line).
     func goTo(line: Int)
+    /// Types what is selected into an agent's prompt without sending it (Send to Agent, ⌥⌘↩). Returns false when the
+    /// tab has nothing selected to hand over.
+    func sendSelectionToAgent() -> Bool
 }
 
 /// What a tab shows of itself. Its parts are observed state (`@Observable` tabs, or the app's models they read), and
@@ -139,4 +142,5 @@ extension TabContent {
     package var language: LanguageSpec? { nil }
     package func command(_ name: String) async -> String? { nil }
     package func goTo(line: Int) {}
+    package func sendSelectionToAgent() -> Bool { false }
 }

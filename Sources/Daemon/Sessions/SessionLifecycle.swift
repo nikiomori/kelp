@@ -245,20 +245,20 @@ extension Sessions {
         else { return }
         let slug = Naming.slug(prompt)
         guard !slug.isEmpty else { return }
-        let base = branchPrefix + slug
+        let base = branchPrefix + slug, folders = Git.checkouts(project: repo.path, folder: worktree.path).map(\.folder)
         var branch = base, number = 2
-        while Git.branchExists(repo.path, branch, remotes: remotes) {
+        while folders.contains(where: { Git.branchExists($0, branch, remotes: remotes) }) {
             branch = "\(base)-\(number)"
             number += 1
         }
-        try Git.renameBranch(worktree.path, from: worktree.branch, to: branch, remotes: remotes)
+        try Git.renameBranch(in: folders, from: worktree.branch, to: branch, remotes: remotes)
         do {
             try store.update(Worktree.self, worktree.id) {
                 $0.branch = branch
                 if $0.note.isEmpty { $0.note = title }
             }
         } catch {
-            do { try Git.renameBranch(worktree.path, from: branch, to: worktree.branch, remotes: remotes) } catch {
+            do { try Git.renameBranch(in: folders, from: branch, to: worktree.branch, remotes: remotes) } catch {
                 let recorded = worktree.branch
                 Log.session.error(
                     "branch \(branch, privacy: .public) kept, its record says \(recorded, privacy: .public): \(error)")
@@ -364,8 +364,8 @@ extension Sessions {
         // Naming follows the session however it started (created, or woken from a pause).
         callbacks.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
         callbacks.turnStarted = { [weak self] t, staged in self?.turns.keep(t, staged: staged) }
-        callbacks.turnEnded = { [weak self] prompt in
-            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
+        callbacks.turnEnded = { [weak self] prompt, sent in
+            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt, sent: sent)
         }
         if rec.isAgent {
             callbacks.topic = { [weak self] topic in

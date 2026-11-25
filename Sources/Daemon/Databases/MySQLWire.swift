@@ -2,6 +2,7 @@ import Core
 import Foundation
 import MySQLNIO
 import NIOCore
+import NIOSSL
 import os
 
 // Reads, writes and schema for MySQL and MariaDB, spoken by kelpd itself (MySQLNIO), with a time limit on each query.
@@ -189,19 +190,37 @@ struct MySQLWire: DatabaseRunner {
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
         let connecting = MySQLConnection.connect(
             to: socket, username: db.user ?? "root", database: db.database ?? "", password: databaseConnection.password,
-            tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
-            logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
+            tlsConfiguration: db.ssl == "disable"
+                ? nil : try DatabaseWire.tls(db, name: databaseConnection.serverName),
+            serverHostname: db.ssl == "verify-full" ? databaseConnection.serverName ?? host : nil,
+            logger: DatabaseWire.logger,
+            on: DatabaseWire.eventLoop
         )
         // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps
         // its socket until the far end closes it. A connection whose handshake ends late is closed then.
         do {
-            return try await DatabaseWire.first(connecting, within: handshake, db) {
+            let conn = try await DatabaseWire.first(connecting, within: handshake, db) {
                 connecting.whenSuccess { late in _ = late.close() }
             }
+            if DatabaseWire.requiresTLS(db) { try await encrypted(conn, db) }
+            return conn
         } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
             // Said apart from a query past its time: nothing ran, so the user knows it's safe to try again.
             throw DatabaseFailure.failed(
                 "\(db.name) took the connection but didn't finish logging in within \(Int(handshake.rounded(.up))) s.")
+        }
+    }
+
+    /// Refuses a connection that went on without TLS where the sslmode requires it. MySQLNIO uses TLS only when the
+    /// server offers it, so it goes on in clear text when the server doesn't (or something on the way took the offer
+    /// out). Limit: by then the login has gone without TLS, the password as MySQL's scramble of it or encrypted to the
+    /// key the server sent; no query has.
+    private static func encrypted(_ conn: MySQLConnection, _ db: DatabaseInfo) async throws {
+        do { _ = try await conn.channel.pipeline.handler(type: NIOSSLClientHandler.self).get() } catch {
+            await DatabaseWire.close { try await conn.close().get() }
+            throw DatabaseFailure.failed(
+                "\(db.name) didn't offer TLS, and its address requires it (sslmode=\(db.ssl ?? "require")): "
+                    + "Kelp closed the connection before any query.")
         }
     }
 
@@ -233,15 +252,42 @@ struct MySQLWire: DatabaseRunner {
     static func run(_ conn: MySQLConnection, _ sql: String) async throws -> DatabaseRows {
         let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
         try await conn.simpleQuery(sql) { row in
-            let names = row.columnDefinitions.map(\.name), values = row.values.map { $0.map { String(buffer: $0) } }
-            kept.withLock { $0.add(columns: names, values) }
+            let names = row.columnDefinitions.map(\.name)
+            let bytes = row.columnDefinitions.map { binary($0.characterSet, $0.columnType) }
+            let values = zip(row.values, bytes).map { value, binary in value.map { text($0, binary: binary) } }
+            // Hex isn't the value's own text, so an agent's change to such rows isn't kept to put back
+            let hex = zip(row.values, bytes).contains { $0 != nil && $1 }
+            kept.withLock {
+                $0.add(columns: names, values)
+                if hex { $0.opaque = true }
+            }
         }.get()
         return kept.withLock { $0 }
+    }
+
+    /// A value as text. A binary string, a blob or a BIT comes as bytes, written as hex (0x…, the first 64 bytes of a
+    /// longer one), as MySQL reads it back in SQL (`DatabaseInfo.Engine.literal(_:type:)`).
+    static func text(_ value: ByteBuffer, binary: Bool) -> String {
+        guard binary else { return String(buffer: value) }
+        let shown = value.getBytes(at: value.readerIndex, length: min(value.readableBytes, PostgresText.byteaShown))
+        let count = value.readableBytes
+        return "0x" + (shown ?? []).map { String(format: "%02x", $0) }.joined()
+            + (count > PostgresText.byteaShown ? "… (\(count) bytes)" : "")
+    }
+
+    /// Whether the column's values are bytes: the binary character set on a string, blob, BIT or geometry. A number
+    /// has that character set too, and is text all the same.
+    static func binary(_ set: MySQLProtocol.CharacterSet, _ type: MySQLProtocol.DataType) -> Bool {
+        let bytes: [MySQLProtocol.DataType] = [
+            .string, .varString, .varchar, .blob, .tinyBlob, .mediumBlob, .longBlob, .bit, .geometry
+        ]
+        return set == .binary && bytes.contains(type)
     }
 
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
         if let unreached = DatabaseWire.unreached(error, db) { return unreached }
+        if let uncertified = DatabaseWire.uncertified(error, db) { return uncertified }
         let said = "\(error)"
         if said.contains("using password: NO") { return DatabaseWire.noPassword(db) }
         if said.contains("READ ONLY transaction") { return DatabaseFailure.change }

@@ -58,6 +58,15 @@ import Testing
         (.session(mine.id), UIBrowserAsk(question: "Sign in", worktreeId: wt.id), true, "it hands its page over"),
         (.session(mine.id), GitRemoteOp(id: elsewhere.id, op: .fetch), false, "nor fetch there"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .fetch), true, "in its own it fetches"),
+        (
+            .session(mine.id), GitHunk(id: RepoKey.of(elsewhere.id, "fe"), file: "a", hunk: 0), false,
+            "a repository inside another's folder is that workspace's"
+        ),
+        (
+            .session(mine.id), GitHunk(id: RepoKey.of(wt.id, "fe"), file: "a", hunk: 0), true,
+            "inside its own, it stages"
+        ),
+        (.session(mine.id), GitRemoteOp(id: RepoKey.of(wt.id, "fe"), op: .fetch), true, "and fetches"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .push), false, "but never pushes"),
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
         (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set"),
@@ -102,6 +111,26 @@ import Testing
         (
             .session(mine.id), ArtifactCheck(path: wt.path + "/.kelp/artifacts/x/canvas.json"), true,
             "and checks a canvas"
+        ),
+        (
+            .session(mine.id), ArtifactReply(path: wt.path + "/.kelp/artifacts/x/canvas.json", id: 1, text: "?"), true,
+            "it answers a mark on a page in its workspace"
+        ),
+        (
+            .session(mine.id), ArtifactReply(path: elsewhere.path + "/.kelp/artifacts/x/canvas.json", id: 1, text: "?"),
+            false, "but not on one in another's"
+        ),
+        (
+            .session(mine.id), ArtifactAsk(path: wt.path + "/.kelp/artifacts/x/motion.html", id: "t", text: "?"), true,
+            "it asks about an element of a page in its workspace"
+        ),
+        (
+            .session(mine.id), ArtifactSuggest(path: elsewhere.path + "/.kelp/artifacts/x/motion.html", lines: ["a"]),
+            false, "and offers what's next, but not on another's"
+        ),
+        (
+            .session(mine.id), ArtifactSuggest(path: wt.path + "/.kelp/artifacts/x/motion.html", lines: ["a"]), true,
+            "only on its own"
         )
     ]
     try expectRows(w.d, table)

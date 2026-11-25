@@ -1,8 +1,9 @@
 import AppKit
 
 /// A row of the grid. The row draws its stripe and the columns' lines itself, so there are none under the last row.
-final class GridRowView: NSTableRowView {
-    override func drawBackground(in dirtyRect: NSRect) {
+@MainActor
+public final class GridRowView: NSTableRowView {
+    override public func drawBackground(in dirtyRect: NSRect) {
         super.drawBackground(in: dirtyRect)
         guard let table = superview as? NSTableView else { return }
         NSColor.separatorColor.setFill()
@@ -12,10 +13,10 @@ final class GridRowView: NSTableRowView {
     }
 
     /// Whether an agent's last change touched the row: a bar at the leading edge of its number says so.
-    var marked = false
+    public var marked = false
 
     /// The bar goes over the selection too, so it is drawn after it; its colour follows light and dark.
-    override func draw(_ dirtyRect: NSRect) {
+    override public func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard marked, let table = superview as? NSTableView else { return }
         let column = table.column(withIdentifier: .init("#"))

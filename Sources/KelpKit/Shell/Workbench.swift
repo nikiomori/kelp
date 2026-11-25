@@ -77,6 +77,9 @@ package final class Workbench {
     /// The session last looked at in the workspace on screen, or else its newest chat. "Send to agent" and the diff's
     /// review go to it. It stays while a file or a page has the focus.
     package var lastSession: String?
+    /// The agent the user last prompted, in any workspace: its turn began while its tab had the focus, or Send to
+    /// Agent typed into it. ⇧⌘U goes back to it when no agent needs you.
+    var lastPrompted: String?
     /// The file last looked at there (an extension's `{file}`). It stays while a terminal has the focus.
     var focusedFile: String?
 

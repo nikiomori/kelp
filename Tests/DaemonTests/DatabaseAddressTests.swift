@@ -2,6 +2,9 @@ import Agents
 import Core
 import Foundation
 import GRDB
+import NIOSSL
+import PostgresNIO
+import TestSupport
 import Testing
 
 @testable import Daemon
@@ -29,10 +32,16 @@ import Testing
 /// This Mac is a loopback address or its own name; a `.local` name, one without a dot and an IPv6 address elsewhere
 /// are someone else's: no ~/.pgpass for them, and agents only read them until the user says otherwise.
 @Test func onlyLoopbackAndThisMacsNameAreThisMac() {
-    for host in ["localhost", "127.0.0.1", "127.0.1.1", "::1", "[::1]", "host.docker.internal", "app.localhost"] {
+    let here = [
+        "localhost", "127.0.0.1", "127.0.1.1", "127.255.0.9", "::1", "[::1]", "host.docker.internal", "a.localhost"
+    ]
+    for host in here {
         #expect(DatabaseInfo.isLocal(host), "\(host)")
     }
-    for host in ["pg.local", "db", "2001:db8::bad", "fe80::1%en0", "db.example.com"] {
+    for host in [
+        "pg.local", "db", "2001:db8::bad", "fe80::1%en0", "db.example.com", "127.evil.example", "127.0.0.1.nip.io",
+        "127.0.0.256", "127.1", "127.+0.0.1"
+    ] {
         #expect(!DatabaseInfo.isLocal(host), "\(host)")
         #expect(!PgPass.mayUse(for: DatabaseInfo(name: "app", engine: .postgres, source: ".env"), host: host))
     }
@@ -113,4 +122,66 @@ import Testing
     #expect(found.first?.database.engine == .postgres && found.first?.database.ssl == "require")
     #expect(found.first?.database.source == ".env" && found.first?.database.name == "app_dev")
     #expect(found.last?.database.host == "localhost" && found.last?.database.database == "local")
+}
+
+/// An address's sslmode is kept as it asks: verify-ca checks the server's certificate against root.crt alone (none
+/// there: refused, not checked against the Mac's roots), verify-full its name too, which an IP address can't be
+/// checked against (refused, not checked less); require and prefer take any certificate.
+@Test func verifyModesCheckTheServersCertificate() throws {
+    let modes: [(String, String?)] = [
+        ("require", "require"), ("verify-ca", "verify-ca"), ("VERIFY_CA", "verify-ca"), ("verify-full", "verify-full"),
+        ("VERIFY_IDENTITY", "verify-full"), ("prefer", nil), ("disable", "disable")
+    ]
+    for (mode, kept) in modes { #expect(DatabaseAddress.ssl(mode) == kept, "\(mode)") }
+    let root = tmp().appendingPathComponent("root-\(UUID().uuidString).crt").path
+    try "".write(toFile: root, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(atPath: root) }
+    func tls(
+        _ ssl: String?, _ host: String = "db.example.com", _ engine: DatabaseInfo.Engine = .postgres,
+        root: String = root
+    ) throws -> TLSConfiguration {
+        var db = DatabaseInfo(name: "app", engine: engine, host: host, port: 5432)
+        db.ssl = ssl
+        return try DatabaseWire.tls(db, root: root)
+    }
+    func checks(_ ssl: String?, _ host: String = "db.example.com") throws -> CertificateVerification {
+        try tls(ssl, host).certificateVerification
+    }
+    #expect(try checks("verify-full") == .fullVerification)
+    #expect(try tls("verify-full").trustRoots == .default)   // the Mac's roots, root.crt besides
+    #expect(try checks("verify-ca", "10.0.0.5") == .noHostnameVerification)
+    for engine in [DatabaseInfo.Engine.postgres, .mysql] {
+        #expect(try tls("verify-ca", "db.example.com", engine).trustRoots == .file(root), "\(engine)")
+        #expect(throws: DatabaseFailure.self) { try tls("verify-ca", "db.example.com", engine, root: root + ".none") }
+    }
+    #expect(try checks("require") == .none)
+    #expect(try checks(nil) == .none)
+    #expect(throws: DatabaseFailure.self) { try checks("verify-full", "10.0.0.5") }
+    #expect(DatabaseWire.requiresTLS(DatabaseInfo(name: "a", engine: .mysql, ssl: "verify-ca")))
+}
+
+/// A server reached through a forwarded port (behind an SSH host, a remote project's) is at localhost here, and its
+/// certificate is still checked against its own name.
+@Test func aForwardedServersCertificateIsCheckedAgainstItsOwnName() throws {
+    var db = DatabaseInfo(name: "app", engine: .postgres, host: "db.internal.example", port: 5432)
+    db.ssl = "verify-full"
+    let near = Databases.forwarded(DatabaseConnection(database: db), to: 61_000)
+    #expect(near.database.host == "localhost" && near.database.port == 61_000)
+    #expect(try PostgresWire.configuration(near).options.tlsServerName == "db.internal.example")
+    db.host = "10.0.0.5"   // an address can't be checked by name, forwarded or not
+    #expect(throws: DatabaseFailure.self) {
+        try PostgresWire.configuration(Databases.forwarded(.init(database: db), to: 1))
+    }
+}
+
+/// Each wire connection to Postgres has a name of its own after "kelp/", by which a Stop finds its statement on the
+/// server; the statement that cancels it binds that name rather than writing it into the SQL.
+@Test func aStoppedPostgresStatementIsFoundByItsConnectionsName() throws {
+    let name = PostgresWire.applicationName()
+    #expect(name.hasPrefix("kelp/") && name != PostgresWire.applicationName())
+    let db = DatabaseInfo(name: "app", engine: .postgres, host: "localhost", port: 5432)
+    let options = try PostgresWire.configuration(DatabaseConnection(database: db), name: name).options
+    #expect(options.additionalStartupParameters.contains { $0 == ("application_name", name) })
+    let cancel = PostgresWire.cancelQuery(name)
+    #expect(cancel.sql.hasSuffix("application_name = $1") && cancel.binds.count == 1 && !cancel.sql.contains(name))
 }

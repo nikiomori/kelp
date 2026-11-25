@@ -50,19 +50,25 @@ struct DatabaseEdits: Equatable {
     }
 
     /// Returns the deletes, then the updates, then the inserts, each in row order.
+    /// `types` holds each column's type as the schema names it, for the values whose SQL depends on it
+    /// (`DatabaseInfo.Engine.literal(_:type:)`, `shows`).
     func statements(
-        table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]]
+        table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]],
+        types: [String: String] = [:]
     ) -> [String] {
         let primaries = primary.compactMap { columns.firstIndex(of: $0) }
         let keyed = !primaries.isEmpty && primaries.count == primary.count
         let keys = keyed ? primaries : Array(columns.indices)
         let name = Self.name(table, engine)
+        func literal(_ value: String?, _ column: Int) -> String {
+            engine.literal(value, type: types[columns[column]] ?? "")
+        }
         func match(_ row: Int) -> String {
             keys.map { key in
-                let old = rows[row][key]
-                // Without a key every column is compared. Postgres compares them as text, because json has no "=".
-                let column = Self.name(columns[key], engine) + (!keyed && engine == .postgres ? "::text" : "")
-                return column + (old == nil ? " IS NULL" : " = \(engine.literal(old))")
+                let old = rows[row][key], column = Self.name(columns[key], engine)
+                // Without a key every column is compared, as Kelp shows it (json has no "=", a bool shows as "t")
+                if !keyed { return engine.shows(column, old, type: types[columns[key]] ?? "") }
+                return column + (old == nil ? " IS NULL" : " = \(literal(old, key))")
             }.joined(separator: " AND ")
         }
         // Limit: rows are told apart by their values, so of two identical rows either one goes.
@@ -81,25 +87,32 @@ struct DatabaseEdits: Equatable {
         let deletes = deleted.sorted().filter { rows.indices.contains($0) }.map { "DELETE FROM \(name)" + one($0) }
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
-            let set = changed.keys.sorted().map { column in
-                "\(Self.name(columns[column], engine)) = \(engine.literal(changed[column] ?? nil))"
+            let set = changed.keys.sorted().filter { !DatabaseInfo.Engine.standIn(changed[$0] ?? nil) }.map {
+                "\(Self.name(columns[$0], engine)) = \(literal(changed[$0] ?? nil, $0))"
             }
+            guard !set.isEmpty else { return nil }
             return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
         }
         let inserts = added.compactMap { row -> String? in
-            let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
-            guard !given.isEmpty else { return nil }
+            let given = row.indices.filter {
+                row[$0] != nil && !DatabaseInfo.Engine.standIn(row[$0]) && columns.indices.contains($0)
+            }
+            guard !given.isEmpty else { return Self.defaults(name, engine) }
             return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
-                + ") VALUES (" + given.map { engine.literal(row[$0]) }.joined(separator: ", ") + ")"
+                + ") VALUES (" + given.map { literal(row[$0], $0) }.joined(separator: ", ") + ")"
         }
         return deletes + updates + inserts
     }
 
-    /// Quotes a table or column name for the engine: "orders", or `orders` in MySQL. Postgres names a table outside
-    /// public with its schema ("audit.orders", as the schema lists it), so the name has two parts. In other engines a
-    /// "." is part of the name itself.
-    static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String {
-        let parts = engine == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
-        return parts.map(engine.quoted).joined(separator: ".")
+    /// A new row with nothing typed in it: every column its default. Appwrite's SQL has no such INSERT.
+    static func defaults(_ table: String, _ engine: DatabaseInfo.Engine) -> String? {
+        switch engine {
+        case .mysql: "INSERT INTO \(table) () VALUES ()"
+        case .appwrite: nil
+        case .postgres, .sqlite, .duckdb: "INSERT INTO \(table) DEFAULT VALUES"
+        }
     }
+
+    /// Quotes a table or column name for the engine (`DatabaseInfo.Engine.table`).
+    static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String { engine.table(name) }
 }

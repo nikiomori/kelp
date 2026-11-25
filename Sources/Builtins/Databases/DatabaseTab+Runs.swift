@@ -66,6 +66,12 @@ extension DatabaseTab {
         return n == 1 ? String(localized: "1 row changed") : String(localized: "\(n.formatted()) rows changed")
     }
 
+    /// "12 rows", or "1,000 of 12,408 rows shown" when a statement gave more than the grid holds.
+    static func shown(_ shown: Int, of total: Int) -> String {
+        total > shown
+            ? String(localized: "\(shown.formatted()) of \(total.formatted()) rows shown") : rows(total)
+    }
+
     /// How long a read took: "84 ms", "1.5 s".
     nonisolated static func took(_ ms: Int) -> String {
         ms < 1000 ? "\(ms) ms" : (Double(ms) / 1000).formatted(.number.precision(.fractionLength(1))) + " s"
@@ -115,8 +121,8 @@ extension DatabaseTab {
     @objc func allowAsked() { answer("allow") }
     @objc func denyAsked() { answer("deny") }
     private func answer(_ action: String) {
-        guard let session = asking?.session else { return }
-        Notifications.answer(app, session, action, question: app.session(session)?.summary)
+        guard let asking, let session = asking.session else { return }
+        Notifications.answer(app, session, action, question: app.session(session)?.summary, run: asking.id)
     }
 
     func openRun(_ run: DatabaseRun, toEditor: Bool) {
@@ -131,13 +137,20 @@ extension DatabaseTab {
     /// Runs the user's statement as the user's own, so a change runs without a question. Its error shows where the
     /// rows would. A read of `table`'s rows that fails while its rows show keeps them, under a line with Try Again.
     func query(_ sql: String, limit: Int = ResultGrid.shown, reading table: String? = nil) async -> QueryResult? {
+        let id = UUID().uuidString
+        running = id
+        defer { if running == id { running = nil } }
         let (result, error) = await app.tryCall(
-            DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
+            DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit, cancelId: id))
         let shown = table != nil && grid.source?.table == table && !grid.columns.isEmpty
+        // The tab may have gone on to show something else meanwhile; then this read's failure isn't said over it.
+        guard table.map({ sidebar.current == $0 }) ?? (mode == .query) else { return result }
         failureBar.show(shown ? error : nil)
         if let error, !shown {
             grid.show(columns: [], rows: [])
-            if table == nil {
+            if error == DatabaseCancel.stopped {
+                empty.show(String(localized: "Stopped"), symbol: "stop.circle")
+            } else if table == nil {
                 empty.showError(
                     String(localized: "\(address.name) Said No"), text: error, buttons: askAbout(sql, said: error))
             } else {
@@ -148,6 +161,18 @@ extension DatabaseTab {
             status.stringValue = ""
         }
         return result
+    }
+
+    /// Stop, and ⌘.: the statement or read in progress is stopped in the database, and says so where its rows would be.
+    @objc func stopRunning() {
+        guard let running else { return NSSound.beep() }
+        app.notify { DatabaseCancel(id: running) }
+    }
+
+    /// Shows Stop in Run's place while something runs (past a second, as the foot's wheel does), and Run again after.
+    func showStop(_ shown: Bool) {
+        stopButton.isHidden = !shown || running == nil
+        run.isHidden = mode != .query || !stopButton.isHidden
     }
 
     /// Try Again under a read that failed: it reads what the tab shows again.
@@ -168,12 +193,16 @@ extension DatabaseTab {
         return [ask]
     }
 
-    /// Leaves edit mode for `next`, but only once the edits are saved or dropped.
-    func leave(to next: Mode) async {
-        if isEdited, await !close() { return }
+    /// Leaves edit mode for `next`, but only once the edits are saved or dropped; false when the user kept them.
+    @discardableResult
+    func leave(to next: Mode) async -> Bool {
+        if isEdited, await !close() { return false }
+        keepLook()
         chosen = true
         mode = next
-        grid.orders = []
+        readingEnded()   // a read still on its way is for what the tab showed: its wheel stops
+        rowCount.stringValue = ""
+        grid.orders = next.table.map(keptOrder) ?? []   // a table is read in the order it was left in
         page = 0
         part.selectedSegment = 0
         if next.table == nil { filters.clear() }
@@ -182,6 +211,7 @@ extension DatabaseTab {
         case .run(let id): await showRun(id)
         case .query: startedQuery()
         }
+        return true
     }
 
     /// Opens a table in this tab, in place of the one shown, or in a tab of its own.
@@ -189,8 +219,11 @@ extension DatabaseTab {
         if pin {
             app.workbench.open(DatabaseURI(worktree: address.worktree, name: address.name, table: name).uri)
         } else {
-            filters.clear()
-            Task { await leave(to: .table(name)) }
+            Task {
+                guard isEdited ? await settleEdits() : true else { return }   // the filter stays with the edits
+                filters.clear()
+                await leave(to: .table(name))
+            }
         }
     }
 
@@ -200,7 +233,12 @@ extension DatabaseTab {
         let edits = grid.edits.count
         changes.stringValue =
             edits == 0 ? "" : edits == 1 ? String(localized: "1 change") : String(localized: "\(edits) changes")
-        for v in [save, discard, showSQL] { v.isHidden = edits == 0 }
+        for v in [save, discardButton, showSQL] { v.isHidden = edits == 0 }
+        if case .run(let id) = mode, let run = record(id) {
+            undoChange.isHidden = !Self.undoable(run)
+        } else {
+            undoChange.isHidden = true
+        }
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
         if let agent {   // the title stays short; the count is the selection on screen, and in the tooltip

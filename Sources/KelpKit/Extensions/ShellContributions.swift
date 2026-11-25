@@ -62,12 +62,17 @@ package struct TabProvider {
 package struct BranchActions {
     let running: @MainActor (_ worktree: String) -> String?
     let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
+    /// Why the background fetch of the branch's project fails, for the chip's tooltip ("fetched 1d ago — offline"),
+    /// and the symbol of the grey mark at the chip's end once it has failed long enough. nil while it works.
+    let fetch: @MainActor (_ worktree: String) -> (said: String, mark: String?)?
     package init(
         running: @escaping @MainActor (String) -> String?,
-        popover: @escaping @MainActor (String, NSPopover) -> NSViewController
+        popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
+        fetch: @escaping @MainActor (String) -> (said: String, mark: String?)? = { _ in nil }
     ) {
         self.running = running
         self.popover = popover
+        self.fetch = fetch
     }
 }
 
@@ -243,7 +248,8 @@ package struct Contributions {
         agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = [],
         subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = [],
         events: [@MainActor (any RPCEvent) -> Bool] = [],
-        quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
+        quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:],
+        quickSections: [QuickSection] = []
     ) {
         self.panels = panels
         self.editors = editors
@@ -269,6 +275,7 @@ package struct Contributions {
         self.subagentSteps = subagentSteps
         self.events = events
         self.quickPrefixes = quickPrefixes
+        self.quickSections = quickSections
     }
     package var panels: [PanelSpec] = []
     var editors: [EditorSpec] = []
@@ -333,6 +340,9 @@ package struct Contributions {
     /// Lists for ⌘P, keyed by a character the built-in claims, for what is typed after that character ("#" gives the
     /// pull requests of Issues). When two built-ins claim the same character, the first wins.
     var quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
+    /// Rows for whatever is typed in ⌘P, each section under its heading after ⌘P's own matches (Agents' lines of
+    /// terminal output).
+    var quickSections: [QuickSection] = []
 
     /// Merges another extension's contributions after this one's (the registry merges them in load order): a list gets
     /// the other's items after these, and a single hook keeps the first extension's. A new field needs its own line
@@ -365,5 +375,6 @@ package struct Contributions {
         subagentSteps += contributions.subagentSteps
         events += contributions.events
         quickPrefixes.merge(contributions.quickPrefixes) { first, _ in first }
+        quickSections += contributions.quickSections
     }
 }

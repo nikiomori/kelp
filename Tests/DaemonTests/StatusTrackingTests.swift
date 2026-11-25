@@ -510,6 +510,49 @@ private func onHost() -> LiveSession.State {
     #expect(try await waitFor { status() == .done })
 }
 
+/// A whole turn, hook by hook with the times Claude Code's hooks carry: a dialog answered, a Stop while a subagent works,
+/// the notifications that ask nothing, and the subagent's own tools. Each rule holds on its own in the tests above; here they
+/// meet, as a row that read Needs You after an answer, or after its turn, would.
+@Test func aWholeTurnReadsRightHookByHook() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let workspace = try await firstWorkspace(w)
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(workspace.id), "command": "sleep 30"]), as: Session.self)
+    func status() -> AgentStatus? { w.d.sessions.existing(s.id)?.snapshot.status }
+    func hook(
+        _ event: String, _ name: String, at: TimeInterval, says: [String: JSONValue]? = nil, tasks: [JSONValue]? = nil,
+        agent: String? = nil
+    ) async throws {
+        _ = try await w.c.call(
+            SessionHook(
+                id: s.id, event: event, notification: says.map(JSONValue.object), backgroundTasks: tasks,
+                hookName: name, agentId: agent, at: at))
+    }
+    try await hook("working", "UserPromptSubmit", at: 1)
+    try await hook("command", "PreToolUse", at: 2)
+    try await hook("waiting", "PermissionRequest", at: 3)
+    #expect(status() == .waiting)
+    try await hook(
+        "waiting", "Notification", at: 9, says: ["notification_type": "permission_prompt", "message": "Allow?"])
+    try await hook("command", "PostToolUse", at: 10)
+    try await hook("command", "PostToolBatch", at: 11)
+    #expect(status() == .working)
+    try await hook("subagent", "SubagentStart", at: 12, agent: "a1")
+    try await hook("command", "PreToolUse", at: 13, agent: "a1")
+    try await hook("done", "Stop", at: 14, tasks: [.obj(["type": "subagent", "status": "running"])])
+    try await hook("waiting", "Notification", at: 15, says: ["notification_type": "agent_completed", "message": "Done"])
+    try await hook("subagent", "SubagentStop", at: 20, agent: "a1")
+    #expect(status() == .working)
+    try await hook("working", "UserPromptSubmit", at: 21)
+    try await hook("done", "Stop", at: 30)
+    #expect(try await waitFor { status() == .done })
+    try await hook(
+        "waiting", "Notification", at: 90,
+        says: ["notification_type": "idle_prompt", "message": "Claude is waiting for your input"])
+    #expect(status() == .done)
+}
+
 /// AskUserQuestion can ask several things: a key answers one, the form stays, and only its PostToolUse says it's through.
 @Test func aKeyDoesntEndAQuestionWithMoreToAsk() {
     var s = hooked()
@@ -581,4 +624,20 @@ private func onHost() -> LiveSession.State {
                 .utf8))
     s.apply(.init(state: "error", hook: failed))
     #expect(s.record.summary == "API Error: Overloaded")
+}
+
+/// What is sent while a turn runs (marks sent with Send Now) is kept with that turn, so its end hands those marks back
+/// too; the turn stays named after the prompt that started it, and the next turn starts with nothing kept.
+@Test func whatIsSentDuringATurnIsKeptWithIt() {
+    var s = hooked()
+    s.sent("make the header")
+    #expect(s.turnMoved(to: .working) == (true, false))
+    s.turnPrompt = s.lastSent
+    s.sent("Marks on .kelp/artifacts/home/canvas.json (version 3)")
+    #expect(
+        s.turnPrompt == "make the header" && s.turnSent == ["Marks on .kelp/artifacts/home/canvas.json (version 3)"])
+    #expect(s.turnMoved(to: .done) == (false, true))
+    s.sent("next")
+    #expect(s.turnSent.count == 1, "sent between turns starts the next, as its prompt")
+    #expect(s.turnMoved(to: .working) == (true, false) && s.turnSent.isEmpty)
 }

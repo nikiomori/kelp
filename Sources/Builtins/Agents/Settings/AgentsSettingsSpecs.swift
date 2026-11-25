@@ -41,6 +41,12 @@ extension Builtins {
                     options: ["0", "15", "30", "60", "240"],
                     labels: labels(["0", "15", "30", "60", "240"], pauseAfter)),
                 s(
+                    SettingKeys.resumeAfterCrash, "Continue working agents after a crash", .boolean,
+                    "One by one, with a pause. Agents you paused yourself wait for you.",
+                    help:
+                        "When Kelp closes unexpectedly or the Mac restarts while agents are in the middle of a turn, they go on by themselves once Kelp is back, instead of waiting for Continue All. Uses their plans while you’re away."
+                ),
+                s(
                     SettingKeys.updateIdle, "Update idle agents", .boolean,
                     "Restarts into an update after its turn, in the same conversation.",
                     help:
