@@ -42271,6 +42271,286 @@
           }
         }
       }
+    },
+    "The name the panel and the tab show.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя, которое видно в панели и на вкладке."
+          }
+        }
+      }
+    },
+    "How many minutes to aim at? Each slide is timed while you present with notes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько минут вы хотите уложиться? Каждый слайд засекается, пока вы показываете с заметками."
+          }
+        }
+      }
+    },
+    "Search Versions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по версиям"
+          }
+        }
+      }
+    },
+    "Kept versions’ names can’t be read: fix %@ or remove it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имена хранимых версий не читаются: исправьте %@ или удалите его."
+          }
+        }
+      }
+    },
+    "Restore Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть версию %lld"
+          }
+        }
+      }
+    },
+    "Kept": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранится"
+          }
+        }
+      }
+    },
+    "Stop Keeping This Version": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше не хранить"
+          }
+        }
+      }
+    },
+    "Keep This Version…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранить эту версию…"
+          }
+        }
+      }
+    },
+    "Keep Version %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранить версию %lld"
+          }
+        }
+      }
+    },
+    "A kept version shows by its name and isn’t removed with the oldest.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранимая версия видна под своим именем и не удаляется вместе со старыми."
+          }
+        }
+      }
+    },
+    "Canvas": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Холст"
+          }
+        }
+      }
+    },
+    "View, Mark, Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вид, Пометки, Правка"
+          }
+        }
+      }
+    },
+    "Zoom to the Chosen Element": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приблизить к выбранному"
+          }
+        }
+      }
+    },
+    "Space-drag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пробел и тянуть"
+          }
+        }
+      }
+    },
+    "Move Around": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двигать холст"
+          }
+        }
+      }
+    },
+    "⇧-click": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇧-щелчок"
+          }
+        }
+      }
+    },
+    "Add to the Chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить к выбранным"
+          }
+        }
+      }
+    },
+    "Move (⇧ by 10)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сдвинуть (⇧ — на 10)"
+          }
+        }
+      }
+    },
+    "Copy and Paste": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать и вставить"
+          }
+        }
+      }
+    },
+    "Choose Nothing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снять выбор"
+          }
+        }
+      }
+    },
+    "Parent, Inside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Родитель, внутрь"
+          }
+        }
+      }
+    },
+    "Double-click": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двойной щелчок"
+          }
+        }
+      }
+    },
+    "Split at Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрезать по указателю"
+          }
+        }
+      }
+    },
+    "Trim to Playhead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подрезать до указателя"
+          }
+        }
+      }
+    },
+    "Set the Work Area": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задать рабочую область"
+          }
+        }
+      }
+    },
+    "Add Keyframe": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить ключевой кадр"
+          }
+        }
+      }
+    },
+    "Keyboard Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сочетания клавиш"
+          }
+        }
+      }
+    },
+    "Replace Picture…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заменить картинку…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

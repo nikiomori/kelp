@@ -62,7 +62,7 @@ final class ArtifactBar: NSObject {
     private var marks: ArtifactMarkCounts?
     /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
-    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
+    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
         [weak self] in
         guard let self else { return }
         Task { @MainActor in
@@ -345,7 +345,7 @@ final class ArtifactBar: NSObject {
             menu.addItem(.separator())
         }
         if md.page == .canvas || md.page == .motion {
-            menu.add(String(localized: "Keys…")) { [weak self] in self?.showKeys() }
+            menu.add(String(localized: "Keyboard Shortcuts")) { [weak self] in self?.showKeys() }
         }
         if md.page == .canvas {
             menu.add(String(localized: "View"), submenu: md.viewMenu())

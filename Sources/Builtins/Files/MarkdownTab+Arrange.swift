@@ -152,7 +152,7 @@ extension MarkdownTab {
         menu.add(String(localized: "Bring to Front")) { [weak self] in self?.runJS("window.kelpArrange?.(true)") }
         menu.add(String(localized: "Send to Back")) { [weak self] in self?.runJS("window.kelpArrange?.(false)") }
         if image {
-            menu.add(String(localized: "Replace Image…")) { [weak self] in self?.replaceImage(board, id) }
+            menu.add(String(localized: "Replace Picture…")) { [weak self] in self?.replaceImage(board, id) }
         }
         if media { menu.add(String(localized: "Crop")) { [weak self] in self?.runJS("window.kelpCrop?.()") } }
         if !chart.isEmpty {
@@ -170,7 +170,8 @@ extension MarkdownTab {
             }
         }
         menu.addItem(.separator())
-        menu.add(String(localized: "Delete")) { [weak self] in self?.removeElement(board, id) }
+        menu.add(String(localized: "Delete"), key: "\u{8}") { [weak self] in self?.removeElement(board, id) }
+            .keyEquivalentModifierMask = []   // ⌫, as the page takes it
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
@@ -179,7 +180,7 @@ extension MarkdownTab {
         Task { await askForImage(board, id) }
     }
 
-    /// The panel for Replace Image…, once the element is found to be an image.
+    /// The panel for Replace Picture…, once the element is found to be an image.
     private func askForImage(_ board: String, _ id: String) async {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         let source = path == url.path ? editor.text : await app.quiet(FilesRead(path: path))?.text

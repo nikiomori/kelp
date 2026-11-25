@@ -41,20 +41,12 @@ extension MarkdownTab {
     /// Rehearse…: asks the length aimed at, then presents with notes, timing each slide.
     func rehearse() {
         Task {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Rehearse")
-            alert.informativeText = String(localized: "Present with notes against a length; each slide is timed.")
-            let minutes = NSTextField(string: "10")
-            minutes.frame.size = NSSize(width: Metrics.alertAccessory / 3, height: minutes.fittingSize.height)
-            let row = NSStackView(views: [
-                minutes, NSTextField.label(String(localized: "minutes"), font: .ui(TextSize.row))
-            ])
-            row.frame.size = NSSize(width: Metrics.alertAccessory, height: row.fittingSize.height)
-            alert.accessoryView = row
-            alert.addButton(withTitle: String(localized: "Start"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            Presenter.start(for: self, rehearsing: max(1, Double(minutes.stringValue) ?? 10) * 60)
+            let minutes = await prompt(
+                String(localized: "Rehearse"),
+                String(localized: "How many minutes to aim at? Each slide is timed while you present with notes."),
+                initial: "10", action: String(localized: "Rehearse"))
+            guard let minutes else { return }
+            Presenter.start(for: self, rehearsing: max(1, Double(minutes) ?? 10) * 60)
         }
     }
 

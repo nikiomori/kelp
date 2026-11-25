@@ -45,7 +45,8 @@ extension Builtins {
             element("artifacts.sendToBack", "Send to Back", "Edit") { tab, _, _ in
                 tab.runJS("window.kelpArrange?.(false)")
             },
-            element("artifacts.replaceImage", "Replace Image…", "Edit") { tab, board, id in tab.replaceImage(board, id)
+            element("artifacts.replaceImage", "Replace Picture…", "Edit") { tab, board, id in
+                tab.replaceImage(board, id)
             },
             element("artifacts.deleteElement", "Delete Element", "Edit") { tab, board, id in
                 tab.removeElement(board, id)
