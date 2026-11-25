@@ -185,6 +185,16 @@
         }
       }
     },
+    "%lld whole on this Mac, %lld without pictures, %lld with no copy.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Целиком на этом Mac: %1$lld, без картинок: %2$lld, без копии: %3$lld."
+          }
+        }
+      }
+    },
     "Add Tag": {
       "localizations": {
         "ru": {
@@ -275,6 +285,16 @@
         }
       }
     },
+    "Every page opens without the network.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все страницы открываются без сети."
+          }
+        }
+      }
+    },
     "Gray": {
       "localizations": {
         "ru": {
@@ -311,6 +331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Как тег выглядит на карточках и в строках. Страницы хранят только его имя."
+          }
+        }
+      }
+    },
+    "Kelp can't sign in to claude.ai: a Claude chat saves the rest to disk and checks them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp не может войти в claude.ai: остальное сохранит на диск и проверит чат Claude."
           }
         }
       }
@@ -615,6 +645,16 @@
         }
       }
     },
+    "Save the pages on claude.ai whole on this Mac, to open without the network": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить страницы с claude.ai целиком на этом Mac, чтобы открывать их без сети"
+          }
+        }
+      }
+    },
     "Show All Artifacts": {
       "localizations": {
         "ru": {
@@ -645,6 +685,78 @@
         }
       }
     },
+    "Sync %lld Pages": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sync %lld Page"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sync %lld Pages"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницу"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницы"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страниц"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницы"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Sync Pages from claude.ai": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать страницы с claude.ai"
+          }
+        }
+      }
+    },
+    "Sync…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать…"
+          }
+        }
+      }
+    },
     "Tag %@": {
       "localizations": {
         "ru": {
@@ -671,6 +783,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Архив пуст"
+          }
+        }
+      }
+    },
+    "Then keep them in sync every night (a routine)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потом синхронизировать каждую ночь (рутина)"
           }
         }
       }

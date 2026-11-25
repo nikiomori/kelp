@@ -2,9 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|tags|tag|untag|archive|unarchive|open|add|check|links|marks|reply|ask|suggest|export|
-    /// beats|captions` handles pages
-    /// agents make for the user, kept in the project's `.kelp/artifacts`.
+    /// `artifact guide|new|list|tags|tag|untag|archive|unarchive|sync|open|add|check|links|marks|reply|ask|suggest|
+    /// export|beats|captions` handles pages agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -61,6 +60,7 @@ extension Main {
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
         case "list": try await listPages(cwd, c)
         case "tags": try await listTags(cwd, c)
+        case "sync": try await sync(cwd, c)
         case "tag", "untag", "archive", "unarchive": try await keep(sub ?? "", cwd, c)
         case "rm", "remove", "delete", "trash":
             fail("Only the user deletes pages. Move it to the archive instead: kelp artifact archive <name>")

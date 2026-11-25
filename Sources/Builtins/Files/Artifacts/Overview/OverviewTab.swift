@@ -71,7 +71,11 @@ final class OverviewController: NSViewController {
         search.widthAnchor.constraint(equalToConstant: 190).isActive = true
         views.controlSize = .small
         views.selectedSegment = asList ? 1 : 0
-        let bar = Bar.content([title, facts], [search, views])
+        let sync = TextButton(String(localized: "Sync…")) { [weak self] in
+            if let model = self?.model { OverviewSync.ask(model) }
+        }
+        sync.toolTip = String(localized: "Save the pages on claude.ai whole on this Mac, to open without the network")
+        let bar = Bar.content([title, facts], [sync, search, views])
 
         let sourceScroll = sources.table.plainList("s")
         sourceScroll.widthAnchor.constraint(equalToConstant: 210).isActive = true

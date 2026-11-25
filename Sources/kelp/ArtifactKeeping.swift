@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-/// `kelp artifact list|tags|tag|untag|archive|unarchive`: how an agent finds pages and puts them in order. The tags and
+/// `kelp artifact list|tags|tag|untag|archive|unarchive|sync`: how an agent finds pages, puts them in order and saves
+/// them whole. The tags and
 /// the archive go through the daemon, which keeps what each page had before an agent's change, so the user can undo it
 /// in Artifacts Overview. Deleting stays the user's.
 extension Main {
@@ -84,20 +85,55 @@ extension Main {
         return Artifacts.dir(root: root).appendingPathComponent(name).path
     }
 
+    /// This project's folder, or every project's with `every`, with the project's name.
+    private static func roots(every: Bool, _ cwd: String, _ c: RPCClient) async throws -> [(
+        path: String, project: String
+    )] {
+        guard every else {
+            let root = try await projectRoot(cwd, c)
+            return [(root, (root as NSString).lastPathComponent)]
+        }
+        var roots: [(path: String, project: String)] = []
+        let repos = try await c.call(RepoList())
+        for w in try await c.call(WorktreeList()) where !w.archived && !roots.contains(where: { $0.path == w.path }) {
+            roots.append((w.path, repos.first { $0.id == w.repoId }?.name ?? w.path))
+        }
+        return roots
+    }
+
+    /// `kelp artifact sync [--all] [--check]`: the pages on claude.ai whose copy here isn't whole, and how an agent
+    /// with claude.ai's artifact tools saves them to disk. --check counts again once that's done.
+    static func sync(_ cwd: String, _ c: RPCClient) async throws {
+        let every = has("--all"), check = has("--check")
+        _ = has("--plan")
+        var all = 0
+        var short: [(url: String, folder: String, state: String)] = []
+        for root in try await roots(every: every, cwd, c) {
+            for (slug, record) in Artifacts.list(root: root.path) where record.url != nil {
+                all += 1
+                let folder = Artifacts.dir(root: root.path).appendingPathComponent(slug)
+                let state = Artifacts.copyState(folder: folder, root: root.path)
+                if state != .full { short.append((record.url ?? "", folder.path, state == nil ? "none" : "partial")) }
+            }
+        }
+        print("\(all - short.count) of \(all) pages on claude.ai are whole on this Mac.")
+        guard !short.isEmpty else { return }
+        if !check {
+            print(
+                """
+                For each page below, with your claude-artifacts tools: list its files (list_files, by its link), then
+                save them to disk with read_file's paths, without reading them into the conversation. The page
+                (index.html, or project/Main.dc.html for a canvas) goes to <folder>/page.html; every other file to
+                <folder>/<the path it is served at>; each uploaded picture (list_assets, read_asset) to
+                <folder>/_blob/<its id>. Then run `kelp artifact sync --check\(every ? " --all" : "")`.
+                """)
+        }
+        for page in short { print([page.url, page.state, page.folder].joined(separator: "\t")) }
+    }
+
     /// The pages of this project, or of every project with `every`, newest first.
     private static func pages(every: Bool, _ cwd: String, _ c: RPCClient) async throws -> [Listed] {
-        var roots: [(path: String, project: String)] = []
-        if every {
-            let repos = try await c.call(RepoList())
-            for w in try await c.call(WorktreeList()) where !w.archived && !roots.contains(where: { $0.path == w.path })
-            {
-                roots.append((w.path, repos.first { $0.id == w.repoId }?.name ?? w.path))
-            }
-        } else {
-            let root = try await projectRoot(cwd, c)
-            roots = [(root, (root as NSString).lastPathComponent)]
-        }
-        return roots.flatMap { root in
+        try await roots(every: every, cwd, c).flatMap { root in
             Artifacts.list(root: root.path).map { slug, r in
                 let folder = Artifacts.dir(root: root.path).appendingPathComponent(slug)
                 return Listed(

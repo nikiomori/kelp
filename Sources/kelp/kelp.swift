@@ -68,6 +68,7 @@ let usage = """
                                            tags in use
       artifact tag <name> +a -b | untag <name> <tag> | archive <name>… | unarchive <name>…   put pages in
                                            order (the user can undo it in Artifacts Overview; deleting stays theirs)
+      artifact sync [--all] [--check]       claude.ai pages not whole on this Mac, and how to save them to disk
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
       artifact ask <name> <data-id> <question> [--choice <a>]… | suggest <name> <request>…   ask on an element (a
                                            choice is a button that answers at once); offer what's next
