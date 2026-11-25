@@ -89,7 +89,7 @@ public enum ConversationTurns {
         private mutating func say(_ role: String?, _ content: Any?, at: String?) {
             guard role == "user" || role == "assistant" else { return }
             let items = content as? [[String: Any]] ?? []
-            let texts = (content as? String).map { [$0] } ?? items.compactMap { $0["text"] as? String }
+            let texts = JSONL.texts(content)
             let text = texts.compactMap(role == "user" ? JSONL.typed : Self.said).joined(separator: "\n\n")
             if !text.isEmpty {
                 endRun()

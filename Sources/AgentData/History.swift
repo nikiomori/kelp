@@ -336,43 +336,6 @@ enum JSONL {
         return (value as? String).flatMap(CIRuns.date)
     }
 
-    /// Returns the first user text in a string or content array, skipping generated context and AGENTS.md blocks.
-    /// A slash command with arguments counts as "/name args".
-    static func promptText(_ content: Any?) -> String? {
-        let texts: [String] =
-            if let string = content as? String { [string] } else {
-                (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
-            }
-        return texts.lazy.compactMap(typed).first
-    }
-
-    private static let generatedTags: Set<Substring> = [
-        "environment_context", "user_instructions", "turn_aborted", "subagent_notification", "user_shell_command",
-        "user_action", "skill", "codex_internal_context", "agent_message_board_notification", "image_resize_notice",
-        "system-reminder", "task-notification", "teammate-message", "artifact-content-authored-by-others",
-        "command-name", "command-message", "command-args", "local-command-caveat", "local-command-stdout",
-        "local-command-stderr", "bash-input", "bash-stdout", "bash-stderr", "ide_opened_file", "ide_selection"
-    ]
-
-    /// Skips leading transcript wrappers. User text can follow a wrapper in the same block or start with markup itself.
-    static func typed(_ raw: String) -> String? {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)[...]
-        while let tag = text.prefixMatch(of: /<([\w-]+)(?=[>\s])/),
-            generatedTags.contains(tag.1) || text.hasPrefix("<kelp from=\"")
-        {
-            if tag.1.hasPrefix("command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-                let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-                !args.allSatisfy(\.isWhitespace)
-            {
-                return "\(name) \(args)"
-            }
-            guard let end = text.range(of: "</\(tag.1)>") else { return nil }
-            text = text[end.upperBound...].drop(while: \.isWhitespace)
-        }
-        guard !text.isEmpty, !text.hasPrefix("# AGENTS.md"), !text.hasPrefix("[Request interrupted") else { return nil }
-        return String(text)
-    }
-
     static func clip(_ text: String, _ length: Int = 80) -> String {
         let oneLine = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         return oneLine.count > length ? String(oneLine.prefix(length - 1)) + "…" : oneLine

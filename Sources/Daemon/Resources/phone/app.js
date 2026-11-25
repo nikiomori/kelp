@@ -387,6 +387,7 @@ async function loadOpen(manualRetry = false) {
   const failure = mine.readFailure;
   if (manualRetry) {
     if (!failure?.attempt) return;
+    mine.readFailure = null;
   } else if (failure) {
     const delay = detailRetryDelays[failure.attempt - 1];
     if (delay == null || performance.now() - mine.lastRead < delay) return;
@@ -410,12 +411,13 @@ async function loadOpen(manualRetry = false) {
   } catch (e) {
     if (open !== mine || mine.gone || mine.detailRead.signal.aborted) return;
     if (e.status === 404 || e.status === 410) {
-      if (agents.get(mine.id) !== before) return;
-      mine.gone = true;
       mine.readFailure = null;
-      agents.delete(mine.id);
+      if (agents.get(mine.id) === before) {
+        mine.gone = true;
+        agents.delete(mine.id);
+      }
     } else if ([0, 408, 429].includes(e.status)) {   // api.js reports network and server errors as status 0
-      const attempt = manualRetry ? 1 : (failure?.attempt ?? 0) + 1;
+      const attempt = (mine.readFailure?.attempt ?? 0) + 1;
       mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
     } else {
       mine.readFailure = { message: e.status === 403 ? S.readDenied : S.readFailed };
