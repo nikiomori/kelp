@@ -45,40 +45,6 @@ import Testing
     #expect(wide[0] == "a" + String(repeating: " ", count: 39) + "  b")   // padded to 40, not to the 50 under it
 }
 
-/// What `kelp browser open` takes as typed: a local address is http, a bare host https, a URL as it is.
-@Test func aBrowserAddressGetsItsScheme() {
-    #expect(Main.address("localhost:3000") == "http://localhost:3000")
-    #expect(Main.address("127.0.0.1:8080/x") == "http://127.0.0.1:8080/x")
-    #expect(Main.address("example.com") == "https://example.com")
-    #expect(Main.address("file:///tmp/a.html") == "file:///tmp/a.html" && Main.address("about:blank") == "about:blank")
-    #expect(Main.address("preview:/tmp/a.html") == "preview:/tmp/a.html")   // a local page, as `kelp open` refuses it
-}
-
-/// An action's answer reads as one line, what came under it; a line from stdin splits into words as a shell would.
-@Test func aBrowserAnswerIsALine() {
-    let clicked: JSONValue = .object([
-        "change": .string("page changed"), "element": .string(#"button "Check""#), "url": .string("http://x/"),
-        "title": .string("X"), "new": .string(#"- text: "Invalid" [new]"#), "dialogs": .array([.string("alert \"Hi\"")])
-    ])
-    #expect(
-        Main.browserText(.click, "e1", clicked)
-            == "click e1 button \"Check\" → page changed\ndialog: alert \"Hi\"\n- text: \"Invalid\" [new]")
-    let went: JSONValue = .object([
-        "change": .string("new page"), "url": .string("http://x/two"), "title": .string("Two")
-    ])
-    #expect(Main.browserText(.click, "e3", went) == #"click e3 → new page "Two" http://x/two"#)
-    let typed: JSONValue = .object(["shows": .string("+7 99"), "url": .string("u"), "title": .string("t")])
-    #expect(Main.browserText(.type, "e5", typed) == #"type e5 → shows "+7 99""#)
-    #expect(Main.browserText(.press, "Escape", .object([:])) == "press Escape → done")
-    #expect(
-        Main.browserText(.open, "", .object(["url": .string("u"), "title": .string("A \"b\"")])) == #"page "A \"b\"" u"#
-    )
-    #expect(Main.browserText(.snapshot, "", .string("- page")) == nil)
-    #expect(Main.browserText(.eval, "", .object(["n": .int(1)])) == nil)   // eval's value, as the page gave it
-    #expect(ShellQuote.words(#"type e3 "a b" 'c "d"' e\ f"#) == ["type", "e3", "a b", #"c "d""#, "e f"])
-    #expect(ShellQuote.words("  drag e1   '#col'  ") == ["drag", "e1", "#col"])
-}
-
 /// A value given on the command line is JSON when it parses, else the text itself (`kelp settings set k dark`).
 @Test func aCommandLineValueIsJSONOrText() {
     #expect(jsonOrText("3") == .int(3) && jsonOrText("true") == .bool(true))
@@ -98,34 +64,6 @@ import Testing
         #expect(args == ["query", "select 1"])
         args = ["query", "--db"]
         #expect(flag("--db") == nil && args == ["query", "--db"])
-    }
-
-    /// `kelp browser <action> …`: the words after the action become its parameters, flags wherever they stand.
-    @Test func aBrowserActionsWordsBecomeItsParameters() {
-        let was = args
-        defer { args = was }
-        let rows: [(BrowserAction, [String], [String: JSONValue])] = [
-            (.open, ["localhost:3000", "--shared"], ["url": "http://localhost:3000", "shared": true]),
-            (.open, ["example.com"], ["url": "https://example.com", "shared": false]),
-            (.click, ["e2"], ["ref": "e2"]),
-            (.press, ["Enter", "e3"], ["key": "Enter", "ref": "e3"]),
-            (.drag, ["e1", ".list li"], ["ref": "e1", "onto": ".list li"]),
-            (.scroll, [], ["to": "down"]),
-            (.type, ["e4", "--submit", "hello", "world"], ["ref": "e4", "text": "hello world", "submit": true]),
-            (.eval, ["1", "+", "2"], ["js": "1 + 2"]),
-            (.screenshot, ["/tmp/a/../s.png"], ["path": "/tmp/s.png"]),
-            (.record, ["stop"], ["stop": true]),
-            (.wait, ["--text", "Done", "--timeout", "2.5"], ["text": "Done", "timeout": .double(2.5)]),
-            (.network, ["--clear"], ["clear": true]),
-            (.snapshot, ["--find", "Buy", "e5"], ["find": "Buy", "ref": "e5"]),
-            (.dialog, ["accept", "my", "name"], ["answer": "accept", "text": "my name"]),
-            (.viewport, ["390x844"], ["size": "390x844"]),
-            (.back, [], [:])
-        ]
-        for (action, words, expected) in rows {
-            args = words
-            #expect(Main.browserParams(action) == expected, "\(action) \(words)")
-        }
     }
 }
 

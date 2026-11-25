@@ -131,6 +131,11 @@ final class Forwards: Sendable {
         return components.string ?? url
     }
 
+    /// The ports of `host` brought here, as the port here and the address there.
+    func mapping(host: String) -> [(here: Int, target: String)] {
+        state.withLock { s in s.records.filter { $0.host == host }.map { ($0.here, $0.target) } }
+    }
+
     func drop(port: Int, in worktree: String, _ remote: RemoteHost) {
         let gone = state.withLock { s in s.records.filter { $0.worktree == worktree && $0.port == port } }
         for record in gone { cancel(record, remote) }

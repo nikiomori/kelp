@@ -76,6 +76,16 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   stays in a tmux option, and each connection starts by printing it, so a turn that ended while the connection was down
   still shows. tmux sends only the cells that changed, so a menu's options are picked by number. Without tmux the agent
   answers the terminal's probe and reports for itself; an agent with neither is read from the screen.
+- **`kelp browser` from a host** (Claude Code in tmux there, `HostBrowser.wanted`): as it starts, one ssh call puts
+  `/tmp/kelp-<uid>` on the host (0700, never the home folder: `bin/kelp`, a sh script that knows only `kelp browser`, and
+  the browser skill as a plugin folder, `HostKelp`), and the open connection brings a socket there to one of the
+  session's here (`ssh -O forward -R`, no new login). kelpd reads the words as the CLI does (`BrowserWords`) and answers
+  as that session's agent (`Daemon.answerFromHost`); the socket does nothing else. The page is on the host's network:
+  `open localhost:3000` forwards the port (`Forwards`), and the page loads the rest through a SOCKS proxy on the
+  connection (`ssh -O forward -D`), because WebKit never sends loopback through a proxy. This Mac's loopback is closed to
+  the page but for the forwarded ports (a content rule, `BrowserTab.onHost`), and the host shows before the address.
+  Files cross over the connection: an upload is read there, a screenshot, recording or download is copied there.
+  `--shared` and `preview:` are refused from a host. Without a connection the script says Kelp isn't there.
 - **Remote agents** run in a tmux session of their own on the host when it has tmux (`Session.tmux`,
   `RemoteHost.command(_:inTmux:)`): the agent keeps working through a dropped connection or a daemon restart, a wake or
   Restart attaches to it again ("Connection lost" › Reconnect), closing the tab ends it. After attaching, tmux's redraw

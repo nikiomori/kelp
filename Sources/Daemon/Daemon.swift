@@ -210,13 +210,7 @@ public final class Daemon: Sendable {
             }
         }
         settingsEvents.watch()
-        // The phone's calls are answered as the daemon's own (`conn` -1), which count as the user's, because an Allow
-        // tapped on the phone has to.
-        sessions.phone.hear(
-            .started { [weak self] method, params in
-                guard let self else { throw RPCError.internalError("The background service stopped.") }
-                return try await answer(method, params, conn: -1)
-            })
+        hearFromAfar()
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
         ticker.setEventHandler { [self] in tick() }

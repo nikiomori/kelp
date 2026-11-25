@@ -14,11 +14,11 @@ final class SessionProcesses: Sendable {
     /// Each host's readings of the last hour (`host.history`).
     let hostHistory = HostHistory(initialState: [:])
 
-    init(live: SessionTable, store: Store, remotes: Remotes) {
+    init(live: SessionTable, store: Store, remotes: Remotes, forwards: Forwards) {
         self.live = live
         self.store = store
         self.remotes = remotes
-        forwards = Forwards(store: store)
+        self.forwards = forwards
     }
 
     /// Every process under a live session's PTY, by pid → session id; `only` limits it to one workspace.
