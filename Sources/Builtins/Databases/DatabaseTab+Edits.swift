@@ -98,6 +98,7 @@ extension DatabaseTab {
             return false
         }
         grid.edits.clear()
+        grid.forgetUndo()   // saved: ⌘Z mustn't bring them back to save twice, even when reading them again fails
         counted = nil   // saved rows may be counted differently
         await showTable(name)
         let saved = done.changed ?? 0, number = saved.formatted()

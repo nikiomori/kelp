@@ -84,6 +84,45 @@ import Testing
     #expect(tab.grid.edits.value(row: 0, column: 0) == .some("z"))
 }
 
+/// Saved edits can't be undone back into unsaved ones, even when reading the table again fails: ⌘Z then Save inserted
+/// the saved rows twice.
+@MainActor @Test func savedEditsLeaveNothingToUndo() async throws {
+    let path = tmp().path + "/kelp-save-\(getpid()).sock"
+    let server = try Unix.listen(path)
+    defer {
+        close(server)
+        unlink(path)
+    }
+    // A daemon that saves (`db.apply`) and fails everything else, the table's reading again too.
+    Thread.detachNewThread {   // until the app's client hangs up (the test's end)
+        let fd = accept(server, nil, nil)
+        defer { close(fd) }
+        var lines = LineBuffer(), buf = [UInt8](repeating: 0, count: 65536)
+        while case let n = read(fd, &buf, buf.count), n > 0 {
+            for line in lines.append(Data(buf[0..<n])) {
+                guard let m = try? JSONSerialization.jsonObject(with: line) as? [String: Any], let id = m["id"] as? Int
+                else { continue }
+                let saved = #"{"id":"r","columns":[],"rows":[],"total":0,"changed":1,"ms":0}"#
+                let reply =
+                    m["method"] as? String == DatabaseApply.name
+                    ? #"{"jsonrpc":"2.0","id":\#(id),"result":\#(saved)}"#
+                    : #"{"jsonrpc":"2.0","id":\#(id),"error":{"code":-32000,"message":"gone"}}"#
+                _ = Unix.writeAll(fd, Data((reply + "\n").utf8))
+            }
+        }
+    }
+    let (tab, window) = editableTab([["a"]])
+    defer { withExtendedLifetime(window) {} }
+    let client = try RPCClient(socket: path)
+    defer { client.close() }
+    tab.app.daemon.use(client)
+    let undo = try #require(tab.grid.table.undoManager)
+    undo.groupsByEvent = false   // no events here: each change is a group of its own
+    tab.grid.set(row: 0, column: 0, to: "z")
+    #expect(await tab.saveChanges())
+    #expect(tab.grid.edits.isEmpty && !undo.canUndo)
+}
+
 /// Opening the details takes their width from the rows, never from the window: a window too narrow for the foot's
 /// buttons beside them keeps its size.
 @MainActor @Test func theDetailsTakeTheirWidthFromTheRows() {
