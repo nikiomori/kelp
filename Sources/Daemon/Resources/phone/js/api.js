@@ -80,7 +80,7 @@ function send(n, method, path, body, signal) {
 }
 
 /** One request. Resolves with the JSON body (or null); rejects with {status, message}, status 0 = the Mac is unreachable. */
-export async function api(method, path, body) {
+export async function api(method, path, body, signal) {
   if (!me) {
     on.unpaired();
     throw { status: 401, message: '' };
@@ -88,13 +88,13 @@ export async function api(method, path, body) {
   const n = stamp();
   let status, data;
   try {
-    const res = await send(n, method, path, body);
+    const res = await send(n, method, path, body, signal);
     if (res.ok) ({ status, body: data } = await unseal(me.key, 'r' + n, (await res.json()).box));
     else status = res.status;
   } catch {
     throw { status: 0, message: '' };
   }
-  if (status === 401) on.unpaired();
+  if (status === 401 && !signal?.aborted) on.unpaired();
   if (status >= 400) throw { status: status >= 500 ? 0 : status, message: data?.error ?? '' };
   return data ?? null;
 }
@@ -128,7 +128,7 @@ export async function unpair() {
   await store('readwrite', kept => kept.delete('pairing'));
 }
 export const list = () => api('GET', 'agents');
-export const get = agent => api('GET', `agents/${id(agent)}`);
+export const get = (agent, signal) => api('GET', `agents/${id(agent)}`, undefined, signal);
 export const choose = (agent, answer, question) => api('POST', `agents/${id(agent)}/choose`, { answer, question });
 export const reply = (agent, text) => api('POST', `agents/${id(agent)}/reply`, { text });
 export const read = agent => api('POST', `agents/${id(agent)}/read`);

@@ -28,6 +28,8 @@ const EN = {
   paste: 'Paste Pairing Link', link: 'Pairing link', connect: 'Connect', badLink: "That isn't a pairing link.",
   cantReach: mac => `Can't reach ${mac || 'your Mac'}. Trying again…`,
   failed: mac => `Can't reach ${mac || 'your Mac'}.`,
+  readFailed: "Couldn't load the conversation.", readRetrying: "Couldn't load the conversation. Trying again…",
+  readDenied: "You don't have access to this conversation.", retry: 'Retry',
   empty: mac => `No agents are running on ${mac || 'your Mac'}.`,
   status: {
     waiting: 'Needs you', working: 'Working', done: 'Done', error: 'Error',
@@ -98,6 +100,8 @@ const RU = {
   paste: 'Вставить ссылку для подключения', link: 'Ссылка для подключения', connect: 'Подключить', badLink: 'Это не ссылка для подключения.',
   cantReach: mac => `Нет связи с ${mac || 'вашим Mac'}. Пробую ещё раз…`,
   failed: mac => `Нет связи с ${mac || 'вашим Mac'}.`,
+  readFailed: 'Не удалось загрузить переписку.', readRetrying: 'Не удалось загрузить переписку. Пробую ещё раз…',
+  readDenied: 'У вас нет доступа к этой переписке.', retry: 'Повторить',
   empty: mac => `На ${mac || 'вашем Mac'} не работает ни один агент.`,
   status: {
     waiting: 'Ждёт вас', working: 'Работает', done: 'Готово', error: 'Ошибка',
@@ -233,8 +237,7 @@ let agents = new Map();
 let paired = false;
 let online = true;
 let open = null;          // the current visit to an agent, including its conversation and refresh state
-let readingOpen = false;
-let sending = false;
+let sending = null;
 const busy = new Map();   // agent id → 'flight' (answer on its way) | 'sent' (answered, its event not here yet)
 const notes = new Map();  // agent id → the line under its Allow and Deny
 const rowEls = new Map();
@@ -266,6 +269,7 @@ const lenses = [];    // each wakes its lens, which sleeps while the agent isn't
     give this page a pairing link. */
 function showPair(text, how = text === S.connecting ? 'wait' : 'ask') {
   paired = reaching = false;
+  open?.detailRead?.abort();
   open = null;
   clearTimeout(retry);
   stream?.close();
@@ -304,6 +308,7 @@ $('pair-form').onsubmit = e => { e.preventDefault(); given($('pair-link').value)
 function route() {
   if (!paired) return;
   const id = decoded(location.hash.slice(1));
+  if (open && open.id !== id) open.detailRead?.abort();
   if (!id) {
     open = null;
     screen('list');
@@ -374,30 +379,50 @@ function markOpenRead() {
   kelp.read(mine.id).catch(() => {}).finally(() => { mine.markingRead = false; });
 }
 
-async function loadOpen() {
+const detailRetryDelays = [1000, 2000, 4000];
+async function loadOpen(manualRetry = false) {
   const mine = open;
-  if (!mine || mine.gone || readingOpen || !online || document.hidden) return;
+  if (!mine || mine.gone || mine.detailRead || !online || document.hidden) return;
   const before = agents.get(mine.id);
-  // A working Codex can append turns without sending any agent event.
-  if (!mine.dirty && !(before?.agent === 'codex' && before.status === 'working')) return;
-  if (mine.lastRead != null && performance.now() - mine.lastRead < (mine.dirty ? 1000 : 5000)) return;
-  readingOpen = true;
+  const failure = mine.readFailure;
+  if (manualRetry) {
+    if (!failure?.attempt) return;
+  } else if (failure) {
+    const delay = detailRetryDelays[failure.attempt - 1];
+    if (delay == null || performance.now() - mine.lastRead < delay) return;
+  } else {
+    // A working Codex can append turns without sending any agent event.
+    if (!mine.dirty && !(before?.agent === 'codex' && before.status === 'working')) return;
+    if (mine.lastRead != null && performance.now() - mine.lastRead < (mine.dirty ? 1000 : 5000)) return;
+  }
+  mine.detailRead = new AbortController();
   mine.dirty = false;
+  if (failure) $('a-retry').disabled = true;
   try {
-    const { lastReply, turns, ...agent } = await kelp.get(mine.id);
+    const { lastReply, turns, ...agent } = await kelp.get(mine.id, mine.detailRead.signal);
     if (open !== mine || mine.gone || document.hidden) return;
     // A summary event can arrive while the Mac is still reading the transcript.
     if (agents.get(mine.id) === before) agents.set(mine.id, kelp.agentFrom(agent));
     mine.reply = lastReply ?? null;
     mine.turns = Array.isArray(turns) && turns.length ? turns : null;
     mine.content = mine.turns ? JSON.stringify(mine.turns) : mine.reply;
+    mine.readFailure = null;
   } catch (e) {
-    if (open !== mine || document.hidden || e.status !== 404 || agents.get(mine.id) !== before) return;
-    mine.gone = true;
-    agents.delete(mine.id);
+    if (open !== mine || mine.gone || mine.detailRead.signal.aborted) return;
+    if (e.status === 404 || e.status === 410) {
+      if (agents.get(mine.id) !== before) return;
+      mine.gone = true;
+      mine.readFailure = null;
+      agents.delete(mine.id);
+    } else if ([0, 408, 429].includes(e.status)) {   // api.js reports network and server errors as status 0
+      const attempt = manualRetry ? 1 : (failure?.attempt ?? 0) + 1;
+      mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
+    } else {
+      mine.readFailure = { message: e.status === 403 ? S.readDenied : S.readFailed };
+    }
   } finally {
     mine.lastRead = performance.now();
-    readingOpen = false;
+    mine.detailRead = null;
   }
   render();
 }
@@ -501,19 +526,19 @@ async function choose(id, answer) {
 async function send(text, fromField) {
   const id = open?.id;
   if (!id || !text.trim() || sending) return;
-  sending = true;
+  sending = { id, clearDraft: fromField };
   $('send-error').textContent = '';
   renderAgent();
   try {
     await kelp.reply(id, text);
-    if (fromField) {
+    if (sending.clearDraft) {
       sessionStorage.removeItem('draft:' + id);
       if (open?.id === id) { $('text').value = ''; grow(); }
     }
   } catch (e) {
     if (open?.id === id && e.status !== 401) $('send-error').textContent = e.message || S.failed(mac);
   }
-  sending = false;
+  sending = null;
   renderAgent();
 }
 
@@ -740,8 +765,11 @@ function renderAgent() {
   $('stop').hidden = !(stops && working);
   $('stop').disabled = stopping || !online;
 
-  $('a-offline').hidden = online;
-  set($('a-offline-text'), S.cantReach(mac));
+  const failure = open.gone ? null : open.readFailure;
+  $('a-offline').hidden = online && !failure;
+  set($('a-offline-text'), online ? failure?.message ?? '' : S.cantReach(mac));
+  $('a-retry').hidden = !online || !failure?.attempt;
+  $('a-retry').disabled = !!open.detailRead;
 
   $('a-limit').hidden = !a?.limit;
   if (a?.limit) {
@@ -778,7 +806,7 @@ function renderAgent() {
   $('a-ended').hidden = !ended;
   $('composer').hidden = ended;
   $('quick').hidden = !(a && (a.status === 'done' || a.status === 'error') && !a.ask && !a.limit);
-  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = sending || !online;
+  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = !!sending || !online;
   if (followTurns) body.scrollTop = body.scrollHeight;
 }
 
@@ -811,6 +839,7 @@ function grow() {
 text.addEventListener('input', () => {
   grow();
   if (!open) return;
+  if (sending?.id === open.id) sending.clearDraft = false;
   if (text.value) sessionStorage.setItem('draft:' + open.id, text.value);
   else sessionStorage.removeItem('draft:' + open.id);
 });
@@ -831,6 +860,7 @@ $('quick-good').onclick = () => send(S.quickGood[1]);
 $('a-allow').onclick = () => open && choose(open.id, 'allow');
 $('a-deny').onclick = () => open && choose(open.id, 'deny');
 $('back').onclick = () => { location.hash = ''; };
+$('a-retry').onclick = () => loadOpen(true);
 $('stop').onclick = stop;
 
 // The keyboard covers the bottom of the layout, not of what is seen: the page takes the height that is seen.
@@ -1040,6 +1070,7 @@ $('confirm-yes').onclick = async () => {
 
 for (const [id, words] of Object.entries({
   'a-allow': S.allow, 'a-deny': S.deny, 'a-ended': S.ended,
+  'a-retry': S.retry,
   'quick-continue': S.quickContinue[0], 'quick-good': S.quickGood[0],
   'menu-title': S.thisPhone, 'push-title': S.notifications, 'disconnect': S.disconnect,
   'confirm-no': S.cancel, 'confirm-yes': S.disconnectYes, 'home-hint-text': S.addToHome,

@@ -13,7 +13,8 @@ export const events = () => ({
 });
 export const list = async () => ({ agents: window.rows });
 export const read = id => new Promise(resolve => window.marks.push({ id, resolve }));
-export const get = id => new Promise(resolve => window.reads.push({ id, resolve }));
+export const get = (id, signal) => new Promise((resolve, reject) => window.reads.push({ id, signal, resolve, reject }));
+export const reply = (id, text) => new Promise((resolve, reject) => window.replies.push({ id, text, resolve, reject }));
 export const replyNodes = text => [text || ''];
 </script>
 <script type="module">
@@ -59,6 +60,65 @@ async function run() {
   check(scroller.scrollTop > 0 && atEnd(),
     `A long conversation should open at its end (top ${scroller.scrollTop}, height ${scroller.clientHeight}/${scroller.scrollHeight})`);
 
+  window.replies = [];
+  const field = document.getElementById('text'), form = document.getElementById('send-form');
+  function type(value) {
+    field.value = value;
+    field.dispatchEvent(new Event('input'));
+  }
+  function checkDraft(id, value) {
+    check(sessionStorage.getItem('draft:' + id) === value, 'Wrong stored draft for ' + id);
+    if (location.hash === '#' + id) check(field.value === (value ?? ''), 'Wrong composer text for ' + id);
+  }
+  async function visit(agent) {
+    // Keep the detail and read-receipt logs for the current visit.
+    reads.length = marks.length = 0;
+    const moved = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));
+    location.hash = agent.id;
+    await moved;
+    reads[0].resolve(agent);
+    await settle();
+  }
+
+  type('First message');
+  form.requestSubmit();
+  type('Next message');
+  form.requestSubmit();
+  check(replies.length === 1 && replies[0].id === 'first' && replies[0].text === 'First message',
+    'Submitting while a reply is pending should send only the original message');
+  replies[0].resolve();
+  await settle();
+  checkDraft('first', 'Next message');
+
+  form.requestSubmit();
+  await visit(other);
+  await visit({ ...codex, turns });
+  type('');
+  type('Next message');
+  replies[1].resolve();
+  await settle();
+  checkDraft('first', 'Next message');
+
+  form.requestSubmit();
+  type('Edited while sending');
+  replies[2].reject(Error('Send failed'));
+  await settle();
+  checkDraft('first', 'Edited while sending');
+  check(document.getElementById('send-error').textContent === 'Send failed' && replies.length === 3,
+    'A failed send should show its error and wait for a manual retry');
+
+  form.requestSubmit();
+  await visit(other);
+  type('Second chat draft');
+  replies[3].resolve();
+  await settle();
+  checkDraft('first', null);
+  checkDraft('second', 'Second chat draft');
+  type('');
+  await visit({ ...codex, turns });
+  checkDraft('first', null);
+  check(replies.length === 4, 'Acknowledgement and navigation should never resend a reply');
+
   advance(5);
   check(reads.length === 2, 'A working Codex should refresh without any events');
   scroller.scrollTop = 120;
@@ -91,17 +151,103 @@ async function run() {
   document.dispatchEvent(new Event('visibilitychange'));
   await settle();
   check(reads.length === 4 && marks.length === 2, 'Returning to an unread conversation should refresh and mark it read once');
+  const switched = new Promise(resolve => window.addEventListener('hashchange', resolve, { once: true }));
   location.hash = 'second';
-  await settle();
-  reads[3].resolve({ ...codex, lastReply: 'Stale first conversation' });
-  await settle();
-  check(!transcript.textContent.includes('Stale'), 'A previous visit overwrote the current conversation');
-  advance(1);
-  check(reads.length === 5 && reads[4].id === 'second', 'The new conversation should load after the pending read');
+  await switched;
+  check(reads.length === 5 && reads[4].id === 'second', 'Switching should fetch the new conversation while the old read is pending');
+  check(reads[3].signal.aborted && !reads[4].signal.aborted, 'Switching should abort only the previous detail read');
   reads[4].resolve({ ...other, lastReply: 'Second reply' });
   await settle();
+  check(transcript.textContent === 'Second reply', 'The second reply should render while the first read is pending');
+  reads[3].resolve({ ...codex, lastReply: 'Stale first conversation' });
+  await settle();
+  check(transcript.textContent === 'Second reply', 'A delayed response overwrote the new conversation');
   advance(20);
   check(transcript.textContent === 'Second reply' && reads.length === 5, 'Fallback replies should render without polling other agents');
+
+  // Detail read failures on a settled chat.
+  const settled = { ...codex, id: 'settled', status: 'done' };
+  rows.push(settled);
+  const banner = document.getElementById('a-offline'), retry = document.getElementById('a-retry');
+  const message = document.getElementById('a-offline-text');
+  const ru = document.documentElement.lang === 'ru';
+  async function select(id) {
+    const moved = new Promise(resolve => addEventListener('hashchange', resolve, { once: true }));
+    location.hash = id;
+    await moved;
+    check(reads.at(-1).id === id, 'Expected a detail request for ' + id);
+  }
+  async function failRead(status) {
+    reads.at(-1).reject({ status });
+    await settle();
+  }
+
+  await select(settled.id);
+  await failRead(0);
+  check(!banner.hidden && !retry.hidden && retry.textContent === (ru ? 'Повторить' : 'Retry') &&
+    message.textContent.includes(ru ? 'Пробую ещё раз' : 'Trying again'), 'An initial failure should explain the retry');
+  let count = reads.length;
+  advance(1);
+  check(reads.length === count + 1, 'A settled chat should retry its first read without an event');
+  reads.at(-1).resolve({ ...settled, turns });
+  await settle();
+  const historyNode = transcript.firstChild;
+  check(banner.hidden && transcript.textContent.endsWith('Turn 79'), 'Recovery should show the transcript and clear the error');
+
+  advance(1);
+  event(settled);
+  await failRead(408);
+  count = reads.length;
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  advance(30);
+  check(reads.length === count, 'Backgrounding the chat should pause its retry');
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  check(reads.length === ++count, 'Returning to the failed chat should resume its retry');
+  await failRead(429);
+  for (const delay of [2, 4]) {
+    event(settled);
+    advance(delay - 1);
+    check(reads.length === count, 'Summary events should respect the retry delay');
+    advance(1);
+    check(reads.length === ++count, 'Expected one detail retry after the delay');
+    await failRead(0);
+  }
+  event(settled);
+  advance(60);
+  check(reads.length === count && !retry.hidden && !retry.disabled && !banner.hidden &&
+    message.textContent === (ru ? 'Не удалось загрузить переписку.' : "Couldn't load the conversation."),
+    'Repeated failures should stop with a manual retry');
+  check(transcript.firstChild === historyNode, 'Failed refreshes should leave the displayed turns in place');
+  retry.click();
+  retry.click();
+  check(reads.length === count + 1, 'Manual retry should issue one detail read');
+  reads.at(-1).resolve({ ...settled, lastReply: 'Recovered history' });
+  await settle();
+  check(banner.hidden && transcript.textContent === 'Recovered history', 'A manual retry should recover and clear the error');
+
+  advance(1);
+  event(settled);
+  await failRead(0);
+  await select('forbidden');
+  check(banner.hidden, 'A new visit should clear the previous read error');
+  await failRead(403);
+  count = reads.length;
+  event({ ...codex, id: 'forbidden' });
+  advance(60);
+  check(reads.length === count && !banner.hidden && retry.hidden &&
+    message.textContent.includes(ru ? 'нет доступа' : "don't have access"),
+    'A forbidden read and a failed chat left behind should both stop retrying');
+  for (const status of [404, 410]) {
+    await select('gone-' + status);
+    await failRead(status);
+    count = reads.length;
+    advance(60);
+    check(reads.length === count && retry.hidden && !document.getElementById('a-ended').hidden,
+      'A gone chat should show the ended state and stop retrying');
+  }
 }
 try {
   await run();
