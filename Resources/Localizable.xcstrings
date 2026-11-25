@@ -40786,6 +40786,26 @@
           }
         }
       }
+    },
+    "A video drawn as a page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ролик, нарисованный страницей"
+          }
+        }
+      }
+    },
+    "Pictures that a change works": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимки, что правка работает"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

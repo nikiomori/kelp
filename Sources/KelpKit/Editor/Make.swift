@@ -23,7 +23,13 @@ enum Make {
             help: String(localized: "Screens side by side")),
         Kind(
             id: "dashboard", title: String(localized: "Dashboard"), symbol: "chart.bar",
-            help: String(localized: "Numbers at a glance"))
+            help: String(localized: "Numbers at a glance")),
+        Kind(
+            id: "motion", title: String(localized: "Motion"), symbol: "film",
+            help: String(localized: "A video drawn as a page")),
+        Kind(
+            id: "proof", title: String(localized: "Proof"), symbol: "checkmark.seal",
+            help: String(localized: "Pictures that a change works"))
     ]
 
     /// The line the agent gets; the user writes what the page is about after it. It stays in English, because it's the
