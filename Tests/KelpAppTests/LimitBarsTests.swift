@@ -60,6 +60,15 @@ private func line(_ kind: String, _ used: Double) -> UsageView.Line {
     #expect(UsageView.visible(rows, hidden: ["claude", "grok"]).map(\.id) == ["claude", "grok"])   // the way back stays
 }
 
+/// The eye on an agent's last bar in the foot takes the agent out of the foot; any other eye only hides or shows its bar.
+@Test func theEyeOnTheLastBarHidesTheAgent() {
+    let grok = UsageView.Row(id: "grok", name: "Grok", fullName: "Grok", lines: [line("week", 1)])
+    #expect(UsageView.hiding(line("week", 1), of: grok, bars: ["week"], hidden: ["codex"]) == ["codex", "grok"])
+    let claude = UsageView.Row(id: "claude", name: "Claude", fullName: "Claude", lines: [line("week", 0.2)])
+    #expect(UsageView.hiding(line("week", 0.2), of: claude, bars: ["session", "week"], hidden: []) == nil)
+    #expect(UsageView.hiding(line("session", 0.1), of: claude, bars: ["week"], hidden: []) == nil)   // showing one
+}
+
 /// The pointer leaves the row for the card to click an eye: the card stays while it is on it, and goes after it leaves.
 @MainActor @Test func theLimitCardStaysWhileThePointerIsOnIt() async throws {
     let card = LimitCardHover()
