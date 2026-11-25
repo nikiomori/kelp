@@ -42,16 +42,23 @@ extension MotionTimeline {
         return nil
     }
 
-    /// ⇄ where a scene comes in by a transition.
+    /// `arrow.left.arrow.right` on a chip where a scene comes in by a transition.
     func drawSeams() {
-        let row = laneRect(0)
+        let row = laneRect(0), side = Metrics.countCapsule
+        let sign = NSImage.symbol("arrow.left.arrow.right", size: Metrics.iconTiny)
+            .withSymbolConfiguration(.init(paletteColors: [.secondaryLabelColor]))
         for scene in scenes where scene.transition != nil {
-            let r = NSRect(x: x(scene.start) - 1, y: row.midY - 8, width: 16, height: 16)
-            NSColor.systemIndigo.setFill()
-            NSBezierPath(roundedRect: r, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
-            ("⇄" as NSString).draw(
-                in: r.insetBy(dx: 3, dy: 1),
-                withAttributes: [.font: NSFont.ui(TextSize.micro), .foregroundColor: NSColor.white])
+            let r = NSRect(x: x(scene.start) - 1, y: row.midY - side / 2, width: side, height: side)
+            NSColor.controlBackgroundColor.setFill()
+            let chip = NSBezierPath(roundedRect: r, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
+            chip.fill()
+            NSColor.separatorColor.setStroke()
+            chip.stroke()
+            guard let sign else { continue }
+            let at = NSRect(
+                x: r.midX - sign.size.width / 2, y: r.midY - sign.size.height / 2, width: sign.size.width,
+                height: sign.size.height)
+            sign.draw(in: at, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
         }
     }
 

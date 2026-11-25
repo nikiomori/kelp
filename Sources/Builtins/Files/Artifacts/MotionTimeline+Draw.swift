@@ -28,7 +28,7 @@ extension MotionTimeline {
             shape.stroke()
         }
         if let wave = clip.wave, !wave.isEmpty {
-            NSColor.systemGreen.setFill()   // a sound’s bars, under its name
+            NSColor.tertiaryLabelColor.setFill()   // a sound’s bars, under its name: grey, as colour says a state
             let bar = rect.width / CGFloat(wave.count)
             for (i, level) in wave.enumerated() {
                 let h = max(1, CGFloat(level) * (rect.height - 4))
@@ -76,10 +76,10 @@ extension MotionTimeline {
         }
     }
 
-    /// The music's beats: a thin yellow line down the lanes at each, which clips snap to.
+    /// The music's beats: a thin grey line down the lanes at each, which clips snap to.
     func drawBeats() {
         guard !beats.isEmpty else { return }
-        NSColor.systemYellow.setFill()
+        NSColor.tertiaryLabelColor.setFill()
         let area = lanesArea
         for beat in beats where beat >= from && beat <= from + span {
             NSRect(x: x(beat), y: area.minY, width: 1, height: area.height).fill(using: .sourceOver)

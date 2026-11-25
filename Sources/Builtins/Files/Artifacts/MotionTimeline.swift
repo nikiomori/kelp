@@ -218,7 +218,7 @@ final class MotionTimeline: NSView {
         drawBeats()
         drawSeams()
         if let range {
-            NSColor.systemYellow.setFill()
+            NSColor.controlAccentColor.setFill()   // the work area is chosen, as a selection is
             NSRect(
                 x: x(range.lowerBound), y: Self.ruler - 4, width: x(range.upperBound) - x(range.lowerBound), height: 3
             )
