@@ -230,12 +230,12 @@ extension PhoneBridge {
             var next = kept ?? PhoneRecord(mac: PhoneSeal.random(16).base64URL)
             var restored: [String: PhoneDevice] = [:]
             for (id, phone) in next.devices {
-                guard let text = try Keychain.find("phone.device.\(id)") else { continue }
-                guard let key = Data(base64URL: text), key.count == 32 else {
-                    throw RPCError.internalError("A paired phone's key is unreadable.")
-                }
-                guard let device = PhoneDevice(key: SymmetricKey(data: key), kept: phone) else {
-                    throw RPCError.internalError("A paired phone's request number is unreadable.")
+                // A phone whose key is gone or unreadable can't connect, but stays listed so the user can remove it.
+                guard let text = try Keychain.find("phone.device.\(id)"), let key = Data(base64URL: text),
+                    key.count == 32, let device = PhoneDevice(key: SymmetricKey(data: key), kept: phone)
+                else {
+                    Log.session.error("Paired phone \(id, privacy: .public) has no usable key")
+                    continue
                 }
                 restored[id] = device
             }

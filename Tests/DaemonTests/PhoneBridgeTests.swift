@@ -383,11 +383,14 @@ private struct Phone {
     await #expect(throws: RPCError.self) { _ = try await c.call(PhonePair()) }
 }
 
-/// A missing key cannot authenticate or claim its saved id again; the owner can still see and remove the pairing.
-@Test func aMissingDeviceKeyKeepsItsRecordUntilRemoved() async throws {
+/// A missing or unreadable key cannot authenticate or claim its saved id again; the owner can still see and remove the
+/// pairing, and the other phones keep working.
+@Test(arguments: [nil, "not a key"]) func aMissingDeviceKeyKeepsItsRecordUntilRemoved(stored: String?) async throws {
     let (d, c, _) = try daemon()
     defer { d.stop() }
     let id = PhoneSeal.random(16).base64URL, phone = PhoneKept(name: "Old phone", last: 123, push: nil)
+    if let stored { try Keychain.set(stored, account: "phone.device.\(id)") }
+    defer { Keychain.delete("phone.device.\(id)") }
     try d.store.setDaemonState(PhoneRecord.key, PhoneRecord(mac: PhoneSeal.random(16).base64URL, devices: [id: phone]))
     _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
     try #require(try await waitFor { try await c.call(PhoneStatus()).relay != nil })
