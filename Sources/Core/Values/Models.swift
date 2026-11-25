@@ -357,8 +357,6 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         }
         if runs != subagentRuns { subagentRuns = runs }
     }
-    /// The folder the agent works in now.
-    public var currentDir: String { workDir ?? cwd }
     /// True when the session ended here while its agent may still run on the host. A remote agent's tmux session
     /// outlives the ssh that showed it (exit 255 means the connection dropped) and its tmux client (exit 1 means it was
     /// killed). tmux exits 0 when the tmux session itself ended.
