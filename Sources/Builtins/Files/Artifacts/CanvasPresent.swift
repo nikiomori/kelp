@@ -21,8 +21,13 @@ enum CanvasPresent {
           const back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
           back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
           const where = el('span', 'kelp-where');
-          back.onclick = () => { at = Math.max(at - 1, 0); present(); };
-          next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); };
+          back.onclick = () => { at = Math.max(at - 1, 0); present(); moved(); };
+          next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); moved(); };
+          // A deck's boards for Present with Notes (`Presenter`), which follows where this one is.
+          const moved = () => post({ kind: 'slideAt', at });
+          window.kelpSlides = slides;
+          Object.defineProperty(window, 'kelpAt', { get: () => Math.max(at, 0), configurable: true });
+          window.kelpGo = i => { if (at < 0) return; at = Math.max(0, Math.min(slides.length - 1, i)); present(); };
           strip.append(back, where, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));
           document.body.append(strip);
           const wake = () => {
@@ -59,7 +64,7 @@ enum CanvasPresent {
             else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) at = Math.max(at - 1, 0);
             else if (e.key === 'Escape') { kelpPresent(false); post({ kind: 'present' }); return; }
             else return;
-            e.preventDefault(); present();
+            e.preventDefault(); present(); moved();
           });
           addEventListener('resize', () => { if (at >= 0) present(); });
         """

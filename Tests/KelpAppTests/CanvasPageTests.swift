@@ -26,7 +26,8 @@ private func demo() throws -> (root: URL, folder: URL) {
     let (root, folder) = try demo()
     defer { try? FileManager.default.removeItem(at: root) }
     let json =
-        #"{"boards": [{"file": "boards/A.html", "row": "A. One", "w": 390, "h": 844}, {"file": "boards/B.html"}]}"#
+        #"{"boards": [{"file": "boards/A.html", "row": "A. One", "w": 390, "h": 844, "notes": "Say \"hi\""}, "#
+        + #"{"file": "boards/B.html"}]}"#
     let page = CanvasPage.build(
         CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, view: .init(themes: .both))
     #expect(page.html.components(separatedBy: "<iframe").count - 1 == 2, "A in light and dark; B is missing")
@@ -34,6 +35,7 @@ private func demo() throws -> (root: URL, folder: URL) {
     #expect(page.html.contains("--gap: 8px;"), "the board's tweaks are set on its page")
     #expect(page.html.contains("&lt;h1 data-id=&quot;t&quot;"), "the fragment is escaped into srcdoc")
     #expect(page.html.contains("<h2>A. One</h2>") && page.html.contains("390 × 844"))
+    #expect(page.html.contains(#"data-notes="Say &quot;hi&quot;""#), "a slide's notes, for Present with Notes")
     #expect(page.issues.contains("boards/B.html: no such file"))
     #expect(page.issues.contains("boards/A.html: 1 colours typed in; use the tokens (var(--name))"))
     let light = CanvasPage.build(

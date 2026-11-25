@@ -156,7 +156,14 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
           setInterval(tick, 500); tick();
           const copy = (i, into, label) => {
             into.replaceChildren(...(label ? [el('div', 'kp-label', label)] : []));
-            if (S[i]) { const c = S[i].cloneNode(true); c.classList.add('on'); into.append(c); }
+            if (!S[i]) return;
+            const c = S[i].cloneNode(true); c.classList.add('on');
+            if (c.tagName !== 'IFRAME') return into.append(c);
+            // A deck made as a design: the board drawn again, scaled to the room it has.
+            const k = into.clientWidth / (+c.dataset.w || 1920), box = el('div');
+            box.style.cssText = 'overflow: hidden; border-radius: 4px; height: ' + (+c.dataset.h || 1080) * k + 'px';
+            c.style.transformOrigin = '0 0'; c.style.transform = 'scale(' + k + ')';
+            box.append(c); into.append(box);
           };
           window.kelpGo = i => {
             if (TARGET) { keep(); post({ kind: 'rehearsed', times: spent.slice() }); }
@@ -178,7 +185,7 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
           }, true);
           const style = el('style');
           style.textContent = `
-            body.kelp-presenter .kelp-deck, body.kelp-presenter .kelp-strip { display: none !important; }
+            body.kelp-presenter > :not(.kp-root) { display: none !important; }
             body.kelp-presenter { margin: 0; background: #171717; color: #f2f2f2; overflow: hidden; }
             .kp-root { position: fixed; inset: 0; display: flex; gap: 16px; padding: 16px;
               font: 13px -apple-system, sans-serif; }

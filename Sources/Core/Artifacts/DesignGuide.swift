@@ -139,6 +139,7 @@ extension Artifacts {
         `kelp artifact guide slides`.
 
         - A board per slide, `"w": 1920, "h": 1080`, without a `row`: each is a row of its own, in the deck's order.
+          The speaker's notes for a slide go in its board's `"notes"`.
         - The first slide is the title; one idea a slide; nothing smaller than 24px; at most 4–5 sizes.
         - A slide is laid out to fit its frame (the check says when one runs over): too much is two slides, not
           smaller type.

@@ -139,10 +139,11 @@ enum CanvasPage {
         let name = (board.title ?? (board.file as NSString).lastPathComponent) + " · " + size + (dark ? " · dark" : "")
         let height = h.map { " data-h=\"\($0)\"" } ?? ""
         let variant = board.variant.map { " data-variant=\"\(MarkdownHTML.esc($0))\"" } ?? ""
+        let notes = board.notes.map { " data-notes=\"\(MarkdownHTML.esc($0))\"" } ?? ""
         return """
             <div class="frame"\(variant)><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
             <iframe sandbox="allow-same-origin" \
-            data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
+            data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height)\(notes) \
             style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(MarkdownHTML.esc(doc))"></iframe></div>
             """
     }

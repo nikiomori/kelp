@@ -17,6 +17,8 @@ public struct ArtifactCanvas: Codable, Equatable, Sendable {
         public var w: Int?, h: Int?
         /// The board this one is a variation of (`boards/A.html`), until the user keeps one of them.
         public var variant: String?
+        /// The speaker's notes for a deck's slide, shown in Present with Notes.
+        public var notes: String?
         public init(file: String, row: String? = nil, title: String? = nil, w: Int? = nil, h: Int? = nil) {
             self.file = file
             self.row = row

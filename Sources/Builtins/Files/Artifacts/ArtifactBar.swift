@@ -337,7 +337,7 @@ final class ArtifactBar: NSObject {
             menu.add(String(localized: "View"), submenu: md.viewMenu())
             menu.addItem(.separator())
         }
-        if md.page == .slides { md.presentItems(menu) }
+        if md.page == .slides || md.isDeck { md.presentItems(menu) }
         if md.page == .motion {   // the agent makes the video again in other shapes (MarkdownTab+Adapt)
             menu.add(String(localized: "Also in Other Formats…")) { md.askAdaptations() }
             menu.addItem(.separator())
