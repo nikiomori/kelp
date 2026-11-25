@@ -353,6 +353,7 @@ final class ArtifactBar: NSObject {
         menu.addItem(.separator())
         if md.page != .motion {   // a video is shared from its export
             menu.add(String(localized: "Share…")) { [weak self] in self.map { md.share(from: $0.more) } }
+            menu.add(String(localized: "Open in Browser")) { md.openInBrowser() }
         }
         menu.add(String(localized: "Rename…")) {
             ArtifactActions.rename(app, page: path, title: self.item?.title ?? "")

@@ -219,7 +219,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
     // +3: an artifact's page stays in view when its marks go to an agent in the same group (`showBeside`), and a
     // page whose process ended is drawn again (`PreviewLinks.onEnded` and its delegate method).
-    #expect(declared == 380, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: a page opens in the default browser as one HTML file Kelp wrote (`PreviewLinks.openInBrowser`).
+    #expect(declared == 381, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

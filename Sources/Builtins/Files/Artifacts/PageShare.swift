@@ -35,6 +35,17 @@ extension MarkdownTab {
         }
     }
 
+    /// The page as one HTML file in the default browser: at its own width, on another screen or in a call.
+    func openInBrowser() {
+        let name = url.deletingLastPathComponent().lastPathComponent
+        let to = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-open-\(UUID().uuidString)")
+            .appendingPathComponent(name + ".html")
+        Task {
+            guard await export(.html, to: to, reveal: false) else { return }
+            PreviewLinks.openInBrowser(to)
+        }
+    }
+
     /// Board `board` of the canvas, as it is drawn, copied as a picture.
     func copyBoard(_ board: String) {
         guard let found = ArtifactCanvas.read(editor.text)?.boards.first(where: { $0.file == board }) else { return }
