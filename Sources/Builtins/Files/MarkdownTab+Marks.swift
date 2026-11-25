@@ -100,7 +100,7 @@ extension MarkdownTab {
         let text = ArtifactMarks.message(
             named, edits: edits, page: Artifacts.projectPath(url.path),
             name: url.deletingLastPathComponent().lastPathComponent, version: version,
-            details: await markDetails(named))
+            details: await markDetails(named), kind: ArtifactBar.listed(url.path, in: app)?.kind.rawValue)
         await app.call(SessionSend(id: agent.id, text: text, enter: true))
         app.workbench.showBeside(session: agent.id, of: TabURI.file(url.path))   // the page stays where it is
     }

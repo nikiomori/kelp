@@ -7,7 +7,7 @@ extension ArtifactMarks {
     /// look, a quote's line and heading, so the agent finds them without reading the file first.
     public static func message(
         _ marks: [ArtifactMark], edits: [HandEdit], page: String, name: String, version: Int?,
-        details: [Int: String] = [:]
+        details: [Int: String] = [:], kind: String? = nil
     ) -> String {
         let folder = (page as NSString).deletingLastPathComponent
         var lines = [
@@ -15,6 +15,8 @@ extension ArtifactMarks {
                 + "leave the other boards, kit.css and the design system's tokens as they are, and ask first "
                 + "(`kelp artifact reply`) when a mark needs them changed. If you can't or won't, say why with "
                 + "`kelp artifact reply \(name) <#> \"…\"`."
+                // A chat that didn't make the page, or lost its rules to compaction, finds them again.
+                + (kind.map { " Rules: `kelp artifact guide \($0)`." } ?? "")
         ]
         for m in marks {
             var what = [m.board]

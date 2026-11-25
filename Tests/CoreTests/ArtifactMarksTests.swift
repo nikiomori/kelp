@@ -187,4 +187,7 @@ private let page = ".kelp/artifacts/home/canvas.json"
     let detailed = ArtifactMarks.message(
         [marks[0]], edits: [], page: page, name: "home", version: 5, details: [1: #"<h1 class="hero">; 48px 700"#])
     #expect(detailed.hasSuffix("«Welcome»: bigger\n  (<h1 class=\"hero\">; 48px 700)"))
+    #expect(
+        ArtifactMarks.message([marks[0]], edits: [], page: page, name: "home", version: 5, kind: "design")
+            .components(separatedBy: "\n").first?.hasSuffix(" Rules: `kelp artifact guide design`.") == true)
 }
