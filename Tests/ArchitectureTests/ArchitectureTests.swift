@@ -487,6 +487,9 @@ func codeOnly(_ s: String) -> String {
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
         "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
+        "Builtins/Files/MarkdownTab+Sources.swift": (
+            1, "a dashboard the user set to update every 15 minutes or hour, while it is open"
+        ),
         "Builtins/Agents/Strip/StripCardParts.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"

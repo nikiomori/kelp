@@ -513,3 +513,25 @@ extension OneAtATime {
         #expect(titles().contains("+40%") && !titles().contains("Light"))
     }
 }
+
+extension OneAtATime {
+    /// A dashboard with sources offers how often it updates while open, and keeps the choice; a dashboard without
+    /// sources (its agent updates it) and a design offer nothing.
+    @Test func aDashboardWithSourcesChoosesHowOftenItUpdates() {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-dash-every/.kelp/artifacts/numbers/canvas.json")
+        let json = #"{"boards": [], "sources": {"issues": {"run": "gh issue list --json number", "map": "length"}}}"#
+        let tab = MarkdownTab(editor: CodeEditor(text: json, url: url), url: url, app: AppModel())
+        #expect(tab.updateMenu() == nil, "a design")
+        tab.isDashboard = true
+        let menu = tab.updateMenu()
+        #expect(menu?.items.map(\.title) == ["When Opened", "Every 15 Minutes", "Every Hour"])
+        #expect(menu?.items.first?.state == .on)
+        tab.updateEvery = 60
+        #expect(tab.updateMenu()?.items.last?.state == .on)
+        tab.updateEvery = nil
+        let bare = MarkdownTab(editor: CodeEditor(text: #"{"boards": []}"#, url: url), url: url, app: AppModel())
+        bare.isDashboard = true
+        #expect(bare.updateMenu() == nil)
+    }
+}

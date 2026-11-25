@@ -40836,6 +40836,36 @@
           }
         }
       }
+    },
+    "When Opened": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При открытии"
+          }
+        }
+      }
+    },
+    "Every 15 Minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые 15 минут"
+          }
+        }
+      }
+    },
+    "Every Hour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый час"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

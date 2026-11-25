@@ -249,6 +249,7 @@ final class ArtifactBar: NSObject {
     private func showDashboard() {
         _ = view   // builds the view, so its controls are set up before this changes them
         markdown.isDashboard = true
+        markdown.updateOnOpen()
         refresh.isHidden = false
         if let time = item?.modified {
             fresh.isHidden = false
@@ -333,6 +334,7 @@ final class ArtifactBar: NSObject {
         }
         if md.page == .canvas {
             menu.add(String(localized: "View"), submenu: md.viewMenu())
+            if let update = md.updateMenu() { menu.add(String(localized: "Update"), submenu: update) }
             menu.addItem(.separator())
         }
         if md.page == .slides || md.isDeck { md.presentItems(menu) }
