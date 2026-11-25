@@ -45,8 +45,8 @@ extension Main {
         for (t, n) in counts.sorted(by: { ($0.value, $1.key) > ($1.value, $0.key) }) { print("\(t)\t\(n)") }
     }
 
-    /// `kelp artifact tag <name> +a -b`, `untag <name> a`, `archive <name>…`, `unarchive <name>…`. A name is one from
-    /// `list`, or a page's folder (`list --all --json` gives it) for a page in another project.
+    /// `kelp artifact tag <name> +a -b`, `untag <name> a`, `archive <name>…`, `unarchive <name>…`, on this project's
+    /// pages (an agent changes only its own workspace's). A name is one from `list`, or a page's folder.
     static func keep(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         let root = try await projectRoot(cwd, c)
@@ -80,7 +80,7 @@ extension Main {
     private static func folder(_ name: String, root: String) throws -> String {
         if name.contains("/" + Artifacts.folder + "/") { return name }
         guard Artifacts.list(root: root).contains(where: { $0.slug == name }) else {
-            fail("No page \(name) in this project (names: kelp artifact list; another project's: list --all --json)")
+            fail("No page \(name) in this project (names: kelp artifact list)")
         }
         return Artifacts.dir(root: root).appendingPathComponent(name).path
     }

@@ -27,7 +27,8 @@ import Testing
         WorktreeUnmerged.self
     ]
     let acts: [any RPCMethod.Type] = [
-        ArtifactAdd.self, ArtifactAsk.self, ArtifactNew.self, ArtifactReply.self, ArtifactSuggest.self, CommentAdd.self,
+        ArtifactAdd.self, ArtifactAsk.self, ArtifactChange.self, ArtifactKeepAssets.self, ArtifactNew.self,
+        ArtifactReply.self, ArtifactSuggest.self, CommentAdd.self,
         CommentSend.self, CommitPlanAdd.self,
         DatabaseDiff.self, DatabaseList.self, DatabaseQuery.self, DatabaseSchemaRead.self, ExtensionFetch.self,
         GitHunk.self,

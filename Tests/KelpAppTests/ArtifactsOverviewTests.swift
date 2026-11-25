@@ -180,7 +180,7 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     }
     #expect(try await waitFor(10) { model.agentChange?.archived == 1 && model.agentChange?.tagged == 2 })
     #expect(model.tags == ["design-system", "review"])
-    #expect(controller.grid.sections.flatMap(\.pages).count == 4)
+    #expect(try await waitFor(10) { controller.grid.sections.flatMap(\.pages).count == 4 })
 
     // A chat edits the review now: its face is on the card and the card says so; the Now source lists it.
     var chat = Session(id: "c1", cwd: rig.repo, command: "claude")

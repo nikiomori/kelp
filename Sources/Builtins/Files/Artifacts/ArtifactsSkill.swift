@@ -28,7 +28,8 @@ extension Builtins {
             - `kelp artifact check <name>` — what Kelp finds wrong on a page it drew (text cut off, contrast,
               sizes, missing files), as text: run it once instead of a screenshot.
             - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
-              `--all --json` lists every project's, with tags, archive and whether a page waits for the user.
+              `--all --json` lists every project's, with tags, archive and whether a page waits for the user; you
+              change only this project's.
             - Tag a page you make with what it is about: run `kelp artifact tags` first and reuse a tag that exists
               rather than a new spelling, then `kelp artifact tag <name> +<tag>`.
             - When the user asks you to put pages in order, don't change anything first: make a review page

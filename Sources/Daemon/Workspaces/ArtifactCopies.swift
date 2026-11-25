@@ -31,6 +31,7 @@ extension Artifacts {
 
     /// Keeps the files an agent uploaded, by their id, in the project's `.blobs`. Returns how many it kept.
     static func keepAssets(_ assets: [ArtifactKeepAssets.Asset], root: String) throws -> Int {
+        guard !assets.isEmpty else { return 0 }
         let blobs = blobs(root: root)
         try FileManager.default.createDirectory(at: blobs, withIntermediateDirectories: true)
         var kept = 0
