@@ -234,8 +234,12 @@ enum MarkColumn {
             const which = C.tabs([['waiting', L.waiting + (open ? ' ' + open : '')], ['done', L.done], ['all', L.all]],
               filter, key => { filter = key; draw(); });
             const queued = busy.queued ? ' · ' + L.queued.replace('%d', busy.queued) : '';
+            // Stop: Esc to the agent at work; what it was sent comes back to check at its turn's end.
+            const stop = el('button', 'kelp-pill', L.stop);
+            stop.onclick = () => post({ kind: 'stopAgent' });
             const band = busy.who
-              ? [el('span', 'kelp-busy-dot'), el('span', null, L.working.replace('%@', busy.who) + queued)] : [];
+              ? [el('span', 'kelp-busy-dot'), el('span', 'kelp-grow', L.working.replace('%@', busy.who) + queued), stop]
+              : [];
             if (!more.length) return C.open([which], rows(), band);
             const tabs = C.tabs([['marks', L.marks]].concat(more), tab, key => { tab = key; draw(); });
             C.open([tabs], tab === 'marks' ? [which, ...rows()] : page.tabRows(tab), band);

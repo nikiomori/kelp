@@ -59,6 +59,10 @@ extension MarkdownTab {
         case "marks", "marksDraft", "markDone", "markAgain", "markRef": marksMessage(kind, body)
         case "motion": motionMessage(body)
         case "undo": undoHandEdit(redo: body["redo"] as? Bool ?? false)
+        case "stopAgent":   // Esc, as typed in its terminal: the turn stops and its marks come back to check
+            if let author = pageAuthor, author.status == .working {
+                Task { await app.call(SessionWrite(id: author.id, text: "\u{1b}")) }
+            }
         case "review":
             let number = { (key: String) in (body[key] as? NSNumber)?.intValue ?? 0 }
             reviewBar.show(
