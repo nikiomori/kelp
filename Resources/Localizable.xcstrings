@@ -41466,6 +41466,156 @@
           }
         }
       }
+    },
+    "Lines and Letters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строки и буквы"
+          }
+        }
+      }
+    },
+    "Line Height": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Межстрочный"
+          }
+        }
+      }
+    },
+    "Letter Spacing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Трекинг"
+          }
+        }
+      }
+    },
+    "Tight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плотно"
+          }
+        }
+      }
+    },
+    "Wide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свободно"
+          }
+        }
+      }
+    },
+    "Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Края"
+          }
+        }
+      }
+    },
+    "Border": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рамка"
+          }
+        }
+      }
+    },
+    "Shadow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тень"
+          }
+        }
+      }
+    },
+    "Hairline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкая"
+          }
+        }
+      }
+    },
+    "Accent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Акцент"
+          }
+        }
+      }
+    },
+    "Corners": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Углы"
+          }
+        }
+      }
+    },
+    "top": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сверху"
+          }
+        }
+      }
+    },
+    "right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "справа"
+          }
+        }
+      }
+    },
+    "bottom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "снизу"
+          }
+        }
+      }
+    },
+    "left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "слева"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

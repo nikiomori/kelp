@@ -59,7 +59,7 @@ import Testing
     context.evaluateScript(CanvasEditMore.source(labels: [:]))
     #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
     #expect(context.evaluateScript("typeof window.kelpIssueFix")?.toString() == "function")
-    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 5)
+    #expect(context.evaluateScript("window.kelpProps.more.length")?.toInt32() == 7)   // + lines and letters, edges
     #expect(context.evaluateScript("typeof window.kelpSetRows")?.toString() == "function")
     #expect(context.evaluateScript("window.kelpCheckMore.length")?.toInt32() == 2)
     #expect(context.evaluateScript("typeof window.kelpChartNumbers")?.toString() == "function")

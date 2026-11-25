@@ -368,6 +368,7 @@ enum CanvasEditMode {
           font-size: var(--k-text-row); }
         .kelp-iseg button.on { background: var(--k-sel); color: var(--k-label); }
         .kelp-ipair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .kelp-ipair.kelp-isides { grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .kelp-ifld { display: flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px;
           background: var(--k-card); box-shadow: inset 0 0 0 1px var(--k-sep); }
         .kelp-ifld b { color: var(--k-quiet); font-weight: 500; font-size: var(--k-text-micro); margin-right: 6px; }

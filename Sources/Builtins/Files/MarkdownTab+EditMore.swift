@@ -8,6 +8,17 @@ extension MarkdownTab {
     var canvasEditMoreLabels: [String: String] {
         [
             "link": String(localized: "Link"), "address": String(localized: "Address"),
+            // type and edges (`CanvasEditMore`): line height, letter spacing, border, shadow, sides, corners
+            "typeMore": String(localized: "Lines and Letters"), "leading": String(localized: "Line Height"),
+            "tracking": String(localized: "Letter Spacing"), "tight": String(localized: "Tight"),
+            "edgeNone": String(localized: "None"), "wide": String(localized: "Wide"),
+            "edges": String(localized: "Edges"), "border": String(localized: "Border"),
+            "shadow": String(localized: "Shadow"), "hairline": String(localized: "Hairline"),
+            "accentLine": String(localized: "Accent"), "small": String(localized: "Small"),
+            "medium": String(localized: "Medium"), "large": String(localized: "Large"),
+            "paddingSides": String(localized: "Padding"), "corners": String(localized: "Corners"),
+            "sideTop": String(localized: "top"), "sideRight": String(localized: "right"),
+            "sideBottom": String(localized: "bottom"), "sideLeft": String(localized: "left"),
             // several chosen at once (`CanvasMulti`)
             "multiChosen": String(localized: "%d chosen"), "multiLeft": String(localized: "Line Up Left Edges"),
             "multiCentre": String(localized: "Line Up Centres"), "multiRight": String(localized: "Line Up Right Edges"),

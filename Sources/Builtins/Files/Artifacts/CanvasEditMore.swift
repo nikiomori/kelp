@@ -90,6 +90,42 @@ enum CanvasEditMore {
               st.alignItems === 'normal' ? 'stretch' : st.alignItems, v => props.set('align-items', v))));
             return [section(L.arrange, rows)];
           }
-          props.more = (props.more || []).concat([link, picture, arrange]);
+          // What a designer changes most beyond the system's tokens: a text's line height and letter spacing; a border,
+          // a shadow; padding side by side and corners one by one, in plain numbers.
+          function type(e) {
+            if (!props.isText?.(e)) return [];
+            const st = css(e), lines = (parseFloat(st.lineHeight) / parseFloat(st.fontSize)).toFixed(1);
+            const leading = [['1', '1', ''], ['1.2', '1.2', ''], ['1.4', '1.4', ''], ['1.6', '1.6', '']];
+            const tracking = [['-0.02em', L.tight, ''], ['normal', L.edgeNone, ''], ['0.06em', L.wide, '']];
+            return [section(L.typeMore, [
+              row(L.leading, seg(leading, String(+lines), v => props.set('line-height', v))),
+              row(L.tracking, seg(tracking, e.style.letterSpacing || 'normal',
+                v => props.set('letter-spacing', v === 'normal' ? null : v)))])];
+          }
+          function edges(e) {
+            const st = css(e), off = v => v === 'none' ? null : v;
+            const sides = (prop, names) => {
+              const p = K.el('span', 'kelp-ipair kelp-isides');
+              for (const [n, tip] of names) {
+                const name = prop.replace('*', n), now = String(Math.round(parseFloat(st.getPropertyValue(name)) || 0));
+                const box = words(now, v => props.set(name, v.trim() === '' ? null : (+v || 0) + 'px'));
+                box.title = tip; p.append(box);
+              }
+              return p;
+            };
+            const border = [['none', L.edgeNone, ''], ['1px solid var(--line, #d2d2d7)', L.hairline, ''],
+              ['2px solid var(--accent, #0a84ff)', L.accentLine, '']];
+            const shadow = [['none', L.edgeNone, ''], ['0 1px 3px rgba(0,0,0,.15)', 'S', L.small],
+              ['0 4px 12px rgba(0,0,0,.18)', 'M', L.medium], ['0 12px 32px rgba(0,0,0,.22)', 'L', L.large]];
+            return [section(L.edges, [
+              row(L.border, seg(border, e.style.border || 'none', v => props.set('border', off(v)))),
+              row(L.shadow, seg(shadow, e.style.boxShadow || 'none', v => props.set('box-shadow', off(v)))),
+              row(L.paddingSides, sides('padding-*', [['top', L.sideTop], ['right', L.sideRight],
+                ['bottom', L.sideBottom], ['left', L.sideLeft]])),
+              row(L.corners, sides('border-*-radius', [['top-left', L.sideTop + ' ' + L.sideLeft],
+                ['top-right', L.sideTop + ' ' + L.sideRight], ['bottom-right', L.sideBottom + ' ' + L.sideRight],
+                ['bottom-left', L.sideBottom + ' ' + L.sideLeft]]))])];
+          }
+          props.more = (props.more || []).concat([link, picture, arrange, type, edges]);
         """
 }
