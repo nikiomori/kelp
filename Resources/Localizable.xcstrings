@@ -41076,6 +41076,26 @@
           }
         }
       }
+    },
+    "%@ kept changing as you edited it, so that change isn’t written: drawn again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ менялся, пока вы правили, поэтому правка не записана: показано заново."
+          }
+        }
+      }
+    },
+    "The page stopped responding, so it was drawn again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница перестала отвечать, поэтому показана заново."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -211,6 +211,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
+        links.onEnded = { [weak self] in   // a blank pane says nothing: draw it again, and say so
+            self?.rerender()
+            Banner.show(String(localized: "The page stopped responding, so it was drawn again."))
+        }
         setUpPointer()
         web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view)

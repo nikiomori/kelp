@@ -557,3 +557,20 @@ extension OneAtATime {
         #expect(table.numberOfRows == 1)
     }
 }
+
+extension OneAtATime {
+    /// A page whose process ended (out of memory, a crash) is drawn again rather than left blank.
+    @Test func aPageWhoseProcessEndedIsDrawnAgain() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-page-ended/notes.md")
+        let tab = MarkdownTab(editor: CodeEditor(text: "# Notes", url: url), url: url, app: AppModel())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: false)
+        window.contentViewController = tab
+        #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
+        MarkdownTab.loaded.removeObject(forKey: tab)
+        tab.links.webViewWebContentProcessDidTerminate(tab.web)
+        #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
+    }
+}

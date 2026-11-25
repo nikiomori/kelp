@@ -217,7 +217,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
     // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
     // names the site a ⌘-click opens (`CIRunLook.clickTip`).
-    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: an artifact's page stays in view when its marks go to an agent in the same group (`showBeside`), and a
+    // page whose process ended is drawn again (`PreviewLinks.onEnded` and its delegate method).
+    #expect(declared == 380, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

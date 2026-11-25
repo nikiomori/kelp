@@ -3,6 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 import WebKit
+import WorkbenchKit
 
 /// The marks on an agent's page, as the tab handles them (`MarkColumn` draws them): the daemon writes every change to
 /// notes.json, and the page gets the marks back as written. A send keeps the pictures of areas and strokes, and goes to
@@ -100,7 +101,7 @@ extension MarkdownTab {
             named, edits: edits, page: Artifacts.projectPath(url.path),
             name: url.deletingLastPathComponent().lastPathComponent, version: version)
         await app.call(SessionSend(id: agent.id, text: text, enter: true))
-        app.workbench.focus(session: agent.id)
+        app.workbench.showBeside(session: agent.id, of: TabURI.file(url.path))   // the page stays where it is
     }
 
     /// The page's agent at work, for the column's band (`kelpMarks.busy`): its name and how many marks wait for it.

@@ -22,6 +22,10 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
     /// scripts are off.
     private var pageScripts = false
     package init(app: AppModel) { self.app = app }
+    /// Called when the page's process ended (it ran out of memory, or WebKit crashed): the page is gone from the view.
+    package var onEnded: (() -> Void)?
+
+    package func webViewWebContentProcessDidTerminate(_: WKWebView) { onEnded?() }
 
     /// Loads `html` as the preview's page. Kelp's `scripts` (JavaScript) run in `world`, in order, once the document is
     /// read. The tab's message handlers belong to that world, not to the page's.

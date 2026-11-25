@@ -278,15 +278,24 @@ extension MarkdownTab {
         let before = lastRewrite
         lastRewrite = Task {
             await before?.value
-            guard let file = await app.call(FilesRead(path: path)) else { return }
-            guard let text = change(file.text) else {
-                Banner.show(String(localized: "Couldn’t find that element in \(board) as it is now: drawn again."))
-                return rerender()
+            // Written against the file as read; when the agent wrote it in between, once more on what it wrote.
+            for _ in 0..<2 {
+                guard let file = await app.call(FilesRead(path: path)) else { return }
+                guard let text = change(file.text) else {
+                    Banner.show(String(localized: "Couldn’t find that element in \(board) as it is now: drawn again."))
+                    return rerender()
+                }
+                guard let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp)) else { return }
+                if written.conflict != nil { continue }
+                if written.missing != true, let made = edit(file.text) {
+                    didHandEdit(made, path: path, before: file.text, after: text, by: step)
+                }
+                return
             }
-            let written = await app.call(FilesWrite(path: path, text: text, base: file.stamp))
-            if let written, written.conflict == nil, written.missing != true, let made = edit(file.text) {
-                didHandEdit(made, path: path, before: file.text, after: text, by: step)
-            }
+            Banner.show(
+                String(localized: "\(board) kept changing as you edited it, so that change isn’t written: drawn again.")
+            )
+            rerender()
         }
     }
 

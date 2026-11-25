@@ -139,6 +139,15 @@ extension Workbench {
         window?.editors.current?.replace(oldURI, with: newURI)
     }
 
+    /// Selects agent `id`'s tab when it sits in another group than the tab of `uri` (a page it was just sent to), so
+    /// both show; nothing when they share a group or the agent has no tab here, so the page stays in view.
+    package func showBeside(session id: String, of uri: String) {
+        guard let area = window?.editors.current, let tab = area.layout.tab(uri: TabURI.session(id)),
+            let page = area.layout.tab(uri: uri), area.layout.group(of: tab.id) != area.layout.group(of: page.id)
+        else { return }
+        area.select(tab.id, focus: false)
+    }
+
     package func focus(session id: String) {
         guard let session = app.session(id) else { return }
         if let wid = session.worktreeId, wid != workspaceId || page != nil { show(workspace: wid) }
