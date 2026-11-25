@@ -94,8 +94,8 @@ extension OneAtATime {
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered,
             defer: false)
         window.contentViewController = tab
-        #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
-        MarkdownTab.loaded.removeObject(forKey: tab)
+        #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil && !tab.web.isLoading })
+        MarkdownTab.loaded.removeObject(forKey: tab)   // loaded, it would be drawn again in place, not whole
         tab.links.webViewWebContentProcessDidTerminate(tab.web)
         #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
     }
