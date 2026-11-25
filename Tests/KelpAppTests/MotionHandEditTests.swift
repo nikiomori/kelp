@@ -657,6 +657,9 @@ extension OneAtATime {
         let quoted = String(decoding: try JSONEncoder().encode(source), as: UTF8.self)
         context.evaluateScript("new Function(\(quoted))")
         #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
+        let multi = String(decoding: try JSONEncoder().encode(CanvasMulti.source(labels: [:])), as: UTF8.self)
+        context.evaluateScript("new Function(\(multi))")
+        #expect(context.exception == nil, "several at once: \(context.exception?.toString() ?? "")")
     }
 }
 
@@ -704,5 +707,24 @@ extension OneAtATime {
         #expect(try await waitFor(5) { NSPasteboard.general.string(forType: MarkdownTab.elementType) != nil })
         _ = tab.canvasMessage("pasteElement", ["board": "motion.html", "id": "sub"])
         #expect(try await waitFor(5) { editor.text.contains(#"<p data-id="sub">Go</p><h1 data-id="title-2">Hi</h1>"#) })
+    }
+}
+
+extension OneAtATime {
+    /// Several chosen elements taken out at once are one hand edit, one ⌘Z; the edit column's words are all there.
+    @Test func severalElementsTakenOutAreOneStep() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-many/.kelp/artifacts/launch/motion.html")
+        let page =
+            #"<body data-width="1920" data-height="1080"><i data-id="a">1</i><i data-id="b">2</i><i data-id="c">3</i></body>"#
+        let editor = CodeEditor(text: page, url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        #expect(tab.canvasEditMoreLabels["multiChosen"] != nil)
+        _ = tab.canvasMessage("removeMany", ["board": "motion.html", "ids": ["a", "c"]])
+        #expect(
+            try await waitFor(5) {
+                editor.text.contains(#"<i data-id="b">2</i></body>"#) && !editor.text.contains("data-id=\"a\"")
+            })
+        #expect(tab.handSteps.undo.count == 1)
     }
 }

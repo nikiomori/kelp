@@ -10,6 +10,7 @@ enum CanvasEditMore {
             + CanvasAccess.source(labels: labels) + CanvasBoardWidth.source(labels: labels)
             + CanvasLinks.source(labels: labels) + CanvasLanguages.source(labels: labels) + CanvasObjects.source
             + CanvasCharts.source(labels: labels) + CanvasData.source(labels: labels)
+            + CanvasMulti.source(labels: labels)
     }
 
     private static let body = """

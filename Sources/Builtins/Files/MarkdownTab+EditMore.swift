@@ -8,6 +8,13 @@ extension MarkdownTab {
     var canvasEditMoreLabels: [String: String] {
         [
             "link": String(localized: "Link"), "address": String(localized: "Address"),
+            // several chosen at once (`CanvasMulti`)
+            "multiChosen": String(localized: "%d chosen"), "multiLeft": String(localized: "Line Up Left Edges"),
+            "multiCentre": String(localized: "Line Up Centres"), "multiRight": String(localized: "Line Up Right Edges"),
+            "multiTop": String(localized: "Line Up Tops"), "multiMiddle": String(localized: "Line Up Middles"),
+            "multiBottom": String(localized: "Line Up Bottoms"),
+            "multiAcross": String(localized: "Space Evenly Across"),
+            "multiDown": String(localized: "Space Evenly Down"),
             "no": String(localized: "No"), "yes": String(localized: "Yes"),
             "here": String(localized: "Opens in the same window"),
             "newWindow": String(localized: "New Window"), "picture": String(localized: "Picture"),

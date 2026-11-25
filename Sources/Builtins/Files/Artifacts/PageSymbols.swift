@@ -13,7 +13,9 @@ enum PageSymbols {
         "arrow.up.and.down",
         // the column and the inspector: text alignment, a menu's chevron, done, a draft's grip, keyframe steps
         "text.alignleft", "text.aligncenter", "text.alignright", "chevron.down", "checkmark", "line.3.horizontal",
-        "chevron.left", "chevron.right", "diamond.fill"
+        "chevron.left", "chevron.right", "diamond.fill",
+        // several elements spaced evenly (`CanvasMulti`)
+        "distribute.horizontal.center", "distribute.vertical.center"
     ]
 
     /// The script that adds the symbols' CSS to the page.

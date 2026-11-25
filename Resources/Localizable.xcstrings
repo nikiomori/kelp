@@ -41336,6 +41336,96 @@
           }
         }
       }
+    },
+    "%d chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрано: %d"
+          }
+        }
+      }
+    },
+    "Line Up Left Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по левому краю"
+          }
+        }
+      }
+    },
+    "Line Up Centres": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по центру"
+          }
+        }
+      }
+    },
+    "Line Up Right Edges": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по правому краю"
+          }
+        }
+      }
+    },
+    "Line Up Tops": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по верху"
+          }
+        }
+      }
+    },
+    "Line Up Middles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по середине"
+          }
+        }
+      }
+    },
+    "Line Up Bottoms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выровнять по низу"
+          }
+        }
+      }
+    },
+    "Space Evenly Across": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распределить по горизонтали"
+          }
+        }
+      }
+    },
+    "Space Evenly Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распределить по вертикали"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

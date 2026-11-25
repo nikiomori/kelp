@@ -13,6 +13,10 @@ extension MarkdownTab {
             restyle(body)
             return true
         }
+        if kind == "removeMany" {
+            removeMany(body)
+            return true
+        }
         if kind == "giveID" {
             giveID(body)
             return true
@@ -42,7 +46,8 @@ extension MarkdownTab {
         guard !list.isEmpty else { return }
         let edit = { (_: String) in
             HandEdit(
-                board: board, id: list[0].0, what: "stacking", from: nil, to: list.map(\.0).joined(separator: " > "))
+                board: board, id: list[0].0, what: body["what"] as? String ?? "stacking", from: nil,
+                to: list.map(\.0).joined(separator: " > "))
         }
         rewrite(board, edit: edit) { source in
             list.reduce(Optional(source)) { text, change in
@@ -91,6 +96,20 @@ extension MarkdownTab {
     }
 
     /// Takes element `id` out of `board`.
+    /// Takes several chosen elements out of a board at once: one hand edit.
+    private func removeMany(_ body: [String: Any]) {
+        guard let board = body["board"] as? String, let ids = body["ids"] as? [String], let first = ids.first else {
+            return
+        }
+        chosen = nil
+        let edit = { (_: String) in
+            HandEdit(board: board, id: first, what: "removed", from: ids.joined(separator: ", "), to: nil)
+        }
+        rewrite(board, edit: edit) { source in
+            ids.reduce(Optional(source)) { text, id in text.flatMap { BoardEdit.remove($0, id: id) } }
+        }
+    }
+
     func removeElement(_ board: String, _ id: String) {
         chosen = nil
         let edit = { (source: String) in
