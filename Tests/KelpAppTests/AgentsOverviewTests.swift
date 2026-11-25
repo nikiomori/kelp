@@ -109,6 +109,19 @@ private struct DayChat {
     var running: String?
     var limit = false, subagents = 0
     var context: Int?
+
+    /// The same chat with two or more of each count: the test host has no string catalog, so a picture would read
+    /// "1 files" where Kelp says "1 file".
+    var countedTwice: DayChat {
+        var chat = self
+        if chat.files.count == 1, let first = chat.files.first {
+            chat.files.append((first.0 + ".orig", 4, 1))
+        }
+        if chat.work.count == 1, let (start, length) = chat.work.first {
+            chat.work = [(start, length / 2), (start - length / 2 - 3, length / 2 - 3)]
+        }
+        return chat
+    }
 }
 
 private let dayChats = [
@@ -118,7 +131,7 @@ private let dayChats = [
         files: [("Sources/Orders.swift", 180, 30), ("Migrations/007.sql", 32, 10)],
         dirty: ["Sources/Orders.swift", "Migrations/007.sql"],
         work: [(470, 60), (380, 90), (240, 45), (150, 80), (60, 42)],
-        context: 64),
+        context: 74),
     DayChat(
         title: "Fix the flaky CheckoutTests", project: "web-app", branch: "fix/checkout-flaky", status: .waiting,
         summary: "Allow Bash: npm run e2e -- --repeat 20", files: [("Tests/CheckoutTests.swift", 14, 3)],
@@ -164,7 +177,7 @@ private let dayChats = [
     func ago(_ minutes: Double) -> Date { now.addingTimeInterval(-minutes * 60) }
     let projects = ["shop-api", "web-app", "docs"].map { Repo(id: $0, name: $0, path: "/tmp/ov/\($0)") }
     app.repos = projects
-    let chats = dayChats
+    let chats = dayChats.map(\.countedTwice)
     let model = OverviewModel(app: app)
     for (i, chat) in chats.enumerated() {
         let folder = "w\(i)", path = "/tmp/ov/\(chat.project)-\(i)"
