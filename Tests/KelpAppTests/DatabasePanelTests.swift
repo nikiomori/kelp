@@ -4,6 +4,7 @@ import Testing
 
 @testable import BuiltinAgents
 @testable import BuiltinDatabases
+@testable import KelpKit
 
 private func db(
     _ name: String, _ engine: DatabaseInfo.Engine = .postgres, host: String? = nil, database: String? = nil,
@@ -178,4 +179,19 @@ private func db(
         (ChangeRisk(kind: .noUndo, table: "orders"), "Undo This Change can’t put these rows back.")
     ]
     for (risk, said) in rows { #expect(DatabaseAskCard.sentence(risk) == said) }
+}
+
+/// A batch's risk shows on the card too: the daemon reads one for several statements as for one.
+@MainActor @Test func theAskCardSaysABatchsRisk() {
+    let card = DatabaseAskCard(app: AppModel(), session: "s", worktree: "w")
+    let run = DatabaseRun(id: "r", database: "shop", sql: "DELETE FROM orders; DELETE FROM items", session: "s",
+        at: Date(), state: .asks)
+    var rows = QueryResult(id: "r", columns: [], rows: [], total: 0, ms: 0)
+    rows.statements = [
+        StatementResult(sql: "DELETE FROM orders", changed: 3), StatementResult(sql: "DELETE FROM items", changed: 1)
+    ]
+    rows.risk = ChangeRisk(kind: .noWhere, table: "orders")
+    card.say(run, rows)
+    #expect(!card.riskLine.isHidden)
+    #expect(card.risk.stringValue == "No WHERE: every row of orders changes.")
 }

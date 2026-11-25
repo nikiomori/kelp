@@ -18,8 +18,8 @@ final class DatabaseAskCard: NSView {
     private let detail = NSTextField(wrappingLabelWithString: "")
     /// What makes the change worth a second look (`ChangeRisk`), on an orange line under the title. Hidden for a plain
     /// change.
-    private let risk = NSTextField(wrappingLabelWithString: "")
-    private lazy var riskLine = FillStack(views: [risk])
+    let risk = NSTextField(wrappingLabelWithString: "")
+    lazy var riskLine = FillStack(views: [risk])
     private let preview = ChangePreview()
     private lazy var showButton = NSButton(title: "", target: self, action: #selector(showRows))
     private var asking: DatabaseRun?
@@ -103,10 +103,10 @@ final class DatabaseAskCard: NSView {
 
     /// Fills in the text and the rows. When the change's rows are known, the title says how many rows of which table
     /// change, and the line under the rows says how many more there are.
-    private func say(_ run: DatabaseRun, _ rows: QueryResult?) {
+    func say(_ run: DatabaseRun, _ rows: QueryResult?) {
         let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
         sql.isHidden = rows?.statements != nil   // with several statements, each has its own line
-        let said = rows?.statements == nil ? rows?.risk.map(Self.sentence) : nil
+        let said = rows?.risk.map(Self.sentence)
         risk.stringValue = said ?? ""
         riskLine.isHidden = said == nil
         if let parts = rows?.statements { return say(run, parts, who) }
