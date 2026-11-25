@@ -11,12 +11,182 @@
         }
       }
     },
+    "%@ · version %lld, %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · версия %2$lld, %3$@"
+          }
+        }
+      }
+    },
+    "%lld pages · %lld projects": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страниц: %1$lld · проектов: %2$lld"
+          }
+        }
+      }
+    },
     "And %@, as it was before the turn": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "И %@ — какой была до хода"
+          }
+        }
+      }
+    },
+    "Artifacts Overview": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обзор артефактов"
+          }
+        }
+      }
+    },
+    "Grid": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сетка"
+          }
+        }
+      }
+    },
+    "Kinds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Виды"
+          }
+        }
+      }
+    },
+    "List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список"
+          }
+        }
+      }
+    },
+    "Move Out of Archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть из архива"
+          }
+        }
+      }
+    },
+    "Move to Archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить в архив"
+          }
+        }
+      }
+    },
+    "No Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет страниц"
+          }
+        }
+      }
+    },
+    "No Pages Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы не найдены"
+          }
+        }
+      }
+    },
+    "No Pinned Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет закреплённых страниц"
+          }
+        }
+      }
+    },
+    "Nothing Waits for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего не ждёт вас"
+          }
+        }
+      }
+    },
+    "Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы"
+          }
+        }
+      }
+    },
+    "Pages agents make show here, from every project.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появляются страницы, которые делают агенты, из всех проектов."
+          }
+        }
+      }
+    },
+    "Pages moved to the archive leave the other lists, and come back from here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы в архиве уходят из других списков и возвращаются отсюда."
+          }
+        }
+      }
+    },
+    "Pin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Pin a page from its menu to keep it on top.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепите страницу в её меню, чтобы она была наверху."
           }
         }
       }
@@ -81,6 +251,46 @@
         }
       }
     },
+    "Reviews to answer, marks to check and agents’ questions show here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь ревью без ответа, пометки на проверку и вопросы агентов."
+          }
+        }
+      }
+    },
+    "Show All Artifacts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все артефакты"
+          }
+        }
+      }
+    },
+    "Sources": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Источники"
+          }
+        }
+      }
+    },
+    "The Archive Is Empty": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив пуст"
+          }
+        }
+      }
+    },
     "They’re paused since %@. Agents you paused yourself aren’t affected.": {
       "localizations": {
         "ru": {
@@ -127,6 +337,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "По одному, с паузой. Кого вы усыпили сами, ждут вас."
+          }
+        }
+      }
+    },
+    "Unpin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить"
+          }
+        }
+      }
+    },
+    "Waiting for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждёт вас"
           }
         }
       }
@@ -2143,6 +2373,16 @@
         }
       }
     },
+    "restored": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "восстановлена"
+          }
+        }
+      }
+    },
     "the server": {
       "localizations": {
         "ru": {
@@ -3033,6 +3273,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свой сервер"
+          }
+        }
+      }
+    },
+    "you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вы"
           }
         }
       }
