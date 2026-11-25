@@ -110,15 +110,17 @@ extension UsageView {
         /// can't be hidden: Hide Plan Limits hides the foot.
         private func eye(_ line: Line) -> some View {
             let on = bars.contains(line.kind)
+            let last = on && bars.count == 1
             let verb = on ? String(localized: "Hide in Sidebar") : String(localized: "Show in Sidebar")
             return Button {
                 toggle(line)
             } label: {
+                // Dimmed when it's the last bar: drawn .primary it looked live and swallowed the click.
                 Image(systemName: on ? "eye" : "eye.slash").font(.symbol())
-                    .foregroundStyle(on ? .primary : .secondary)
+                    .foregroundStyle(last ? .tertiary : on ? .primary : .secondary)
             }
             .buttonStyle(PointerButtonStyle())
-            .disabled(on && bars.count == 1)
+            .disabled(last)
             .help(verb).accessibilityLabel(verb)
             .padding(.vertical, -4)   // the row keeps the text's height
         }
