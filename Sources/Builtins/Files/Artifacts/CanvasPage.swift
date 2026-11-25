@@ -11,7 +11,7 @@ enum CanvasPage {
     /// theme is used.
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
-    /// The themes chosen in ⋯ › View (light, dark or both), on this Mac; nil until one is.
+    /// The themes chosen in ⋯ › Try On (light, dark or both), on this Mac; nil until one is.
     static var chosenThemes: Themes? {
         get { UserDefaults.standard.string(forKey: themesKey).flatMap(Themes.init) }
         set { UserDefaults.standard.set(newValue?.rawValue, forKey: themesKey) }

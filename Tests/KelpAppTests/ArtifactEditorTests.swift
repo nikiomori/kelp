@@ -46,7 +46,7 @@ extension OneAtATime {
         let titles = { tab.viewMenu().items.map(\.title) }
         #expect(titles().contains("Light"))
         tab.isDashboard = true
-        #expect(titles().contains("+40%") && !titles().contains("Light"))
+        #expect(titles().contains("Longer Text (+40%)") && !titles().contains("Light"))
     }
 }
 

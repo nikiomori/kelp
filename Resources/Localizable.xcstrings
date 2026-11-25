@@ -42651,6 +42651,56 @@
           }
         }
       }
+    },
+    "Try On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Примерить"
+          }
+        }
+      }
+    },
+    "As Written": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как написано"
+          }
+        }
+      }
+    },
+    "Longer Text (+40%)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Длинный текст (+40 %)"
+          }
+        }
+      }
+    },
+    "Right to Left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справа налево"
+          }
+        }
+      }
+    },
+    "Needs a board after this: what happens when it’s pressed?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужна доска после этой: что будет при нажатии?"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

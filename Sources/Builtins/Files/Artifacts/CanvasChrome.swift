@@ -3,9 +3,9 @@ import Foundation
 
 /// The controls Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`). They are the column on the
 /// right that Mark and Edit fill (`window.kelpColumn`) and the zoom capsule at the bottom right (− % + and Fit); the
-/// themes are in ⋯ › View. They are drawn with Kelp's own tokens, in the window's light or dark look. They send `zoom`
-/// (a size, or null for Fit) to `kelpSync`, and the tab keeps it for the next drawing. Without `floats` (a doc's page,
-/// a dashboard), only the column is added.
+/// themes are in ⋯ › Try On. They are drawn with Kelp's own tokens, in the window's light or dark look. They send
+/// `zoom` (a size, or null for Fit) to `kelpSync`, and the tab keeps it for the next drawing. Without `floats` (a doc's
+/// page, a dashboard), only the column is added.
 enum CanvasChrome {
     struct Labels {
         var fit: String, zoomOut: String, zoomIn: String

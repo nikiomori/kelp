@@ -189,13 +189,14 @@ extension MarkdownTab {
     }
 
     /// Sets the mode chosen with View / Mark / Edit in the bar.
-    /// ⋯ › View on a canvas: its boards as they are, 40% longer or right to left (not in Edit, which writes what they
-    /// show), and one theme or both.
+    /// ⋯ › Try On on a canvas: its boards' text as written, 40% longer or right to left (not in Edit, which writes
+    /// what they show), and one theme or both, each under its section's title.
     func viewMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.addItem(.sectionHeader(title: String(localized: "Text")))
         for (view, title) in [
-            ("as", String(localized: "As Is")), ("longer", String(localized: "+40%")),
-            ("rtl", String(localized: "RTL"))
+            ("as", String(localized: "As Written")), ("longer", String(localized: "Longer Text (+40%)")),
+            ("rtl", String(localized: "Right to Left"))
         ] {
             let item = menu.add(title) { [weak self] in
                 self?.canvasLanguage = view
@@ -206,6 +207,7 @@ extension MarkdownTab {
         }
         if isDashboard { return menu }   // a dashboard follows the window's look
         menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: String(localized: "Appearance")))
         for (themes, title) in [
             (CanvasPage.Themes.light, String(localized: "Light")), (.dark, String(localized: "Dark")),
             (.both, String(localized: "Both"))

@@ -1,10 +1,10 @@
 import Foundation
 
-/// How a design holds up in other languages, without a translation (Framer's locale preview, pseudo-localisation):
-/// ⋯ › View › As Is, +40% or RTL (`kelpLanguage`). +40% swaps each letter of the boards' text for an accented one
-/// and makes it 40% longer, as German or Finnish would; RTL lays the boards out right to left, as Arabic or Hebrew
-/// would. Check runs again in that view, so what it cuts off is found. A mark made in it remembers it (`language`) and
-/// tells the agent. Edit puts the boards back as they are first, since it writes what they show.
+/// How a design holds up in other languages, without a translation (Framer's locale preview, pseudo-localisation): ⋯ ›
+/// Try On › As Written, Longer Text or Right to Left (`kelpLanguage`). +40% swaps each letter of the boards' text for
+/// an accented one and makes it 40% longer, as German or Finnish would; RTL lays the boards out right to left, as
+/// Arabic or Hebrew would. Check runs again in that view, so what it cuts off is found. A mark made in it remembers it
+/// (`language`) and tells the agent. Edit puts the boards back as they are first, since it writes what they show.
 enum CanvasLanguages {
     static func source(labels: [String: String]) -> String {
         "(function (L) {\n" + body + "\n})(\(MarkdownTab.js(labels)));"

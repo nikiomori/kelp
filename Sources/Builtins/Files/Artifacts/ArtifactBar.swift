@@ -348,7 +348,7 @@ final class ArtifactBar: NSObject {
             menu.add(String(localized: "Keyboard Shortcuts")) { [weak self] in self?.showKeys() }
         }
         if md.page == .canvas {
-            menu.add(String(localized: "View"), submenu: md.viewMenu())
+            menu.add(String(localized: "Try On"), submenu: md.viewMenu())
             if let update = md.updateMenu() { menu.add(String(localized: "Update"), submenu: update) }
             menu.addItem(.separator())
         }
