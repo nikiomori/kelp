@@ -12117,6 +12117,26 @@
         }
       }
     },
+    "Move Tab to New Pane on the Right": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести вкладку в новую панель справа"
+          }
+        }
+      }
+    },
+    "Move Tab to New Pane Below": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести вкладку в новую панель снизу"
+          }
+        }
+      }
+    },
     "Move to": {
       "localizations": {
         "ru": {
@@ -16269,22 +16289,22 @@
         }
       }
     },
-    "Split Down": {
+    "New Terminal Below": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Разделить вниз"
+            "value": "Новый терминал снизу"
           }
         }
       }
     },
-    "Split Right": {
+    "New Terminal to the Right": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Разделить вправо"
+            "value": "Новый терминал справа"
           }
         }
       }
@@ -30917,12 +30937,12 @@
         }
       }
     },
-    "## The middle: tabs and splits\nThe **+** at the end of a pane’s tabs opens an agent, a terminal, a browser or what extensions add; the agent’s icon before it starts the default agent (Settings › Agents) in one click. %@ splits right, %@ down; drag a tab to an edge to split, between groups to move it. Dividers stay where you drag them (View › Equalize Panes evens them out); %@ move to the pane on that side. %@ lets the focused pane fill the area and brings the others back. Agents open side by side, each in a pane of its own (four make a 2×2 grid); terminals and files share one more pane. The button right of the search (%@; right-click hides it) shows them as tabs in one pane instead, and back; splitting or dragging a tab to another pane arranges the panes by hand from then on.\n%@ closes a tab (in an empty workspace, the workspace); %@ brings it back in its place, an agent with its conversation, and File › Recently Closed lists the rest. Edited files show a dot on their tab and in the window’s close button; %@ saves.\n\nIn a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). Right-click for copy, paste and splits. Drop files to type their paths; ⌘K clears, %@ / %@ change the text size.": {
+    "## The middle: tabs and splits\nThe **+** at the end of a pane’s tabs opens an agent, a terminal, a browser or what extensions add; the agent’s icon before it starts the default agent (Settings › Agents) in one click. %@ opens a new terminal to the right, %@ below. To move an existing tab, right-click its title or drag it to an edge or another pane. Dividers stay where you drag them (View › Equalize Panes evens them out); %@ move to the pane on that side. %@ lets the focused pane fill the area and brings the others back. Agents open side by side, each in a pane of its own (four make a 2×2 grid); terminals and files share one more pane. The button right of the search (%@; right-click hides it) shows them as tabs in one pane instead, and back; splitting or dragging a tab to another pane arranges the panes by hand from then on.\n%@ closes a tab (in an empty workspace, the workspace); %@ brings it back in its place, an agent with its conversation, and File › Recently Closed lists the rest. Edited files show a dot on their tab and in the window’s close button; %@ saves.\n\nIn a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). Right-click for copy, paste and new terminals in splits. Drop files to type their paths; ⌘K clears, %@ / %@ change the text size.\nIn the code editor, %@ selects the word at the cursor or adds the next occurrence.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "## Середина: вкладки и сплиты\n**+** в конце вкладок панели открывает агента, терминал, браузер или то, что добавили расширения; значок агента перед ним запускает агента по умолчанию (Settings › Agents) в один щелчок. %1$@ делит вправо, %2$@ вниз; перетащите вкладку к краю, чтобы разделить, или между группами, чтобы перенести. Разделители остаются, где вы их оставили (View › Equalize Panes выравнивает); %3$@ переходят к панели с той стороны. %4$@ разворачивает панель в фокусе на всю область и возвращает остальные. Агенты открываются рядом, каждый в своей панели (четыре — сетка 2×2); терминалы и файлы делят ещё одну панель. Кнопка справа от поиска (%5$@; правый клик её прячет) показывает их вкладками в одной панели и обратно; после сплита или переноса вкладки в другую панель панели расставляются вручную.\n%6$@ закрывает вкладку (в пустом воркспейсе — воркспейс); %7$@ возвращает её на место, агента — с разговором, а File › Recently Closed хранит остальные. У изменённых файлов точка на вкладке и на кнопке закрытия окна; %8$@ сохраняет.\n\nВ терминале ⌘F ищет текст в истории (⌘G / ⇧⌘G — следующий / предыдущий, ⌘E — выделенное). Правый клик — копировать, вставить, сплиты. Перетащите файлы, чтобы вписать их пути; ⌘K очищает, %9$@ / %10$@ меняют размер текста."
+            "value": "## Середина: вкладки и сплиты\n**+** в конце вкладок панели открывает агента, терминал, браузер или то, что добавили расширения; значок агента перед ним запускает агента по умолчанию (Settings › Agents) в один щелчок. %1$@ открывает новый терминал справа, %2$@ снизу. Чтобы перенести вкладку, щёлкните правой кнопкой по её заголовку или перетащите её к краю или в другую панель. Разделители остаются, где вы их оставили (View › Equalize Panes выравнивает); %3$@ переходят к панели с той стороны. %4$@ разворачивает панель в фокусе на всю область и возвращает остальные. Агенты открываются рядом, каждый в своей панели (четыре — сетка 2×2); терминалы и файлы делят ещё одну панель. Кнопка справа от поиска (%5$@; правый клик её прячет) показывает их вкладками в одной панели и обратно; после сплита или переноса вкладки в другую панель панели расставляются вручную.\n%6$@ закрывает вкладку (в пустом воркспейсе — воркспейс); %7$@ возвращает её на место, агента — с разговором, а File › Recently Closed хранит остальные. У изменённых файлов точка на вкладке и на кнопке закрытия окна; %8$@ сохраняет.\n\nВ терминале ⌘F ищет текст в истории (⌘G / ⇧⌘G — следующий / предыдущий, ⌘E — выделенное). По правому щелчку доступны копирование, вставка и открытие терминала в новой панели. Перетащите файлы, чтобы вписать их пути; ⌘K очищает, %9$@ / %10$@ меняют размер текста.\nВ редакторе кода %11$@ выделяет слово под курсором или добавляет к выделению следующее вхождение."
           }
         }
       }
@@ -31037,12 +31057,12 @@
         }
       }
     },
-    "split": {
+    "new terminal in a split": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "разделить"
+            "value": "новый терминал в отдельной панели"
           }
         }
       }

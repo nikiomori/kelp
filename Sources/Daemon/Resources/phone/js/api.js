@@ -177,7 +177,8 @@ export function unpair() {
   });
 }
 export const list = signal => api('GET', 'agents', undefined, signal);
-export const get = agent => api('GET', `agents/${id(agent)}`);
+// `seen`: the conversation the page shows (`conversation`), so an unchanged one comes back as `same` alone.
+export const get = (agent, signal, seen) => api('GET', `agents/${id(agent)}`, seen ? { seen } : undefined, signal);
 export const choose = (agent, answer, question, questionId) => api('POST', `agents/${id(agent)}/choose`, { answer, question, questionId });
 export const reply = (agent, text) => api('POST', `agents/${id(agent)}/reply`, { text });
 export const read = agent => api('POST', `agents/${id(agent)}/read`);

@@ -94,9 +94,31 @@ private typealias Turn = ConversationTurns.Turn
     ]
     let kept = ConversationTurns.fitting(turns, limit: 400)   // a quarter each at most: 100
     #expect(kept.map(\.role) == [.user, .agent, .user, .agent])
-    #expect(kept[2].text == "START" + String(repeating: "a", count: 95) + "…")
-    #expect(kept[3].text.hasSuffix("END") && kept[3].text.hasPrefix("…") && kept[3].text.count == 101)
+    #expect(kept[2].text == "START" + String(repeating: "a", count: 92) + "…")
+    #expect(kept[3].text == "…" + String(repeating: "a", count: 94) + "END")
     let ten = (0..<10).map { Turn(role: .agent, text: "turn \($0) ten") }   // ten bytes each
     #expect(ConversationTurns.fitting(ten, limit: 45) == Array(ten.suffix(4)), "the older ones don't fit")
     #expect(ConversationTurns.fitting(turns, limit: 1 << 20) == turns)
+
+    // A cut falls between whole characters (by UTF-8 bytes), the newest turn is kept, and a budget smaller than an
+    // ellipsis keeps nothing.
+    let accent = "e\u{301}", emoji = "👩🏽‍💻"
+    let edge = accent + "🙂"   // Seven bytes. The cut has room for one more byte.
+    let text = edge + accent + String(repeating: emoji, count: 20) + edge
+    let wide = [Turn(role: .user, text: text, at: "now"), Turn(role: .did, text: text), Turn(role: .agent, text: text)]
+    let exact = Turn(role: .user, text: "🙂🙂"), over = Turn(role: .agent, text: "🙂🙂🙂")
+    let small = [Turn(role: .user, text: "AB🙂"), Turn(role: .agent, text: "🙂CD")]
+    let rows: [(turns: [Turn], limit: Int, kept: [Turn])] = [
+        (wide, 44, [Turn(role: .user, text: edge + "…", at: "now"), Turn(role: .did, text: "…" + edge),
+                    Turn(role: .agent, text: "…" + edge)]),
+        ([exact, over], 32, [exact, Turn(role: .agent, text: "…🙂")]),
+        (small, Int.min, []), (small, 0, []), (small, 1, []), (small, 3, []),
+        (small, 4, [Turn(role: .user, text: "A"), Turn(role: .agent, text: "D")]),
+        (small, 8, [Turn(role: .user, text: "AB"), Turn(role: .agent, text: "CD")]),
+        (small, 12, [Turn(role: .user, text: "…"), Turn(role: .agent, text: "…")]),
+        ([Turn(role: .agent, text: "A🙂")], 8, [])
+    ]
+    for row in rows {
+        #expect(ConversationTurns.fitting(row.turns, limit: row.limit) == row.kept, "limit \(row.limit)")
+    }
 }

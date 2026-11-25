@@ -31,6 +31,8 @@ const EN = {
   updateMac: 'Update Kelp on your Mac, then scan a new pairing code.',
   cantReach: mac => `Can't reach ${mac || 'your Mac'}. Trying again…`,
   failed: mac => `Can't reach ${mac || 'your Mac'}.`,
+  readFailed: "Couldn't load the conversation.", readRetrying: "Couldn't load the conversation. Trying again…",
+  retry: 'Retry',
   empty: mac => `No agents are running on ${mac || 'your Mac'}.`,
   status: {
     waiting: 'Needs you', working: 'Working', done: 'Done', error: 'Error',
@@ -104,6 +106,8 @@ const RU = {
   updateMac: 'Обновите Kelp на Mac и отсканируйте новый код.',
   cantReach: mac => `Нет связи с ${mac || 'вашим Mac'}. Пробую ещё раз…`,
   failed: mac => `Нет связи с ${mac || 'вашим Mac'}.`,
+  readFailed: 'Не удалось загрузить переписку.', readRetrying: 'Не удалось загрузить переписку. Пробую ещё раз…',
+  retry: 'Повторить',
   empty: mac => `На ${mac || 'вашем Mac'} не работает ни один агент.`,
   status: {
     waiting: 'Ждёт вас', working: 'Работает', done: 'Готово', error: 'Ошибка',
@@ -242,8 +246,8 @@ let stops = false;                // whether the Mac can stop a working agent
 let agents = new Map();
 let paired = false;
 let online = true;
-let open = null;          // the agent on screen: {id, reply, shown, gone}
-let sending = false;
+let open = null;          // the current visit to an agent, including its conversation and refresh state
+let sending = null;
 const busy = new Map();   // agent id → 'flight' (answer on its way) | 'sent' (answered, its event not here yet)
 const notes = new Map();  // agent id → the line under its Allow and Deny
 const rowEls = new Map();
@@ -275,6 +279,8 @@ const lenses = [];    // each wakes its lens, which sleeps while the agent isn't
     give this page a pairing link. */
 function showPair(text, how = text === S.connecting ? 'wait' : 'ask') {
   paired = reaching = false;
+  open?.detailRead?.abort();
+  open = null;
   clearTimeout(retry);
   stream?.close();
   stream = null;
@@ -320,6 +326,7 @@ $('pair-form').onsubmit = e => { e.preventDefault(); given($('pair-link').value)
 function route() {
   if (!paired) return;
   const id = decoded(location.hash.slice(1));
+  if (open && open.id !== id) open.detailRead?.abort();
   if (!id) {
     open = null;
     screen('list');
@@ -331,8 +338,8 @@ function route() {
     screen('agent');
     grow();
     $('a-body').scrollTop = 0;
-    kelp.read(id).catch(() => {});
-    loadOpen();
+    markOpenRead();
+    requestOpen();
   }
   render();
 }
@@ -345,12 +352,6 @@ addEventListener('hashchange', () => {
 
 // ---- data
 
-/** Keeps an agent that came with its lastReply (GET /api/agents/{id}). */
-function take(raw, updateAgent = true) {
-  if (updateAgent) agents.set(raw.id, kelp.agentFrom(raw));
-  if (open?.id === raw.id) [open.reply, open.turns] = [raw.lastReply ?? null, Array.isArray(raw.turns) && raw.turns.length ? raw.turns : null];
-}
-
 // The page names its version when the Mac serves it; the agents' list names the one the Mac has now. A page left open
 // while Kelp updated loads again, once for each version, so a Mac that keeps serving another can't keep it reloading.
 const servedAs = document.querySelector('meta[name="kelp-page"]')?.content;
@@ -361,10 +362,16 @@ function newerPage(page) {
   return true;
 }
 
+function conversationChanged(before, after) {
+  return before?.status !== after?.status || before?.statusAt !== after?.statusAt
+    || (after?.agent === 'codex' && (before?.summary !== after.summary || before?.progress !== after.progress));
+}
+
 function refresh(data, changes) {
   mac = data.mac ?? '';
   [projects, kinds, stops] = [data.projects ?? [], data.kinds ?? [], data.stops === true];
   if (newerPage(data.page)) return;
+  const previous = open && agents.get(open.id);
   agents = new Map(data.agents.map(a => [a.id, kelp.agentFrom(a)]));
   for (const [id, { agent, revision }] of changes) {
     if (revision <= data.revision) continue;
@@ -378,22 +385,74 @@ function refresh(data, changes) {
     route();
   }
   if (pushable && !needsHome) changePush().then(renderPush);
+  const selected = open && agents.get(open.id);
+  if (selected?.unread) markOpenRead();
+  if (conversationChanged(previous, selected)) requestOpen();
+  else loadOpen();   // An unchanged snapshot can still have a pending read or retry.
   render();
-  if (open) loadOpen();
 }
 
-async function loadOpen() {
-  const mine = open, before = agents.get(mine.id), read = mine.read = kelp.get(mine.id);
+function requestOpen() {
+  if (!open) return;
+  open.dirty = true;
+  loadOpen();
+}
+
+function markOpenRead() {
+  const mine = open;
+  if (document.hidden || mine.markingRead) return;
+  mine.markingRead = true;
+  kelp.read(mine.id).catch(() => {}).finally(() => { mine.markingRead = false; });
+}
+
+const detailRetryDelays = [1000, 2000, 4000];
+async function loadOpen(manualRetry = false) {
+  const mine = open;
+  if (!mine || mine.gone || mine.detailRead || !online || document.hidden) return;
+  const before = agents.get(mine.id);
+  const failure = mine.readFailure;
+  if (manualRetry) {
+    if (!failure?.attempt) return;
+    mine.readFailure = null;
+  } else if (failure) {
+    const delay = detailRetryDelays[failure.attempt - 1];
+    if (delay == null || performance.now() - mine.lastRead < delay) return;
+  } else if (!mine.dirty || (mine.lastRead != null && performance.now() - mine.lastRead < 1000)) return;
+  mine.detailRead = new AbortController();
+  mine.dirty = false;
+  if (failure) $('a-retry').disabled = true;
   try {
-    const raw = await read;
-    if (open === mine && mine.read === read && !mine.gone) take(raw, agents.get(mine.id) === before);
-  } catch (e) {
-    if (open === mine && mine.read === read && agents.get(mine.id) === before && e.status === 404) {
-      mine.gone = true;
-      agents.delete(mine.id);
+    const { lastReply, turns, conversation, same, ...agent } =
+      await kelp.get(mine.id, mine.detailRead.signal, mine.conversation);
+    if (open !== mine || mine.gone) return;
+    // A summary event can arrive while the Mac is still reading the transcript.
+    if (agents.get(mine.id) === before) agents.set(mine.id, kelp.agentFrom(agent));
+    if (!same) {
+      mine.reply = lastReply ?? null;
+      mine.turns = Array.isArray(turns) && turns.length ? turns : null;
+      mine.content = mine.turns ? JSON.stringify(mine.turns) : mine.reply;
     }
+    mine.conversation = conversation;
+    mine.readFailure = null;
+  } catch (e) {
+    if (open !== mine || mine.gone || mine.detailRead.signal.aborted) return;
+    if (e.status === 404 || e.status === 410) {
+      mine.readFailure = null;
+      if (agents.get(mine.id) === before) {
+        mine.gone = true;
+        agents.delete(mine.id);
+      } else mine.dirty = true;   // A newer snapshot still listed this agent. Check it again.
+    } else if ([0, 408, 429].includes(e.status)) {   // api.js reports network and server errors as status 0
+      const attempt = (mine.readFailure?.attempt ?? 0) + 1;
+      mine.readFailure = { attempt, message: attempt <= detailRetryDelays.length ? S.readRetrying : S.readFailed };
+    } else {
+      mine.readFailure = { message: S.readFailed };
+    }
+  } finally {
+    mine.lastRead = performance.now();
+    mine.detailRead = null;
   }
-  render();
+  if (!document.hidden) render();
 }
 
 function upsert(raw) {
@@ -403,8 +462,8 @@ function upsert(raw) {
   if (!a.ask) notes.delete(a.id);
   if (open?.id === a.id) {
     open.gone = false;
-    if (old?.statusAt !== a.statusAt) loadOpen();
-    if (a.unread && document.visibilityState === 'visible') kelp.read(a.id).catch(() => {});
+    if (conversationChanged(old, a)) requestOpen();
+    if (a.unread) markOpenRead();
   }
   render();
 }
@@ -489,10 +548,12 @@ async function choose(agent, answer) {
     if (result?.ok === false) {
       busy.delete(id);
       notes.set(id, S.changed);
-      if (open?.id === id) await loadOpen();
+      if (open?.id === id) requestOpen();
       else {
-        const before = agents.get(id), latest = await kelp.get(id).catch(() => null);
-        if (latest && agents.get(id) === before) agents.set(id, kelp.agentFrom(latest));
+        const before = agents.get(id);
+        const data = await kelp.list().catch(() => null);
+        const row = data?.agents.find(a => a.id === id);
+        if (row && agents.get(id) === before) upsert(row);
       }
     } else if (agents.get(id)?.ask?.text === question && agents.get(id)?.ask?.id === ask.id) {
       // The page doesn't change the status itself: the buttons stay off until the agent's event says what happened.
@@ -512,19 +573,19 @@ async function choose(agent, answer) {
 async function send(text, fromField) {
   const id = open?.id;
   if (!id || !text.trim() || sending) return;
-  sending = true;
+  sending = { id, clearDraft: fromField };
   $('send-error').textContent = '';
   renderAgent();
   try {
     await kelp.reply(id, text);
-    if (fromField) {
+    if (sending.clearDraft) {
       sessionStorage.removeItem('draft:' + id);
       if (open?.id === id) { $('text').value = ''; grow(); }
     }
   } catch (e) {
     if (open?.id === id && e.status !== 401) $('send-error').textContent = e.message || S.failed(mac);
   }
-  sending = false;
+  sending = null;
   renderAgent();
 }
 
@@ -726,9 +787,14 @@ function talk(turns) {
     : el('div', 'said', ...kelp.replyNodes(turn.text)));
 }
 
+const nearEnd = body => body.scrollHeight - body.clientHeight - body.scrollTop <= 24;
+
 function renderAgent() {
   if (!open) return;
   const a = agents.get(open.id);
+  const body = $('a-body');
+  const changed = open.shown !== open.content;
+  const followTurns = changed && open.turns && nearEnd(body);
   const ended = open.gone || a?.status === 'exited';
   const off = !online || busy.has(open.id);
 
@@ -746,8 +812,11 @@ function renderAgent() {
   $('stop').hidden = !(stops && working);
   $('stop').disabled = stopping || !online;
 
-  $('a-offline').hidden = online;
-  set($('a-offline-text'), S.cantReach(mac));
+  const failure = open.gone ? null : open.readFailure;
+  $('a-offline').hidden = online && !failure;
+  set($('a-offline-text'), online ? failure?.message ?? '' : S.cantReach(mac));
+  $('a-retry').hidden = !online || !failure?.attempt;
+  $('a-retry').disabled = !!open.detailRead;
 
   $('a-limit').hidden = !a?.limit;
   if (a?.limit) {
@@ -776,19 +845,18 @@ function renderAgent() {
   $('a-allow').disabled = $('a-deny').disabled = off;
   set($('a-ask-note'), notes.get(open.id) ?? '');
 
-  // The whole conversation where the Mac has it, its end in view; else the last reply, from its start.
-  const showing = open.turns ? JSON.stringify(open.turns) : open.reply;
-  if (open.shown !== showing) {
-    open.shown = showing;
+  // Follow new turns while the reader is at the end.
+  if (changed) {
+    open.shown = open.content;
     $('a-reply').classList.toggle('talk', !!open.turns);
     $('a-reply').replaceChildren(...(open.turns ? talk(open.turns) : kelp.replyNodes(open.reply)));
-    if (open.turns) $('a-body').scrollTop = $('a-body').scrollHeight;
   }
 
   $('a-ended').hidden = !ended;
   $('composer').hidden = ended;
   $('quick').hidden = !(a && (a.status === 'done' || a.status === 'error') && !a.ask && !a.limit);
-  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = sending || !online;
+  $('send').disabled = $('quick-continue').disabled = $('quick-good').disabled = !!sending || !online;
+  if (followTurns) body.scrollTop = body.scrollHeight;
 }
 
 /** How long it has been on what it runs, as m:ss: the one thing on screen that moves each second. */
@@ -798,7 +866,7 @@ function tick() {
   const s = Math.max(0, (Date.now() - Date.parse(a.statusAt)) / 1000 | 0);
   set($('a-live-time'), s >= 3600 ? `${s / 3600 | 0}h ${(s / 60 | 0) % 60}m` : `${s / 60 | 0}:${String(s % 60).padStart(2, '0')}`);
 }
-setInterval(tick, 1000);
+setInterval(() => { tick(); loadOpen(); }, 1000);
 
 function render() {
   renderList();
@@ -820,6 +888,7 @@ function grow() {
 text.addEventListener('input', () => {
   grow();
   if (!open) return;
+  if (sending?.id === open.id) sending.clearDraft = false;
   if (text.value) sessionStorage.setItem('draft:' + open.id, text.value);
   else sessionStorage.removeItem('draft:' + open.id);
 });
@@ -838,6 +907,7 @@ wide.addEventListener('change', () => screen(document.body.dataset.screen));
 $('quick-continue').onclick = () => send(S.quickContinue[1]);
 $('quick-good').onclick = () => send(S.quickGood[1]);
 $('back').onclick = () => { location.hash = ''; };
+$('a-retry').onclick = () => loadOpen(true);
 $('stop').onclick = stop;
 
 // The keyboard covers the bottom of the layout, not of what is seen: the page takes the height that is seen.
@@ -885,7 +955,11 @@ lens($('a-ask'), $('a-body'));
 lens($('send-form'), $('a-body'));
 
 // The terminal scrolls under the glass dock: its last line stops above it.
-new ResizeObserver(() => $('a-card').style.setProperty('--dock', $('dock').offsetHeight + 'px')).observe($('dock'));
+new ResizeObserver(() => {
+  const body = $('a-body'), following = open?.turns && nearEnd(body);
+  $('a-card').style.setProperty('--dock', $('dock').offsetHeight + 'px');
+  if (following) body.scrollTop = body.scrollHeight;
+}).observe($('dock'));
 seen?.addEventListener('resize', fit);
 seen?.addEventListener('scroll', fit);
 
@@ -1049,6 +1123,7 @@ $('confirm-yes').onclick = async () => {
 
 for (const [id, words] of Object.entries({
   'a-allow': S.allow, 'a-deny': S.deny, 'a-ended': S.ended,
+  'a-retry': S.retry,
   'quick-continue': S.quickContinue[0], 'quick-good': S.quickGood[0],
   'menu-title': S.thisPhone, 'push-title': S.notifications, 'disconnect': S.disconnect,
   'confirm-no': S.cancel, 'confirm-yes': S.disconnectYes, 'home-hint-text': S.addToHome,

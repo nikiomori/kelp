@@ -34,6 +34,7 @@ enum PhoneAgent {
             // banner does. The user answers any other question with text.
             "ask": waiting ? .object(ask) : .null,
             "running": session.running.map(JSONValue.string) ?? .null,
+            "progress": session.progress.map(JSONValue.int) ?? .null,
             "limit": session.limitHit.map {
                 .object(["kind": .string($0.kind), "resets": $0.resets.map(JSONValue.string) ?? .null])
             } ?? .null,

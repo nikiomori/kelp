@@ -141,19 +141,28 @@ extension PhoneBridge {
         }
     }
 
-    /// Returns the last turns of a Claude Code or Codex conversation. It returns nil for other agents, or before there
-    /// is a conversation, and the page then shows only the last reply.
-    func turns(of session: Session) async -> [JSONValue]? {
-        guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return nil }
+    /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte. They carry a fingerprint,
+    /// `conversation`; a phone that sends the one it shows as `seen` gets only `same` back while nothing changed, so a
+    /// working agent's page, read every few seconds, doesn't fetch the whole conversation each time.
+    /// Limit: the fingerprint is the daemon's own hash, so a restart sends the conversation once more.
+    func conversationFields(of session: Session, seen: String? = nil) async -> [String: JSONValue] {
         let conversations = conversations, running = live[session.id]
-        let turns = await offloaded {
-            conversations.turns(of: session, live: running)
+        guard let detail = await offloaded({ conversations.phoneConversation(of: session, live: running) }) else {
+            return ["lastReply": .null]
         }
-        guard let turns, !turns.isEmpty else { return nil }
-        return turns.map { turn in
-            var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
-            if let at = turn.at { fields["at"] = .string(at) }
-            return .object(fields)
+        let reply = detail.reply.map { JSONValue.string(String($0.suffix(200_000))) }
+        var fields: [String: JSONValue] = ["lastReply": reply ?? .null]
+        if !detail.turns.isEmpty {
+            fields["turns"] = .array(detail.turns.map { turn in
+                var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
+                if let at = turn.at { fields["at"] = .string(at) }
+                return .object(fields)
+            })
         }
+        guard fields != ["lastReply": .null] else { return fields }
+        let print = String(UInt(bitPattern: fields.hashValue), radix: 36)
+        if print == seen { return ["conversation": .string(print), "same": .bool(true)] }
+        fields["conversation"] = .string(print)
+        return fields
     }
 }

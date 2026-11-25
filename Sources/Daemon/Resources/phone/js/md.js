@@ -1,6 +1,6 @@
 // A small Markdown reader that builds DOM nodes and nothing else: the agent's text is untrusted, so there is no
 // innerHTML here, HTML in the text stays text, and a link is a link only when it is http(s).
-// Limit: lists are flat (nesting shows as one level), images stay as typed, a table's cells can't hold a `|`.
+// A table's cells can't hold a `|`.
 
 const el = (tag, ...children) => {
   const node = document.createElement(tag);
@@ -8,7 +8,7 @@ const el = (tag, ...children) => {
   return node;
 };
 
-const INLINE = /`([^`]+)`|\*\*(.+?)\*\*|\*([^*\s][^*]*?)\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
+const INLINE = /`([^`]+)`|\*\*(.+?)\*\*|\*([^*\s][^*]*?)\*|\[([^\]\n]+)\]\((?:<([^<>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))\)/g;
 
 function inline(text) {
   const out = [];
@@ -19,48 +19,116 @@ function inline(text) {
     if (m[1] != null) out.push(el('code', m[1]));
     else if (m[2] != null) out.push(el('strong', ...inline(m[2])));
     else if (m[3] != null) out.push(el('em', ...inline(m[3])));
-    else out.push(link(m[4], m[5]) ?? m[0]);
+    else out.push(...link(m[4], m[5] ?? m[6]));
   }
   out.push(text.slice(last));
   return out;
 }
 
 function link(text, href) {
+  const label = inline(text);
   let url;
-  try { url = new URL(href); } catch { return null; }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-  const a = el('a', ...inline(text));
-  a.href = url.href;
-  a.rel = 'noopener noreferrer';
-  a.target = '_blank';
-  return a;
+  try { url = new URL(href); } catch { /* Relative paths have no URL on the phone. */ }
+  if (url?.protocol === 'http:' || url?.protocol === 'https:') {
+    const a = el('a', ...label);
+    a.href = url.href;
+    a.rel = 'noopener noreferrer';
+    a.target = '_blank';
+    return [a];
+  }
+  if (!url || url.protocol === 'file:' || /^[A-Za-z]:[\\/]|^[\w.-]*\.[A-Za-z]\w*:\d+(?::\d+)?$/.test(href)) {
+    let file = href.split(/[\\/]/).pop();
+    try { file = decodeURIComponent(file); } catch { /* Keep a literal percent sign. */ }
+    const [, name, location] = file.match(/^(.*?)(:\d+(?::\d+)?|#L\d+(?:-L?\d+)?)?$/s);
+    const plain = text.replace(/`/g, '');
+    if (name && !plain.includes(name)) label.push(' (', el('code', file), ')');
+    else if (location && !plain.replace(/#L(?=\d)/g, ':').endsWith(location.replace('#L', ':'))) label.push(location);
+  } else if (!text.includes(href)) label.push(` (${href})`);   // mailto:, localhost:3000: shown, never a link
+  return label;
 }
 
-const ITEM = /^\s*(?:[-*+]|(\d+)[.)])\s+(.*)$/;
+const ITEM = /^(\s*)(?:[-*+]|(\d{1,9})[.)])\s+(.*)$/;
+const FENCE = /^\s*(```|~~~)/, HEADING = /^\s*(#{1,6})\s+(.*)$/;
 // A table: a row of cells between pipes, then its rule (| --- | :---: |), then its rows.
 const ROW = /^\s*\|.*\|\s*$/, RULE = /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/;
 const tableAt = (lines, i) => ROW.test(lines[i]) && RULE.test(lines[i + 1] ?? '');
 const cells = (line, tag) => line.trim().slice(1, -1).split('|').map(cell => el(tag, ...inline(cell.trim())));
 
+// After a potential sibling, one bare fence closes the original block. A pair encloses the sibling's code.
+function hasClosingFence(lines, i, marker, indent) {
+  let sibling = false, bareFences = 0;
+  for (; i < lines.length; i++) {
+    const line = lines[i], item = line.match(ITEM);
+    if (item && FENCE.test(item[3])) break;
+    if (item && item[1].length <= indent) {
+      if (bareFences) break;
+      sibling = true;
+    }
+    if (!line.trimStart().startsWith(marker)) continue;
+    if (!/^\s*(?:`{3,}|~{3,})\s*$/.test(line)) break;
+    bareFences++;
+    if (!sibling || bareFences === 2) break;
+  }
+  return bareFences === 1;
+}
+
 export function markdown(source) {
   const lines = source.replace(/\r/g, '').split('\n');
-  const out = [];
+  const root = document.createDocumentFragment();
+  const lists = [];
   let i = 0;
   while (i < lines.length) {
-    const line = lines[i];
+    let line = lines[i];
     if (!line.trim()) { i++; continue; }
-    const fence = line.match(/^\s*(```|~~~)/);
+    const item = line.match(ITEM);
+    const indent = line.search(/\S/);
+    while (lists.length && (indent < lists.at(-1).indent || (!item && indent === lists.at(-1).indent))) lists.pop();
+    if (item) {
+      const tag = item[2] ? 'ol' : 'ul';
+      let level = lists.at(-1);
+      if (level?.indent === indent && level.list.localName !== tag) {
+        lists.pop();
+        level = lists.at(-1);
+      }
+      const number = Number(item[2]);
+      if (level?.indent !== indent) {
+        const list = el(tag);
+        if (tag === 'ol' && number !== 1) list.start = number;
+        (level?.li ?? root).append(list);
+        level = { indent, list };
+        lists.push(level);
+      }
+      const li = el('li');
+      // Repeated "1." markers use the browser's numbering.
+      if (item[2] && level.li && !(number === 1 && level.previous === 1)) li.value = number;
+      level.list.append(li);
+      level.li = li;
+      level.previous = number;
+      line = item[3];
+    }
+    const parent = lists.at(-1)?.li ?? root;
+    const fence = line.match(FENCE);
     if (fence) {
       const code = [];
-      for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) code.push(lines[i]);
-      i++;
-      out.push(el('pre', el('code', code.join('\n'))));
+      const level = lists.at(-1);
+      const margin = item ? item[0].length - line.length : indent;
+      let closed = false;
+      for (i++; i < lines.length; i++) {
+        const next = lines[i], spaces = next.length - next.trimStart().length;
+        if (level && !closed && spaces < next.length && spaces <= level.indent) {
+          closed = hasClosingFence(lines, i, fence[1], level.indent);
+          if (!closed) break;
+        }
+        if (next.trim().startsWith(fence[1])) { i++; break; }
+        code.push(level ? next.slice(Math.min(margin, spaces)) : next);
+      }
+      parent.append(el('pre', el('code', code.join('\n'))));
       continue;
     }
-    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    const heading = line.match(HEADING);
     if (heading) {
       // The screen's own title is the h1: the reply's headings start below it.
-      out.push(el('h' + Math.min(heading[1].length + 1, 6), ...inline(heading[2])));
+      parent.append(el('h' + Math.min(heading[1].length + 1, 6), ...inline(heading[2])));
       i++;
       continue;
     }
@@ -69,21 +137,17 @@ export function markdown(source) {
       for (i += 2; i < lines.length && ROW.test(lines[i]); i++) body.append(el('tr', ...cells(lines[i], 'td')));
       const box = el('div', el('table', el('thead', head), body));
       box.className = 'table';   // it scrolls sideways on its own, as a code block does
-      out.push(box);
+      parent.append(box);
       continue;
     }
-    const item = line.match(ITEM);
-    if (item) {
-      const list = el(item[1] ? 'ol' : 'ul');
-      for (let m; i < lines.length && (m = lines[i].match(ITEM)); i++) list.append(el('li', ...inline(m[2])));
-      out.push(list);
-      continue;
+    const para = [line.trim()];
+    for (i++; i < lines.length; i++) {
+      const next = lines[i];
+      if (!next.trim() || FENCE.test(next) || HEADING.test(next) || ITEM.test(next) || tableAt(lines, i)) break;
+      if (lists.length > 1 && next.search(/\S/) <= lists.at(-1).indent) break;
+      para.push(next.trim());
     }
-    const para = [];
-    for (; i < lines.length && lines[i].trim() && !/^\s*(```|~~~|#{1,6}\s)/.test(lines[i]) && !ITEM.test(lines[i]) && !tableAt(lines, i); i++) {
-      para.push(lines[i].trim());
-    }
-    out.push(el('p', ...inline(para.join('\n'))));
+    parent.append(el('p', ...inline(para.join('\n'))));
   }
-  return out;
+  return [...root.childNodes];
 }

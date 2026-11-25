@@ -27,6 +27,12 @@ package struct SessionStarter {
     package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
         createSession(SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: split, focus: focus)
     }
+    func splitTerminal(_ direction: SplitDirection) {
+        guard let pane = area.layout.focusedGroup, pane.selectedTab != nil else { return newTerminal() }
+        area.arrangedByHand()   // The new session can reach the workspace before the launch reply.
+        createSession(
+            SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: direction, beside: pane.id)
+    }
     /// Opens a terminal attached to tmux session `name`, which is started if tmux has none. If a tab is already
     /// attached to it, that tab is shown instead.
     func newTmux(_ name: String, split: SplitDirection? = nil, focus: Bool = true) {
@@ -73,7 +79,8 @@ package struct SessionStarter {
     }
 
     private func createSession(
-        _ create: SessionCreate, split: SplitDirection?, focus: Bool = true, created: ((Session) -> Void)? = nil
+        _ create: SessionCreate, split: SplitDirection?, focus: Bool = true, beside pane: String? = nil,
+        created: ((Session) -> Void)? = nil
     ) {
         let create = sized(create, split: split)
         let app = app
@@ -81,7 +88,8 @@ package struct SessionStarter {
             guard let session = await app.call(create) else { return }
             app.upsert(session)
             created?(session)
-            show(TabURI.session(session.id), split: split, focus: focus)
+            let uri = TabURI.session(session.id)
+            if let pane { area.open(uri, split: split, beside: pane) } else { show(uri, split: split, focus: focus) }
         }
     }
 

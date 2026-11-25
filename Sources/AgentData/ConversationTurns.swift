@@ -34,11 +34,24 @@ public enum ConversationTurns {
     }
 
     static func fitting(_ turns: [Turn], limit: Int) -> [Turn] {
+        let perTurn = limit / 4
+        guard perTurn > 0 else { return [] }
+        let ellipsis = perTurn >= "…".utf8.count ? "…" : ""
         var left = limit, kept: [Turn] = []
         for var turn in turns.reversed() {
-            if turn.text.utf8.count > limit / 4 {
-                let cut = limit / 4
-                turn.text = turn.role == .user ? String(turn.text.prefix(cut)) + "…" : "…" + turn.text.suffix(cut)
+            if turn.text.utf8.count > perTurn {
+                var room = perTurn - ellipsis.utf8.count
+                func fits(_ character: Character) -> Bool {
+                    room -= character.utf8.count
+                    return room >= 0
+                }
+                if turn.role == .user {
+                    turn.text = turn.text.prefix(while: fits) + ellipsis
+                } else {
+                    let suffix = turn.text.reversed().prefix(while: fits)
+                    turn.text = ellipsis + String(suffix.reversed())
+                }
+                guard !turn.text.isEmpty else { break }
             }
             left -= turn.text.utf8.count
             guard left >= 0 else { break }
@@ -76,7 +89,7 @@ public enum ConversationTurns {
         private mutating func say(_ role: String?, _ content: Any?, at: String?) {
             guard role == "user" || role == "assistant" else { return }
             let items = content as? [[String: Any]] ?? []
-            let texts = (content as? String).map { [$0] } ?? items.compactMap { $0["text"] as? String }
+            let texts = JSONL.texts(content)
             let text = texts.compactMap(role == "user" ? JSONL.typed : Self.said).joined(separator: "\n\n")
             if !text.isEmpty {
                 endRun()

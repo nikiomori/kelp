@@ -42,6 +42,46 @@ import WorkbenchKit
 
 /// Where a command shows: the menu bar and ⇧⌘P, and for the File menu's commands on what is in front, when.
 extension OneAtATime {
+    @Test(arguments: [0, 1, 3]) func terminalSplitKeepsExistingTabs(count: Int) async throws {
+        _ = NSApplication.shared
+        let rig = try await AppRig()
+        let app = rig.app, main = MainWindowController(app: rig.app)
+        defer {
+            withExtendedLifetime(main) {}
+            rig.done()
+        }
+        app.extensions.reload()
+        main.showWorkspace(rig.workspace.id)
+        let area = try #require(main.editors.current)
+        let tabs = (0..<count).map { area.layout.add(TabURI.file("\(rig.repo)/\($0).txt")) }
+        let original = area.layout.focused
+
+        app.extensions.run("terminal.splitRight")
+        if count > 0 { #expect(area.layout.manual == true) }
+        try await waitFor { area.layout.allTabs.count == count + 1 && area.layout.focused != original }
+        let terminal = try #require(area.layout.focusedGroup?.selectedTab)
+        #expect(app.session(TabURI.body(terminal.uri))?.isTerminal == true)
+        #expect(area.layout.focusedGroup?.tabs == [terminal])
+        if let original, let right = area.layout.focused {
+            #expect(area.layout.groups[original]?.tabs == tabs)
+            #expect(area.layout.groups[original]?.selectedTab == tabs.last)
+            #expect(area.layout.root == .split(vertical: true, children: [.pane(original), .pane(right)]))
+
+            if count == 3 {
+                area.layout.select(try #require(tabs.last).id)
+                app.extensions.run("terminal.splitDown")
+                area.layout.select(terminal.id)   // focus another pane while the terminal starts
+                try await waitFor { area.layout.allTabs.count == count + 2 && area.layout.focused != right }
+                let below = try #require(area.layout.focused)
+                let left = LayoutNode.split(vertical: false, children: [.pane(original), .pane(below)])
+                #expect(area.layout.root == .split(vertical: true, children: [left, .pane(right)]))
+                #expect(area.layout.groups[original]?.tabs == tabs)
+            }
+        } else {
+            #expect(area.layout.root?.sessions.count == 1)
+        }
+    }
+
     /// Every command the registry has is an item of the menu bar, and every one the menu bar offers now is a row of
     /// ⇧⌘P. A command gets both by being registered, with nothing to add by hand. Show Panel is the one the menu bar
     /// lists another way: once for each panel.
