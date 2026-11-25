@@ -16,15 +16,14 @@ public enum Keychain {
             kSecAttrAccount as String: account
         ]
         let data = Data(value.utf8)
-        var status = SecItemUpdate(
-            query as CFDictionary,
-            [kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
-                as CFDictionary)
+        let fields: [String: Any] = [
+            kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        var status = SecItemUpdate(query as CFDictionary, fields as CFDictionary)
         if status == errSecItemNotFound {
-            var add = query
-            add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            status = SecItemAdd(add as CFDictionary, nil)
+            status = SecItemAdd(query.merging(fields) { $1 } as CFDictionary, nil)
+            // Another process added it between the two calls (two daemons starting at once).
+            if status == errSecDuplicateItem { status = SecItemUpdate(query as CFDictionary, fields as CFDictionary) }
         }
         guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     }
