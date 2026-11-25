@@ -332,7 +332,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
     }
 
-    private func selectMode(_ segment: Int) {
+    func selectMode(_ segment: Int) {
         mode.selectedSegment = segment
         applyMode()
     }

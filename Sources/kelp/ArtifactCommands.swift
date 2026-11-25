@@ -149,7 +149,7 @@ extension Main {
     /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
     /// `kelp shot` does.
     static func exportPage(_ cwd: String, _ c: RPCClient) async throws {
-        let formats = ["png", "pdf", "pptx", "html", "zip", "mp4", "gif", "mov"]
+        let formats = ["png", "pdf", "pptx", "html", "zip", "docx", "md", "mp4", "gif", "mov"]
         let usage = "artifact export <name> <\(formats.joined(separator: "|"))> [to]"
         guard args.count >= 2, formats.contains(args[1]) else { fail(usage) }
         let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)

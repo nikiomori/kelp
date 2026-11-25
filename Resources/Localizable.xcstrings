@@ -40806,6 +40806,36 @@
           }
         }
       }
+    },
+    "Document as PDF…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как PDF…"
+          }
+        }
+      }
+    },
+    "Document as Word…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как Word…"
+          }
+        }
+      }
+    },
+    "Document as Markdown…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Документ как Markdown…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

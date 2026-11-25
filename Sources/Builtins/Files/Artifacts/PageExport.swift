@@ -11,15 +11,18 @@ import WorkbenchKit
 /// boards as PNG files, slides as a PDF or as a PowerPoint of one picture a slide, the page as one HTML file that
 /// holds its pictures, or its folder as a ZIP.
 enum PageExport: String, CaseIterable {
-    case png, pdf, pptx, html, zip
+    case png, pdf, pptx, html, zip, docx, md
 
-    var title: String {
+    /// What ⋯ calls it on a page of kind `page`.
+    func title(_ page: MarkdownTab.Page) -> String {
         switch self {
         case .png: String(localized: "Boards as PNG…")
-        case .pdf: String(localized: "Slides as PDF…")
+        case .pdf: page == .markdown ? String(localized: "Document as PDF…") : String(localized: "Slides as PDF…")
         case .pptx: String(localized: "Slides as PowerPoint…")
         case .html: String(localized: "Page as One HTML…")
         case .zip: String(localized: "Folder as ZIP…")
+        case .docx: String(localized: "Document as Word…")
+        case .md: String(localized: "Document as Markdown…")
         }
     }
 
@@ -28,6 +31,7 @@ enum PageExport: String, CaseIterable {
         switch page {
         case .canvas: deck ? [.png, .pdf, .pptx, .html, .zip] : [.png, .html, .zip]
         case .slides: [.pdf, .pptx, .html, .zip]
+        case .markdown: [.pdf, .docx, .md, .html, .zip]
         default: [.html, .zip]
         }
     }
@@ -40,6 +44,8 @@ enum PageExport: String, CaseIterable {
         case .pptx: UTType(filenameExtension: "pptx")
         case .html: .html
         case .zip: .zip
+        case .docx: UTType(filenameExtension: "docx")
+        case .md: UTType(filenameExtension: "md") ?? .plainText
         }
     }
 }
@@ -49,7 +55,7 @@ extension ArtifactBar {
     func exportItems(_ menu: NSMenu) {
         menu.addItem(.sectionHeader(title: String(localized: "Export")))
         for format in PageExport.formats(for: markdown.page, deck: markdown.isDeck) {
-            menu.add(format.title) { [weak markdown] in markdown?.chooseExport(format) }
+            menu.add(format.title(markdown.page)) { [weak markdown] in markdown?.chooseExport(format) }
         }
         if markdown.takesRows {   // only a page whose elements take a table's columns
             menu.add(String(localized: "For Each Row of Its Table…")) { [weak markdown] in markdown?.exportEachRow() }
@@ -103,12 +109,19 @@ extension MarkdownTab {
         do {
             switch format {
             case .png: try await exportBoards(into: to)
-            case .pdf: try await page == .canvas ? exportBoardsPDF(to) : exportSlidesPDF(to)
+            case .pdf:
+                switch page {
+                case .canvas: try await exportBoardsPDF(to)
+                case .markdown: try await exportDocumentPDF(to)
+                default: try await exportSlidesPDF(to)
+                }
             case .pptx:
                 try await page == .canvas
                     ? exportBoardsPowerPoint(to, editable: editable) : exportSlidesPowerPoint(to, editable: editable)
             case .html: try await exportHTML(to)
             case .zip: try await zip(url.deletingLastPathComponent(), to: to, keepFolder: true)
+            case .docx: try exportWord(to)
+            case .md: try exportMarkdown(to)
             }
             NSWorkspace.shared.activateFileViewerSelecting([to])
         } catch {
@@ -313,7 +326,7 @@ extension Builtins {
             guard let tab = artifactPage(app) else { return NSSound.beep() }
             let menu = NSMenu()
             for format in PageExport.formats(for: tab.page, deck: tab.isDeck) {
-                menu.add(format.title) { tab.chooseExport(format) }
+                menu.add(format.title(tab.page)) { tab.chooseExport(format) }
             }
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
             return

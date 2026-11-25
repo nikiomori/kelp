@@ -3,6 +3,7 @@ import AppKit
 import Core
 import Foundation
 import PDFKit
+import TestSupport
 import Testing
 
 @testable import BuiltinFiles
@@ -261,4 +262,49 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     let (slides, texts) = try await tab.deckSlides(editable: true)
     #expect(slides.count == 2 && NSBitmapImageRep(data: slides[0])?.pixelsWide == 1920)
     #expect(texts.map { $0.map(\.words) } == [["Slide a"], ["Slide b"]])
+}
+
+/// A document leaves as Word with its words and headings.
+@MainActor @Test func aDocumentLeavesAsWord() async throws {
+    _ = NSApplication.shared
+    let word = try MarkdownTab.word("# Plan\n\nShip **it**.\n\n- one\n- two", baseURL: nil)
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-doc-\(UUID().uuidString)")
+    let home = folder.appendingPathComponent(".kelp/artifacts/plan")
+    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let docx = home.appendingPathComponent("plan.docx")
+    try word.write(to: docx)
+    let unzip = Process()
+    unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+    unzip.arguments = ["-p", docx.path, "word/document.xml"]
+    let out = Pipe()
+    unzip.standardOutput = out
+    try unzip.run()
+    unzip.waitUntilExit()
+    let xml = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    #expect(xml.contains("Plan") && xml.contains("Ship") && xml.contains("two"))
+}
+
+/// A document leaves as a PDF in A4 pages, as many as it needs.
+@MainActor @Test func aDocumentLeavesAsPagesOfPDF() async throws {
+    _ = NSApplication.shared
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-doc-\(UUID().uuidString)")
+    let home = folder.appendingPathComponent(".kelp/artifacts/plan")
+    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let text = "# Plan\n\n" + (1...120).map { "Paragraph \($0) of the plan." }.joined(separator: "\n\n")
+    let url = home.appendingPathComponent("doc.md")
+    try text.write(to: url, atomically: true, encoding: .utf8)
+    let tab = MarkdownTab(editor: CodeEditor(text: text, url: url), url: url, app: AppModel())
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 900, height: 700), styleMask: [.titled], backing: .buffered,
+        defer: false)
+    window.contentViewController = tab
+    #expect(try await waitFor(10) { MarkdownTab.loaded.object(forKey: tab) != nil })
+    #expect(try await waitFor(10) { !tab.web.isLoading })
+    let pdf = home.appendingPathComponent("plan.pdf")
+    try await tab.exportDocumentPDF(pdf)
+    let document = try #require(PDFDocument(url: pdf))
+    #expect(document.pageCount > 1)
+    #expect(abs((document.page(at: 0)?.bounds(for: .mediaBox).width ?? 0) - 595.3) < 1, "A4")
 }
