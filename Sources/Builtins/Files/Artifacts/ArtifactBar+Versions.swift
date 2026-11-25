@@ -83,6 +83,31 @@ extension ArtifactBar {
         await app.call(ArtifactKeepRestored(path: path, from: version.n))
     }
 
+    /// The version before the agent's last turn: the one to bring back to undo that turn. nil when there is none.
+    var beforeLastTurn: ArtifactVersion? {
+        let versions = item?.versions ?? []   // the kept ones, the last too when the page reads as it
+        guard let i = versions.lastIndex(where: { $0.byUser != true && $0.restored == nil }), i > 0 else { return nil }
+        return versions[i - 1]
+    }
+
+    /// The boards the agent's last turn changed, outlined on the canvas until the user clicks it.
+    func outlineLastTurn() {
+        let versions = item?.versions ?? []   // the kept ones, the last too when the page reads as it
+        guard markdown.page == .canvas, let i = versions.lastIndex(where: { $0.byUser != true && $0.restored == nil }),
+            i > 0
+        else { return }
+        let (was, now) = (versions[i - 1].n, versions[i].n)
+        Task {
+            let read = { (n: Int) in
+                await self.app.quiet(FilesRead(path: Artifacts.versionPath(target: self.path, n))).flatMap {
+                    CanvasSnapshot.read($0.text)
+                }
+            }
+            guard let before = await read(was), let after = await read(now) else { return }
+            markdown.runJS("window.kelpTouched?.(\(MarkdownTab.js(after.changed(since: before))))")
+        }
+    }
+
     /// The page's agent, by name, and its chat while it hasn't ended.
     var agentName: String? { item?.session.flatMap(app.session).flatMap { app.catalog.name($0.agent) } }
     var chat: String? { item?.session.flatMap { app.session($0)?.status == .exited ? nil : $0 } }

@@ -41296,6 +41296,26 @@
           }
         }
       }
+    },
+    "Undo the Agent’s Last Turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить последний ход агента"
+          }
+        }
+      }
+    },
+    "The page as version %lld was, kept as a new version: nothing is erased": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница как в версии %lld, сохранённая новой версией: ничего не стирается"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

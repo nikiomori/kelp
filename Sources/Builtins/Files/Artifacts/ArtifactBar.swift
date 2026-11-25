@@ -76,6 +76,8 @@ final class ArtifactBar: NSObject {
     private var recorded: ArtifactRecord?
     private(set) var pageKind: Artifacts.Kind?
     var entries: [Entry] = []
+    /// The newest version this bar has seen, so a new one (a turn's) is told apart.
+    private var seenVersion: Int?
     /// The number of the version on screen, or nil for the current file. A number, unlike an index, stays the same when
     /// versions are added or dropped.
     var shownN: Int?
@@ -214,6 +216,10 @@ final class ArtifactBar: NSObject {
                     at: item?.modified)
             ]
         versionsPanel?.reload()
+        if let last = versions.last?.n, last != seenVersion {   // a turn just kept a version: what it changed shows
+            if seenVersion != nil { outlineLastTurn() }
+            seenVersion = last
+        }
         if shownN != nil, shown.map({ $0 >= entries.count - 1 }) ?? true {
             shownN = nil
             markdown.showVersion(nil)
@@ -355,6 +361,12 @@ final class ArtifactBar: NSObject {
         if md.page != .motion {   // a video is shared from its export
             menu.add(String(localized: "Share…")) { [weak self] in self.map { md.share(from: $0.more) } }
             menu.add(String(localized: "Open in Browser")) { md.openInBrowser() }
+        }
+        if let before = beforeLastTurn {
+            menu.add(String(localized: "Undo the Agent’s Last Turn")) { [weak self] in
+                Task { await self?.restore(before) }
+            }.toolTip = String(
+                localized: "The page as version \(before.n) was, kept as a new version: nothing is erased")
         }
         menu.add(String(localized: "Rename…")) {
             ArtifactActions.rename(app, page: path, title: self.item?.title ?? "")

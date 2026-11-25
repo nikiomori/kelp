@@ -659,3 +659,25 @@ extension OneAtATime {
         #expect(context.exception == nil, "\(context.exception?.toString() ?? "")")
     }
 }
+
+extension OneAtATime {
+    /// Undo the agent's last turn brings back the version before it: one made by hand counts as before, a restore
+    /// isn't a turn.
+    @Test func undoingTheLastTurnBringsBackTheVersionBeforeIt() {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-undo-turn/.kelp/artifacts/home/canvas.json")
+        let app = AppModel()
+        let tab = MarkdownTab(editor: CodeEditor(text: #"{"boards": []}"#, url: url), url: url, app: app)
+        let bar = ArtifactBar(app: app, path: url.path, markdown: tab)
+        var item = ArtifactItem(slug: "home", type: "design", title: "Home", created: 0, target: url.path)
+        item.versions = [
+            .init(n: 1, at: 0, label: "make it"), .init(n: 2, at: 1, label: "title", byUser: true),
+            .init(n: 3, at: 2, label: "bigger"), .init(n: 4, at: 3, label: "Restored", restored: 1)
+        ]
+        bar.item = item
+        #expect(bar.beforeLastTurn?.n == 2)
+        item.versions = [.init(n: 1, at: 0, label: "make it")]
+        bar.item = item
+        #expect(bar.beforeLastTurn == nil, "the first turn has nothing before it")
+    }
+}

@@ -66,6 +66,12 @@ enum CanvasChrome {
               // The empty state's actions (canvas.json that doesn't read): open the file, or ask its agent.
               for (const b of document.querySelectorAll('[data-kelp]'))
                 b.onclick = () => post({ kind: b.dataset.kelp, why: b.dataset.why || '' });
+              // The boards the agent's last turn changed, outlined until the next click on the canvas.
+              window.kelpTouched = list => {
+                for (const f of document.querySelectorAll('iframe[data-board]'))
+                  f.closest('.frame')?.classList.toggle('kelp-touched', list.includes(f.dataset.board));
+                addEventListener('mousedown', () => window.kelpTouched([]), { once: true });
+              };
               if (!\(floats)) return;
               // The canvas's size: steps down and up, or fitted to the pane.
               const zoom = el('div', 'kelp-float kelp-zoom');
@@ -158,6 +164,7 @@ enum CanvasChrome {
           color: var(--k-text-orange); box-shadow: 0 0 0 1px var(--k-orange);
           display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: default; }
         .kelp-present .kelp-col, .kelp-present .kelp-float, .kelp-present .kelp-issues { display: none !important; }
+        .frame.kelp-touched iframe { box-shadow: 0 0 0 2px var(--k-orange); }
         .kelp-ib, .kelp-pill, .kelp-prominent, .kelp-seg button, .kelp-chip, .kelp-toc {
           transition: background .12s ease-out, filter .12s ease-out; }
         .kelp-seg button:not(.on):hover { background: var(--k-hover); }
