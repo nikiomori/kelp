@@ -65,9 +65,9 @@ final class ArtifactBar: NSObject {
     lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
         [weak self] in
         guard let self else { return }
-        Task { @MainActor in
-            await self.markdown.loadPublished()
-            self.showMore()
+        Task { @MainActor [weak tab = self.markdown] in   // the tab may close while it reads
+            await tab?.loadPublished()
+            if tab != nil { self.showMore() }
         }   // its link may be new
     }
     var item: ArtifactItem?
@@ -307,8 +307,8 @@ final class ArtifactBar: NSObject {
     /// a listed page is named.
     private func nameFromRecord() {
         let record = (path as NSString).deletingLastPathComponent + "/artifact.json"
-        Task {
-            guard item == nil, let file = await app.quiet(FilesRead(path: record)) else { return }
+        Task { [weak tab = markdown] in   // the tab may close while it reads (update reads it)
+            guard item == nil, let file = await app.quiet(FilesRead(path: record)), tab != nil else { return }
             do {
                 recorded = try Artifacts.decoder.decode(ArtifactRecord.self, from: Data(file.text.utf8))
             } catch { return }

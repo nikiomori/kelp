@@ -312,3 +312,19 @@ extension OneAtATime {
         #expect(tab.canvasMessage("stopAgent", [:]))
     }
 }
+
+extension AppOfItsOwn {
+    /// A page's tab closed while its bar still waits for kelpd to read a version: the late answer lands nowhere.
+    @Test func aVersionReadThatEndsAfterItsTabClosedLandsNowhere() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let url = URL(fileURLWithPath: rig.workspace.path + "/.kelp/artifacts/home/page.md")
+        var tab: MarkdownTab? = MarkdownTab(editor: CodeEditor(text: "# Home", url: url), url: url, app: rig.app)
+        var bar: ArtifactBar? = ArtifactBar(app: rig.app, path: url.path, markdown: try #require(tab))
+        weak var closed = tab, gone = bar
+        bar?.followBaseline(versions: [.init(n: 1, at: 0, label: "a"), .init(n: 2, at: 1, label: "b")], live: false)
+        (tab, bar) = (nil, nil)
+        #expect(closed == nil)
+        try await waitFor { gone == nil }   // the read answered, and the bar let go
+    }
+}

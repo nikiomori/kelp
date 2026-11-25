@@ -14,9 +14,9 @@ extension ArtifactBar {
         guard n != baselineN else { return }
         baselineN = n
         guard let n else { return markdown.baseline = nil }
-        Task {
+        Task { [weak tab = markdown] in   // the tab may close while it reads
             let file = await app.quiet(FilesRead(path: Artifacts.versionPath(target: path, n)))
-            if baselineN == n { markdown.baseline = file?.text }
+            if baselineN == n { tab?.baseline = file?.text }
         }
     }
 
@@ -77,9 +77,11 @@ extension ArtifactBar {
 
     /// Brings version `version` back as the page, then keeps it as a new version that says so.
     func restore(_ version: ArtifactVersion) async {
-        guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else { return }
+        weak var tab = markdown   // it may close while it reads
+        guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))), let tab
+        else { return }
         show(nil)
-        guard await markdown.restore(file.text) else { return }
+        guard await tab.restore(file.text) else { return }
         await app.call(ArtifactKeepRestored(path: path, from: version.n))
     }
 
@@ -97,14 +99,14 @@ extension ArtifactBar {
             i > 0
         else { return }
         let (was, now) = (versions[i - 1].n, versions[i].n)
-        Task {
+        Task { [weak tab = markdown] in   // the tab may close while it reads
             let read = { (n: Int) in
                 await self.app.quiet(FilesRead(path: Artifacts.versionPath(target: self.path, n))).flatMap {
                     CanvasSnapshot.read($0.text)
                 }
             }
-            guard let before = await read(was), let after = await read(now) else { return }
-            markdown.runJS("window.kelpTouched?.(\(MarkdownTab.js(after.changed(since: before))))")
+            guard let before = await read(was), let after = await read(now), let tab else { return }
+            tab.runJS("window.kelpTouched?.(\(MarkdownTab.js(after.changed(since: before))))")
         }
     }
 
