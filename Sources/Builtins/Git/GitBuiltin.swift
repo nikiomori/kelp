@@ -253,10 +253,3 @@ extension SettingKeys {
     static let ciSidebar = Setting("workbench.ci.sidebar", true)
     static let ciPopover = Setting("workbench.ci.popover", true)
 }
-
-// How the app keeps what the daemon pushes about pull requests. These event kinds belong to the Git built-in, not to
-// the shell.
-extension PREvent: Pushed {
-    package var key: String { worktree }
-    package static var forgottenWith: WatchTopic? { .pr }
-}

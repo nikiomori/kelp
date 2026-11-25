@@ -38,6 +38,7 @@ Keys are written as macOS writes them: ⌃ ⌥ ⇧ ⌘, never "Ctrl+G". A field'
 | Thing | English | Russian |
 | --- | --- | --- |
 | Tokens and cost by agent | Usage | Расход |
+| Every chat of the day by stage, its day and the week | Agents Overview | Обзор агентов |
 | Past Claude Code and Codex conversations | Session History | История сессий |
 | Agents to install | Agent Catalog | Каталог агентов |
 | Shared extensions | Library (Settings › Extensions) | Библиотека |
