@@ -122,6 +122,7 @@ extension ArtifactCost: Handled {
 extension Methods {
     static let artifactMethods: [any Answered.Type] = [
         ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
-        ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self
+        ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
+        ArtifactRename.self
     ]
 }

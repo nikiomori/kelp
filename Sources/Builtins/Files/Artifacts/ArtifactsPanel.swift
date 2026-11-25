@@ -383,6 +383,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         if let session = item.session.flatMap(app.session), session.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
         }
+        if item.url == nil {
+            menu.add(String(localized: "Rename…")) { ArtifactActions.rename(app, page: item.target, title: item.title) }
+            menu.add(String(localized: "Move to Trash")) { ArtifactActions.trash(app, page: item.target) }
+        }
         menu.addItem(.separator())
         if let link = item.url {
             menu.add(String(localized: "Copy Link")) {

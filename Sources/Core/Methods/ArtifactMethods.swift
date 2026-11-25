@@ -117,6 +117,18 @@ public struct ArtifactKeepRestored: InternalMethod {
     }
 }
 
+/// Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns
+/// whether it was renamed.
+public struct ArtifactRename: InternalMethod {
+    public static let name = "artifact.rename"
+    public typealias Result = Bool
+    public var path: String, title: String
+    public init(path: String, title: String) {
+        self.path = path
+        self.title = title
+    }
+}
+
 /// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the
 /// user answers in its note; the answer comes with the user's next marks. Returns the mark's number.
 public struct ArtifactAsk: RPCMethod {

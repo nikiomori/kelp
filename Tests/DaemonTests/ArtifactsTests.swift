@@ -476,4 +476,8 @@ private func tempRoot() throws -> URL {
     #expect(try ArtifactKeepRestored(path: path, from: 3).handle(NoService()))
     let restored = try #require(Artifacts.record(in: folder)?.versions?.last)
     #expect((restored.n, restored.restored, restored.byUser) == (5, 3, true))
+    // The user names it; a name of only spaces changes nothing.
+    #expect(try ArtifactRename(path: path, title: "  Launch page ").handle(NoService()))
+    #expect(Artifacts.record(in: folder)?.title == "Launch page")
+    #expect(try !ArtifactRename(path: path, title: "   ").handle(NoService()))
 }

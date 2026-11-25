@@ -138,6 +138,19 @@ extension ArtifactKeepRestored: Handled {
     }
 }
 
+extension ArtifactRename: Handled {
+    var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
+
+    func handle(_: NoService) throws -> Bool {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, let (slug, record, root) = Artifacts.page(at: path) else { return false }
+        var renamed = record
+        renamed.title = String(title.prefix(200))
+        try Artifacts.save(renamed, in: Artifacts.dir(root: root).appendingPathComponent(slug))
+        return true
+    }
+}
+
 extension ArtifactAsk: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }

@@ -7381,6 +7381,34 @@
       }
     },
     {
+      "description" : "Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns whether it was renamed.",
+      "name" : "artifact.rename",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "`kelp artifact reply`: an agent's word on mark `id` of a page (`path`, its file), shown under the mark. The mark must be with the agent or waiting for the user's check; closing it is the user's.",
       "name" : "artifact.reply",
       "paramStructure" : "by-name",

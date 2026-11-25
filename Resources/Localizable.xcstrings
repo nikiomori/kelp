@@ -41096,6 +41096,16 @@
           }
         }
       }
+    },
+    "Rename Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать страницу"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

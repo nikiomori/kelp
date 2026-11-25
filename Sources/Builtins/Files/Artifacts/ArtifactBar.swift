@@ -351,6 +351,10 @@ final class ArtifactBar: NSObject {
         if md.page != .slides { menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() } }
         exportItems(menu)
         menu.addItem(.separator())
+        menu.add(String(localized: "Rename…")) {
+            ArtifactActions.rename(app, page: path, title: self.item?.title ?? "")
+        }
+        menu.add(String(localized: "Move to Trash")) { ArtifactActions.trash(app, page: path) }
         WorkspaceActions.addLocate(
             to: menu, path: path,
             copies: [(String(localized: "Relative Path"), { @MainActor in copyText(Artifacts.projectPath(path)) })])
