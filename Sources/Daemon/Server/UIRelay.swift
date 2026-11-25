@@ -96,6 +96,11 @@ extension UIBrowser: AsyncHandled {
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         var call = self
+        // What a page driven from a host is told comes from kelpd alone (`HostBrowser.page`), never from the caller.
+        if case .object(var fields) = call.args ?? .object([:]) {
+            fields["remote"] = HostBrowser.page
+            call.args = .object(fields)
+        }
         // An agent drives the page as itself, whichever session it names, so the page's card, pointer and Done say
         // which agent it is.
         if case .some(let own) = relay.asks.store.agent(origin: Sessions.asker) {

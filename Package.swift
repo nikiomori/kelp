@@ -35,7 +35,9 @@ let package = Package(
         .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),   // docs link to both
                                           // iOS machines' runner, an Xcode project of its own (IOSRunner)
                                           .copy("Resources/runner-pbxproj.txt"), .copy("Resources/runner-scheme.txt"),
-                                          .copy("Resources/runner-app.txt"), .copy("Resources/runner-runner.txt")]),
+                                          .copy("Resources/runner-app.txt"), .copy("Resources/runner-runner.txt"),
+                                          // `kelp` on a remote project's host, for `kelp browser` there (HostKelp)
+                                          .copy("Resources/kelp-on-host.sh")]),
         .target(name: "GitKit", dependencies: ["Core"]),
         .target(name: "Agents", dependencies: ["Core"]),
         .target(name: "AgentData", dependencies: ["Core"]),
