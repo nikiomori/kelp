@@ -252,6 +252,35 @@ func overviewWaitingIsWhatAsksTheUser(page: OverviewPage, waits: Bool) {
     }
 }
 
+/// The list's columns fit in the tab each time it opens again, with the widths it saved the time before.
+@MainActor @Test func theListsColumnsFitEachTimeTheTabOpens() async throws {
+    let app = AppModel(builtins: [])
+    app.repos = [Repo(id: "k", name: "Kelp", path: "/k")]
+    app.worktrees = [Worktree(id: "kw", repoId: "k", branch: "main", path: "/k", createdAt: .distantPast)]
+    app.workbench.show(workspace: "kw")
+    for opening in 1...3 {
+        let controller = OverviewController(model: OverviewModel(app: app))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = controller.view
+        controller.viewDidAppear()
+        for asList in [false, true] {   // laid out first behind the grid, as it is until List is chosen
+            controller.grid.scroll.isHidden = asList
+            controller.list.scroll.isHidden = !asList
+            for _ in 0..<3 {
+                controller.view.layoutSubtreeIfNeeded()
+                await mainActorTurns()
+            }
+        }
+        let table = controller.list.table
+        let columns = table.tableColumns.reduce(0) { $0 + $1.width + table.intercellSpacing.width }
+        let room = controller.list.scroll.contentView.bounds.width
+        #expect(columns <= room + 1, "opening \(opening): \(columns) in \(room)")
+        withExtendedLifetime(window) {}
+    }
+}
+
 /// The copy that opens without the network is an agent's page, read in the page's own tab: it needs no other built-in
 /// (a preview tab is the Browser's, which may be off).
 @MainActor @Test func theOfflineCopyOpensAsAPage() {

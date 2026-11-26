@@ -14,7 +14,7 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     let table = KeyTable()
-    let scroll = NSScrollView()
+    let scroll = ListScroll()
     private let model: OverviewModel
     private(set) var pages: [OverviewPage] = []
     private var given: [OverviewPage] = []
@@ -57,7 +57,7 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             case .copy: String(localized: "Offline Copy")
             case .changed: String(localized: "Changed")
             }
-        made.width = column == .name ? 360 : column == .copy ? 90 : 130
+        made.width = column == .name ? 360 : column == .copy ? 90 : column == .changed ? 170 : 130
         made.minWidth = column == .name ? 160 : 70
         // A name sorts from A first, a time from the newest: what a first click on each is after.
         made.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: column != .changed)
@@ -132,7 +132,9 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
                 faces.show(agents)
                 views.append(faces)
             }
-            let cell = NSStackView(views: views)
+            // Each part keeps its own width and the spacer takes the rest: a lone tag stretched over the cell.
+            for view in views { view.setContentHuggingPriority(.defaultHigh, for: .horizontal) }
+            let cell = NSStackView(views: views + [NSView()])
             cell.spacing = Metrics.gap
             cell.toolTip = item.title
             return cell
@@ -164,5 +166,18 @@ final class OverviewTable: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         menu.removeAllItems()
         guard pages.indices.contains(table.clickedRow) else { return }
         menuFor(pages[table.clickedRow], menu)
+    }
+}
+
+/// The list's scroll view. Behind the grid the table doesn't follow the tab's width, so its columns are fitted to it
+/// again when it shows: the first takes what the others leave.
+@MainActor
+final class ListScroll: NSScrollView {
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        guard let table = documentView as? NSTableView, let first = table.tableColumns.first else { return }
+        let others = table.tableColumns.dropFirst().reduce(0) { $0 + $1.width }
+        let spacing = table.intercellSpacing.width * CGFloat(table.numberOfColumns)
+        first.width = max(first.minWidth, contentView.bounds.width - others - spacing)
     }
 }
