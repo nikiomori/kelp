@@ -23,20 +23,37 @@ extension Sessions {
         }
     }
 
-    /// Picks up the pages a remote project's Claude Code published, since no hook of Kelp's runs on the host. It reads
-    /// what the session's conversation on the host says, over the connection already open, from the second after the
-    /// session's last kept page onward. The pages are kept in the project's folder here, which the panel lists. Only
-    /// the list's own read calls this, one at a time (`Watches`), because two runs at once would both find a new page
-    /// new.
+    /// Remote sessions have no local `kelp` hook. The panel picks up their published pages from the conversation
+    /// over the host's existing connection, one read at a time.
     func pickUpHostArtifacts(of session: Session, in root: String) throws {
-        guard let remote = remotes.of(root) else { return }
-        let since = Artifacts.list(root: root).filter { $0.record.session == session.id }
-            .map { $0.record.updated ?? $0.record.created }.max()
-        guard
-            let data = agentUsage.conversations.remoteConversation(
-                of: session, on: remote, read: Artifacts.hostPublishes(since: since))
-        else { return }
-        for page in Artifacts.published(inTranscript: data) {
+        guard let remote = remotes.of(root), [Session.claudeAgent, Session.codexAgent].contains(session.agent) else {
+            return
+        }
+        let records = Artifacts.list(root: root).map(\.record)
+        let conversations = agentUsage.conversations
+        let publications: [Artifacts.Published]
+        if session.agent == Session.codexAgent {
+            // Limit: only the rollout's last MB is read, so a publish further back than that is missed.
+            let calls = "LC_ALL=C grep -F " + ShellQuote.word(#""type":"function_call"#)
+            guard let tail = conversations.remoteTail(of: session, on: remote, then: calls) else { return }
+            let kept = Dictionary(
+                records.compactMap { record in
+                    record.url.map { ($0, record.updated ?? record.created) }
+                }, uniquingKeysWith: max)
+            publications = Artifacts.codexPublications(inTranscript: tail).filter { page in
+                guard let previous = kept[page.url], let at = page.at else { return true }
+                // Artifact records store whole seconds. Rereading the tail must not write the same record again.
+                return at.timeIntervalSince1970.rounded(.down) > previous.timeIntervalSince1970
+            }
+        } else {
+            let since = records.filter { $0.session == session.id }.map { $0.updated ?? $0.created }.max()
+            guard
+                let data = conversations.remoteConversation(
+                    of: session, on: remote, read: Artifacts.hostPublishes(since: since))
+            else { return }
+            publications = Artifacts.published(inTranscript: data)
+        }
+        for page in publications {
             let sent = page.page?.file == nil ? page.page : nil   // a sent file is on the host, so no copy is kept
             _ = try Artifacts.addNative(
                 url: page.url, title: page.title, type: page.type, root: root, session: session.id, page: sent,

@@ -35,8 +35,8 @@ extension Builtins {
             - When the user asks you to put pages in order, don't change anything first: make a review page
               (`kelp artifact guide review`) that proposes what to archive and how to tag, and do only what they
               pick, with `kelp artifact tag|untag|archive`. You can't delete pages; the user can undo what you did.
-            - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its
-              link, which opens in their own browser (Kelp's tabs aren't signed in to claude.ai).
+            - ChatGPT Pages and Slides, deployed Sites, Claude Artifacts and Claude Docs join the list by link.
+              Give the user the link. If it isn't listed, use `kelp artifact add <url> --title <title>`.
 
             """
     )

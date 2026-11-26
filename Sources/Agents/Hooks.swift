@@ -64,7 +64,8 @@ public enum Hooks {
     /// treats a matcher with more than names and `|` as a regex.
     static let endsActedOn =
         "^(Bash|Execute|Edit|Write|MultiEdit|NotebookEdit|EnterWorktree|ExitWorktree)$|^mcp__.*("
-        + (Artifacts.publishers + ["claude-artifacts__upload_asset"]).joined(separator: "|") + ")$"
+        + (Artifacts.publishers + ["claude-artifacts__upload_asset"]).joined(separator: "|") + ")$|^("
+        + Artifacts.codexPublishers.keys.sorted().joined(separator: "|") + ")$"
     /// The end of a failed tool is read only for a command (`AgentCommand`).
     static let commandTools = "^(Bash|Execute)$"
 

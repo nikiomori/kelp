@@ -141,8 +141,7 @@ public enum Artifacts {
 
     public static let folder = ".kelp/artifacts"
 
-    /// The links of pages that an agent's own tools publish. Limit: one service is known. Make it a field in the agent
-    /// manifest once a second service exists.
+    /// Claude puts artifact links in either text or structured output.
     static var nativePage: Regex<Substring> { /https:\/\/claude\.ai\/artifact\/[A-Za-z0-9_-]+/ }
 
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
@@ -206,20 +205,20 @@ public enum Artifacts {
 
     // MARK: pages agents publish themselves
 
-    /// Reads a page that an agent's own tool published (claude-artifacts, Claude Docs) from a PostToolUse hook's
-    /// payload. It returns the page's link and the title the tool was given. nil for any other tool or event, because
-    /// tools that only read or list (list_types, list_artifacts, read_artifact) name pages too, including the types'
-    /// own pages and other people's.
+    /// Reads a page that an agent's own tool published from a PostToolUse hook's payload: its link and the title the
+    /// tool was given. nil for any other tool or event, because tools that only read or list (list_types,
+    /// list_artifacts, read_artifact) name pages too, including the types' own pages and other people's.
     public static func published(hook payload: JSONValue) -> (
         url: String, title: String, type: String, page: PublishedPage?
     )? {
         guard payload["hook_event_name"]?.string == "PostToolUse", let tool = payload["tool_name"]?.string,
-            tool.hasPrefix("mcp__"),
-            publishers.contains(where: tool.hasSuffix), let response = payload["tool_response"]
+            tool.hasPrefix("mcp__"), let response = payload["tool_response"]
         else { return nil }
+        let input = payload["tool_input"]
+        if let kind = codexPublishers[tool] { return codexPublication(kind, input: input, response: response) }
+        guard publishers.contains(where: tool.hasSuffix) else { return nil }
         let unescaped = strings(in: response).joined(separator: "\n")
         guard let url = unescaped.firstMatch(of: nativePage).map({ String($0.output) }) else { return nil }
-        let input = payload["tool_input"]
         let title =
             input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
@@ -274,9 +273,10 @@ public enum Artifacts {
             out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
             out +=
-                "If you can publish artifacts yourself (claude.ai's claude-artifacts or Claude Docs tools), make it there: "
-                + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
-                + "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
+                "If you can publish artifacts yourself (ChatGPT Pages, Slides or Sites, or Claude's artifact tools), "
+                + "make it there and give the user its link. Kelp lists it and opens it in the user's own browser. "
+                + "If the link isn't listed, register it with `kelp artifact add <url> --title <title>`. "
+                + "Use `kelp artifact new` if you can't publish it with your tools or the user wants it on this Mac.\n"
         }
         if canvas != nil { return out + "\n" + rules }
         out +=
