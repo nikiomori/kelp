@@ -11,6 +11,7 @@ enum Languages {
     private static let typescript = Server(
         command: "typescript-language-server", args: ["--stdio"],
         install: "npm i -g typescript-language-server typescript")
+    private static let gopls = Server(command: "gopls", install: "go install golang.org/x/tools/gopls@latest")
     private static let clangd = Server(command: "clangd", install: "xcode-select --install")
 
     private static let code: [LanguageSpec] = [
@@ -30,8 +31,9 @@ enum Languages {
         // Run and test the file's whole package, so a main split over several files runs too.
         LanguageSpec(
             id: "go", extensions: ["go"],
-            server: .init(command: "gopls", install: "go install golang.org/x/tools/gopls@latest"),
+            server: gopls,
             run: "cd ${dir} && go run .", test: "cd ${dir} && go test -run ${symbol} .", format: "gofmt"),
+        LanguageSpec(id: "go.mod", extensions: [], fileNames: ["go.mod"], server: gopls),
         // The edition is given because rustfmt reading stdin can't see the edition in Cargo.toml, and the parser for
         // edition 2015 rejects async fn.
         LanguageSpec(
@@ -85,6 +87,20 @@ enum Languages {
             server: .init(command: "ocamllsp", install: "opam install ocaml-lsp-server")),
         LanguageSpec(
             id: "scala", extensions: ["scala", "sbt"], server: .init(command: "metals", install: "cs install metals")),
+        LanguageSpec(
+            id: "julia", extensions: ["jl"],
+            server: .init(
+                command: "julia",
+                args: ["--startup-file=no", "--history-file=no", "-e", "using LanguageServer; runserver()"],
+                install: "julia -e 'using Pkg; Pkg.add(\"LanguageServer\")'"),
+            run: "julia ${file}"),
+        LanguageSpec(
+            id: "perl", extensions: ["pl", "pm"],
+            server: .init(command: "perlnavigator", args: ["--stdio"], install: "npm i -g perlnavigator-server"),
+            run: "perl ${file}"),
+        LanguageSpec(
+            id: "verilog", extensions: ["v", "vh", "sv", "svh"],
+            server: .init(command: "svls", install: "cargo install svls")),
         LanguageSpec(id: "gleam", extensions: ["gleam"], server: .init(command: "gleam", args: ["lsp"])),
         LanguageSpec(
             id: "terraform", extensions: ["tf", "tfvars"],
@@ -106,6 +122,13 @@ enum Languages {
         LanguageSpec(
             id: "html", extensions: ["html", "htm"],
             server: .init(command: "vscode-html-language-server", args: ["--stdio"], install: web, optional: true)),
+        LanguageSpec(
+            id: "markdown", extensions: ["md", "markdown"],
+            server: .init(command: "marksman", args: ["server"], install: "brew install marksman", optional: true)),
+        LanguageSpec(
+            id: "sql", extensions: ["sql"],
+            server: .init(
+                command: "sqls", install: "go install github.com/sqls-server/sqls@latest", optional: true)),
         LanguageSpec(id: "css", extensions: ["css"], server: css),
         LanguageSpec(id: "scss", extensions: ["scss"], server: css),
         LanguageSpec(id: "less", extensions: ["less"], server: css),

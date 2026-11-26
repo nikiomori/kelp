@@ -45,6 +45,10 @@
 	<array>
 		<string>en</string>
 		<string>ru</string>
+		<string>de</string>
+		<string>es</string>
+		<string>ja</string>
+		<string>zh-Hans</string>
 	</array>
 	<key>CFBundleName</key>
 	<string>Kelp</string>

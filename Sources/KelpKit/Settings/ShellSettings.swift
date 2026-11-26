@@ -119,8 +119,11 @@ extension Builtins {
         s(
             SettingKeys.language, "Language", .enum, "Takes effect the next time Kelp opens.",
             // Each language in its own words, so it can be found whichever language Kelp is in.
-            options: ["system", "en", "ru"],
-            labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"],
+            options: ["system", "en", "ru", "de", "es", "ja", "zh-Hans"],
+            labels: [
+                "system": String(localized: "Match System"), "en": "English", "ru": "Русский", "de": "Deutsch",
+                "es": "Español", "ja": "日本語", "zh-Hans": "简体中文"
+            ],
             icon: ("globe", NSColor(hex: 0x007AFF))),
         s(
             SettingKeys.confirmQuit, "Ask before quitting", .boolean,

@@ -79,7 +79,7 @@ xcrun actool "$T/AppIcon.icon" --compile "$T" --platform macosx --minimum-deploy
 cp "$T/Assets.car" "$APP/Contents/Resources/"; rm -rf "$T"
 [ -d "$BIN/Sparkle.framework" ] && cp -R "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/" || true
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
-scripts/strings.sh install "$APP/Contents/Resources"   # English and Russian
+scripts/strings.sh install "$APP/Contents/Resources"   # English, Russian, German, Spanish, Japanese, Chinese
 # The About panel shows Credits.html: the licenses of the code shipped inside, which they ask every copy to carry.
 { print '<pre style="font: 10px Menlo; white-space: pre-wrap">'
   for d in Vendor/GhosttyKit.xcframework Sources/KelpKit/Resources/AgentLogos .build/checkouts/${^${(f)"$(sed -nE 's|.*"location" : ".*/([^/]+)".*|\1|p' Package.resolved)"}%.git}; do
