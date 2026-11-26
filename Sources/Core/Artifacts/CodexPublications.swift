@@ -72,7 +72,7 @@ extension Artifacts {
         {
             text = String(text[output.upperBound...])
         }
-        return (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? value
+        do { return try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8)) } catch { return value }
     }
 
     private static func httpsURL(_ url: String) -> URLComponents? {

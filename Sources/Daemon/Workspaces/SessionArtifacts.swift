@@ -26,13 +26,16 @@ extension Sessions {
     /// Remote sessions have no local `kelp` hook. The panel picks up their published pages from the conversation
     /// over the host's existing connection, one read at a time.
     func pickUpHostArtifacts(of session: Session, in root: String) throws {
-        guard let remote = remotes.of(root) else { return }
+        guard let remote = remotes.of(root), [Session.claudeAgent, Session.codexAgent].contains(session.agent) else {
+            return
+        }
         let records = Artifacts.list(root: root).map(\.record)
         let conversations = agentUsage.conversations
         let publications: [Artifacts.Published]
         if session.agent == Session.codexAgent {
-            // shortcut: reads the bounded Codex rollout tail, add a targeted host read if a turn outgrows it.
-            guard let tail = conversations.remoteTail(of: session, on: remote) else { return }
+            // Limit: only the rollout's last MB is read, so a publish further back than that is missed.
+            let calls = "LC_ALL=C grep -F " + ShellQuote.word(#""type":"function_call"#)
+            guard let tail = conversations.remoteTail(of: session, on: remote, then: calls) else { return }
             let kept = Dictionary(
                 records.compactMap { record in
                     record.url.map { ($0, record.updated ?? record.created) }

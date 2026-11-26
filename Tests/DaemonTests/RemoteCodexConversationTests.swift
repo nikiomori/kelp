@@ -19,10 +19,11 @@ private struct CodexHost {
         return file
     }
 
-    func read(_ thread: UUID? = nil, transcript: String? = nil, path: String = LoginPath.value) throws -> Data? {
-        guard let script = Conversations.codexTailScript(session, thread: thread, transcript: transcript) else {
-            return nil
-        }
+    func read(
+        _ thread: UUID? = nil, transcript: String? = nil, path: String = LoginPath.value, then: String? = nil
+    ) throws -> Data? {
+        guard let script = Conversations.codexTailScript(session, thread: thread, transcript: transcript, then: then)
+        else { return nil }
         return try Subprocess.output(
             ["/bin/sh", "-c", script], cwd: "/", env: ["CODEX_HOME": home.path, "PATH": path], timeLimit: 10)
     }
@@ -38,6 +39,10 @@ private struct CodexHost {
     #expect(try host.read(current)?.count == Conversations.remoteTailBytes)
     #expect(try host.read(transcript: file.path)?.count == Conversations.remoteTailBytes)
     #expect(try host.read(UUID())?.isEmpty == true, "a missing current thread never falls back to the initial chat")
+    _ = try host.rollout(current, text: "message\nfunction_call\n")
+    #expect(try host.read(current, then: "grep -F function_call") == Data("function_call\n".utf8))
+    #expect(
+        try host.read(current, then: "grep -F nothing")?.isEmpty == true, "a filter that keeps nothing still answers")
     for args in [
         ["resume", "--last"], ["resume", "$(echo wrong)"], ["fork", original.uuidString],
         ["-m", "resume", original.uuidString], ["--", "resume", original.uuidString], []
@@ -86,7 +91,8 @@ private let hostTmux = try? LoginPath.resolve("tmux")
         _ = state.readReports(osc, Data(osc.utf8))
     }
     #expect(state.record.codexThread == current)
-    let tail = Data("""
+    let tail = Data(
+        """
         partial line
         {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"done"}}
         """.utf8)
@@ -109,11 +115,13 @@ private let hostTmux = try? LoginPath.resolve("tmux")
     var host = CodexHost()
     host.home = CodexHistory.defaultRoot.deletingLastPathComponent()
     _ = try host.rollout(original, text: "old conversation")
-    _ = try host.rollout(current, text: #"""
-        {"type":"response_item","payload":{"type":"message","role":"user","content":[{"text":"My question"}]}}
-        {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"text":"My reply"}]}}
-        {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Finished"}}
-        """#)
+    _ = try host.rollout(
+        current,
+        text: #"""
+            {"type":"response_item","payload":{"type":"message","role":"user","content":[{"text":"My question"}]}}
+            {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"text":"My reply"}]}}
+            {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Finished"}}
+            """#)
     _ = live.report(.init(state: "done", conv: current.uuidString))
     #expect(try await c.call(SessionLastReply(id: session.id)) == "Finished")
     let bin = URL(fileURLWithPath: localSSH).deletingLastPathComponent()

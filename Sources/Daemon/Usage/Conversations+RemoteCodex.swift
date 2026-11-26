@@ -24,7 +24,9 @@ extension Conversations {
 
     /// A hook's rollout names the thread currently open, even after an in-session resume. Use its basename under
     /// Codex's sessions folder, so a hook cannot redirect the read to an arbitrary file on the host.
-    static func codexTailScript(_ session: Session, thread: UUID?, transcript: String?) -> String? {
+    static func codexTailScript(
+        _ session: Session, thread: UUID?, transcript: String?, then: String? = nil
+    ) -> String? {
         let name = transcript.map { ($0 as NSString).lastPathComponent }
         let filename = /rollout-([0-9]{4})-([0-9]{2})-([0-9]{2})T[0-9]{2}-[0-9]{2}-[0-9]{2}-([a-fA-F0-9-]{36})\.jsonl/
         let rollout = name?.wholeMatch(of: filename)
@@ -35,7 +37,8 @@ extension Conversations {
         guard observed != nil || pane != nil || resume != nil else { return nil }
 
         var script = #"root="${CODEX_HOME:-$HOME/.codex}/sessions""# + "\n"
-        let read = #"if [ -f "$f" ] && [ ! -L "$f" ]; then tail -c \#(remoteTailBytes) < "$f"; exit; fi"#
+        let tail = #"tail -c \#(remoteTailBytes) < "$f""# + (then.map { " | " + $0 + "; exit 0" } ?? "; exit")
+        let read = #"if [ -f "$f" ] && [ ! -L "$f" ]; then "# + tail + "; fi"
         if let rollout, let hookID, hookID == observed {
             script += #"f="$root/\#(rollout.1)/\#(rollout.2)/\#(rollout.3)/\#(rollout.0)""# + "\n" + read + "\n"
         }

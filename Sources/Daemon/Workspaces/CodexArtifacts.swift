@@ -4,13 +4,14 @@ import Foundation
 extension Artifacts {
     /// Codex rollouts store the invocation and its result on separate lines, joined by call ID.
     static func codexPublications(inTranscript data: Data) -> [Published] {
-        let decoder = JSONDecoder(), timestamp = ISO8601DateFormatter()
+        let timestamp = ISO8601DateFormatter()
         timestamp.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var calls: [String: (tool: String, input: JSONValue?)] = [:]
         var found: [Published] = []
         for line in data.split(separator: 0x0A) {
-            guard let entry = try? decoder.decode(JSONValue.self, from: line),
-                entry["type"]?.string == "response_item", let item = entry["payload"],
+            // A line that doesn't parse stays text, and has no fields.
+            let entry = codexToolJSON(.string(String(decoding: line, as: UTF8.self)))
+            guard entry["type"]?.string == "response_item", let item = entry["payload"],
                 let id = item["call_id"]?.string
             else { continue }
             switch item["type"]?.string {

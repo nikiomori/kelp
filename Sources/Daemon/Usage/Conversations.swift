@@ -106,12 +106,16 @@ final class Conversations: Sendable {
     static let remoteTailBytes = 1 << 20
 
     /// Reads the tail over the host's existing connection. A Codex conversation needs a rollout tied to this session.
-    func remoteTail(of session: Session, on remote: RemoteHost, live: LiveSession? = nil) -> Data? {
+    /// `then` filters a Codex tail on the host (a shell pipeline), so only what it keeps crosses ssh.
+    func remoteTail(
+        of session: Session, on remote: RemoteHost, live: LiveSession? = nil, then: String? = nil
+    ) -> Data? {
         if session.agent == Session.codexAgent {
             let thread = (live?.snapshot ?? session).codexThread ?? (live == nil ? lastCodexReport(of: session) : nil)
-            guard let script = Self.codexTailScript(session, thread: thread, transcript: live?.transcriptPath) else {
-                return nil
-            }
+            guard
+                let script = Self.codexTailScript(
+                    session, thread: thread, transcript: live?.transcriptPath, then: then)
+            else { return nil }
             return readConversation(script, on: remote)
         }
         return remoteConversation(of: session, on: remote, read: "tail -c \(Self.remoteTailBytes)")
