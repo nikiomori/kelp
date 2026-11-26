@@ -151,6 +151,24 @@ extension ArtifactRename: Handled {
     }
 }
 
+extension ArtifactChange: Handled {
+    static let agents = AgentAccess.acts
+    var fence: Fence { Fence(writesInFolder: folder) }
+
+    func handle(_: NoService) throws -> [String] {
+        let dir = URL(fileURLWithPath: folder).standardizedFileURL
+        guard dir.deletingLastPathComponent().path.hasSuffix("/" + Artifacts.folder),
+            let record = Artifacts.record(in: dir)
+        else { throw RPCError.invalidParams("not an artifact's folder in .kelp/artifacts: \(folder)") }
+        var next = Artifacts.changed(
+            record, add: add ?? [], remove: remove ?? [], archived: archived, session: session, undo: undo == true,
+            now: Date())
+        if keep == true { next.agentChange = nil }   // the user keeps what the agent did
+        if next != record { try Artifacts.save(next, in: dir) }
+        return next.tags ?? []
+    }
+}
+
 extension ArtifactAsk: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }

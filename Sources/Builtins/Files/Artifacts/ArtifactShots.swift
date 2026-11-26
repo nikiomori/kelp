@@ -1,5 +1,8 @@
 import AppKit
+import Core
 import DesignKit
+import KelpKit
+import Markdown
 import WebKit
 
 /// Takes pictures of pages for the Artifacts card, the way Safari shows sites. Each page is laid out off screen at a
@@ -93,4 +96,20 @@ final class ArtifactShots: NSObject, WKNavigationDelegate {
     func webView(
         _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error
     ) { finish(navigation) }
+}
+
+extension ArtifactShots {
+    /// Draws the picture of a page's file: HTML as it is, Markdown the way its tab draws it. The file is read through
+    /// the daemon, as a tab reads it. nil when the daemon refuses it (too big), it can't be drawn, or the task is
+    /// cancelled.
+    func picture(file path: String, version: Double, dark: Bool, board: Bool, app: AppModel) async -> NSImage? {
+        let base = URL(fileURLWithPath: path).deletingLastPathComponent()
+        guard let text = await app.quiet(FilesRead(path: path))?.text, !Task.isCancelled else { return nil }
+        let html =
+            path.hasSuffix(".md")
+            ? await Task.detached { MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark) }
+                .value : text
+        guard !Task.isCancelled else { return nil }
+        return await picture(html: html, base: base, key: "\(path)|\(version)", dark: dark, board: board)
+    }
 }

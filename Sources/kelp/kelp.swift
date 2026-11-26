@@ -64,6 +64,11 @@ let usage = """
       artifact new <kind> <title> [--from <file>] [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere
+      artifact list [--all] [--json] [--tag t] [--archived] | tags [--all]   pages of this project or all,
+                                           tags in use
+      artifact tag <name> +a -b | untag <name> <tag> | archive <name>… | unarchive <name>…   put pages in
+                                           order (the user can undo it in Artifacts Overview; deleting stays theirs)
+      artifact sync [--all] [--check]       claude.ai pages not whole on this Mac, and how to save them to disk
       artifact marks <name> [--all] | reply <name> <#> <text>   the user's open marks on a page; say something on one
       artifact ask <name> <data-id> <question> [--choice <a>]… | suggest <name> <request>…   ask on an element (a
                                            choice is a button that answers at once); offer what's next
@@ -270,6 +275,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                     hook.goal = SessionHook.goal(of: payload)
                     hook.endedTasks = SessionHook.endedTasks(of: payload)
                     hook.edited = SessionHook.edited(of: payload)
+                    hook.page = SessionHook.page(of: payload)
                     if hook.hookName == "Stop" { hook.reply = payload["last_assistant_message"]?.string }
                 }
                 try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
@@ -285,9 +291,14 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                         ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
                     print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":"# + decision + "}}")
                 }
+                if ev == "command", let payload = hookPayload, let uploaded = Artifacts.uploaded(hook: payload) {
+                    await keepUploads(
+                        uploaded, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                }
                 if ev == "command", let payload = hookPayload, let page = Artifacts.published(hook: payload) {
                     await notePublished(
-                        page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                        page, cwd: payload["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id,
+                        serviceId: Artifacts.serviceId(hook: payload))
                 }
             default:
                 let client = try connect()

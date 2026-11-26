@@ -25,7 +25,7 @@ extension Artifacts {
     ]
 
     static func codexPublication(_ kind: CodexPublication, input: JSONValue?, response: JSONValue)
-        -> (url: String, title: String)?
+        -> (url: String, title: String, type: String, page: PublishedPage?)?
     {
         let response = codexToolJSON(response)
         guard response["isError"]?.bool != true, response["is_error"]?.bool != true else { return nil }
@@ -40,7 +40,7 @@ extension Artifacts {
         if kind == .site {
             guard result["status"]?.string == "succeeded", let url = result["url"]?.string, httpsURL(url) != nil
             else { return nil }
-            return (url, result["title"]?.string ?? url)
+            return (url, result["title"]?.string ?? url, kind.artifactType, nil)
         }
 
         // The Space connector can return a Page ID in place of its URL, including for native slides.
@@ -61,7 +61,7 @@ extension Artifacts {
         // The embed's title is separate from the parent Page's title.
         let createdTitle = kind == .visualization ? nil : result["title"]?.string ?? input?["title"]?.string
         let title = metadata?["title"]?.string ?? page?["title"]?.string ?? createdTitle ?? url
-        return (url, title)
+        return (url, title, kind.artifactType, nil)
     }
 
     /// Tool output can be JSON in an MCP text block or a JSON string in a Codex rollout.

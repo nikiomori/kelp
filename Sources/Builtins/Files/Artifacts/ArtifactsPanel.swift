@@ -19,7 +19,6 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         /// The latest page with a title, and the earlier pages with the same title.
         case item(ArtifactItem, earlier: [ArtifactItem])
     }
-    private static let seenKey = "artifacts.seen"
 
     let app: AppModel
     let table = KeyTable()
@@ -66,10 +65,16 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         filterBar.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         // There's no bar on top, because the inspector's title names the panel. The filter sits over the list it
         // filters, as every panel's does, so there is one place to look for a filter.
-        let column = NSStackView(views: [failureBar, filterBar, scroll])
+        // Every project's pages, with room for pictures, are a click away at the foot (Artifacts Overview).
+        let all = PointerButton.link(String(localized: "Show All Artifacts"), font: .ui(TextSize.caption)) {
+            [weak self] in self?.app.workbench.open(OverviewTab.uri)
+        }
+        let foot = Bar.foot([all])
+        let column = NSStackView(views: [failureBar, filterBar, scroll, foot])
         column.orientation = .vertical
         column.spacing = 0
         failureBar.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true
+        foot.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true
         let content = NSView()
         content.pin(column)
         empty.place(in: content)
@@ -92,7 +97,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             self?.reload()
         }
         track(owner: self) { [app] in
-            app.sessions.map { "\($0.id)\($0.status)" }
+            PageAgents.watched(app)
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -157,7 +162,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         // Rows move only within one workspace's list: another workspace's pages are a new list.
         let places = listed == app.workbench.workspaceId ? table.rowPlaces(rowKey) : [:]
         let old = Set(rows.indices.compactMap(rowKey))
-        rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
+        rows = Self.rows(found, title: { self.title($0, project) }, now: Date(), busy: PageAgents.busy(app))
         listed = app.workbench.workspaceId
         filterBar.isHidden = count == 0 && find.isEmpty
         if let failed, kept == nil {
@@ -185,19 +190,25 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    /// Returns the rows: headings by when each page last changed, and one row per title, holding the latest page with
-    /// that title and the earlier ones (the list comes latest first).
-    nonisolated static func rows(_ items: [ArtifactItem], title: (ArtifactItem) -> String, now: Date) -> [Row] {
+    /// Returns the rows: the pages agents work with now (`busy`) under Now, then headings by when each page last
+    /// changed, and one row per title, holding the latest page with that title and the earlier ones (the list comes
+    /// latest first).
+    nonisolated static func rows(
+        _ items: [ArtifactItem], title: (ArtifactItem) -> String, now: Date, busy: Set<String> = []
+    ) -> [Row] {
         var order: [String] = [], groups: [String: [ArtifactItem]] = [:]
         for item in items {
             let key = title(item).lowercased()
             if groups[key] == nil { order.append(key) }
             groups[key, default: []].append(item)
         }
+        let working = { (key: String) in groups[key]?.first.map { busy.contains($0.target) } == true }
+        order = order.filter(working) + order.filter { !working($0) }
         var rows: [Row] = [], heading: String?
         for key in order {
             guard let group = groups[key], let latest = group.first else { continue }
-            let section = Self.section(latest.modified ?? latest.created, now: now)
+            let section =
+                working(key) ? String(localized: "Now") : Self.section(latest.modified ?? latest.created, now: now)
             if section != heading {
                 rows.append(.heading(section))
                 heading = section
@@ -244,22 +255,16 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     // MARK: Opened
 
-    /// The pages that were opened from here or shown in a tab. The first time the panel lists pages, all of them count
-    /// as seen already.
-    private var seen: Set<String> { Set(app.uiState.strings(Self.seenKey)) }
+    /// The pages that were opened from here or shown in a tab (`ArtifactSeen`). The first time the panel lists pages,
+    /// all of them count as seen already.
     private func seedSeen(_ items: [ArtifactItem]) {
-        guard app.uiState[Self.seenKey] == nil, !items.isEmpty else { return }
+        guard !ArtifactSeen.started(app), !items.isEmpty else { return }
         markSeen(items.map(\.target))
     }
-    func isNew(_ item: ArtifactItem) -> Bool { app.uiState[Self.seenKey] != nil && !seen.contains(item.target) }
+    func isNew(_ item: ArtifactItem) -> Bool { ArtifactSeen.isNew(item, app) }
     private func markSeen(_ targets: [String]) {
-        var list = app.uiState.strings(Self.seenKey)
-        let added = targets.filter { !list.contains($0) }
-        guard !added.isEmpty || app.uiState[Self.seenKey] == nil else { return }
-        list = Array((list + added).suffix(500))
-        let app = self.app
         Task {
-            _ = await app.uiState.save(Self.seenKey, .array(list.map { .string($0) }))
+            guard await ArtifactSeen.mark(targets, app) else { return }
             self.table.reloadData()
             self.markOpen()
         }
@@ -303,30 +308,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    /// Whether the agent is writing the page: it was saved in the last two minutes and its chat is working.
-    func writing(_ item: ArtifactItem) -> Bool {
-        guard let modified = item.modified, app.session(item.session ?? "")?.status == .working else { return false }
-        return Date().timeIntervalSince1970 - modified < 120
-    }
-
-    /// The row's second line, only when there's something to say: the agent is writing the page, the marks to check or
-    /// with the agent, or how much of a review is answered.
-    func note(_ item: ArtifactItem) -> (text: String, waits: Bool)? {
-        if writing(item), let session = item.session.flatMap(app.session) {
-            return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
-        }
-        if let marks = item.marks, marks.check > 0 { return (String(localized: "To check: \(marks.check)"), true) }
-        if let marks = item.marks, marks.sent > 0 {
-            let who = item.session.flatMap(app.session).map { app.catalog.name($0.agent) }
-            return (
-                who.map { String(localized: "With \($0): \(marks.sent)") } ?? String(localized: "Sent: \(marks.sent)"),
-                false
-            )
-        }
-        guard let points = item.points, points > 0 else { return nil }
-        let answered = item.answered ?? 0
-        return (String(localized: "\(answered) of \(points) answered"), answered < points)
-    }
+    func writing(_ item: ArtifactItem) -> Bool { ArtifactActions.writing(item, app) }
+    func note(_ item: ArtifactItem) -> (text: String, waits: Bool)? { ArtifactActions.note(item, app) }
 
     /// Called when the pointer rests on a row (or leaves it). The page's card shows after a moment.
     func hover(_ item: ArtifactItem?, over cell: NSView) {
@@ -349,49 +332,15 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     func openItem(_ item: ArtifactItem) {
         card.close()
         markSeen([item.target])
-        // Only https opens, because the record may come from a cloned repository (`Artifacts.record` refuses any
-        // other scheme too).
-        if item.url != nil {
-            if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
-            markOpen()
-        } else {
-            app.workbench.open(item.target)
-        }
+        ArtifactActions.open(app, item)
+        if item.url != nil { markOpen() }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard let (item, earlier) = item(at: table.clickedRow) else { return }
-        let app = self.app
-        menu.add(String(localized: "Open")) { [weak self] in self?.openItem(item) }
-        if item.preview != nil {
-            menu.add(String(localized: "Quick Look")) { [weak self] in self?.quickLook(item) }
-        }
-        if !earlier.isEmpty {
-            let versions = NSMenu()
-            for old in earlier {
-                let when = Date(timeIntervalSince1970: old.modified ?? old.created)
-                versions.add(when.formatted(date: .abbreviated, time: .shortened)) { [weak self] in
-                    self?.openItem(old)
-                }
-            }
-            menu.addItem(withTitle: String(localized: "Earlier Versions"), action: nil, keyEquivalent: "").submenu =
-                versions
-        }
-        if let session = item.session.flatMap(app.session), session.status != .exited {
-            menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
-        }
-        if item.url == nil {
-            menu.add(String(localized: "Rename…")) { ArtifactActions.rename(app, page: item.target, title: item.title) }
-            menu.add(String(localized: "Move to Trash")) { ArtifactActions.trash(app, page: item.target) }
-        }
-        menu.addItem(.separator())
-        if let link = item.url {
-            menu.add(String(localized: "Copy Link")) {
-                copyText(link)
-            }
-        } else {
-            WorkspaceActions.addLocate(to: menu, path: item.target)
-        }
+        ArtifactActions.addItems(
+            to: menu, app, item, open: { [weak self] in self?.openItem($0) },
+            quickLook: { [weak self] in self?.quickLook(item) }, earlier: earlier)
     }
 }

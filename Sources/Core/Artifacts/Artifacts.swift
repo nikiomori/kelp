@@ -16,9 +16,18 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var versions: [ArtifactVersion]?
     /// For a page on a service, when the agent last published it again. nil when it was published only once.
     public var updated: Date?
+    /// The page's id on its service (claude.ai's slug), which the agent's tools name it by. nil for a page on this Mac,
+    /// and for one published before Kelp kept ids, until it is published again.
+    public var serviceId: String?
     /// True for a page on a service that was published before Kelp kept copies. Kelp read the chat's transcript to
     /// recover it (`recoverPages`).
     public var recovered: Bool?
+    /// What the page is about, as the user or an agent tagged it (`Artifacts.tag`). nil when it has none.
+    public var tags: [String]?
+    /// True when the page was moved to the archive: it leaves Artifacts Overview's other lists.
+    public var archived: Bool?
+    /// The last change an agent made to the tags or the archive, kept so the user can undo it.
+    public var agentChange: ArtifactAgentChange?
 
     public init(
         type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
@@ -55,6 +64,10 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     public var preview: String?
     /// The page's marks that are with an agent, and those waiting for the user's check. nil when there are none.
     public var marks: ArtifactMarkCounts?
+    /// The record's tags, archive and an agent's last change to them (`ArtifactRecord`).
+    public var tags: [String]?, archived: Bool?, agentChange: ArtifactAgentChange?
+    /// For a page on a service: how whole Kelp's copy of it is. nil when there is no copy.
+    public var copy: ArtifactCopy?
 
     public init(
         slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
@@ -71,6 +84,22 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
         self.points = points
         self.answered = answered
         self.modified = modified
+    }
+}
+
+/// A change an agent made to a page's tags or archive (`ArtifactChange` with its session): who, when, and what the page
+/// had before, which Undo puts back.
+public struct ArtifactAgentChange: Codable, Equatable, Sendable {
+    public var session: String
+    /// Seconds since 1970.
+    public var at: Double
+    /// The tags and the archive before the change.
+    public var tags: [String]?, archived: Bool?
+    public init(session: String, at: Double, tags: [String]?, archived: Bool?) {
+        self.session = session
+        self.at = at
+        self.tags = tags
+        self.archived = archived
     }
 }
 
@@ -176,10 +205,9 @@ public enum Artifacts {
 
     // MARK: pages agents publish themselves
 
-    /// Reads a page that an agent's own tool published from a PostToolUse hook's
-    /// payload. It returns the page's link and the title the tool was given. nil for any other tool or event, because
-    /// tools that only read or list (list_types, list_artifacts, read_artifact) name pages too, including the types'
-    /// own pages and other people's.
+    /// Reads a page that an agent's own tool published from a PostToolUse hook's payload: its link and the title the
+    /// tool was given. nil for any other tool or event, because tools that only read or list (list_types,
+    /// list_artifacts, read_artifact) name pages too, including the types' own pages and other people's.
     public static func published(hook payload: JSONValue) -> (
         url: String, title: String, type: String, page: PublishedPage?
     )? {
@@ -187,10 +215,7 @@ public enum Artifacts {
             tool.hasPrefix("mcp__"), let response = payload["tool_response"]
         else { return nil }
         let input = payload["tool_input"]
-        if let kind = codexPublishers[tool] {
-            guard let publication = codexPublication(kind, input: input, response: response) else { return nil }
-            return (publication.url, publication.title, kind.artifactType, nil)
-        }
+        if let kind = codexPublishers[tool] { return codexPublication(kind, input: input, response: response) }
         guard publishers.contains(where: tool.hasSuffix) else { return nil }
         let unescaped = strings(in: response).joined(separator: "\n")
         guard let url = unescaped.firstMatch(of: nativePage).map({ String($0.output) }) else { return nil }

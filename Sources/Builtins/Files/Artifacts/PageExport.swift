@@ -81,31 +81,32 @@ extension MarkdownTab {
     func chooseExport(_ format: PageExport) {
         let name = url.deletingLastPathComponent().lastPathComponent
         Task {
-            var editable = false
-            let to: URL
-            if let type = format.type {
-                let panel = NSSavePanel()
-                panel.allowedContentTypes = [type]
-                panel.nameFieldStringValue = name + "." + (type.preferredFilenameExtension ?? format.rawValue)
-                let choice = format == .pptx ? Self.powerPointChoice() : nil
-                panel.accessoryView = choice
-                guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
-                if let choice {
-                    editable = choice.indexOfSelectedItem == 0
-                    Self.editablePowerPoint = editable
-                }
-                to = chosen
-            } else {
-                let panel = NSOpenPanel()
-                panel.canChooseDirectories = true
-                panel.canChooseFiles = false
-                panel.canCreateDirectories = true
-                panel.prompt = String(localized: "Export Here")
-                guard await runSheet(panel) == .OK, let chosen = panel.url else { return }
-                to = chosen
-            }
+            guard let (to, editable) = await Self.askWhere(format, name: name) else { return }
             await export(format, to: to, editable: editable)
         }
+    }
+
+    /// Asks where to export a page named `name` as `format`: a file, or for boards a folder. For a PowerPoint it also
+    /// asks whether its slides are editable. nil when the user cancels.
+    static func askWhere(_ format: PageExport, name: String) async -> (to: URL, editable: Bool)? {
+        guard let type = format.type else {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.canCreateDirectories = true
+            panel.prompt = String(localized: "Export Here")
+            guard await runSheet(panel) == .OK, let chosen = panel.url else { return nil }
+            return (chosen, false)
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [type]
+        panel.nameFieldStringValue = name + "." + (type.preferredFilenameExtension ?? format.rawValue)
+        let choice = format == .pptx ? powerPointChoice() : nil
+        panel.accessoryView = choice
+        guard await runSheet(panel) == .OK, let chosen = panel.url else { return nil }
+        guard let choice else { return (chosen, false) }
+        editablePowerPoint = choice.indexOfSelectedItem == 0
+        return (chosen, editablePowerPoint)
     }
 
     /// Exports the page as `format` into `to`, and shows it in Finder unless `reveal` is off; a failure is a banner.
@@ -359,7 +360,7 @@ extension Builtins {
                     return Banner.show(error.localizedDescription, style: .error)
                 }
             }
-            await tab.export(format, to: URL(fileURLWithPath: to))
+            await tab.export(format, to: URL(fileURLWithPath: to), editable: args["editable"]?.bool ?? false)
         }
     }
 

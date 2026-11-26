@@ -2,8 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add|check|links|marks|reply|ask|suggest|export|beats|captions` handles pages
-    /// agents make for the user, kept in the project's `.kelp/artifacts`.
+    /// `artifact guide|new|list|tags|tag|untag|archive|unarchive|sync|open|add|check|links|marks|reply|ask|suggest|
+    /// export|beats|captions` handles pages agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -58,10 +58,12 @@ extension Main {
                     ? "Opened beside you. Write the page into that file; the tab updates as you save."
                     : "Write the page into that file.")
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
-        case "list":
-            for (slug, r) in Artifacts.list(root: try await projectRoot(cwd, c)) {
-                print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t"))
-            }
+        case "list": try await listPages(cwd, c)
+        case "tags": try await listTags(cwd, c)
+        case "sync": try await sync(cwd, c)
+        case "tag", "untag", "archive", "unarchive": try await keep(sub ?? "", cwd, c)
+        case "rm", "remove", "delete", "trash":
+            fail("Only the user deletes pages. Move it to the archive instead: kelp artifact archive <name>")
         case "open":
             let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name })
@@ -216,14 +218,29 @@ extension Main {
     /// user's signed-in browser would take the focus. The agent gives the link instead. This never fails the hook,
     /// because the agent's tool already did its work.
     static func notePublished(
-        _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String
+        _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String,
+        serviceId: String?
     ) async {
         do {
             _ = try await connect().call(
-                ArtifactAdd(url: p.url, title: p.title, type: p.type, cwd: cwd, session: session, page: p.page))
+                ArtifactAdd(
+                    url: p.url, title: p.title, type: p.type, cwd: cwd, session: session, page: p.page,
+                    serviceId: serviceId))
         } catch {
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             FileHandle.standardError.write(Data("kelp: couldn't keep \(p.url): \(why)\n".utf8))
+        }
+    }
+
+    /// Called from `kelp hook command` after `upload_asset`: keeps the uploaded files, so Kelp's copies of the pages
+    /// show them without the network. This never fails the hook either.
+    static func keepUploads(_ files: [(path: String, id: String)], cwd: String, session: String) async {
+        do {
+            let assets = files.map { ArtifactKeepAssets.Asset(path: $0.path, id: $0.id) }
+            _ = try await connect().call(ArtifactKeepAssets(cwd: cwd, session: session, assets: assets))
+        } catch {
+            let why = (error as? RPCError)?.message ?? error.localizedDescription
+            FileHandle.standardError.write(Data("kelp: couldn't keep the uploaded files: \(why)\n".utf8))
         }
     }
 

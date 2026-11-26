@@ -27,6 +27,8 @@ final class ArtifactBar: NSObject {
     let status = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
     /// The agents' working ring while its agent writes the page (still under Reduce Motion).
     private let ring = StatusMark(size: 12)
+    /// The agents working with this page now, a click away from their chats.
+    private lazy var faces = PageAgentsView(app: app)
     lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
     }
@@ -134,8 +136,8 @@ final class ArtifactBar: NSObject {
         let bar = Bar.content(
             [kind, ring, status],
             [
-                spent, latest, restore, fresh, refresh, changes, devices(), modes, present, check, back, count, forward,
-                author, more
+                faces, spent, latest, restore, fresh, refresh, changes, devices(), modes, present, check, back, count,
+                forward, author, more
             ],
             stretching: status
         )
@@ -171,7 +173,7 @@ final class ArtifactBar: NSObject {
             self?.update()
         }
         track(owner: markdown) { [app] in
-            app.sessions.map { "\($0.id)\($0.status)\($0.title)" }
+            PageAgents.watched(app) + app.sessions.map(\.title)
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -182,6 +184,7 @@ final class ArtifactBar: NSObject {
             (Paths.real($0.target) ?? $0.target) == real
         }
         let session = item?.session.flatMap(app.session)
+        faces.show(item.map { PageAgents.on($0.target, app) } ?? [])
         let type = item?.type ?? recorded?.type ?? Self.kind(ofFile: path)?.rawValue ?? ""
         kind.stringValue = Artifacts.Kind(rawValue: type).map { Self.look($0).name } ?? String(localized: "Doc")
         pageKind = Artifacts.Kind(rawValue: type)

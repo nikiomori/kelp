@@ -73,6 +73,7 @@ public enum Metrics {
     public static let zoomStep: CGFloat = 1.25   // one press of Zoom In (Zoom Out divides by it)
     public static let dash: [CGFloat] = [2, 1.5]   // a dashed ring: a place outside, a question
     public static let tabDim: CGFloat = 0.7   // the opacity a dimmed tab strip's tabs keep
+    public static let unavailable: CGFloat = 0.5   // what can't open now (a page with no copy here, offline)
 
     // Segments: one icon of a segmented capsule (the inspector's panels), `iconGap` apart from each other and from the
     // capsule's edge. The symbol is as big as the title bar's toggles, which the capsule sits beside.

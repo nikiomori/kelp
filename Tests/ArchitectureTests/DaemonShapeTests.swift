@@ -135,7 +135,9 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
             "the skills built into the Claude Code on this Mac, the same for all",
         "Sources/AgentData/ClaudeContext.swift: usages":
             "a transcript's context usage, keyed by its path, size and date",
-        "Sources/AgentData/Usage.swift: rollouts": "a Codex rollout's limits, keyed by its path, size and date"
+        "Sources/AgentData/Usage.swift: rollouts": "a Codex rollout's limits, keyed by its path, size and date",
+        "Sources/Core/Artifacts/ArtifactPages.swift: pageUses":
+            "what a page's copy uses beside it, keyed by its path, size and date"
     ]
     let locks = try found(
         #"(?:\bstatic |^(?:(?:private|fileprivate|public|package) )?)let (\w+)\s*[:=]\s*(?:OSAllocatedUnfairLock|Mutex|NSCache|NSLock|NSRecursiveLock|Atomic\w*|StatMemo)\b"#,

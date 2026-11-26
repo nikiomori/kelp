@@ -14,10 +14,13 @@ struct ArtifactCells {
         "dashboard": "chart.bar", "proof": "checkmark.seal", "motion": "film"
     ]
 
+    /// The symbol of a kind of page, as its row and its tab show it.
+    static func symbol(_ kind: String) -> String { symbols[kind] ?? "doc.richtext" }
+
     func heading(_ text: String) -> NSView { SectionHeading(text) }
 
     func item(_ item: ArtifactItem, earlier: Int) -> NSView {
-        let icon = NSImageView(image: .symbol(Self.symbols[item.type] ?? "doc.richtext"))
+        let icon = NSImageView(image: .symbol(Self.symbol(item.type)))
         icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let project = panel.app.projectName(panel.app.worktree(panel.app.workbench.workspaceId)?.repoId)
@@ -65,9 +68,16 @@ struct ArtifactCells {
         return row
     }
 
-    /// The end of a page's row: when the page last changed, or the agents' working ring while its agent writes it.
+    /// The end of a page's row: the faces of the agents on it now (`PageAgents`), when the page last changed, or the
+    /// agents' working ring while the chat that made it writes it (an agent without hooks).
     /// For a web page, a hidden ↗ follows, which takes the time's place under the pointer.
     private func end(_ item: ArtifactItem) -> [NSView] {
+        let agents = PageAgents.on(item.target, panel.app)
+        if !agents.isEmpty {   // the agents on the page now, each a way to its chat
+            let faces = PageAgentsView(app: panel.app)
+            faces.show(agents)
+            return [faces]
+        }
         if panel.writing(item) {
             // The agents' working ring, still under Reduce Motion. It names its state itself ("Working"), and sets its own
             // tooltip each time it is drawn.

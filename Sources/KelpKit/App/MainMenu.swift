@@ -283,7 +283,8 @@ extension AppDelegate {
         menuBuilder.add(win, "workbench.ownWindow", "workbench.saveTemplate")
         win.addItem(.separator())
         menuBuilder.add(
-            win, "agents.nextNeedingYou", "agents.overview", "agents.usage", "workbench.scratch", "workspace.switch")
+            win, "agents.nextNeedingYou", "agents.overview", "artifacts.overview", "agents.usage", "workbench.scratch",
+            "workspace.switch")
         let back = win.add(String(localized: "Previous Screen"), key: "\t") {
             app.extensions.run("workspace.switch", ["by": -1])
         }
