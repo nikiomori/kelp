@@ -20,69 +20,66 @@ struct BrowserRequests {
         }
     }
 
-    private func run(_ event: UIBrowserEvent) async throws -> JSONValue {
+    func run(_ event: UIBrowserEvent) async throws -> JSONValue {
         guard let wid = event.worktreeId ?? app.workbench.workspaceId else {
             throw RPCError.invalidParams("No workspace to open a page in.")
         }
-        guard app.workbench.loadedTabs(wid) != nil else {
+        guard let tabs = app.workbench.loadedTabs(wid) else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
         let action = event.action
         let args = event.args ?? .object([:])
-        if action == .open, let page = try await pageForOpen(wid, shared: args["shared"]?.bool == true, args: args) {
-            // A page driven from a host starts blank and opens the address once it is on the host's network.
-            return try await browse(page, in: wid, Self.fromHost(args) ? .open : .info, args)
+        let session = args["session"]?.string, subagent = args["subagent"]?.string
+        let remote = args["remote"].map { $0 != .null } ?? false
+        let owner = remote ? AgentPages.remotePrefix + (session ?? "user") : session ?? "user"
+        let scope = AgentPages.Scope(workspace: wid, owner: owner, subagent: subagent)
+        let pages = AgentPages.of(app), last = pages.browsed[scope]
+        let page = Self.ownPage(tabs, session: owner, last: last)
+        guard action == .open else {
+            guard let page else { throw Self.noPage }
+            return try await browse(page, in: wid, action, args)
         }
-        guard let page = browsedPage(wid) else {
-            throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
+
+        guard let url = args["url"]?.string, !url.isEmpty else { throw RPCError.invalidParams("open needs url") }
+        if args["shared"]?.bool == true {
+            guard !remote, subagent == nil else {
+                throw RPCError.invalidParams("Use kelp browser open without --shared from a subagent or remote host.")
+            }
+            guard let site = Self.sharedSite(url) else {
+                throw RPCError.invalidParams("open --shared needs an HTTP or HTTPS site.")
+            }
+            if let page, last?.tab == page.id, last?.sharedSite == site {
+                return try await browse(page, in: wid, .open, args)
+            }
+            let caller = session.flatMap { app.session($0)?.displayTitle } ?? String(localized: "This browser command")
+            guard await Self.allowShared(site, caller: caller) else {
+                throw RPCError.invalidParams(
+                    "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
+            }
+            guard let page = app.workbench.openBeside(url, in: wid, reuse: false) else { throw Self.noPage }
+            pages.browsed[scope] = AgentPages.Visit(tab: page.id, sharedSite: site)
+            return try await browse(page, in: wid, .info, args)
         }
-        return try await browse(page, in: wid, action, args)
+
+        let privatePage = last?.sharedSite == nil ? page : Self.ownPage(tabs, session: owner, last: nil)
+        // Previews use their starting file. Native subagents use subpages of a private tab, which starts empty
+        // if the parent hasn't opened a page yet. Host pages attach their network before loading an address.
+        if let privatePage, subagent != nil || TabURI.scheme(url) != "preview" {
+            pages.browsed[scope] = AgentPages.Visit(tab: privatePage.id, sharedSite: nil)
+            return try await browse(privatePage, in: wid, .open, args)
+        }
+        let start = subagent != nil ? "" : remote ? "about:blank" : url
+        guard let page = app.workbench.openBeside(TabURI.agentPage(start, session: owner), in: wid) else {
+            throw Self.noPage
+        }
+        pages.browsed[scope] = AgentPages.Visit(tab: page.id, sharedSite: nil)
+        return try await browse(page, in: wid, remote || subagent != nil ? .open : .info, args)
     }
 
-    /// Opens a new page tab for `open`, beside the agent's pane. It returns nil when there is already a page to
-    /// navigate, which is the page the agent drove, or the agent's own page of the kind asked for. `shared` asks for a
-    /// page with the user's cookies, which only a plain page has. A shared page acts as the user, so the user has to
-    /// say yes first.
-    private func pageForOpen(_ wid: String, shared: Bool, args: JSONValue) async throws -> TabRef? {
-        let url = args["url"]?.string ?? ""
-        // A shared page stays on the one site the user allowed, so another site is asked for again, in a tab of its
-        // own. A local page (`preview:`) is where a tab starts, not an address to go to, so it gets a tab of its own
-        // too.
-        if let page = ownPage(wid), shared == (TabURI.scheme(page.uri) != TabURI.agentScheme),
-            TabURI.scheme(url) != "preview",
-            !shared || url.isEmpty
-                || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(page.uri)))
-        {
-            return nil
-        }
-        guard !url.isEmpty else { return nil }
-        if shared, await !Self.allowShared(url) {
-            throw RPCError.invalidParams(
-                "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
-        }
-        let start = Self.fromHost(args) ? "about:blank" : url
-        guard let page = app.workbench.openBeside(shared ? url : TabURI.agentPage(start), in: wid) else { return nil }
-        AgentPages.of(app).browsed[wid] = page.id
-        return page
-    }
-
-    /// Whether an agent on a remote project's host drives the page (`BrowserTab.onHost`).
-    static func fromHost(_ args: JSONValue) -> Bool { args["remote"].map { $0 != .null } ?? false }
-
-    /// Returns the page `kelp browser` drives in this workspace, which is always one it opened. The user's own page
-    /// tabs carry their logins, so an agent never takes one of those by itself.
-    private func browsedPage(_ wid: String) -> TabRef? {
-        let page = ownPage(wid)
-        AgentPages.of(app).browsed[wid] = page?.id
-        return page
-    }
-
-    /// Asks the user before `open --shared`, because the page gets the user's cookies and the agent acts as the user
-    /// there.
-    private static func allowShared(_ url: String) async -> Bool {
+    private static func allowShared(_ site: String, caller: String) async -> Bool {
         await confirm(
             String(localized: "Let an agent use your logged-in browser?"),
-            detail: String(localized: "It opens \(url) with your cookies and can act as you on that site."),
+            detail: String(localized: "\(caller) can act as you on \(site) using your cookies."),
             action: String(localized: "Allow"), cancel: String(localized: "Don’t Allow"))
     }
 
@@ -92,6 +89,9 @@ struct BrowserRequests {
     {
         guard let tab = app.workbench.content(page, in: wid) as? BrowserTab else {
             throw RPCError.invalidParams("That tab shows no page.")
+        }
+        if action != .open, tab.ownerSession?.hasPrefix(AgentPages.remotePrefix) == true, tab.hostChip.isHidden {
+            throw Self.noPage
         }
         // Add where the page is, for the marks it shows outside its tab (`AgentPages`).
         var args = args
@@ -103,14 +103,22 @@ struct BrowserRequests {
         return try await tab.browse(action, args)
     }
 
-    /// Returns the page the agent drove last, or else an agent's own page. The page driven last is always one the agent
-    /// opened, because only `open` and `browsedPage` set `browsed`.
-    private func ownPage(_ wid: String) -> TabRef? {
-        Self.ownPage(app.workbench.loadedTabs(wid) ?? [], last: AgentPages.of(app).browsed[wid])
+    static var noPage: RPCError {
+        RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
     }
 
-    static func ownPage(_ tabs: [TabRef], last: String?) -> TabRef? {
-        tabs.first { $0.id == last && TabURI.isPage($0.uri) }
-            ?? tabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
+    private static func sharedSite(_ url: String) -> String? {
+        guard ["http", "https"].contains(TabURI.scheme(url)) else { return nil }
+        return PageOrigin.of(URL(string: url))
+    }
+
+    /// After restore, the tab's URI is the record of its owner. Shared and legacy tabs carry no such record.
+    static func ownPage(_ tabs: [TabRef], session: String, last: AgentPages.Visit?) -> TabRef? {
+        func owns(_ tab: TabRef) -> Bool { TabURI.agentPageSession(tab.uri) == session }
+        if let last, let tab = tabs.first(where: { $0.id == last.tab }) {
+            if let site = last.sharedSite { return sharedSite(tab.uri) == site ? tab : nil }
+            if owns(tab) { return tab }
+        }
+        return tabs.first { owns($0) && !TabURI.pageURL($0.uri).isEmpty } ?? tabs.first(where: owns)
     }
 }

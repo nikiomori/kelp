@@ -273,6 +273,15 @@ public enum Subprocess {
     /// Returns the process's arguments (its argv, program first) for a process of the same user. nil for another user's
     /// process, or when there is no such process.
     public static func arguments(_ pid: pid_t) -> [String]? {
+        processArguments(pid, keys: []).map(\.args)
+    }
+
+    /// Reads only the requested values from a process's initial environment.
+    public static func environment(_ pid: pid_t, keys: Set<String>) -> [String: String] {
+        processArguments(pid, keys: keys)?.env ?? [:]
+    }
+
+    private static func processArguments(_ pid: pid_t, keys: Set<String>) -> (args: [String], env: [String: String])? {
         // 16 KB holds most programs' arguments and environment, and the system's maximum is used only when it doesn't.
         // This runs for every program in a caller's ancestry, so it shouldn't take a megabyte each. A buffer that is
         // too small isn't refused but filled with the tail of the area, argc and all, so a full buffer is read again
@@ -298,7 +307,20 @@ public enum Subprocess {
             args.append(String(decoding: buf[start..<index], as: UTF8.self))
             index += 1
         }
-        return args
+        var env: [String: String] = [:]
+        while env.count < keys.count, index < size, buf[index] != 0 {
+            let start = index
+            while index < size, buf[index] != 0, buf[index] != 61 { index += 1 }   // "="
+            let key = String(decoding: buf[start..<index], as: UTF8.self)
+            if index < size, buf[index] == 61 {
+                index += 1
+                let value = index
+                while index < size, buf[index] != 0 { index += 1 }
+                if keys.contains(key) { env[key] = String(decoding: buf[value..<index], as: UTF8.self) }
+            }
+            index += 1
+        }
+        return (args, env)
     }
 
     /// Whether the process has ended but isn't reaped yet, so there is nothing left to stop. It asks sysctl, because

@@ -162,7 +162,7 @@ extension LiveSession {
     /// running. Returns the record when what it runs changed. `agent` is the subagent whose tool it is.
     func ran(_ command: AgentCommand, by agent: String? = nil) -> Session? {
         state.withLock { st in
-            st.commandAgents[command.id] = command.outcome == nil ? agent : nil
+            if let agent, !agent.isEmpty { st.commandAgents[command.id] = agent }
             if let index = st.commands.lastIndex(where: { $0.id == command.id }) {
                 let started = st.commands[index].started   // the end keeps the start it was told of
                 st.commands[index] = command
@@ -183,26 +183,46 @@ extension LiveSession {
         }
     }
 
-    /// The subagent whose `kelp browser` command asks now (nil for the agent's own), from `LiveSession.browsing`.
-    func browsing(_ words: String) -> String? {
-        state.withLock { st in Self.browsing(words, st.commands, st.commandAgents) }
+    enum BrowserThread {
+        case unknown, root, child(String)
     }
 
-    /// Finds which subagent a `kelp browser` command belongs to. Among the running commands that run `kelp browser`, it
-    /// takes the one whose text contains `words` (`click e12`), ignoring quotes and matching an address as typed (`open
-    /// localhost:3000` for `open http://localhost:3000`); failing that, the only such command running. It returns that
-    /// command's subagent; when none is found, the command is the agent's own.
-    /// Limit: two subagents running the very same words at once can't be told apart.
-    static func browsing(_ words: String, _ commands: [AgentCommand], _ agents: [String: String]) -> String? {
-        let running = commands.filter { $0.outcome == nil && $0.command.contains("kelp browser") }
-        let bare = words.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
-        let typed = [words, bare]
-        let match =
-            running.first { command in
-                let said = command.command.filter { $0 != "\"" && $0 != "'" }
-                return typed.contains { said.contains("browser " + $0) }
-            } ?? (running.count == 1 ? running.first : nil)
-        return match.flatMap { agents[$0.id] }
+    /// The native subagent calling from this session, or nil for the main thread.
+    func browsing(toolCall: String?, thread: BrowserThread) throws -> String? {
+        try state.withLock { st in
+            try Self.browsing(
+                toolCall: toolCall, thread: thread, commands: st.commands, agents: st.commandAgents,
+                hasSubagents: !st.record.runningSubagents.isEmpty)
+        }
+    }
+
+    static func browsing(
+        toolCall: String?, thread: BrowserThread, commands: [AgentCommand], agents: [String: String], hasSubagents: Bool
+    ) throws -> String? {
+        let ambiguous = RPCError.refused(
+            "Kelp can't tell which native agent sent this browser command. Use a separate Kelp session for its page.")
+        let match = toolCall.flatMap { id in commands.first { $0.id == id } }
+        let hooked = match.flatMap { agents[$0.id] }
+        // Codex code mode may have no shell hook for the nested execution.
+        switch thread {
+        case .root:
+            guard hooked == nil else { throw ambiguous }
+            return nil
+        case .child(let id):
+            guard hooked == nil || hooked == id else { throw ambiguous }
+            return id
+        case .unknown:
+            if let match {
+                guard match.outcome == nil else { throw ambiguous }
+                return hooked
+            }
+        }
+        // shortcut: Legacy shells have no call identifier. Refuse competing owners until the executor supplies one.
+        // Consider scripts too: command text alone cannot tell which running script invoked Kelp.
+        let owners = Set(commands.lazy.filter { $0.outcome == nil }.map { agents[$0.id] })
+        let owner = owners.first ?? nil
+        guard owners.count <= 1, !hasSubagents || (toolCall == nil && owner != nil) else { throw ambiguous }
+        return owner
     }
 
     /// The time to `release` by, if a Stop is held. The wait starts over, because an update ended the old one.

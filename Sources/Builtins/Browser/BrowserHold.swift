@@ -50,7 +50,7 @@ extension BrowserTab {
     func ask(_ args: JSONValue) async throws -> JSONValue {
         guard let drive else { throw RPCError.invalidParams("That tab shows no page of an agent’s.") }
         if let text = args["text"]?.string {
-            drive.asked = (text, args["session"]?.string ?? "")
+            drive.asked = (text, args["askingSession"]?.string ?? args["session"]?.string ?? "")
             drive.takenOver = true
             drive.userAt = Date()
             showAgentBar()

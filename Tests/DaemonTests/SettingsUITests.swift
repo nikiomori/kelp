@@ -94,9 +94,14 @@ final class EventBox: @unchecked Sendable {
     app.onNotification = { box.add($0, $1) }
     _ = try await app.call("ui.publish", .obj(["state": .object([:])]))
 
-    let page = Task { try await agent.call("ui.browser", .obj(["action": "snapshot", "worktreeId": "w1"])) }
+    let page = Task {
+        try await agent.call(
+            "ui.browser",
+            .obj(["action": "snapshot", "worktreeId": "w1", "args": .obj(["session": "foreign", "subagent": "a1"])]))
+    }
     #expect(try await waitFor { box.last("event.ui.browser")?["action"] == "snapshot" })
     #expect(box.last("event.ui.browser")?["worktreeId"] == "w1")
+    #expect(box.last("event.ui.browser")?["args"] == .object([:]))
     let first = try #require(box.last("event.ui.browser")?["request"])
     _ = try await app.call("ui.browser.reply", .obj(["request": first, "result": "- button [ref=e1]"]))
     #expect(try await page.value == "- button [ref=e1]")
@@ -126,7 +131,7 @@ final class EventBox: @unchecked Sendable {
     try d.sessions.store.save(other)
     let relay = BrowserRelay.of(d), id = mine.id
     let call = UIBrowser(action: .snapshot, args: .obj(["session": .string(other.id), "subagent": "a1"]))
-    let page = Task { try await Sessions.$asker.withValue(id) { try await call.handle(relay) } }
+    let page = Task { try await Sessions.$asker.withValue(id) { try await call.handle(relay, conn: -1) } }
     #expect(try await waitFor { box.last("event.ui.browser") != nil })
     let sent = try #require(box.last("event.ui.browser"))
     #expect(sent["args"]?["session"] == .string(mine.id) && sent["args"]?["subagent"] == nil)

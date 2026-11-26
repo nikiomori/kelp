@@ -14,7 +14,7 @@ extension BrowserTab {
     func browse(_ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
         let name = action.rawValue
         // A subagent's command goes to the subagent's own page in this tab (BrowserPages.swift).
-        if agent, host == nil, let page = pageSet.route(action, args) { return try await page.browse(action, args) }
+        if agent, host == nil, let page = try pageSet.route(action, args) { return try await page.browse(action, args) }
         defer { (host ?? self).pageSetActed() }
         func need(_ key: String) throws -> String {
             guard let value = args[key]?.string, !value.isEmpty else {

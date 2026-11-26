@@ -31,6 +31,9 @@ extension UIOpen: Handled {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
+        if scheme == "agentweb" {
+            return "Open your browser page with `kelp browser open <url>`, which assigns its owner."
+        }
         // A plain page tab has the user's cookies (and `kelp shot` sees it), while an agent's page has cookies of its
         // own. A local page (`preview:`) has the user's cookies too, and it can go on to any site.
         if ["http", "https", "preview"].contains(scheme) {
@@ -99,47 +102,35 @@ extension UICommand: Handled {
 
 /// Sends a `kelp browser` command to the app, which runs it in a browser tab and answers with `ui.browser.reply`; this
 /// waits for that answer.
-/// A subagent's command says whose it is (`args.subagent`), because Claude Code's hook told which subagent runs it.
 extension UIBrowser: AsyncHandled {
     static let agents = AgentAccess.acts
     // With no workspace named, the page would open in the one on screen, which needn't be the agent's.
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
-    func handle(_ relay: BrowserRelay) async throws -> JSONValue {
+    func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
+        try await forward(relay, driver: relay.driver(conn))
+    }
+
+    fileprivate func forward(_ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil) async throws
+        -> JSONValue
+    {
         let ui = relay.ui
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
+        guard case .object(var fields) = args ?? .object([:]) else {
+            throw RPCError.invalidParams("kelp browser's args are an object")
+        }
+        // kelpd supplies the routing fields. A caller can name an address, but cannot claim another page's owner.
+        fields["remote"] = HostBrowser.page
+        fields["session"] = driver.session.map(JSONValue.string)
+        fields["subagent"] = driver.subagent.map(JSONValue.string)
+        fields["askingSession"] = asking.map(JSONValue.string)
         var call = self
-        // What a page driven from a host is told comes from kelpd alone (`HostBrowser.page`), never from the caller.
-        if case .object(var fields) = call.args ?? .object([:]) {
-            fields["remote"] = HostBrowser.page
-            call.args = .object(fields)
-        }
-        // An agent drives the page as itself, whichever session it names, so the page's card, pointer and Done say
-        // which agent it is.
-        if case .some(let own) = relay.asks.store.agent(origin: Sessions.asker) {
-            guard case .object(var fields) = args ?? .object([:]) else {
-                throw RPCError.invalidParams("kelp browser's args are an object")
-            }
-            fields["session"] = own.map(JSONValue.string)
-            fields["subagent"] = nil   // the hook says which subagent, below
-            call.args = .object(fields)
-        }
-        if case .object(var fields) = call.args, let session = fields["session"]?.string,
-            let subagent = relay.asks.existing(session)?.browsing(Self.words(action, args))
-        {
-            fields["subagent"] = .string(subagent)
-            call.args = .object(fields)
-        }
+        call.args = .object(fields)
         let request = UUID().uuidString
         return try await clients.reply(to: request, from: apps, within: Self.wait) {
             clients.notify(UIBrowserEvent(call, request: request), to: apps)
         }
-    }
-
-    /// What the command line says after `kelp browser`: `click e12`, `open http://localhost:3000`.
-    static func words(_ action: BrowserAction, _ args: JSONValue?) -> String {
-        ([action.rawValue] + ["ref", "key", "url"].compactMap { args?[$0]?.string }.prefix(1)).joined(separator: " ")
     }
 }
 
@@ -150,13 +141,9 @@ extension UIBrowserAsk: AsyncHandled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        // An agent asks on its own row, never on one it names. The user's script asks on the row of the session it runs
-        // in (`args.session`).
-        let row: String? =
-            switch relay.asks.store.agent(origin: Sessions.asker) {
-            case .some(let own): own
-            case .none: args?["session"]?.string
-            }
+        // A user can name the row that asks without changing the owner of the browser page.
+        let driver = try relay.driver(conn)
+        let row = driver.session ?? args?["session"]?.string ?? Caller.session(of: Sessions.asker)
         guard let session = row, let ls = relay.asks.existing(session) else {
             throw RPCError.invalidParams("kelp browser ask runs in a session of Kelp's: its row asks the user.")
         }
@@ -164,9 +151,8 @@ extension UIBrowserAsk: AsyncHandled {
             var all: [String: JSONValue] = [:]
             if case .object(let given) = args { all = given }
             all.merge(fields) { $1 }
-            all["session"] = .string(session)   // the row that asks
             return try await UIBrowser(action: .ask, args: .object(all), worktreeId: worktreeId)
-                .handle(relay)
+                .forward(relay, driver: driver, asking: session)
         }
         _ = try await page(["text": .string(question)])
         let asked = Self.rowQuestion(question)
@@ -182,6 +168,24 @@ extension UIBrowserAsk: AsyncHandled {
 /// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
 struct BrowserRelay {
     let ui: UIStore, asks: AgentAsks
+    fileprivate typealias Driver = (session: String?, subagent: String?)
+
+    fileprivate func driver(_ conn: Int) throws -> Driver {
+        guard let own = asks.store.agent(origin: Sessions.asker) else { return (nil, nil) }
+        guard let session = own else { throw RPCError.refused("This browser command needs a Kelp session.") }
+        guard HostBrowser.page == nil, let live = asks.existing(session) else { return (session, nil) }
+        var call: String?, thread = LiveSession.BrowserThread.unknown
+        if live.snapshot.agent == Session.codexAgent, let pid = asks.clients.connection(conn)?.peerPID {
+            let env = Subprocess.environment(pid, keys: ["CODEX_TOOL_CALL_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"])
+            call = env["CODEX_TOOL_CALL_ID"].flatMap { $0.isEmpty ? nil : $0 }
+            if let label = env["CODEX_THREAD_ID"], let id = UUID(uuidString: label),
+                let root = env["CODEX_SESSION_ID"].flatMap(UUID.init(uuidString:))
+            {
+                thread = id == root ? .root : .child(label)
+            }
+        }
+        return (session, try live.browsing(toolCall: call, thread: thread))
+    }
 }
 
 extension UIBrowserReply: Handled {

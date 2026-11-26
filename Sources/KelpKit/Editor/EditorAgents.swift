@@ -89,7 +89,8 @@ extension EditorArea {
             let target = layout.groups.keys.sorted().first { $0 != gid } ?? layout.newGroup(beside: gid, vertical: true)
             layout.add(uri, to: target)
         } else {
-            return showAside(uri)   // already open, so it is brought forward where it is
+            showAside(uri)   // already open, so it is brought forward where it is
+            return
         }
         layout.focused = keep
         arrange()   // with agents side by side, files go to the pane the agents share
