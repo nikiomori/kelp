@@ -179,6 +179,33 @@ import WorkbenchKit
     let blueprint = try #require(Theme.looks.first { $0.id == "kelp.blueprint" })
     let look = ThemeManager.windowLook(blueprint, terminalOpacity: 0.5, forced: nil)
     #expect(look.card == .clear && look.solid && look.ambient?.kind == .grid)
+    // Halftone's card keeps its colour under see-through editors: the dots are drawn on it, not the desktop.
+    let halftone = try #require(Theme.looks.first { $0.id == "kelp.halftone" })
+    let dots = ThemeManager.windowLook(halftone, terminalOpacity: 0.12, forced: nil)
+    #expect(dots.seeThrough && dots.card == NSColor(hex: "#121119") && dots.ambient?.kind == .halftone)
+}
+
+/// The desktop in dots: a dot a cell, as big as the cell is light, in the cell's own colour; none where it is black.
+@Test func halftoneDotsFollowThePicturesLight() throws {
+    #expect(Halftone.dot(lightness: 0) == 0)
+    #expect(Halftone.dot(lightness: 0.25) < Halftone.dot(lightness: 1))
+    // A picture white on its left half, black on its right.
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("halftone-\(UUID()).png")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let half = NSImage(size: NSSize(width: 120, height: 60), flipped: false) { rect in
+        NSColor.white.setFill()
+        rect.fill()
+        NSColor.black.setFill()
+        NSRect(x: 60, y: 0, width: 60, height: 60).fill()
+        return true
+    }
+    let bytes = half.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))
+    try #require(bytes?.representation(using: .png, properties: [:])).write(to: url)
+    let picture = try #require(Halftone.picture(url, size: NSSize(width: 120, height: 60), scale: 1))
+    let bitmap = NSBitmapImageRep(cgImage: picture)
+    let cell = Int(Halftone.cell), middle = cell / 2
+    #expect((bitmap.colorAt(x: middle, y: middle)?.brightnessComponent ?? 0) > 0.5)   // a dot's centre, left
+    #expect((bitmap.colorAt(x: 90 + middle, y: middle)?.alphaComponent ?? 1) == 0)   // nothing, right
 }
 
 /// A theme Kelp no longer has, still in someone's settings.json, shows the one that took its place, not Ghostty's.

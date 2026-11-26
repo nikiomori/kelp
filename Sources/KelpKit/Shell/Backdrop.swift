@@ -19,7 +19,8 @@ final class Backdrop: NSView {
 
     func show(_ look: WindowLook) {
         layer?.backgroundColor = look.surface?.cgColor
-        grid.backgroundColor = look.ambient.map { Self.grid($0.colors.first ?? .white) }
+        grid.backgroundColor =
+            look.ambient.flatMap { $0.kind == .grid ? Self.grid($0.colors.first ?? .white) : nil }
     }
 
     override func layout() {

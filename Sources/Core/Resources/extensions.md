@@ -186,7 +186,7 @@ Without `window`, the panels and the editor area take the theme's colours. With 
 - `window.surface`: the panels and the gap round the editor area: a colour, or `material` for macOS's own, with the desktop behind it. `surfaceOpacity` lets the desktop through a colour too.
 - `window.card`, `border`, `borderWidth`, `radius`: the editor area. `border` takes `#rrggbbaa`.
 - `window.accent`: the chrome's accent (native controls keep the system's). `window.font`: the chrome's face, `mono`, `serif` or `rounded`.
-- `window.ambient`: what is drawn on the surface, in the first of `ambientColors`: `grid` (a drafting grid). Nothing moves behind the code.
+- `window.ambient`: `grid` (a drafting grid on the surface, in the first of `ambientColors`) or `halftone` (the desktop's picture in print dots under the editor area, lined up with the desktop, dimming down to `card`; give the terminal and editor an `opacity` for the dots to show). Nothing moves behind the code.
 
 ## iconThemes
 File icon themes in VS Code's format, so existing ones work unchanged:

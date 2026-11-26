@@ -30,7 +30,7 @@ struct Theme: Codable, Identifiable, Equatable {
         var borderWidth: Double?, radius: Double?
         var accent: String?
         var font: String?   // "mono", "serif", "rounded"
-        var ambient: String?   // "grid"
+        var ambient: String?   // "grid", "halftone"
         var ambientColors: [String]?
     }
     /// Returns a colour safe for the terminal's config file, which is read line by line. A theme comes from someone
@@ -51,7 +51,7 @@ struct Theme: Codable, Identifiable, Equatable {
 /// The window as the chosen theme draws it. A nil part means the system's.
 struct WindowLook: Equatable {
     struct Ambient: Equatable {
-        enum Kind: String { case grid }
+        enum Kind: String { case grid, halftone }
         var kind: Kind, colors: [NSColor]
     }
     var surface: NSColor?, card: NSColor?, border: NSColor?
@@ -261,8 +261,9 @@ package final class ThemeManager {
             let surface = window.surface.flatMap { NSColor(hex: $0) } ?? background
             look.surface = surface.withAlphaComponent(window.surfaceOpacity ?? 1)
         }
+        // A halftone card keeps its colour: the dots on it show what the terminals let through, not the desktop.
         look.card =
-            look.seeThrough
+            look.seeThrough && window.ambient != "halftone"
             ? .clear : window.card.flatMap { NSColor(hex: $0) } ?? (window.surface == "material" ? nil : background)
         look.border = window.border.flatMap { NSColor(hex: $0) }
         look.borderWidth = window.borderWidth ?? 1

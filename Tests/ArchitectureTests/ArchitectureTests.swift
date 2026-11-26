@@ -787,7 +787,8 @@ func codeOnly(_ s: String) -> String {
         ),
         "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
         "Builtins/Files/Artifacts/Overview/ArtifactPictures.swift": (2, "pages' pictures, kept in Kelp's home"),
-        "Builtins/Databases/DatabaseTab+Copy.swift": (1, "rows exported to a file the user picked in a save panel")
+        "Builtins/Databases/DatabaseTab+Copy.swift": (1, "rows exported to a file the user picked in a save panel"),
+        "KelpKit/Shell/Halftone.swift": (1, "the desktop's picture macOS shows, read to draw it in dots")
     ]
     .merging(artifactPagesTouchFiles) { own, _ in own }
     let all = try matches(

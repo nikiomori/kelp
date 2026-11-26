@@ -2,8 +2,9 @@ import Foundation
 
 extension Theme {
     /// Themes that rebuild the window, not only recolour it. Each differs from the others in what it is made of
-    /// (glass, deep water, a phosphor screen, drafting paper, printed paper), not in hue. Nothing in them moves: a
-    /// backdrop drifting behind the code (Aurora, Neon, Deep Sea's motes) read as wallpaper, not a place to work.
+    /// (glass, the desktop in print dots, deep water, a phosphor screen, drafting paper, printed paper), not in hue.
+    /// Nothing in them moves: a backdrop drifting behind the code (Aurora, Neon, Deep Sea's motes) read as wallpaper,
+    /// not a place to work.
     static let looks: [Theme] = [
         Theme(
             "kelp.glass", "Glass", "dark", c: ["#0b0e14", "#e8ecf4", "", "#2f4a6d"],
@@ -23,6 +24,15 @@ extension Theme {
             code: ["#8a2be2", "#c8102e", "#6b7280", "#0f7b8a", "#9a6700", "#0a5bd3"],
             terminalOpacity: 0.5, editorOpacity: 0.65,
             window: .init(surface: "material", border: "#0000001f")),
+        Theme(
+            "kelp.halftone", "Halftone", "dark", c: ["#121119", "#eef0f6", "", "#3a4a63"],
+            ansi: [
+                "#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
+                "#8e8e93", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
+            ],
+            code: ["#ff7ab2", "#ff8170", "#a3a8b8", "#5dd8ff", "#d9c97c", "#8ee6c9"],
+            terminalOpacity: 0.12, editorOpacity: 0.12,
+            window: .init(surface: "material", card: "#121119", ambient: "halftone")),
         Theme(
             "kelp.deep-sea", "Deep Sea", "dark", c: ["#031c20", "#cfeee8", "#4de8c2", "#0d4a52"],
             ansi: [

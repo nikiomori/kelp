@@ -137,6 +137,7 @@ private struct MiniWindow: View {
                 .padding(.top, 7).padding(.leading, 6)
                 ZStack(alignment: .topLeading) {
                     shape.fill(card.background.opacity(card.opacity))
+                    if card.look.ambient?.kind == .halftone { printDots.clipShape(shape) }
                     shape.strokeBorder(border, lineWidth: min(card.look.borderWidth, 1))
                     text.padding(6)
                 }
@@ -163,7 +164,7 @@ private struct MiniWindow: View {
     @ViewBuilder private var surface: some View {
         if let color = card.look.surface {
             Color(nsColor: color.withAlphaComponent(1))
-        } else if card.look.seeThrough {
+        } else if card.look.seeThrough && card.look.ambient?.kind != .halftone {   // halftone's panels are Kelp's own
             LinearGradient(
                 colors: card.dark ? [.indigo, .teal] : [.cyan.opacity(0.5), .pink.opacity(0.35)],
                 startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -172,9 +173,26 @@ private struct MiniWindow: View {
         }
     }
 
+    /// A halftone theme's card: a stand-in desktop in dots, big where it is light, dimming down.
+    private var printDots: some View {
+        Canvas { ctx, size in
+            let cell: CGFloat = 4
+            for y in stride(from: cell / 2, to: size.height, by: cell) {
+                for x in stride(from: cell / 2, to: size.width, by: cell) {
+                    let light = max(0, 1 - y / size.height * 1.4) * (0.5 + 0.5 * x / size.width)
+                    let radius = cell * 0.55 * light.squareRoot()
+                    guard radius > 0.3 else { continue }
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
+                        with: .color(Color(hue: 0.07 + 0.55 * y / size.height, saturation: 0.6, brightness: light)))
+                }
+            }
+        }
+    }
+
     /// A drafting theme's grid.
     @ViewBuilder private var ambient: some View {
-        if let effect = card.look.ambient {
+        if let effect = card.look.ambient, effect.kind == .grid {
             Canvas { ctx, size in
                 var lines = Path()
                 for x in stride(from: 0, to: size.width, by: 8) {

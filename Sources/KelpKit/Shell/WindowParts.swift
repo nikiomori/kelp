@@ -193,6 +193,11 @@ final class Floater: NSView {
 final class Card: NSView {
     static let gap: CGFloat = 6
     var look = WindowLook() { didSet { needsDisplay = true } }
+    /// The desktop in dots under the editors, in a `halftone` theme.
+    private var halftone: Halftone?
+    /// Watches the window move, change screens and come back to the front, for the dots to line up with the desktop
+    /// (and take a new picture). The observers are removed with the window or the view.
+    private var observers: [NSObjectProtocol] = []
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -200,12 +205,50 @@ final class Card: NSView {
         layer?.masksToBounds = true
     }
     required init?(coder: NSCoder) { fatalError() }
+    isolated deinit { observers.forEach(NotificationCenter.default.removeObserver) }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         layer?.backgroundColor = (look.card ?? .windowBackgroundColor).cgColor
         layer?.borderColor = (look.border ?? .separatorColor).cgColor
         layer?.borderWidth = look.borderWidth
         layer?.cornerRadius = look.radius
+        showHalftone()
+    }
+    override func layout() {
+        super.layout()
+        halftone?.place(in: self, base: look.card ?? .black)
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        guard let window else { return }
+        let names = [
+            (NSWindow.didMoveNotification, window), (NSWindow.didChangeScreenNotification, window),
+            (NSApplication.didBecomeActiveNotification, nil)
+        ]
+        observers = names.map { name, object in
+            NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.needsLayout = true }   // queue: .main
+            }
+        }
+    }
+
+    /// Adds the dots under the editors when the theme has them, and takes them away when it hasn't.
+    private func showHalftone() {
+        guard look.ambient?.kind == .halftone else {
+            halftone?.dots.removeFromSuperlayer()
+            halftone?.shade.removeFromSuperlayer()
+            halftone = nil
+            return
+        }
+        if halftone == nil {
+            let made = Halftone()
+            layer?.insertSublayer(made.dots, at: 0)
+            layer?.insertSublayer(made.shade, above: made.dots)
+            halftone = made
+        }
+        needsLayout = true
     }
 }
 
