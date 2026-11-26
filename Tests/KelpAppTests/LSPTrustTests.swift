@@ -73,8 +73,10 @@ extension OneAtATime {
         #expect(rows.first { $0.languages == ["python"] }?.servers.map(\.command) == ["pyright-langserver", "ruff"])
         #expect(LanguageRows.matching(rows, "ruff").map(\.name) == ["Python"])
         #expect(LanguageRows.matching(rows, ".tsx").count == 1 && LanguageRows.matching(rows, "nothing").isEmpty)
-        let used = LanguageRows.used(Languages.all, in: ["Sources/a.swift", "Dockerfile", "docs/x.md", "web/b.tsx"])
-        #expect(used == ["swift", "dockerfile", "typescriptreact"])
+        let used = LanguageRows.used(
+            Languages.all, in: ["Sources/a.swift", "Dockerfile", "docs/x.md", "web/b.tsx", "go.mod", "y.txt"])
+        #expect(used == ["swift", "dockerfile", "markdown", "typescriptreact", "go.mod"])
+        #expect(rows.first { $0.languages.contains("go.mod") }?.name == "Go, go.mod")   // one gopls, one row
 
         let lsp = LSPManager.of(rig.app), root = "/tmp/languages-\(UUID().uuidString.prefix(6))"
         let gopls = LanguageSpec.Server(command: "gopls"), ruff = LanguageSpec.Server(command: "ruff")

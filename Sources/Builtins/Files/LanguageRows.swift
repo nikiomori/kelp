@@ -37,7 +37,7 @@ enum LanguageRows {
         "typescript": "TypeScript", "typescriptreact": "TSX", "javascript": "JavaScript", "javascriptreact": "JSX",
         "cpp": "C++", "objective-c": "Objective-C", "objective-cpp": "Objective-C++", "php": "PHP", "csharp": "C#",
         "shellscript": "Shell", "ocaml": "OCaml", "json": "JSON", "jsonc": "JSONC", "html": "HTML", "css": "CSS",
-        "scss": "SCSS", "yaml": "YAML", "toml": "TOML"
+        "scss": "SCSS", "yaml": "YAML", "toml": "TOML", "sql": "SQL", "go.mod": "go.mod"
     ]
 
     /// The ids of the languages a project has files of, from its files' paths.
