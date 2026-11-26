@@ -107,7 +107,7 @@ extension UIBrowser: AsyncHandled {
     // With no workspace named, the page would open in the one on screen, which needn't be the agent's.
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        try await forward(relay, driver: relay.driver(conn))
+        try await forward(relay, driver: relay.driver(conn, words: Self.words(action, args)))
     }
 
     fileprivate func forward(_ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil) async throws
@@ -132,6 +132,11 @@ extension UIBrowser: AsyncHandled {
             clients.notify(UIBrowserEvent(call, request: request), to: apps)
         }
     }
+
+    /// What the command line says after `kelp browser`: `click e12`, `open http://localhost:3000`.
+    static func words(_ action: BrowserAction, _ args: JSONValue?) -> String {
+        ([action.rawValue] + ["ref", "key", "url"].compactMap { args?[$0]?.string }.prefix(1)).joined(separator: " ")
+    }
 }
 
 /// Hands the page to the user with the question, and the agent's row asks it, the way Kelp's own questions are asked
@@ -142,7 +147,7 @@ extension UIBrowserAsk: AsyncHandled {
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
         // A user can name the row that asks without changing the owner of the browser page.
-        let driver = try relay.driver(conn)
+        let driver = try relay.driver(conn, words: UIBrowser.words(.ask, args))
         let row = driver.session ?? args?["session"]?.string ?? Caller.session(of: Sessions.asker)
         guard let session = row, let ls = relay.asks.existing(session) else {
             throw RPCError.invalidParams("kelp browser ask runs in a session of Kelp's: its row asks the user.")
@@ -170,7 +175,7 @@ struct BrowserRelay {
     let ui: UIStore, asks: AgentAsks
     fileprivate typealias Driver = (session: String?, subagent: String?)
 
-    fileprivate func driver(_ conn: Int) throws -> Driver {
+    fileprivate func driver(_ conn: Int, words: String) throws -> Driver {
         guard let own = asks.store.agent(origin: Sessions.asker) else { return (nil, nil) }
         guard let session = own else { throw RPCError.refused("This browser command needs a Kelp session.") }
         guard HostBrowser.page == nil, let live = asks.existing(session) else { return (session, nil) }
@@ -184,7 +189,7 @@ struct BrowserRelay {
                 thread = id == root ? .root : .child(label)
             }
         }
-        return (session, try live.browsing(toolCall: call, thread: thread))
+        return (session, try live.browsing(toolCall: call, thread: thread, words: words))
     }
 }
 

@@ -97,11 +97,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The page this tab shows now: its own, or a subagent's (`pageSet`).
     var shownPage: BrowserTab { agent ? pageSet.shownTab : self }
 
-    var title: String {
-        let pages = agent && !pageSet.pages.isEmpty ? " +\(pageSet.pages.count)" : ""
-        return ownTitle + pages
-    }
-    private var ownTitle: String {
+    var ownTitle: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page
             .url?.host
             ?? String(localized: "New Page")

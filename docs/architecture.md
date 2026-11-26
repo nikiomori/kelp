@@ -66,14 +66,11 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   The model (`WorkspaceLayout`, `TabURI`) is in WorkbenchKit, a library with tests and no AppKit, like VS Code's `common/`.
   WorkbenchKit holds the shell's model and what two built-ins share; a built-in's own pure logic sits in its folder
   (`DiffRows` in Git, `FileSync` in Files), tested in KelpAppTests.
-- **Browser ownership**: `kelp browser` uses the Kelp session identified by the daemon. Its private tab keeps that
-  owner in the saved URI and can be found again after restore. On a remote host, a fresh `open` reconnects the page's
-  proxy. `open --shared` asks for the caller and site and opens a dedicated tab with the user's cookies. The grant
-  lasts in the running app while that tab is the caller's most recent page for that site.
-  Codex native subagents use ephemeral subpages inside their Kelp session. Kelp correlates the execution's tool call ID
-  with that session's hooks. When code mode has no shell hook, the thread and root IDs can still identify a subpage.
-  Kelp refuses conflicting metadata and competing hook owners. Versions that supply neither thread metadata nor hooks
-  identifying native subagents need separate Kelp sessions to keep their browser commands apart.
+- **Browser ownership**: a `kelp browser` page belongs to the chat kelpd says sent the command; its tab keeps that
+  owner in its URI (`agentweb:?session=…&url=…`), so it is found again after a restart. A subagent gets a page of its
+  own on its `open`: Codex says which thread and call it is (`CODEX_THREAD_ID`, `CODEX_TOOL_CALL_ID`), Claude Code's
+  is the running `kelp browser` command with those words. `open --shared` asks once per chat and site, for a tab of its
+  own.
 - **tmux session**: a terminal tab running `tmux new-session -A -s <name>` (`terminal:?tmux=<name>`, `session.create`'s
   `tmux`), picked from the sessions tmux has on the workspace's machine (`tmux.list`; a remote project's host) in
   File › Attach to tmux Session or "+". tmux keeps the session: after the daemon restarts the tab comes back paused and
