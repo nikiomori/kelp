@@ -20,6 +20,24 @@ extension AppDelegate {
         return nil
     }
 
+    #if DEBUG
+        /// Draws `window` as "<name>-001.png", "<name>-002.png"… `every` seconds apart, then calls `done`.
+        func film(
+            _ window: NSWindow, frames: Int, every: Double, path: String, frame: Int = 1,
+            then done: @escaping @MainActor () -> Void
+        ) {
+            guard frame <= frames else { return done() }
+            Self.snap(window, to: path.replacingOccurrences(of: ".png", with: String(format: "-%03d.png", frame)))
+            RunLoop.main.add(
+                Timer(timeInterval: every, repeats: false) { [self] _ in
+                    // A Timer on the main run loop fires on the main thread.
+                    MainActor.assumeIsolated {
+                        film(window, frames: frames, every: every, path: path, frame: frame + 1, then: done)
+                    }
+                }, forMode: .common)
+        }
+    #endif
+
     /// Saves the window as the window server composites it, including the macOS 26 materials (sidebar, inspector,
     /// glass) and web content, which the layer render draws white or not at all. An app may read its own windows
     /// without screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym, and the

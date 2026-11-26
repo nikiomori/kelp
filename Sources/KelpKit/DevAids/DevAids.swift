@@ -169,6 +169,15 @@ extension AppDelegate {
                     }, forMode: .common)
                 return
             }
+            // KELP_SNAPSHOT_FRAMES=40 first draws the window that many times, KELP_SNAPSHOT_EVERY seconds apart (0.5),
+            // as "<name>-001.png"…, the frames of a demo loop; KELP_TYPE's keys play meanwhile. The snapshot follows.
+            if !Self.filmed, let count = env["KELP_SNAPSHOT_FRAMES"].flatMap(Int.init) {
+                Self.filmed = true
+                film(window, frames: count, every: env["KELP_SNAPSHOT_EVERY"].flatMap(Double.init) ?? 0.5, path: path) {
+                    self.snap(env, to: path)
+                }
+                return
+            }
             print("WINDOW", window.title, window.frame)
             print(
                 "WINDOWS",

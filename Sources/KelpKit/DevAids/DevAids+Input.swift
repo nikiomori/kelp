@@ -7,6 +7,7 @@ import WebKit
 
     extension AppDelegate {
         static var hovered = false
+        static var filmed = false
         /// The function keys KELP_TYPE knows, written as `{f2}` or `{shift+f12}`.
         static let functionKeys: [String: (char: String, code: UInt16)] = [
             "f2": ("\u{F705}", 120), "f8": ("\u{F70B}", 100), "f12": ("\u{F70F}", 111)
