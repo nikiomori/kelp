@@ -53,7 +53,10 @@ struct ThemeGallery: View {
     private func grid(_ cards: [ThemeCard]) -> some View {
         TileGrid {
             ForEach(cards) { card in
-                PictureTile(name: card.name, on: selection == card.id, pick: { selection = card.id }) {
+                PictureTile(
+                    name: card.name, on: (ThemeManager.removed[selection] ?? selection) == card.id,
+                    pick: { selection = card.id }
+                ) {
                     MiniWindow(card: card)
                 }
             }
@@ -169,39 +172,18 @@ private struct MiniWindow: View {
         }
     }
 
+    /// A drafting theme's grid.
     @ViewBuilder private var ambient: some View {
         if let effect = card.look.ambient {
-            let colors = effect.colors.map { Color(nsColor: $0) }
-            switch effect.kind {
-            case .aurora:
-                ZStack {
-                    ForEach(Array(colors.enumerated()), id: \.offset) { index, color in
-                        let corner = [UnitPoint.topLeading, .topTrailing, .bottom][index % 3]
-                        RadialGradient(
-                            colors: [color.opacity(0.65), .clear], center: corner, startRadius: 0, endRadius: 90)
-                    }
+            Canvas { ctx, size in
+                var lines = Path()
+                for x in stride(from: 0, to: size.width, by: 8) {
+                    lines.addRect(CGRect(x: x, y: 0, width: 0.5, height: size.height))
                 }
-            case .motes:
-                Canvas { ctx, size in
-                    for index in 0..<14 {
-                        let left = CGFloat((index * 37) % 100) / 100 * size.width,
-                            top = CGFloat((index * 53) % 100) / 100 * size.height, diameter = CGFloat(index % 3) + 1.5
-                        ctx.fill(
-                            Path(ellipseIn: CGRect(x: left, y: top, width: diameter, height: diameter)),
-                            with: .color((colors.first ?? .white).opacity(0.6)))
-                    }
+                for y in stride(from: 0, to: size.height, by: 8) {
+                    lines.addRect(CGRect(x: 0, y: y, width: size.width, height: 0.5))
                 }
-            case .grid:
-                Canvas { ctx, size in
-                    var lines = Path()
-                    for x in stride(from: 0, to: size.width, by: 8) {
-                        lines.addRect(CGRect(x: x, y: 0, width: 0.5, height: size.height))
-                    }
-                    for y in stride(from: 0, to: size.height, by: 8) {
-                        lines.addRect(CGRect(x: 0, y: y, width: size.width, height: 0.5))
-                    }
-                    ctx.fill(lines, with: .color((colors.first ?? .white).opacity(0.14)))
-                }
+                ctx.fill(lines, with: .color(Color(nsColor: effect.colors.first ?? .white).opacity(0.14)))
             }
         }
     }

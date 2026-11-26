@@ -30,7 +30,7 @@ struct Theme: Codable, Identifiable, Equatable {
         var borderWidth: Double?, radius: Double?
         var accent: String?
         var font: String?   // "mono", "serif", "rounded"
-        var ambient: String?   // "aurora", "motes", "grid"
+        var ambient: String?   // "grid"
         var ambientColors: [String]?
     }
     /// Returns a colour safe for the terminal's config file, which is read line by line. A theme comes from someone
@@ -51,7 +51,7 @@ struct Theme: Codable, Identifiable, Equatable {
 /// The window as the chosen theme draws it. A nil part means the system's.
 struct WindowLook: Equatable {
     struct Ambient: Equatable {
-        enum Kind: String { case aurora, motes, grid }
+        enum Kind: String { case grid }
         var kind: Kind, colors: [NSColor]
     }
     var surface: NSColor?, card: NSColor?, border: NSColor?
@@ -59,8 +59,7 @@ struct WindowLook: Equatable {
     var ambient: Ambient?
     /// Whether the terminals show what's under them.
     var seeThrough = false
-    /// Whether nothing shows through the surface, so macOS needn't blur the desktop for it, even on every frame of a
-    /// moving backdrop.
+    /// Whether nothing shows through the surface, so macOS needn't blur the desktop for it.
     var solid: Bool { surface?.alphaComponent == 1 }
 }
 
@@ -130,10 +129,17 @@ package final class ThemeManager {
     /// The theme painting the window now, which for Match System is its light or dark one. It is nil for Ghostty's own
     /// colors.
     var shown: Theme? {
-        let id = app.settings[SettingKeys.theme]
+        let id = chosen
         return id == "ghostty"
             ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
     }
+
+    /// The theme setting, with a theme Kelp no longer has read as the one that took its place.
+    var chosen: String {
+        let id = app.settings[SettingKeys.theme]
+        return Self.removed[id] ?? id
+    }
+    static let removed = ["kelp.aurora": "kelp.dark", "kelp.neon": "kelp.dark"]
 
     /// A font setting's family, or nil when the setting is empty, which means the theme's or the system's font.
     private static func named(_ family: String) -> String? { family.isEmpty ? nil : family }
@@ -162,7 +168,7 @@ package final class ThemeManager {
         // One choice, as in VS Code. A theme with its own appearance (Kelp Light, Dracula…) sets the whole window's
         // appearance, and Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =
-            switch themes.first(where: { $0.id == settings[SettingKeys.theme] })?.appearance {
+            switch themes.first(where: { $0.id == chosen })?.appearance {
             case "light": .aqua
             case "dark": .darkAqua
             default: nil

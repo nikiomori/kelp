@@ -178,7 +178,7 @@ Without `window`, the panels and the editor area take the theme's colours. With 
   "terminal": { "background": "#031c20", "foreground": "#cfeee8", "opacity": 0.65, "shader": "bloom" },
   "editor": { "background": "#031c20", "text": "#cfeee8", "opacity": 0.8 },
   "window": { "surface": "#021316", "border": "#4de8c229", "radius": 12, "accent": "#4de8c2", "font": "mono",
-              "ambient": "motes", "ambientColors": ["#4de8c2", "#38d9d9"] }
+              "ambient": "grid", "ambientColors": ["#4de8c2"] }
 }
 ```
 - `terminal.opacity`, `editor.opacity`: under 1, what's under them shows through and the editor area loses its fill. Settings › Appearance › Terminal opacity overrides it for any theme.
@@ -186,7 +186,7 @@ Without `window`, the panels and the editor area take the theme's colours. With 
 - `window.surface`: the panels and the gap round the editor area: a colour, or `material` for macOS's own, with the desktop behind it. `surfaceOpacity` lets the desktop through a colour too.
 - `window.card`, `border`, `borderWidth`, `radius`: the editor area. `border` takes `#rrggbbaa`.
 - `window.accent`: the chrome's accent (native controls keep the system's). `window.font`: the chrome's face, `mono`, `serif` or `rounded`.
-- `window.ambient`: what moves behind it all, in `ambientColors`: `aurora` (slow wide lights), `motes` (specks rising), `grid` (a drafting grid, still). It stops while Kelp isn't the active app, and under Reduce Motion.
+- `window.ambient`: what is drawn on the surface, in the first of `ambientColors`: `grid` (a drafting grid). Nothing moves behind the code.
 
 ## iconThemes
 File icon themes in VS Code's format, so existing ones work unchanged:

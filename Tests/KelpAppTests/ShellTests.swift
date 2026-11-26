@@ -176,9 +176,18 @@ import WorkbenchKit
     let open = ThemeManager.windowLook(nord, terminalOpacity: 0.6, forced: 0.6)
     #expect(open.card == .clear && open.seeThrough && !open.solid && open.surface?.alphaComponent == 0.6)
     // A see-through look keeps its own surface when nothing forces it.
-    let sea = try #require(Theme.looks.first { $0.id == "kelp.deep-sea" })
-    let look = ThemeManager.windowLook(sea, terminalOpacity: 0.65, forced: nil)
-    #expect(look.card == .clear && look.solid && look.ambient?.kind == .motes)
+    let blueprint = try #require(Theme.looks.first { $0.id == "kelp.blueprint" })
+    let look = ThemeManager.windowLook(blueprint, terminalOpacity: 0.5, forced: nil)
+    #expect(look.card == .clear && look.solid && look.ambient?.kind == .grid)
+}
+
+/// A theme Kelp no longer has, still in someone's settings.json, shows the one that took its place, not Ghostty's.
+@MainActor @Test func aRemovedThemeShowsItsReplacement() {
+    let app = AppModel(builtins: Builtins.all)
+    for (old, new) in [("kelp.neon", "kelp.dark"), ("kelp.aurora", "kelp.dark"), ("kelp.paper", "kelp.paper")] {
+        app.settings.apply([SettingKeys.theme.key: .string(old)])
+        #expect(app.themes.shown?.id == new, "\(old)")
+    }
 }
 
 @Test func coloursTakeAlpha() throws {

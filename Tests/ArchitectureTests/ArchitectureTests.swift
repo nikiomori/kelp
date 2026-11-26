@@ -935,12 +935,12 @@ func codeOnly(_ s: String) -> String {
             #"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#,
             in: chromeDirs + ["Sources/EditorKit"]),
         0, "system text styles")
-    exactly(try matches(#"(cornerRadius|[dD]uration) = \d"#, in: chromeDirs), 2, "radii and durations")
+    exactly(try matches(#"(cornerRadius|[dD]uration) = \d"#, in: chromeDirs), 1, "radii and durations")
     // A dev aid's, and key bindings read back: neither is motion.
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
     let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
-    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 20, "opacities")
+    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 18, "opacities")
     // The editor's too: a fold's plate and its dots.
     exactly(
         try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: ["Sources/EditorKit"]), 2,

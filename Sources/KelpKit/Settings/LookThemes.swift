@@ -1,8 +1,9 @@
 import Foundation
 
 extension Theme {
-    /// Themes that rebuild the window, not only recolour it. Each differs from the others in what it is made of (glass,
-    /// light moving behind the text, a phosphor screen, drafting paper, printed paper), not in hue.
+    /// Themes that rebuild the window, not only recolour it. Each differs from the others in what it is made of
+    /// (glass, deep water, a phosphor screen, drafting paper, printed paper), not in hue. Nothing in them moves: a
+    /// backdrop drifting behind the code (Aurora, Neon, Deep Sea's motes) read as wallpaper, not a place to work.
     static let looks: [Theme] = [
         Theme(
             "kelp.glass", "Glass", "dark", c: ["#0b0e14", "#e8ecf4", "", "#2f4a6d"],
@@ -23,39 +24,13 @@ extension Theme {
             terminalOpacity: 0.5, editorOpacity: 0.65,
             window: .init(surface: "material", border: "#0000001f")),
         Theme(
-            "kelp.aurora", "Aurora", "dark", c: ["#080b16", "#e6e9f5", "#5ef1b5", "#2c2a5a"],
-            ansi: [
-                "#141a2e", "#ff6e96", "#5ef1b5", "#ffd479", "#7aa7ff", "#c792ff", "#5fe3e8", "#c9cfe3",
-                "#5a648a", "#ff8fb0", "#8bf7cb", "#ffe3a3", "#a0c0ff", "#dcb8ff", "#8ff0f2", "#ffffff"
-            ],
-            code: ["#c792ff", "#5ef1b5", "#6f7aa3", "#5fe3e8", "#ffd479", "#7aa7ff"],
-            terminalOpacity: 0.55, editorOpacity: 0.72,
-            window: .init(
-                surface: "#060814", border: "#ffffff1a", accent: "#5ef1b5", ambient: "aurora",
-                ambientColors: ["#19e3b1", "#7c5cff", "#ff4f9a"])),
-        Theme(
             "kelp.deep-sea", "Deep Sea", "dark", c: ["#031c20", "#cfeee8", "#4de8c2", "#0d4a52"],
             ansi: [
                 "#0a2a30", "#ff7a6b", "#4de8c2", "#f2d479", "#4fb3ff", "#b79cff", "#38d9d9", "#bcdcd6",
                 "#3f6b70", "#ff9d90", "#86f2d6", "#f7e3a3", "#86ccff", "#d0bfff", "#7aeaea", "#f0fffb"
             ],
             code: ["#4de8c2", "#f2d479", "#5d8a8a", "#38d9d9", "#ff9d90", "#86ccff"],
-            terminalOpacity: 0.65, editorOpacity: 0.8,
-            window: .init(
-                surface: "#021316", border: "#4de8c229", accent: "#4de8c2", ambient: "motes",
-                ambientColors: ["#4de8c2", "#38d9d9"])),
-        Theme(
-            "kelp.neon", "Neon", "dark", c: ["#120524", "#f5e9ff", "#ff5cf0", "#4a1a6e"],
-            ansi: [
-                "#2a0f45", "#ff3d81", "#2dffb3", "#ffe14d", "#3da9ff", "#ff5cf0", "#2de2ff", "#e0c9f5",
-                "#7a5c99", "#ff7aa8", "#7affd1", "#fff08a", "#7ac4ff", "#ff9cf5", "#7aeeff", "#ffffff"
-            ],
-            code: ["#ff5cf0", "#ffe14d", "#8a6bb0", "#2de2ff", "#ff9d4d", "#2dffb3"],
-            terminalOpacity: 0.78, editorOpacity: 0.85, shader: "bloom",
-            window: .init(
-                surface: "#0e0320", border: "#ff5cf04d", radius: 14, accent: "#ff5cf0", font: "rounded",
-                ambient: "aurora",
-                ambientColors: ["#ff2fa0", "#7b2fff", "#00d5ff"])),
+            window: .init(surface: "#021316", border: "#4de8c229", accent: "#4de8c2")),
         Theme(
             "kelp.phosphor", "Phosphor", "dark", c: ["#030703", "#33ff66", "#33ff66", "#0f4020"],
             ansi: [
