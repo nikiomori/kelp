@@ -94,6 +94,10 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   the page but for the forwarded ports (a content rule, `BrowserTab.onHost`), and the host shows before the address.
   Files cross over the connection: an upload is read there, a screenshot, recording or download is copied there.
   `--shared` and `preview:` are refused from a host. Without a connection the script says Kelp isn't there.
+- **Browser data** stays in a WebKit profile named by the local agent's Kelp session UUID. Persistent cookies and site
+  data survive closing the tab and relaunching Kelp. Native subagent pages, legacy tabs and callers without a verified
+  session use temporary storage. Remote pages also use temporary storage and wait for a fresh `kelp browser open`
+  from the host before loading again. `--shared` asks the user before using their browser profile.
 - **Remote agents** run in a tmux session of their own on the host when it has tmux (`Session.tmux`,
   `RemoteHost.command(_:inTmux:)`): the agent keeps working through a dropped connection or a daemon restart, a wake or
   Restart attaches to it again ("Connection lost" › Reconnect), closing the tab ends it. After attaching, tmux's redraw

@@ -90,9 +90,6 @@ struct BrowserRequests {
         guard let tab = app.workbench.content(page, in: wid) as? BrowserTab else {
             throw RPCError.invalidParams("That tab shows no page.")
         }
-        if action != .open, tab.ownerSession?.hasPrefix(AgentPages.remotePrefix) == true, tab.hostChip.isHidden {
-            throw Self.noPage
-        }
         // Add where the page is, for the marks it shows outside its tab (`AgentPages`).
         var args = args
         if case .object(var fields) = args {

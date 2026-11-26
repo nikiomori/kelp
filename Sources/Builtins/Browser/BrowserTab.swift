@@ -42,7 +42,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
     let start: String
     let ownerSession: String?
-    /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
+    /// Whether this is an agent's page (`kelp browser open`), with its own website data store.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
@@ -122,7 +122,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         self.app = app
         ports = PortsView(app: app)
         let cfg = WKWebViewConfiguration()
-        if agent { cfg.websiteDataStore = .nonPersistent() }
+        if agent {
+            let session = ownerSession.flatMap(app.session)
+            cfg.websiteDataStore = app.part { BrowserDataStores() }.store(
+                owner: session?.isAgent == true ? session?.id : nil)
+        }
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.applicationNameForUserAgent = Self.safariName
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
@@ -218,12 +222,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         } changed: { [weak self] served in
             if served { self?.reloadPage() }
         }
-        if opened == nil {
-            // A restored host page needs a new proxy and forwarded ports before it can load again.
-            load(ownerSession?.hasPrefix(AgentPages.remotePrefix) == true ? "about:blank" : start)
-        } else {
+        if opened != nil {
             ports.isHidden = true
             showPage()
+        } else if !agent || ownerSession != nil || previewFile != nil {
+            // Legacy agent web addresses have no record of which network they were opened on.
+            load(start)
         }
     }
 
@@ -359,6 +363,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func load(_ raw: String) {
+        guard !awaitsHostNetwork else { return }
         if let previewFile, raw == start {
             let fileURL = URL(fileURLWithPath: previewFile), dir = fileURL.deletingLastPathComponent()
             web.loadFileURL(fileURL, allowingReadAccessTo: dir)

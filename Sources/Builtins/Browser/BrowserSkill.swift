@@ -20,10 +20,11 @@ extension Builtins {
 
             - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints, once it loaded,
               `page "Title" url` and its first lines with their refs (no snapshot needed after it) (`failed:` says why
-              it didn't load); `reload` and `back` too. The page has cookies and storage of its own, so you start logged
-              out. `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks them first,
-              for that one site; going to another site is blocked (the console says so) until you open it with
-              `--shared` again. Every other command drives a page you opened: the user's own tabs aren't yours.
+              it didn't load); `reload` and `back` too. Persistent cookies and site data stay with the same local Kelp
+              session when you reopen a page. Remote pages, native subagent pages and calls without a session use
+              temporary storage. Use `--shared` when the user asks you to act as them. Kelp asks for their approval to
+              use their cookies on that site. To drive another site, open it with `--shared` again. Every other browser
+              command drives a page you opened.
             - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
               address it shows does the same).
             - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`, `- textbox

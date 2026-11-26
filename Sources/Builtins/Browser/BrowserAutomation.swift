@@ -15,6 +15,7 @@ extension BrowserTab {
         let name = action.rawValue
         // A subagent's command goes to the subagent's own page in this tab (BrowserPages.swift).
         if agent, host == nil, let page = try pageSet.route(action, args) { return try await page.browse(action, args) }
+        if action != .open, awaitsHostNetwork { throw BrowserRequests.noPage }
         defer { (host ?? self).pageSetActed() }
         func need(_ key: String) throws -> String {
             guard let value = args[key]?.string, !value.isEmpty else {
@@ -63,7 +64,8 @@ extension BrowserTab {
             // reloads with nothing from the cache. A dev server that doesn't ask for revalidation would hand back the
             // old script.
             let url = try need("url")
-            if let remote = args["remote"], remote != .null { try await onHost(remote) }
+            let remote = args["remote"] ?? .null
+            if requiresHostNetwork || remote != .null { try await onHost(remote) }
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case .reload:

@@ -9,22 +9,29 @@ import WebKit
 /// a proxy, so the host's localhost comes as ports forwarded here, and this Mac's own loopback is closed to the page
 /// but for those ports: a program on the host can't reach the Mac's own servers through the page.
 extension BrowserTab {
+    var requiresHostNetwork: Bool { (host ?? self).ownerSession?.hasPrefix(AgentPages.remotePrefix) == true }
+    var awaitsHostNetwork: Bool { requiresHostNetwork && hostChip.isHidden }
+
     /// Puts the page on the host's network as the daemon said (`args.remote`: host, proxy, ports), before it loads.
     /// Connections the page already holds stay as they were until they close.
     func onHost(_ remote: JSONValue) async throws {
-        guard agent, let host = remote["host"]?.string, let proxy = remote["proxy"]?.int,
-            let port = NWEndpoint.Port(rawValue: UInt16(clamping: proxy))
-        else { return }
+        let store = web.configuration.websiteDataStore
+        guard requiresHostNetwork, !store.isPersistent, let host = remote["host"]?.string, RemoteHost.isHost(host),
+            let proxy = remote["proxy"]?.int, let value = UInt16(exactly: proxy), value != 0,
+            let port = NWEndpoint.Port(rawValue: value)
+        else { throw RPCError.invalidParams("This page needs a valid browser connection from its remote host.") }
         var socks = ProxyConfiguration(socksv5Proxy: .hostPort(host: "127.0.0.1", port: port))
         socks.allowFailover = false   // never straight from this Mac
-        web.configuration.websiteDataStore.proxyConfigurations = [socks]
         let ports = (remote["ports"]?.array ?? []).compactMap(\.int).sorted()
-        let rules = try await WKContentRuleListStore.default().compileContentRuleList(
-            forIdentifier: "kelp.host." + ports.map(String.init).joined(separator: "."),
-            encodedContentRuleList: Self.loopbackRules(allowing: ports))
+        guard
+            let rules = try await WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "kelp.host." + ports.map(String.init).joined(separator: "."),
+                encodedContentRuleList: Self.loopbackRules(allowing: ports))
+        else { throw RPCError.internalError("Kelp couldn’t set the remote page’s network rules.") }
         let content = web.configuration.userContentController
         content.removeAllContentRuleLists()
-        if let rules { content.add(rules) }
+        content.add(rules)
+        store.proxyConfigurations = [socks]
         hostChip.title = host
         hostChip.toolTip = String(
             localized: "An agent on \(host) drives this page: localhost is \(host)’s, and the page loads through it")

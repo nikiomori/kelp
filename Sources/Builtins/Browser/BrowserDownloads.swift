@@ -15,6 +15,7 @@ extension BrowserTab: WKDownloadDelegate {
         async
         -> (WKNavigationActionPolicy, WKWebpagePreferences)
     {
+        if awaitsHostNetwork { return (.cancel, preferences) }
         if let url = action.request.url, leavesSharedSite(url, mainFrame: action.targetFrame?.isMainFrame != false) {
             noteLog("[blocked] \(url.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
