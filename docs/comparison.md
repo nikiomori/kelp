@@ -1,6 +1,6 @@
-# Kelp next to Orca, Herdr, cmux, Paradev and Zed
+# Kelp next to Cursor, Warp, Zed, Orca, Herdr, cmux and Paradev
 
-Kelp's author wrote this page. It tries to be fair, and it will go out of date, because all six apps ship every week.
+Kelp's author wrote this page. It tries to be fair, and it will go out of date, because all these apps ship every week.
 Each fact carries the date it was read and a link to where it was read. If something here is wrong or old, open an
 issue or a pull request.
 
@@ -43,6 +43,31 @@ None of the other apps was run for this page, except for the weight table, which
 | GitHub stars | 4 | 115,847 | 48,170 (app: 1,995) | 28,705 | 15,944 | 92,748 |
 
 "Not checked" means this page doesn't know. It doesn't mean "no".
+
+## Cursor and Warp
+
+Read on 26 November 2026, from each one's docs, pricing page and repository. The README's
+[table](../README.md#kelp-cursor-zed-and-warp) comes from these and from Zed's rows above, which were checked again
+the same day.
+
+**Cursor** is a VS Code-based editor (it runs VS Code extensions from Open VSX) for macOS, Windows and Linux
+[^cursor-start]. You sign in to use it [^cursor-start]. Its Agents Window, since Cursor 3, runs several of Cursor's own
+agents at once, in worktrees or in Cursor's cloud [^cursor-agents]. Its CLI speaks ACP as a server for other editors,
+and it can load Claude Code's hooks. No documented way to run Claude Code, Codex or Gemini CLI as sessions of their own
+was found [^cursor-acp]. Plans come with a usage pool, and other vendors' models are billed at API prices
+[^cursor-pricing]. Its privacy policy says it collects usage data [^cursor-privacy]. No source license was found.
+
+**Warp** is a terminal for macOS, Windows and Linux, written in Rust. Its client has been open source since 27 April
+2026, under AGPL-3.0 with MIT UI crates [^warp-oss]. Signing in is optional [^warp-install]. It notices CLI agents in
+its terminal (Claude Code, Codex, Gemini CLI, OpenCode, Amp and others) and shows their state in its vertical tabs.
+Notifications when Claude Code, Codex or OpenCode wait for input need a one-time setup [^warp-cli]. Its Code Review
+panel reverts hunks and sends line comments to Warp's agent, Claude Code or Codex [^warp-review]. Its editor has
+language servers for Rust, Go, Python, TypeScript and JavaScript, and C and C++ [^warp-lsp]. Telemetry and crash
+reports are on by default and can be turned off [^warp-settings].
+
+**Zed** since 5 November: Terminal Threads (from 20 May 2026) run the plain `claude` or `codex` CLI, each with a status
+mark in the sidebar [^zed-parallel]. Signing in is not required [^zed-auth], and telemetry is on by default and can be
+turned off [^zed-telemetry].
 
 ## Weight
 
@@ -174,3 +199,17 @@ Checked in Kelp's code on 5 November 2026:
 [^zed-review]: Zed's Git diff has **Send Review to Agent (N)** for comments left on hunks: `crates/git_ui/src/project_diff.rs` in [zed-industries/zed](https://github.com/zed-industries/zed), read 2026-11-02; a request for PR-style review, [zed#59157](https://github.com/zed-industries/zed/issues/59157), was open then.
 [^zed-external]: [Zed docs, External Agents](https://github.com/zed-industries/zed/blob/main/docs/src/ai/external-agents.md), read 2026-11-05: Claude, Codex, OpenCode and others through the Agent Client Protocol.
 [^review-with]: Kelp `Sources/Builtins/Git/DiffReviewWith.swift` and `DiffFindings.swift`, commits 69188e78 and af6057b4 on `main`, 2026-11-05.
+[^cursor-start]: [Cursor quickstart](https://cursor.com/docs/get-started/quickstart) ("Open the app and sign in") and [extensions](https://cursor.com/help/customization/extensions), read 2026-11-26.
+[^cursor-agents]: [Cursor docs, Agents Window](https://cursor.com/docs/agent/agents-window) and [worktrees](https://cursor.com/docs/configuration/worktrees), read 2026-11-26.
+[^cursor-acp]: [Cursor CLI, ACP](https://cursor.com/docs/cli/acp) and [third-party hooks](https://cursor.com/docs/agent/third-party-hooks), read 2026-11-26.
+[^cursor-pricing]: [Cursor pricing](https://cursor.com/pricing), read 2026-11-26.
+[^cursor-privacy]: [Cursor privacy policy](https://cursor.com/privacy) and [Privacy Mode](https://cursor.com/help/security-and-privacy/privacy), read 2026-11-26.
+[^warp-oss]: [Warp changelog 2026](https://docs.warp.dev/changelog/2026) ("Warp is now open source", 2026-04-27) and the [warp repository](https://github.com/warpdotdev/warp), read 2026-11-26.
+[^warp-install]: [Warp installation and setup](https://docs.warp.dev/getting-started/quickstart/installation-and-setup), read 2026-11-26.
+[^warp-cli]: [Warp docs, CLI agents](https://docs.warp.dev/agents/cli-agents/overview), read 2026-11-26.
+[^warp-review]: [Warp docs, Code Review](https://docs.warp.dev/code/code-review) and [interactive code review](https://docs.warp.dev/agents/local-agents/interactive-code-review), read 2026-11-26.
+[^warp-lsp]: [Warp docs, language servers](https://docs.warp.dev/code/code-editor/language-server-protocol), read 2026-11-26.
+[^warp-settings]: [Warp settings](https://docs.warp.dev/terminal/settings/all-settings) (`telemetry_enabled`, `crash_reporting_enabled`) and [privacy](https://docs.warp.dev/support-and-community/privacy-and-security/privacy), read 2026-11-26.
+[^zed-parallel]: [Zed docs, parallel agents](https://zed.dev/docs/ai/parallel-agents) and [Terminal Threads](https://zed.dev/blog/terminal-threads), read 2026-11-26.
+[^zed-auth]: [Zed docs, authentication](https://zed.dev/docs/authentication), read 2026-11-26.
+[^zed-telemetry]: [Zed docs, telemetry](https://zed.dev/docs/telemetry), read 2026-11-26.

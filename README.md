@@ -14,7 +14,22 @@ See who needs you at a glance, and read every change right beside the agent that
 [![CI](https://github.com/nikiomori/kelp/actions/workflows/ci.yml/badge.svg)](https://github.com/nikiomori/kelp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1F8A96.svg)](LICENSE)
 
+<img src="docs/screenshots/demo.webp" alt="Three Claude Code agents get their prompts at once beside the file they read. Their rows in the sidebar turn from working to done, and the one that stops to ask turns orange with its question on its row" />
+
+<sub>Three Claude Code agents at work, sped up about eight times.</sub>
+
 </div>
+
+## Install
+
+Download [`Kelp.dmg`](https://github.com/nikiomori/kelp/releases/latest/download/Kelp.dmg) and drag Kelp to
+Applications, or with Homebrew:
+
+```sh
+brew install --cask nikiomori/tap/kelp
+```
+
+Open it and press <kbd>⌘N</kbd> for a chat with an agent you already use. Kelp updates itself; [more on installing](#more-on-installing).
 
 ## Why Kelp
 
@@ -80,6 +95,26 @@ on the lines; the ones you tick go back to the first agent in one message.
 
 Commit, push and open a pull request from Source Control, which works as in VS Code, branch graph included. CI shows on
 the branch, and **Fix with Agent** hands a failed check to an agent along with its log.
+
+## Kelp, Cursor, Zed and Warp
+
+| | Kelp | Cursor | Zed | Warp |
+| --- | --- | --- | --- | --- |
+| What it is | A Mac app built around CLI agents, with an editor and git | A VS Code-based editor with its own agent | A code editor with an agent panel | A terminal with agents |
+| Agents | Any CLI agent: the 22 above, or any command | Cursor's own agent | Zed's agent, ACP agents, and the `claude` or `codex` CLI in Terminal Threads | Warp's agent, and CLI agents in its terminal |
+| Runs on your Claude or ChatGPT plan | Yes: each agent is the real CLI | No: Cursor's plans, other vendors' models at API prices | Yes, for external agents | Yes, for CLI agents |
+| Shows which agent needs you | Yes, for any agent, with nothing to set up | For its own agent | A status mark on each thread | In its vertical tabs. Notifications for Claude Code, Codex and OpenCode after a one-time setup |
+| Comment on a diff line, sent back to the agent | Yes, and a second agent can review the first | Not checked | Yes, for ACP agents | Yes, for Warp's agent, Claude Code and Codex |
+| Account | None | Sign-in required | Optional | Optional (an anonymous ID otherwise) |
+| Telemetry | None | Collects usage data | On by default, can be turned off | On by default, can be turned off |
+| Built with, runs on | Swift and AppKit, macOS only | VS Code base; macOS, Windows, Linux | Rust; macOS, Windows, Linux | Rust; macOS, Windows, Linux |
+| Source | MIT | Proprietary | GPL-3.0 | AGPL-3.0 |
+
+<sub>Read on 26 November 2026 from each one's own docs, pricing and repository. Sources, and Kelp next to Orca, Herdr,
+cmux and Paradev: [docs/comparison.md](docs/comparison.md). If something here is wrong or old, open an issue.</sub>
+
+Where they're ahead: all three run on Windows and Linux, Zed is the more mature editor and has collaboration, and Cursor
+and Warp run agents in their cloud too.
 
 ## Also in the box
 
@@ -177,7 +212,7 @@ running; each number is the median of the three, or the range where they differe
 
 </details>
 
-## Install
+## More on installing
 
 Requires macOS 14+. Download [`Kelp.dmg`](https://github.com/nikiomori/kelp/releases/latest/download/Kelp.dmg) and
 drag Kelp to Applications; it updates itself (Kelp › Check for Updates…). Keep it allowed in System Settings › General ›
@@ -275,5 +310,5 @@ Signing, channels and releases: [docs/releasing.md](docs/releasing.md).
 
 ## More
 
-[Architecture](docs/architecture.md) · [Kelp next to Orca, Herdr, cmux, Paradev and Zed](docs/comparison.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
+[Architecture](docs/architecture.md) · [Kelp next to Cursor, Warp, Zed, Orca, Herdr, cmux and Paradev](docs/comparison.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
 [Code of Conduct](CODE_OF_CONDUCT.md) · MIT [license](LICENSE)
