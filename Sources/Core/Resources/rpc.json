@@ -531,6 +531,33 @@
         ],
         "type" : "object"
       },
+      "ArtifactAgentChange" : {
+        "description" : "A change an agent made to a page's tags or archive (`ArtifactChange` with its session): who, when, and what the page had before, which Undo puts back.",
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "at" : {
+            "description" : "Seconds since 1970.",
+            "type" : "number"
+          },
+          "session" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "description" : "The tags and the archive before the change.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "at",
+          "session"
+        ],
+        "type" : "object"
+      },
       "ArtifactCheckEvent" : {
         "description" : "Relays `artifact.check` to the window, which draws the canvas at `path` again and answers `request` with `ui.browser.reply`.",
         "properties" : {
@@ -546,6 +573,14 @@
           "request"
         ],
         "type" : "object"
+      },
+      "ArtifactCopy" : {
+        "description" : "How whole Kelp's copy of a page on a service is: everything it uses is on this Mac, or some pictures or styles are missing (the agent uploaded them before Kelp kept them). No copy at all is nil.",
+        "enum" : [
+          "full",
+          "partial"
+        ],
+        "type" : "string"
       },
       "ArtifactCost.Spent" : {
         "properties" : {
@@ -574,11 +609,21 @@
       "ArtifactItem" : {
         "description" : "An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.",
         "properties" : {
+          "agentChange" : {
+            "$ref" : "#/components/schemas/ArtifactAgentChange"
+          },
           "answered" : {
             "type" : "integer"
           },
+          "archived" : {
+            "type" : "boolean"
+          },
           "changed" : {
             "type" : "boolean"
+          },
+          "copy" : {
+            "$ref" : "#/components/schemas/ArtifactCopy",
+            "description" : "For a page on a service: how whole Kelp's copy of it is. nil when there is no copy."
           },
           "created" : {
             "description" : "Seconds since 1970, like `modified`.",
@@ -605,6 +650,13 @@
           },
           "slug" : {
             "type" : "string"
+          },
+          "tags" : {
+            "description" : "The record's tags, archive and an agent's last change to them (`ArtifactRecord`).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "target" : {
             "description" : "The artifact's file, or its page on the service (`Artifacts.target`).",
@@ -633,6 +685,21 @@
           "target",
           "title",
           "type"
+        ],
+        "type" : "object"
+      },
+      "ArtifactKeepAssets.Asset" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "id",
+          "path"
         ],
         "type" : "object"
       },
@@ -4358,6 +4425,13 @@
           "html" : {
             "description" : "The whole page (`publish_version`).",
             "type" : "string"
+          },
+          "others" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "The other files `publish_files` sent beside the page (its CSS, scripts, pictures): where each is served, and the file on this Mac that holds it. They are kept with the copy, so it opens whole without the network.",
+            "type" : "object"
           }
         },
         "required" : [
@@ -5163,6 +5237,10 @@
             "description" : "The session whose program asked for this one (`session.create` from inside a session, `--outlive` too). The daemon sets it from the caller's process, never from what the caller sent, so an agent may act on what it started and nothing more.",
             "type" : "string"
           },
+          "page" : {
+            "$ref" : "#/components/schemas/SessionPage",
+            "description" : "The artifact page the agent works with in this turn (`SessionPage`), from its hooks: Artifacts Overview shows its face on that page. nil between turns, and while the turn touched no page."
+          },
           "parent" : {
             "description" : "The agent that started this one (`kelp session new --agent`). The parent hears how this agent is doing, and ends it when the parent ends.",
             "type" : "string"
@@ -5485,6 +5563,52 @@
           "session"
         ],
         "type" : "object"
+      },
+      "SessionHook.PageTouch" : {
+        "properties" : {
+          "doing" : {
+            "$ref" : "#/components/schemas/SessionPage.Doing"
+          },
+          "file" : {
+            "type" : "string"
+          },
+          "service" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "doing"
+        ],
+        "type" : "object"
+      },
+      "SessionPage" : {
+        "description" : "An artifact page an agent works with now: what opens it (`ArtifactItem.target`), what the agent does with it, and when it last did.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "doing" : {
+            "$ref" : "#/components/schemas/SessionPage.Doing"
+          },
+          "target" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "doing",
+          "target"
+        ],
+        "type" : "object"
+      },
+      "SessionPage.Doing" : {
+        "enum" : [
+          "editing",
+          "reading",
+          "answering"
+        ],
+        "type" : "string"
       },
       "SessionRole" : {
         "description" : "The job Kelp started a session for (`Session.role`). A `reviewer` session reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text meant for \"the agent\" never go to it.",
@@ -7427,6 +7551,14 @@
           }
         },
         {
+          "description" : "The page's id on the service (`ArtifactRecord.serviceId`).",
+          "name" : "serviceId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "session",
           "required" : false,
           "schema" : {
@@ -7498,6 +7630,77 @@
       }
     },
     {
+      "description" : "Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back; `keep` (the user closing the change's bar) forgets it, so a later change by that chat is undone on its own. Returns the page's tags after the change.",
+      "name" : "artifact.change",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "add",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "archived",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "folder",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "keep",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "remove",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "undo",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      }
+    },
+    {
       "description" : "`kelp artifact check` returns what Kelp's window finds wrong on a design's canvas (`path`, its canvas.json) once it has drawn the canvas again from the files: text cut off, low contrast, a board wider than its frame, a missing file. Empty when nothing is wrong. The window must have the canvas open (the CLI opens it first), and this call waits for the window's answer.",
       "name" : "artifact.check",
       "paramStructure" : "by-name",
@@ -7538,6 +7741,44 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Keeps the files an agent uploaded for its pages (`upload_asset`, from its hook), by their id on the service, in the project that holds `cwd`: Kelp's copies of the pages show them without the network. Returns how many were kept.",
+      "name" : "artifact.keepAssets",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "assets",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ArtifactKeepAssets.Asset"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "cwd",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "integer"
         }
       },
       "x-internal" : true
@@ -7678,6 +7919,27 @@
           "type" : "string"
         }
       }
+    },
+    {
+      "description" : "Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and styles beside it, linked from there. Returns that file, which opens in a page's tab.",
+      "name" : "artifact.offline",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "folder",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Renames the page (`path`, its file) as the user typed it: its title in the Artifacts panel and its bar. Returns whether it was renamed.",
@@ -13985,6 +14247,14 @@
           "required" : false,
           "schema" : {
 
+          }
+        },
+        {
+          "description" : "The artifact page a tool starts on (`SessionHook.page(of:)`): a file in `.kelp/artifacts`, or a page on claude.ai by its id or link.",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/SessionHook.PageTouch"
           }
         },
         {

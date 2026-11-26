@@ -205,60 +205,6 @@ public struct HistoryResume: RPCMethod, LaunchOptions {
     }
 }
 
-/// Sent by a running agent's hooks (`kelp hook`): `event`, plus what Claude Code's hook payload says.
-public struct SessionHook: InternalMethod {
-    public static let name = "session.hook"
-    public typealias Result = Done
-    public var id: String, event: String?, transcript: String?, cwd: String?, trigger: String?, notification: JSONValue?
-    public var backgroundTasks: [JSONValue]?
-    /// For Stop, the agent's timers (CronCreate, ScheduleWakeup, /loop) that will wake it later.
-    public var sessionCrons: [JSONValue]?
-    /// For `command`, what the agent's shell tool started or finished.
-    public var command: AgentCommand?
-    /// The name of the agent's hook that sent this. `event` is what Kelp's hooks file makes of it.
-    public var hookName: String?
-    /// The subagent the hook comes from. nil means the agent's main thread.
-    public var agentId: String?
-    /// For `subagent`, the subagent's kind, when it starts.
-    public var agentType: String?
-    /// For Stop, the words the turn ended with.
-    public var reply: String?
-    /// What the prompt set as a /goal.
-    public var goal: String?
-    /// The background shells that a `<task-notification>` prompt says ended, by task id and tool call id.
-    public var endedTasks: [String]?
-    /// The file an agent's tool just changed (Claude Code's Edit, Write, MultiEdit or NotebookEdit, from PostToolUse).
-    public var edited: String?
-    /// When the hook ran, on the clock of this boot. Hooks arrive out of order when the agent doesn't wait for one (a
-    /// Notification) or when kelpd was away, and a late hook says nothing about now.
-    public var at: TimeInterval?
-    enum CodingKeys: String, CodingKey {
-        case id, event, transcript, cwd, trigger, notification, command, goal, at, reply, edited
-        case backgroundTasks = "background_tasks", sessionCrons = "session_crons", endedTasks = "ended_tasks"
-        case hookName = "hook_event_name", agentId = "agent_id", agentType = "agent_type"
-    }
-    public init(
-        id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil,
-        notification: JSONValue? = nil,
-        backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,
-        hookName: String? = nil, agentId: String? = nil, goal: String? = nil, at: TimeInterval? = nil
-    ) {
-        self.id = id
-        self.event = event
-        self.transcript = transcript
-        self.cwd = cwd
-        self.trigger = trigger
-        self.notification = notification
-        self.backgroundTasks = backgroundTasks
-        self.sessionCrons = sessionCrons
-        self.command = command
-        self.hookName = hookName
-        self.agentId = agentId
-        self.goal = goal
-        self.at = at
-    }
-}
-
 /// Sets a summary from the UI (the agent's last reply), and optionally a better status guess. With `ifStatus`, the
 /// call applies only while the session keeps that status, as the row may have moved on to a question.
 public struct SessionAnnotate: InternalMethod {

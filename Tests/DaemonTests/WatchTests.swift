@@ -593,3 +593,55 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     _ = try await c.call(RepoIcon(path: repo.path))
     #expect(ranOnHost() == before, "drawing its icon dials nothing")
 }
+
+/// The page an agent's tool starts on comes on its row while the turn runs, with what it does: a page file it edits,
+/// a page on claude.ai by its id, a page it answers on with `kelp artifact reply`. The next prompt takes it off.
+@Test func theRowSaysWhichPageTheAgentWorksOn() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let artifacts = Artifacts.dir(root: wt.path)
+    for (slug, record) in [
+        ("doc", ArtifactRecord(type: "doc", title: "Doc", created: Date(), file: "doc.md")),
+        ("web", ArtifactRecord(type: "page", title: "Web", created: Date(), url: "https://claude.ai/artifact/abc"))
+    ] {
+        var record = record
+        if slug == "web" { record.serviceId = "0d3f-uuid" }
+        let folder = artifacts.appendingPathComponent(slug)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"))
+    }
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30", "cwd": .string(wt.path)]),
+        as: Session.self)
+    let heard = Heard()
+    heard.listen(w.c)
+    func touch(_ tool: String, _ input: JSONValue) async throws {
+        let payload: JSONValue = .obj([
+            "hook_event_name": "PreToolUse", "tool_name": .string(tool), "tool_input": input, "cwd": .string(wt.path)
+        ])
+        var hook = SessionHook(id: s.id, event: "command", hookName: "PreToolUse")
+        hook.page = SessionHook.page(of: payload)
+        _ = try await w.c.call(hook)
+    }
+    func page() -> SessionPage? { heard.events(Session.self).last { $0.id == s.id }?.page }
+    let doc = artifacts.appendingPathComponent("doc/doc.md").path
+    try await touch("Edit", .obj(["file_path": .string(doc)]))
+    #expect(try await waitFor(10) { page()?.target == doc && page()?.doing == .editing })
+    try await touch("mcp__claude-artifacts__read_comments", .obj(["slug": "0d3f-uuid"]))
+    #expect(try await waitFor(10) { page()?.target == "https://claude.ai/artifact/abc" && page()?.doing == .reading })
+    try await touch("Bash", .obj(["command": "kelp artifact reply doc 2 \"done\""]))
+    #expect(try await waitFor(10) { page()?.target == doc && page()?.doing == .answering })
+    #expect(SessionHook.page(of: .obj(["hook_event_name": "PreToolUse", "tool_name": "Bash"])) == nil)
+    // What the agent uploads for its pages is kept in the project, by its id.
+    let picture = artifacts.appendingPathComponent("web/picture.png")
+    try Data("PNG".utf8).write(to: picture)
+    let asset = ArtifactKeepAssets.Asset(path: picture.path, id: "ab12")
+    #expect(try await w.c.call(ArtifactKeepAssets(cwd: wt.path, session: s.id, assets: [asset])) == 1)
+    #expect(FileManager.default.fileExists(atPath: Artifacts.blobs(root: wt.path).appendingPathComponent("ab12").path))
+    _ = try await w.c.call(
+        "session.hook", .obj(["id": .string(s.id), "event": "working", "hook_event_name": "UserPromptSubmit"]))
+    #expect(try await waitFor(10) { heard.events(Session.self).last { $0.id == s.id }.map { $0.page == nil } == true })
+}

@@ -786,6 +786,7 @@ func codeOnly(_ s: String) -> String {
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
         "Builtins/Files/Preview.swift": (1, "an image's bytes, shown"),
+        "Builtins/Files/Artifacts/Overview/ArtifactPictures.swift": (2, "pages' pictures, kept in Kelp's home"),
         "Builtins/Databases/DatabaseTab+Copy.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
     .merging(artifactPagesTouchFiles) { own, _ in own }

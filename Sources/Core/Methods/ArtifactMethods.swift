@@ -31,13 +31,19 @@ public struct ArtifactAdd: RPCMethod {
     /// One of `Artifacts.Kind`, or "page" for any other kind.
     public var type: String
     public var cwd: String, session: String?, page: PublishedPage?
-    public init(url: String, title: String, type: String, cwd: String, session: String?, page: PublishedPage? = nil) {
+    /// The page's id on the service (`ArtifactRecord.serviceId`).
+    public var serviceId: String?
+    public init(
+        url: String, title: String, type: String, cwd: String, session: String?, page: PublishedPage? = nil,
+        serviceId: String? = nil
+    ) {
         self.url = url
         self.title = title
         self.type = type
         self.cwd = cwd
         self.session = session
         self.page = page
+        self.serviceId = serviceId
     }
 }
 
@@ -140,6 +146,60 @@ public struct ArtifactRename: InternalMethod {
         self.path = path
         self.title = title
     }
+}
+
+/// Tags a page (`folder`, the artifact's folder), untags it, moves it to the archive or out of it, as the user does in
+/// Artifacts Overview and an agent does with `kelp artifact tag|untag|archive|unarchive`. An agent's call names its
+/// `session`: the page keeps what it had before (`ArtifactAgentChange`), and `undo` puts that back; `keep` (the user
+/// closing the change's bar) forgets it, so a later change by that chat is undone on its own. Returns the page's tags
+/// after the change.
+public struct ArtifactChange: RPCMethod {
+    public static let name = "artifact.change"
+    public typealias Result = [String]
+    public var folder: String
+    public var add: [String]?, remove: [String]?, archived: Bool?
+    public var session: String?, undo: Bool?, keep: Bool?
+    public init(
+        folder: String, add: [String]? = nil, remove: [String]? = nil, archived: Bool? = nil, session: String? = nil,
+        undo: Bool? = nil, keep: Bool? = nil
+    ) {
+        self.folder = folder
+        self.add = add
+        self.remove = remove
+        self.archived = archived
+        self.session = session
+        self.undo = undo
+        self.keep = keep
+    }
+}
+
+/// Keeps the files an agent uploaded for its pages (`upload_asset`, from its hook), by their id on the service, in the
+/// project that holds `cwd`: Kelp's copies of the pages show them without the network. Returns how many were kept.
+public struct ArtifactKeepAssets: InternalMethod {
+    public static let name = "artifact.keepAssets"
+    public typealias Result = Int
+    public struct Asset: Codable, Equatable, Sendable {
+        public var path: String, id: String
+        public init(path: String, id: String) {
+            self.path = path
+            self.id = id
+        }
+    }
+    public var cwd: String, session: String?, assets: [Asset]
+    public init(cwd: String, session: String?, assets: [Asset]) {
+        self.cwd = cwd
+        self.session = session
+        self.assets = assets
+    }
+}
+
+/// Makes the copy of a page on a service (`folder`, the artifact's) that opens without the network: its pictures and
+/// styles beside it, linked from there. Returns that file, which opens in a page's tab.
+public struct ArtifactOffline: InternalMethod {
+    public static let name = "artifact.offline"
+    public typealias Result = String
+    public var folder: String
+    public init(folder: String) { self.folder = folder }
 }
 
 /// `kelp artifact ask`: the agent's question about element `id` of a page (`path`, its file), put on it as a mark the

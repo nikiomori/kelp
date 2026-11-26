@@ -45,12 +45,13 @@ extension Artifacts {
     /// updates the record's time and, when the call gives them, its title and kind.
     static func addNative(
         url: String, title: String, type: String, root: String, session: String?, page: PublishedPage? = nil,
-        now: Date = Date()
+        serviceId: String? = nil, now: Date = Date()
     ) throws -> URL? {
         if let known = list(root: root).first(where: { $0.record.url == url }) {
             let folder = dir(root: root).appendingPathComponent(known.slug)
             var record = known.record
             record.updated = now
+            if let serviceId { record.serviceId = serviceId }
             if title != url { record.title = title }
             if type != "page" { record.type = type }
             try save(record, in: folder)
@@ -58,7 +59,9 @@ extension Artifacts {
             return nil
         }
         let folder = try newFolder(title, root: root)
-        try save(ArtifactRecord(type: type, title: title, created: now, session: session, url: url), in: folder)
+        var record = ArtifactRecord(type: type, title: title, created: now, session: session, url: url)
+        record.serviceId = serviceId
+        try save(record, in: folder)
         try keepPage(page, in: folder)
         return folder
     }
@@ -77,10 +80,15 @@ extension Artifacts {
             slug: slug, type: artifactRecord.type, title: artifactRecord.title,
             created: artifactRecord.created.timeIntervalSince1970, session: artifactRecord.session,
             url: artifactRecord.url, target: target)
+        item.tags = artifactRecord.tags
+        item.archived = artifactRecord.archived
+        item.agentChange = artifactRecord.agentChange
         guard artifactRecord.url == nil else {
             item.modified = artifactRecord.updated?.timeIntervalSince1970
-            let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path
+            let folder = dir(root: root).appendingPathComponent(slug)
+            let copy = folder.appendingPathComponent(pageCopy).path
             item.preview = fileStat(copy) == nil ? nil : copy
+            item.copy = copyState(folder: folder, root: root)
             return item
         }
         item.preview = target
@@ -268,6 +276,7 @@ extension Artifacts {
         } else if let path = page?.file {
             guard path.hasSuffix(".html"), let data = small(path, limit: 16 << 20) else { return }
             try data.write(to: copy, options: .atomic)
+            if let others = page?.others { keepOthers(others, in: folder) }   // after the page, which matters most
         } else if let edits = page?.edits {
             guard let data = small(copy.path) else { return }
             var text = String(decoding: data, as: UTF8.self)

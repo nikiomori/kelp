@@ -51,6 +51,6 @@ extension ArtifactBar {
         let rest = path[range.upperBound...].split(separator: "/")
         return rest.count == 2
             && (Artifacts.Kind.allCases.contains { $0.file == rest[1] }
-                || Artifacts.olderFiles.contains(String(rest[1])))
+                || Artifacts.olderFiles.contains(String(rest[1])) || rest[1] == Artifacts.offlineCopy)
     }
 }

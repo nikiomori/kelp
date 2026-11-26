@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ asks you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спрашивает вас"
+          }
+        }
+      }
+    },
     "%@ can't go back: %@ The files still can.": {
       "localizations": {
         "ru": {
@@ -11,12 +21,546 @@
         }
       }
     },
+    "%@ is answering": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ отвечает"
+          }
+        }
+      }
+    },
+    "%@ is editing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ правит"
+          }
+        }
+      }
+    },
+    "%@ is reading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ читает"
+          }
+        }
+      }
+    },
+    "%@ · version %lld, %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · версия %2$lld, %3$@"
+          }
+        }
+      }
+    },
+    "%@: go to the chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: перейти в чат"
+          }
+        }
+      }
+    },
+    "%lld pages archived": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld page archived"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pages archived"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страница в архиве"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы в архиве"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страниц в архиве"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы в архиве"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pages tagged": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld page tagged"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pages tagged"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страница с тегом"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы с тегом"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страниц с тегом"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld страницы с тегом"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pages · %lld projects": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страниц: %1$lld · проектов: %2$lld"
+          }
+        }
+      }
+    },
+    "%lld whole on this Mac, %lld without pictures, %lld with no copy.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Целиком на этом Mac: %1$lld, без картинок: %2$lld, без копии: %3$lld."
+          }
+        }
+      }
+    },
+    "Add Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить тег"
+          }
+        }
+      }
+    },
     "And %@, as it was before the turn": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "И %@ — какой была до хода"
+          }
+        }
+      }
+    },
+    "Artifacts Overview": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обзор артефактов"
+          }
+        }
+      }
+    },
+    "Changed by the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменено агентом"
+          }
+        }
+      }
+    },
+    "Click to go to the chat.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите, чтобы перейти в чат."
+          }
+        }
+      }
+    },
+    "Edit Tag “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить тег «%@»"
+          }
+        }
+      }
+    },
+    "Edit Tag…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить тег…"
+          }
+        }
+      }
+    },
+    "Emoji": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эмодзи"
+          }
+        }
+      }
+    },
+    "Emoji & Symbols…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эмодзи и символы…"
+          }
+        }
+      }
+    },
+    "Every page opens without the network.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все страницы открываются без сети."
+          }
+        }
+      }
+    },
+    "Gray": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый"
+          }
+        }
+      }
+    },
+    "Green": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зелёный"
+          }
+        }
+      }
+    },
+    "Grid": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сетка"
+          }
+        }
+      }
+    },
+    "How the tag looks on cards and rows. The pages keep only its name.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как тег выглядит на карточках и в строках. Страницы хранят только его имя."
+          }
+        }
+      }
+    },
+    "Kelp can't sign in to claude.ai: a Claude chat saves the rest to disk and checks them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp не может войти в claude.ai: остальное сохранит на диск и проверит чат Claude."
+          }
+        }
+      }
+    },
+    "Kinds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Виды"
+          }
+        }
+      }
+    },
+    "List": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список"
+          }
+        }
+      }
+    },
+    "Move Out of Archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть из архива"
+          }
+        }
+      }
+    },
+    "Move to Archive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить в архив"
+          }
+        }
+      }
+    },
+    "New Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый тег"
+          }
+        }
+      }
+    },
+    "New Tag…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый тег…"
+          }
+        }
+      }
+    },
+    "No Agent Works on a Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты сейчас не работают со страницами"
+          }
+        }
+      }
+    },
+    "No Images": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без картинок"
+          }
+        }
+      }
+    },
+    "No Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет страниц"
+          }
+        }
+      }
+    },
+    "No Pages Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы не найдены"
+          }
+        }
+      }
+    },
+    "No Pages with This Tag": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет страниц с этим тегом"
+          }
+        }
+      }
+    },
+    "No Pinned Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет закреплённых страниц"
+          }
+        }
+      }
+    },
+    "No copy on this Mac: it opens once you're online": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копии на этом Mac нет: страница откроется, когда появится сеть"
+          }
+        }
+      }
+    },
+    "Nothing Waits for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего не ждёт вас"
+          }
+        }
+      }
+    },
+    "Offline Copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копия без сети"
+          }
+        }
+      }
+    },
+    "Open Copy on This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть копию на этом Mac"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оранжевый"
+          }
+        }
+      }
+    },
+    "Pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы"
+          }
+        }
+      }
+    },
+    "Pages agents make show here, from every project.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появляются страницы, которые делают агенты, из всех проектов."
+          }
+        }
+      }
+    },
+    "Pages moved to the archive leave the other lists, and come back from here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страницы в архиве уходят из других списков и возвращаются отсюда."
+          }
+        }
+      }
+    },
+    "Pin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепить"
+          }
+        }
+      }
+    },
+    "Pin a page from its menu to keep it on top.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрепите страницу в её меню, чтобы она была наверху."
           }
         }
       }
@@ -81,6 +625,178 @@
         }
       }
     },
+    "Red": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красный"
+          }
+        }
+      }
+    },
+    "Reviews to answer, marks to check and agents’ questions show here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь ревью без ответа, пометки на проверку и вопросы агентов."
+          }
+        }
+      }
+    },
+    "Save the pages on claude.ai whole on this Mac, to open without the network": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить страницы с claude.ai целиком на этом Mac, чтобы открывать их без сети"
+          }
+        }
+      }
+    },
+    "Show All Artifacts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все артефакты"
+          }
+        }
+      }
+    },
+    "Sources": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Источники"
+          }
+        }
+      }
+    },
+    "Symbol": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок"
+          }
+        }
+      }
+    },
+    "Sync %lld Pages": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sync %lld Page"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Sync %lld Pages"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницу"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницы"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страниц"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Синхронизировать %lld страницы"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Sync Pages from claude.ai": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать страницы с claude.ai"
+          }
+        }
+      }
+    },
+    "Sync…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синхронизировать…"
+          }
+        }
+      }
+    },
+    "Tag %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тег %@"
+          }
+        }
+      }
+    },
+    "Tags": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Теги"
+          }
+        }
+      }
+    },
+    "The Archive Is Empty": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Архив пуст"
+          }
+        }
+      }
+    },
+    "Then keep them in sync every night (a routine)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потом синхронизировать каждую ночь (рутина)"
+          }
+        }
+      }
+    },
     "They’re paused since %@. Agents you paused yourself aren’t affected.": {
       "localizations": {
         "ru": {
@@ -127,6 +843,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "По одному, с паузой. Кого вы усыпили сами, ждут вас."
+          }
+        }
+      }
+    },
+    "Unpin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открепить"
+          }
+        }
+      }
+    },
+    "Waiting for You": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждёт вас"
+          }
+        }
+      }
+    },
+    "What the page is about, in a word or two.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О чём страница, в одно-два слова."
           }
         }
       }
@@ -531,6 +1277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Список машин над лимитами планов."
+          }
+        }
+      }
+    },
+    "Whole": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полная"
           }
         }
       }
@@ -2143,6 +2899,16 @@
         }
       }
     },
+    "restored": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "восстановлена"
+          }
+        }
+      }
+    },
     "the server": {
       "localizations": {
         "ru": {
@@ -3033,6 +3799,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свой сервер"
+          }
+        }
+      }
+    },
+    "you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вы"
           }
         }
       }

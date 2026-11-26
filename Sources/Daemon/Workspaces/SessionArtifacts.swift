@@ -63,14 +63,14 @@ extension ArtifactAdd: Handled {
     func handle(_ store: Store) throws -> Bool {
         guard url.hasPrefix("https://") else { throw RPCError.invalidParams("a page's link starts with https://") }
         let root = try artifactsRoot(store, cwd: cwd, session: session)
-        return try Artifacts.addNative(url: url, title: title, type: type, root: root, session: session, page: page)
-            != nil
+        return try Artifacts.addNative(
+            url: url, title: title, type: type, root: root, session: session, page: page, serviceId: serviceId) != nil
     }
 }
 
 /// Returns the folder whose artifacts a command run in `cwd` means. That is the workspace that holds `cwd`, preferring
 /// `session`'s own workspace as `IDE.workspace` picks. Otherwise it is `cwd` itself, as for a chat outside any project.
-private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
+func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
     var isFolder: ObjCBool = false
     guard cwd.hasPrefix("/"), FileManager.default.fileExists(atPath: cwd, isDirectory: &isFolder), isFolder.boolValue
     else { throw RPCError.invalidParams("not a folder: \(cwd)") }
@@ -134,6 +134,31 @@ extension Methods {
     static let artifactMethods: [any Answered.Type] = [
         ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self, ArtifactMarksChange.self,
         ArtifactKeepVersion.self, ArtifactKeepRestored.self, ArtifactReply.self, ArtifactAsk.self, ArtifactSuggest.self,
-        ArtifactRename.self, ArtifactRoundCost.self
+        ArtifactRename.self, ArtifactRoundCost.self, ArtifactChange.self, ArtifactKeepAssets.self,
+        ArtifactOffline.self
     ]
+}
+
+extension Artifacts {
+    /// Returns what opens the page a hook says a tool starts on (`SessionHook.page(of:)`): a file in an artifact's
+    /// folder, or a page on the service by its id or link, looked for in `roots` (the agent's folders). nil when no
+    /// page of Kelp's is there.
+    static func target(of touch: SessionHook.PageTouch, roots: [String]) -> String? {
+        if let file = touch.file, let at = file.range(of: "/\(folder)/") {
+            let root = String(file[..<at.lowerBound])
+            guard let slug = file[at.upperBound...].split(separator: "/").first.map(String.init),
+                let record = record(in: dir(root: root).appendingPathComponent(slug))
+            else { return nil }
+            return target(slug, record, root: root)
+        }
+        guard let id = touch.service else { return nil }
+        for root in roots {
+            if let page = list(root: root).first(where: { _, r in
+                r.serviceId == id || r.url == id || r.url?.hasSuffix("/" + id) == true
+            }) {
+                return target(page.slug, page.record, root: root)
+            }
+        }
+        return nil
+    }
 }

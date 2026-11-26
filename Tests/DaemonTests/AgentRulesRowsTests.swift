@@ -121,6 +121,24 @@ import Testing
             false, "but not on one in another's"
         ),
         (
+            .session(mine.id),
+            ArtifactChange(folder: wt.path + "/.kelp/artifacts/x", add: ["plan"], session: mine.id), true,
+            "it tags a page in its workspace"
+        ),
+        (
+            .session(mine.id),
+            ArtifactChange(folder: elsewhere.path + "/.kelp/artifacts/x", archived: true, session: mine.id), false,
+            "but archives none in another's"
+        ),
+        (
+            .session(mine.id), ArtifactKeepAssets(cwd: wt.path, session: mine.id, assets: []), true,
+            "it keeps what it uploaded for its pages"
+        ),
+        (
+            .session(mine.id), ArtifactKeepAssets(cwd: elsewhere.path, session: nil, assets: []), false,
+            "but not in another's workspace"
+        ),
+        (
             .session(mine.id), ArtifactAsk(path: wt.path + "/.kelp/artifacts/x/motion.html", id: "t", text: "?"), true,
             "it asks about an element of a page in its workspace"
         ),

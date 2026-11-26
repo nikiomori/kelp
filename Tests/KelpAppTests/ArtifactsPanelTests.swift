@@ -19,8 +19,8 @@ import Testing
     #expect(ArtifactsPanel.shortTitle("Kelp — plan", project: nil) == "Kelp — plan")
 }
 
-/// Pages fall under Today / Yesterday / Previous 7 Days / Earlier by their last change; one title is one row, the
-/// latest, with the earlier ones under it.
+/// Pages fall under Today / Yesterday / Previous 7 Days / Earlier by their last change, after the pages agents work on
+/// now; one title is one row, the latest, with the earlier ones under it.
 @Test func artifactRowsAreDaysAndFoldedTitles() {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .current
@@ -35,14 +35,17 @@ import Testing
         ArtifactItem(slug: title + "\(hoursAgo)", type: "page", title: title, created: at(hoursAgo), target: title)
     }
     let items = [page("Review", 1), page("Sidebar", 2), page("Sidebar", 50), page("Plan", 51)]
-    let rows = ArtifactsPanel.rows(items, title: \.title, now: now)
-    let shape = rows.map { row -> String in
-        switch row {
-        case .heading(let text): "# \(text)"
-        case .item(let item, let earlier): "\(item.title) \(earlier.count)"
+    func shape(busy: Set<String> = []) -> [String] {
+        ArtifactsPanel.rows(items, title: \.title, now: now, busy: busy).map { row -> String in
+            switch row {
+            case .heading(let text): "# \(text)"
+            case .item(let item, let earlier): "\(item.title) \(earlier.count)"
+            }
         }
     }
-    #expect(shape == ["# Today", "Review 0", "Sidebar 1", "# Previous 7 Days", "Plan 0"])
+    #expect(shape() == ["# Today", "Review 0", "Sidebar 1", "# Previous 7 Days", "Plan 0"])
+    // A page an agent works on now leads, under Now.
+    #expect(shape(busy: ["Plan"]) == ["# Now", "Plan 0", "# Today", "Review 0", "Sidebar 1"])
 }
 
 /// The filter sits over the list it filters, where every panel's filter is, not at the panel's foot.

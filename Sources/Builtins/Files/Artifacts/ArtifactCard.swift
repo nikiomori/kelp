@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import Markdown
 
 /// The card shown beside the panel when the pointer rests on a page's row. It holds a picture of the top of the page,
 /// the page's whole title, and who made it and when. The picture is drawn by `ArtifactShots` from the file, or from
@@ -108,21 +107,13 @@ final class ArtifactCard {
         NSTextField.label(text, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
 
-    /// Draws the picture of a page: HTML as it is, Markdown the way its tab draws it. The file is read through the
-    /// daemon, as a tab reads it. When the daemon refuses it (too big) or it can't be drawn, the grey fill stays.
+    /// Draws the picture of a page (`ArtifactShots.picture(file:)`). When it can't be drawn, the grey fill stays.
     private func load(_ path: String, version: Double, dark: Bool, board: Bool) {
         loading?.cancel()
-        let base = URL(fileURLWithPath: path).deletingLastPathComponent(), app = self.app
+        let app = self.app
         loading = Task { [weak self] in
-            guard let text = await app.quiet(FilesRead(path: path))?.text, !Task.isCancelled else { return }
-            let html =
-                path.hasSuffix(".md")
-                ? await Task.detached { MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark) }
-                    .value : text
-            guard !Task.isCancelled, let self,
-                let image = await shots.picture(
-                    html: html, base: base, key: "\(path)|\(version)", dark: dark,
-                    board: board),
+            guard let self,
+                let image = await shots.picture(file: path, version: version, dark: dark, board: board, app: app),
                 !Task.isCancelled
             else { return }
             picture.crossfade()
@@ -133,7 +124,7 @@ final class ArtifactCard {
 
 /// The picture's place on the card. Its fill and border are a layer's colours, which keep the appearance they were set
 /// in, so they are set again at the moment the Mac goes light or dark with the card up.
-private final class PictureView: NSImageView {
+final class PictureView: NSImageView {
     func tint() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.backgroundColor = NSColor.fillRest.cgColor
