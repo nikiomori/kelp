@@ -9,6 +9,8 @@ import WorkbenchKit
 /// shows the page, a failure shows why in the page's place, and an agent driving the page hears its address and status.
 extension BrowserTab {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        drive?.nameDocument += 1
+        drive?.names.removeAll()
         if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps the failure
             loadError = nil
             failed = nil

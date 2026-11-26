@@ -301,6 +301,11 @@ seven runs, so a slowdown of half fails the step. A local run under load can rai
 `KELP_SWITCH_BUDGET_MS`). What a time can't hold, ArchitectureTests does: the app doesn't poll the daemon (each clock
 is listed). `KELP_HANG_WATCH=1` logs main-thread stalls when looking for one by hand.
 
+Two interactive paths are sensitive to the amount of data on screen. Browser action replies must not walk back
+through the snapshot for each changed line: find their enclosing lines in linear time, outside the UI thread.
+Rendering a server's projects and agents must not read `.kelp-remote` files or rebuild the set of workspaces
+for each session.
+
 ## Machines
 `kelp vm` gives agents Linux, macOS, Android and iOS machines. Each runs in a `kelp-vm` process of its own (one per
 machine, by `kelp-vm.lock`), which kelpd starts detached and talks to over the machine folder's `ctl.sock`; in Kelp.app

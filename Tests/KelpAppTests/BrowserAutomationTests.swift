@@ -280,7 +280,7 @@ extension OneAtATime {
     await #expect(throws: RPCError.self) { try await tab.browse(.snapshot, .object([:])) }
 }
 
-@Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() {
+@Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() async {
     let snap = """
         - page "Shop" http://x/
         - navigation "Site"
@@ -291,7 +291,7 @@ extension OneAtATime {
           - button "Add to cart" [ref=e3]
         """
     #expect(
-        BrowserTab.found("cart", in: snap) == """
+        await BrowserTab.snapshotReply(snap, .find("cart")).0 == """
             - page "Shop" http://x/
             - navigation "Site"
               - list
@@ -299,16 +299,20 @@ extension OneAtATime {
             - main
               - button "Add to cart" [ref=e3]
             """)
-    #expect(BrowserTab.found("checkout", in: snap).hasSuffix(#"Nothing on the page mentions "checkout"."#))
+    #expect(await BrowserTab.snapshotReply(snap, .find("checkout")).0?.hasSuffix(#"Nothing on the page mentions "checkout"."#) == true)
     // What's inside a match comes with it: a heading's list, a form's fields.
     #expect(
-        BrowserTab.found("site", in: snap) == """
+        await BrowserTab.snapshotReply(snap, .find("site")).0 == """
             - page "Shop" http://x/
             - navigation "Site"
               - list
                 - link "Home" [ref=e1] -> /
                 - link "Cart" [ref=e2] -> /cart
             """)
+    let children = (1...21).map { "    child \($0)" }
+    let uneven = ["Page", " group", "    MATCH", "        inner", "  Match"] + children + [" unrelated"]
+    #expect(await BrowserTab.snapshotReply(uneven.joined(separator: "\n"), .find("match")).0
+        == (Array(uneven.prefix(5)) + children.prefix(20)).joined(separator: "\n"))
 }
 
 /// A link with `download` on an agent's page: the file lands in Kelp's temporary folder, and the click's answer says
@@ -521,16 +525,27 @@ extension OneAtATime {
 }
 
 /// An answer's lines: a ref's name without its states, a page's first lines, what came with the lines it sits in.
-@Test func anAnswerNamesTheElementAndCarriesWhatCame() {
+@Test func anAnswerNamesTheElementAndCarriesWhatCame() async {
     #expect(
         BrowserTab.named(#"  - checkbox "Agree [x]" [checked] [ref=e12] [new]"#)! == ("e12", #"checkbox "Agree [x]""#))
     #expect(BrowserTab.named("- textbox [disabled] [ref=e3]: \"a\"")! == ("e3", "textbox"))
     #expect(BrowserTab.named(#"- text: "x""#) == nil)
-    let lines = ["- main", "  - list", "    - listitem", "      - text: \"Saved\" [new]", "- button \"Go\" [ref=e1]"]
-    #expect(BrowserTab.fresh(lines) == "- main\n  - list\n    - listitem\n      - text: \"Saved\" [new]")
-    #expect(BrowserTab.fresh(["- button \"Go\" [ref=e1]"]) == nil)
-    let long = (1...50).map { "- text: \"\($0)\"" }
-    #expect(BrowserTab.top(long).hasSuffix("- text: \"40\"\n… 10 more lines: snapshot shows them"))
+    let snap = "Page\n- main\n  - list\n    - listitem\n      - text: \"Saved\" [new]\n- button \"Go\" [ref=e1]"
+    let (fresh, names) = await BrowserTab.snapshotReply(snap, .fresh)
+    #expect(fresh == "- main\n  - list\n    - listitem\n      - text: \"Saved\" [new]")
+    #expect(names.count == 1 && names.first?.0 == "e1" && names.first?.1 == #"button "Go""#)
+    #expect(await BrowserTab.snapshotReply("Page [new]\n- button \"Go\" [ref=e1]", .fresh).0 == nil)
+    #expect(await BrowserTab.snapshotReply("Page\n\n", .page).0 == "\n")
+    // A truncated tree may begin indented or dedent by less than one normal level. Equal-depth siblings aren't parents.
+    let uneven = "Page\n   skipped\n   root\n        skipped\n      kept [new]\n    kept [new]\nother\n     skipped"
+    #expect(await BrowserTab.snapshotReply(uneven, .fresh).0 == "   root\n      kept [new]\n    kept [new]")
+    // At the JS snapshot limit, every matching sibling shares one ancestor.
+    let siblings = "Page\nroot\n" + Array(repeating: "  row [new]", count: 19_999).joined(separator: "\n")
+    let dense = await BrowserTab.snapshotReply(siblings, .fresh).0
+    #expect(dense?.hasSuffix("… 19960 more: snapshot shows them") == true)
+    let long = (["Page"] + (1...50).map { "- text: \"\($0)\" [new]" }).joined(separator: "\n")
+    #expect(await BrowserTab.snapshotReply(long, .page).0?.hasSuffix("\"40\" [new]\n… 10 more lines: snapshot shows them") == true)
+    #expect(await BrowserTab.snapshotReply(long, .fresh).0?.hasSuffix("\"40\" [new]\n… 10 more: snapshot shows them") == true)
 }
 
 /// The pointer the user watches says whose it is and what it does, in a colour that stands out on any page: the
@@ -543,7 +558,7 @@ extension OneAtATime {
     #expect(BrowserTab.vivid("#D97857").hexString == "#d97857")   // Claude's orange
     #expect(BrowserTab.vivid("#262626") == .systemPurple && BrowserTab.vivid(nil) == .systemPurple)
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
-    tab.watch().names["e2"] = #"button "Save""#
+    tab.watch().names["e2"] = (1, #"button "Save""#)
     let look = tab.pointerLook(.click, ref: "e2", .object([:]))
     #expect(look["label"] as? String == "Agent · clicks “Save”")
 }

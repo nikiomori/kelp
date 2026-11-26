@@ -13,25 +13,40 @@ struct ServerSide: View {
     /// The port on this Mac for each port on the host, once forwarded during this run of Kelp.
     private var forwarded: [Int: Int] { app.part { ServerForwards() }.ports[host] ?? [:] }
 
-    private var projects: [Repo] { app.repos.filter { RemoteHost.of($0.path)?.host == host } }
-    private var screens: Set<String> {
-        let ids = Set(projects.map(\.id))
-        return Set(app.worktrees.filter { ids.contains($0.repoId) }.map(\.id))
-    }
-    private var agents: [Session] {
-        app.sessions.filter { screens.contains($0.worktreeId ?? "") && $0.status != .exited && $0.isChat }
-    }
+    @State private var projects = ServerProjects()
+    @State private var screens: [String: Set<String>] = [:]
     /// Kelp's tmux sessions that no live tab shows: closed here, or dropped with the connection, but still running
     /// there.
     private var leftRunning: [HostStats.TmuxSession] {
         (stats.tmux ?? []).filter { t in t.session.flatMap(app.session).map { $0.status == .exited } ?? true }
     }
 
-    var body: some View { SectionList(sections) }
+    var body: some View {
+        SectionList(sections)
+            .task(id: app.repos) { [repos = app.repos] in await followProjects(repos) }
+            .onChange(of: app.worktrees) { _, trees in screens = projects.screens(in: trees) }
+    }
+
+    /// Re-read on project changes or an edit to a marker, not on every stats reading or session event.
+    private func followProjects(_ repos: [Repo]) async {
+        let (changes, feed) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        // This tree holds the local stand-ins, not the files on the servers. Moving a whole folder can change a
+        // marker without an event for the marker file itself.
+        let watcher = FileWatcher(root: Paths.root.appendingPathComponent("remote").path) { _ in feed.yield(()) }
+        defer { withExtendedLifetime(watcher) { feed.finish() } }
+        feed.yield(())
+        for await _ in changes {
+            let next = await Task.detached(priority: .utility) { ServerProjects(repos) }.value
+            guard !Task.isCancelled else { return }
+            projects = next
+            screens = next.screens(in: app.worktrees)
+        }
+    }
 
     /// The column's lists, each under its title: a list with nothing in it is left out, but for the agents (whose
     /// absence is worth saying) and the projects.
     private var sections: [SectionList.Section] {
+        let agents = ServerProjects.agents(in: screens[host] ?? [], among: app.sessions)
         var all = [
             SectionList.Section(
                 id: "agents", title: String(localized: "Agents"), rows: agents.map(agentRow),
@@ -48,7 +63,8 @@ struct ServerSide: View {
         if let ports = stats.ports, !ports.isEmpty {
             all.append(.init(id: "ports", title: String(localized: "Listening"), rows: ports.map(portRow)))
         }
-        all.append(.init(id: "projects", title: String(localized: "Projects"), rows: projects.map(projectRow)))
+        let rows = (projects.on[host] ?? []).map(projectRow)
+        all.append(.init(id: "projects", title: String(localized: "Projects"), rows: rows))
         return all
     }
 
@@ -154,11 +170,12 @@ struct ServerSide: View {
         }
     }
 
-    private func projectRow(_ repo: Repo) -> SectionList.Row {
+    private func projectRow(_ project: ServerProjects.Project) -> SectionList.Row {
+        let repo = project.repo
         let app = app
         var row = SectionList.Row(id: "project " + repo.id, title: repo.name)
         row.icon = SectionList.symbol("folder")
-        row.trailing = RemoteHost.of(repo.path)?.path
+        row.trailing = project.path
         row.click = {
             if let workspace = mainWorkspace(of: repo, among: app.worktrees) {
                 app.workbench.show(workspace: workspace.id)
@@ -175,5 +192,34 @@ struct ServerSide: View {
                 app.part { ServerForwards() }.ports[host, default: [:]][port] = here
             }
         }
+    }
+}
+
+/// The marker is authoritative for both the host and the displayed path. Keep both from the same read.
+struct ServerProjects: Sendable {
+    struct Project: Sendable {
+        let repo: Repo, path: String
+    }
+    private(set) var on: [String: [Project]] = [:]
+    private var hostByRepo: [String: String] = [:]
+
+    init(_ repos: [Repo] = [], resolve: (String) -> RemoteHost? = RemoteHost.of) {
+        for repo in repos {
+            guard let remote = resolve(repo.path) else { continue }
+            on[remote.host, default: []].append(Project(repo: repo, path: remote.path))
+            hostByRepo[repo.id] = remote.host
+        }
+    }
+
+    func screens(in worktrees: [Worktree]) -> [String: Set<String>] {
+        var screens: [String: Set<String>] = [:]
+        for tree in worktrees {
+            if let host = hostByRepo[tree.repoId] { screens[host, default: []].insert(tree.id) }
+        }
+        return screens
+    }
+
+    static func agents(in screens: Set<String>, among sessions: [Session]) -> [Session] {
+        sessions.filter { $0.status != .exited && $0.isChat && screens.contains($0.worktreeId ?? "") }
     }
 }
