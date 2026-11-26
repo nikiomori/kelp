@@ -153,6 +153,9 @@ extension CodeEditor {
             textColor.withAlphaComponent(CodeEditor.faint(highContrast: NSColor.increaseContrast).bracket)
         }
         scroll.backgroundColor = look.background
+        // A see-through theme's editor: a scroll view that draws its background calls itself opaque, and AppKit then
+        // fills it with the window's grey, whatever the colour's alpha. The text view draws the see-through colour.
+        scroll.drawsBackground = look.background.alphaComponent == 1
         gutter?.color = NSColor(name: nil) { @Sendable _ in
             textColor.withAlphaComponent(CodeEditor.faint(highContrast: NSColor.increaseContrast).numbers)
         }

@@ -52,6 +52,21 @@ extension OneAtATime {
         #expect(edits == 1)
     }
 
+    /// A see-through theme's editor lets what's under it show: a scroll view filling its background calls itself
+    /// opaque, and AppKit painted it grey whatever the colour's alpha. An opaque theme keeps the fill.
+    @Test func aSeeThroughLookLeavesTheEditorUnfilled() {
+        let was = CodeEditor.current
+        defer { CodeEditor.apply(look: was) }
+        let e = shown("let a = 1\n", "through.swift")
+        for (background, filled) in [("#1211191f", false), ("#121119", true)] {
+            var look = was
+            look.palette = .init(background: background, text: "#eef0f6")
+            CodeEditor.apply(look: look)
+            e.refreshAppearance()
+            #expect(e.scroll.drawsBackground == filled && e.scroll.isOpaque == filled, "\(background)")
+        }
+    }
+
     /// A look given while an editor is off screen (its tab hidden) waits until it shows.
     @Test func aHiddenEditorTakesANewLookWhenShown() {
         _ = NSApplication.shared
