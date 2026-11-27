@@ -149,7 +149,7 @@ private func folder(_ files: [String: String]) throws -> URL {
     let agents = [mobile.id: "mobile", desktop.id: "desktop"]
     func driver(_ call: String?, _ thread: LiveSession.BrowserThread, _ running: [AgentCommand]) throws -> String? {
         try LiveSession.browsing(
-            toolCall: call, thread: thread, words: "snapshot", commands: running, agents: agents, hasSubagents: true)
+            (call, thread), words: "snapshot", commands: running, agents: agents, hasSubagents: true)
     }
     #expect(try driver(mobile.id, .unknown, [main, desktop, mobile]) == "mobile")
     #expect(try driver(desktop.id, .child("desktop"), [main, mobile, desktop]) == "desktop")
