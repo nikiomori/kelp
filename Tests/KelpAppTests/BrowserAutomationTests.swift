@@ -14,6 +14,8 @@ import WorkbenchKit
 /// page's own code, and a ref the page no longer has says so.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserDrivesAPage() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     #expect(tab.agent && tab.uri == "agentweb:about:blank")
     tab.web.loadHTMLString(
         """
@@ -50,6 +52,8 @@ import WorkbenchKit
 /// An agent's page keeps what it logged from its first script on, and its fetch calls, failed ones too.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserKeepsConsoleAndRequests() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString(
         "<script>console.log('hi', {a: 1})</script><p>x</p>", baseURL: URL(string: "http://127.0.0.1:9/"))
     _ = try await tab.browse(.info, .object([:]))
@@ -70,6 +74,8 @@ import WorkbenchKit
 /// the page.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserPressesHoversAndScrolls() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString(
         """
         <input id="a"><button onclick="out.textContent += 'clicked '">Go</button>
@@ -181,6 +187,8 @@ extension OneAtATime {
     /// named title) doesn't break the snapshot; a page the user took over refuses what would change it.
     @Test(.timeLimit(minutes: 1)) func browserAnswersQuestionsUploadsAndTypesKeys() async throws {
         let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+        BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+        defer { BrowserTab.navigationStarts = .milliseconds(150) }
         tab.web.loadHTMLString(
             """
             <form><input name="title" type="hidden"></form>
@@ -344,6 +352,8 @@ extension OneAtATime {
 /// pane's size back (off screen: a laptop's).
 @MainActor @Test(.timeLimit(minutes: 1)) func anAgentSetsThePagesSize() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString("<p>hi</p>", baseURL: URL(string: "http://localhost/"))
     _ = try await tab.browse(.info, .object([:]))
     func act(_ size: String) async throws -> JSONValue {
@@ -362,6 +372,8 @@ extension OneAtATime {
 /// snapshot. Transparent text isn't on the page; a long page keeps its end.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserSaysWhatAnActionDidAndWhatCovers() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString(
         """
         <button onclick="document.body.insertAdjacentHTML('beforeend', '<p>Invalid email</p>')">Check</button>
@@ -410,6 +422,8 @@ extension OneAtATime {
 /// refuses a date in another format; a frame of the page's own site is read and driven.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserPicksOptionsChecksDatesAndReadsFrames() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString(
         """
         <select id="s"><option value="ca">Canada</option><option value="us">United States</option><option>Uganda</option>
@@ -459,6 +473,8 @@ extension OneAtATime {
 /// `draggable` when pressed, as SortableJS does, too); anything else follows the pointer; files land on a drop zone.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserDragsAndDrops() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString(
         """
         <div id="a" onpointerdown="this.draggable = true" style="cursor: grab">Card</div>
@@ -595,6 +611,8 @@ extension OneAtATime {
 /// as long as it was recorded, nothing at all while the user has the page, and a file type it can't write said so.
 @MainActor @Test(.timeLimit(minutes: 1)) func browserRecordsThePage() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [], backing: .buffered, defer: false)
     window.contentView = tab.view
@@ -665,6 +683,8 @@ extension OneAtATime {
 /// answer leaves it theirs. The strip says which.
 @MainActor @Test(.timeLimit(minutes: 1)) func anAgentsQuestionHandsItsPageToTheUser() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    BrowserTab.navigationStarts = .zero   // no action here starts a navigation
+    defer { BrowserTab.navigationStarts = .milliseconds(150) }
     tab.web.loadHTMLString("<button>Go</button>", baseURL: URL(string: "https://example.com/"))
     try await waitFor { !tab.web.isLoading }
     tab.watch()
