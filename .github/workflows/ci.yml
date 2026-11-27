@@ -44,12 +44,12 @@ jobs:
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
             # No dSYMs, as bundle.sh: dsymutil warns of every CodeEditLanguages object (its debug map is its maker's Mac).
-            # Neither optimized nor whole-module: what this checks is that the code compiles, and file by file a change
-            # rebuilds what it reaches, not every module whole (kelpd after a Core change: 38 s → 10 s locally).
+            # Not optimized: what this checks is that the code compiles. Still whole-module, as -c release builds: with
+            # -no-whole-module-optimization a module compiled afresh (not in the cache) has no `<module>-primary.d` for
+            # the build system to read, and the build stops there.
             # Limit: a fault only the optimizer meets (a crash in it) shows in `make release`, not here.
             build: >-
-              swift build --manifest-cache local -c release -debug-info-format none
-              -Xswiftc -Onone -Xswiftc -no-whole-module-optimization
+              swift build --manifest-cache local -c release -debug-info-format none -Xswiftc -Onone
             test: "true"
           # DaemonTests sanitized take longer than all the rest: two runners share them, those named a… (aSendIsTyped)
           # and the others, about half each.

@@ -71,6 +71,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
     /// being written gets the ring).
     var canvasZoom: Double?
+    var tasksWatch: Watched?   // the project's tasks, for a task's page's Linked block (`linkedBlock`)
     var canvasWriter: String? {
         didSet { if canvasWriter != oldValue, page == .canvas { rerender() } }
     }

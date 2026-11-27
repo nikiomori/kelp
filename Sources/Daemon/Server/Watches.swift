@@ -269,7 +269,7 @@ extension WatchStart: Handled {
         case .databases: "The databases' activity is the user's: `kelp db list` says which an agent may use."
         case .phone: "The phones and their pairing link are the user's."
         case .git, .ports, .activity, .ci, .pr, .context, .limits, .commands, .subagents, .edits, .file, .files, .host,
-            .hostDetail, .machines, .machineDetail, .artifacts, .prs, .work:
+            .hostDetail, .machines, .machineDetail, .artifacts, .prs, .work, .tasks:
             nil
         }
     }

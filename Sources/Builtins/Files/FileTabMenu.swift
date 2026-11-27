@@ -36,6 +36,8 @@ extension FileTab {
         keyed(
             "editor.copyReference",
             menu.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) })
+        // Quick Entry, with this place in the code said with the line (Tasks).
+        keyed("tasks.new", menu.add(String(localized: "Add to Tasks…")) { app.extensions.run("tasks.new", [:]) })
         if inProject != nil {
             menu.add(String(localized: "Last Change to This Line")) { [weak self] in self?.showLineOrigin() }
         }

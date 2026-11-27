@@ -65,6 +65,11 @@ struct CardView: View {
                     if let goal = agent.goal {
                         Text("Goal: \(goal)").font(.ui(TextSize.row)).foregroundStyle(.secondary).lineLimit(3)
                     }
+                    // The task the chat was started for, the person's line, as its project's tasks were last read.
+                    if let task = TaskActions.task(of: agent, in: model.app) {
+                        Label(task.title, systemImage: task.state == .done ? "checkmark.square" : "square")
+                            .font(.ui(TextSize.row)).foregroundStyle(.secondary).lineLimit(2)
+                    }
                     if let quietSince = agent.quietSince, agent.status == .working {
                         Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(
                             .ui(TextSize.caption)

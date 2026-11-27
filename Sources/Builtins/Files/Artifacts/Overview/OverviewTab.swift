@@ -263,6 +263,16 @@ final class OverviewController: NSViewController {
                 guard let self else { return }
                 quickLook.toggle(page.item, title: model.title(page))
             }, keeping: model.keeping(page))
+        // A project's task list is also the Tasks tab's: a way there from its card.
+        if page.item.slug == "tasks", page.item.type == Artifacts.Kind.doc.rawValue {
+            menu.insertItem(.separator(), at: 1)
+            let open = NSMenuItem(title: String(localized: "Open in Tasks"), action: nil, keyEquivalent: "")
+            menu.insertItem(open, at: 1)
+            let app = model.app
+            open.target = ClosureTarget { app.extensions.run("tasks.show", [:]) }
+            open.representedObject = open.target
+            open.action = #selector(ClosureTarget.fire)
+        }
     }
 }
 

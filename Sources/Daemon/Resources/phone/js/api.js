@@ -194,6 +194,11 @@ export async function icon(project) {
 }
 /** Starts an agent of that kind in the project with what it should do; resolves with {id}, the new agent's. */
 export const start = (project, agent, prompt) => api('POST', `projects/${id(project)}/agents`, { agent, prompt });
+// A project's open tasks; one written down to its inbox; an agent started on one, as ▶ does in Kelp.
+export const tasks = project => api('GET', `projects/${id(project)}/tasks`);
+export const addTask = (project, text) => api('POST', `projects/${id(project)}/tasks`, { text });
+export const runTask = (project, task, agent) =>
+  api('POST', `projects/${id(project)}/taskrun`, { path: task.path, id: task.id || undefined, line: task.line, agent });
 export const pushKey = () => api('GET', 'push/key');
 export const subscribe = subscription => api('POST', 'push/subscribe', subscription);
 export const unsubscribe = endpoint => api('DELETE', 'push/subscribe', { endpoint });

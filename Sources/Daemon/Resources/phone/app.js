@@ -66,6 +66,8 @@ const EN = {
   other: 'Other',
   newIn: project => `New agent in ${project}`, agentKind: 'Agent', whatToDo: 'What should it do?', startIt: 'Start',
   notStarted: "The Mac didn't start it.",
+  addTask: 'Add to Tasks', taskAdded: 'Added to the inbox.', openTasks: 'Tasks', runTask: name => `Do with ${name}`,
+  taskStates: { working: 'working', waiting: 'asks you', done: 'to review', idle: 'to review', error: 'failed', paused: 'paused' },
   limit: (kind, resets) => `Hit its ${kind} limit.` + (resets ? ` Resets ${resets}.` : ''),
   continues: time => ` Continues at ${time}.`,
   ended: 'This agent has ended.',
@@ -144,6 +146,8 @@ const RU = {
   other: 'Другие',
   newIn: project => `Новый агент в ${project}`, agentKind: 'Агент', whatToDo: 'Что ему сделать?', startIt: 'Запустить',
   notStarted: 'Mac не запустил агента.',
+  addTask: 'В задачи', taskAdded: 'Записано во «Входящие».', openTasks: 'Задачи', runTask: name => `Сделать с ${name}`,
+  taskStates: { working: 'работает', waiting: 'спрашивает', done: 'на проверку', idle: 'на проверку', error: 'упал', paused: 'пауза' },
   limit: (kind, resets) => `Упёрся в лимит: ${kind}.` + (resets ? ` Сбросится ${resets}.` : ''),
   continues: time => ` Продолжит в ${time}.`,
   ended: 'Этот агент завершён.',
@@ -761,9 +765,63 @@ function openStart(project) {
   const usual = [localStorage.getItem('kind'), kinds.find(kind => kind.default)?.id, 'claude'].find(id => kinds.some(kind => kind.id === id));
   if (usual) $('start-kind').value = usual;
   $('start-error').textContent = '';
+  $('start-task').textContent = S.addTask;
+  showTasks(project);
   $('start').showModal();
   $('start-text').focus();
 }
+
+/** The project's open tasks under the field, each with ▶ to start the chosen agent on it, as in Kelp. */
+async function showTasks(project) {
+  const list = $('start-tasks'), title = $('start-tasks-title');
+  list.replaceChildren();
+  title.hidden = true;
+  let tasks = [];
+  try { ({ tasks } = await kelp.tasks(project.id)); } catch { return; }
+  if (startIn !== project || !tasks.length) return;
+  set(title, S.openTasks);
+  title.hidden = false;
+  list.replaceChildren(...tasks.map(task => {
+    const item = el('li', 'task');
+    const words = el('span', 'task-text', task.text);
+    const state = task.status ? S.taskStates[task.status] : task.proposed ? '…' : '';
+    item.append(words);
+    if (state) item.append(el('span', 'task-state' + (task.status === 'waiting' ? ' asks' : ''), state));
+    if (!task.status || ['done', 'idle'].includes(task.status)) {
+      const run = el('button', 'icon glass', '▶');
+      run.type = 'button';
+      run.setAttribute('aria-label', S.runTask($('start-kind').selectedOptions[0]?.textContent || ''));
+      run.onclick = async () => {
+        run.disabled = true;
+        try {
+          const { id } = await kelp.runTask(project.id, task, $('start-kind').value);
+          localStorage.setItem('kind', $('start-kind').value);
+          $('start').close();
+          location.hash = encodeURIComponent(id);
+        } catch (error) {
+          $('start-error').textContent = error.message || S.notStarted;
+          run.disabled = false;
+        }
+      };
+      item.append(run);
+    }
+    return item;
+  }));
+}
+$('start-task').onclick = async () => {
+  const text = $('start-text').value.trim();
+  if (!text) return $('start-text').focus();
+  $('start-task').disabled = true;
+  try {
+    await kelp.addTask(startIn.id, text);
+    $('start-text').value = '';
+    $('start-error').textContent = S.taskAdded;
+    showTasks(startIn);
+  } catch (error) {
+    $('start-error').textContent = error.message || S.notStarted;
+  }
+  $('start-task').disabled = false;
+};
 $('start-no').onclick = () => $('start').close();
 $('start-form').onsubmit = async e => {
   e.preventDefault();

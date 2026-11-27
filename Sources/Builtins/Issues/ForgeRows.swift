@@ -34,7 +34,8 @@ enum ForgeRows {
 
     static func heading(_ text: String) -> NSView { SectionHeading(text) }
 
-    static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool) -> ForgeRowCell {
+    /// `task` is the title of the task whose chat worked on the PR's branch, said after its state.
+    static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool, task: String? = nil) -> ForgeRowCell {
         var said = [word("#\(pr.number)"), word(pr.author)]
         if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append(word(updated)) }
         if pr.isDraft {
@@ -55,6 +56,12 @@ enum ForgeRows {
         } else if checks.passed > 0 {
             said.append(.signed("checkmark.circle.fill", nil, size: size, color: .secondaryLabelColor))
         }
+        if let task {
+            let mark = NSMutableAttributedString(
+                attributedString: .signed("checklist", nil, size: size, color: .secondaryLabelColor))
+            mark.append(word(" " + task))
+            said.append(mark)
+        }
         return ForgeRowCell(
             symbol: symbol(pr), tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
             meta: joined(said), branch: worktree, unseen: unseen)
@@ -70,12 +77,16 @@ enum ForgeRows {
         }
     }
 
-    static func issue(_ issue: GitHub.Issue, working: Bool) -> ForgeRowCell {
+    /// `task` is the issue's task line, when it is one: its row says so, or what an agent does with it.
+    static func issue(_ issue: GitHub.Issue, working: Bool, task: TaskRow? = nil) -> ForgeRowCell {
         var parts = ["#\(issue.number)"]
         if let author = issue.author { parts.append(author) }
         if let updated = issue.updatedAt.map(CIRunLook.ago), !updated.isEmpty { parts.append(updated) }
         if !issue.labels.isEmpty { parts.append(issue.labels.joined(separator: ", ")) }
         if working { parts.append(String(localized: "in work")) }
+        if let task, !working {
+            parts.append(task.work == .none ? String(localized: "in Tasks") : TaskCell.word(task, nil))
+        }
         return ForgeRowCell(
             symbol: "smallcircle.filled.circle", tint: issue.state == "CLOSED" ? .textPurple : .textGreen,
             title: issue.title, meta: joined(parts.map { word($0) }), branch: working, unseen: false)

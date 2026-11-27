@@ -7,8 +7,10 @@ extension TasksViewController {
     /// What the selected source lists.
     enum Row {
         case pr(GitHub.PullRequest), issue(GitHub.Issue), linear(LinearIssue), jira(JiraIssue), item(GitHub.ProjectItem)
+        case task(TaskRow)
         var url: String? {
             switch self {
+            case .task(let row): row.task.issue
             case .pr(let pr): pr.url
             case .issue(let issue): issue.url
             case .linear(let issue): issue.url
@@ -17,9 +19,12 @@ extension TasksViewController {
             }
         }
     }
-    /// What the source menu lists, in its order.
+    /// What the source menu lists. Tasks, the project's own, comes first in the menu (`menuOrder`), the forges'
+    /// and trackers' lists after a line; the raw values stay as they were.
     enum Source: Int, CaseIterable {
-        case pulls, issues, linear, jira, projects
+        case pulls, issues, linear, jira, projects, tasks
+
+        static let menuOrder: [Source] = [.tasks, .pulls, .issues, .linear, .jira, .projects]
 
         var title: String {
             switch self {
@@ -28,6 +33,7 @@ extension TasksViewController {
             case .linear: String(localized: "Linear")
             case .jira: String(localized: "Jira")
             case .projects: String(localized: "Projects")
+            case .tasks: String(localized: "Tasks")
             }
         }
         /// The filter menu's own items. Linear adds its teams to them, and Projects its boards once they're read.
@@ -38,11 +44,16 @@ extension TasksViewController {
             case .linear: [String(localized: "My Issues")]
             case .jira: [String(localized: "My Open Issues"), String(localized: "Custom JQL…")]
             case .projects: [String(localized: "Loading projects…")]
+            case .tasks:
+                [
+                    String(localized: "Open"), String(localized: "Waiting for You"), String(localized: "Inbox"),
+                    String(localized: "Logbook")
+                ]
             }
         }
         /// Whether the source is read from the project's forge (gh or glab), so that a missing remote or CLI is what an
         /// error means. Linear and Jira need neither.
-        var needsRemote: Bool { self != .linear && self != .jira }
+        var needsRemote: Bool { self != .linear && self != .jira && self != .tasks }
         /// What to do when the source can't be read and gh or glab has no fix to offer; nil shows the error's own
         /// words.
         var connectHint: String? {
@@ -53,6 +64,7 @@ extension TasksViewController {
             switch self {
             case .pulls: String(localized: "No Open Pull Requests")
             case .issues: String(localized: "No Open Issues")
+            case .tasks: String(localized: "No Open Tasks")
             case .linear, .jira, .projects: nil
             }
         }
@@ -66,7 +78,7 @@ extension TasksViewController {
         switch row {
         case .pr(let pr): pr.number
         case .issue(let issue): issue.number
-        case .linear, .jira, .item: nil
+        case .linear, .jira, .item, .task: nil
         }
     }
 }

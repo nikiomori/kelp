@@ -130,6 +130,14 @@ import Testing
             ArtifactChange(folder: elsewhere.path + "/.kelp/artifacts/x", archived: true, session: mine.id), false,
             "but archives none in another's"
         ),
+        (.session(mine.id), TaskList(cwd: wt.path), true, "it reads its project's tasks"),
+        (.session(mine.id), TaskAdd(cwd: wt.path, text: "found"), true, "it proposes a task from its workspace"),
+        (.session(mine.id), TaskAdd(cwd: elsewhere.path, text: "x"), false, "but not from another's"),
+        (
+            .session(mine.id),
+            TaskChange(path: w.repo.path + "/.kelp/artifacts/tasks/doc.md", task: TaskRef(id: "1"), state: .done),
+            true, "a step on its project's list it may tick from its branch (the handler holds it to its project)"
+        ),
         (
             .session(mine.id), ArtifactKeepAssets(cwd: wt.path, session: mine.id, assets: []), true,
             "it keeps what it uploaded for its pages"

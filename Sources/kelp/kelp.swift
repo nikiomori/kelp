@@ -57,6 +57,11 @@ let usage = """
                                            missed while the Mac slept runs once when it wakes (--skip-missed: doesn't);
                                            an agent's asks the user on its row first
       routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
+      task list [--all] [--json] | show <id>   the project's tasks (- [ ] lines on its pages); a line with no id
+                                           yet is named page:line
+      task add "<words>" [--page <name>] [--under <heading>] [--issue <url>]   a task (from an agent: a proposal the
+                                           user takes or not, three a turn at most)
+      task done|reopen|cancel <id>         tick a step; a task line itself is closed by the user
       artifact guide <doc|review|slides|design|dashboard|motion|proof> [part]   how and where to make one: read it first
       artifact check <name> [--width 390|768|1280]   what the window finds wrong on a page: cut-off text,
                                            contrast, missing files
@@ -326,6 +331,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
         case "browser": try await browser(sub, client)
         case "routine": try await routines(sub, client)
         case "artifact": try await artifacts(sub, client)
+        case "task": try await tasks(sub, client)
         case "vm": try await vm(sub, client)
         case "db": try await db(sub, client)
         case "mcp": try await addons(.server, sub, client)

@@ -159,6 +159,11 @@ extension Builtins {
                 group: "Claude Code skills",
                 icon: ("clock.arrow.circlepath", NSColor(hex: 0xFF9500))),
             s(
+                SettingKeys.skillTasks, "Work on tasks", .boolean,
+                "Claude Code ticks the steps of the task it was started for and proposes new ones to your inbox.",
+                group: "Claude Code skills",
+                icon: ("checklist", NSColor(hex: 0x34C759))),
+            s(
                 SettingKeys.skillBrowser, "Use pages in Kelp’s browser", .enum,
                 "Your app in a tab beside it; a project can have its own.",
                 help:
