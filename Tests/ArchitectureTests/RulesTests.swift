@@ -104,8 +104,13 @@ import Testing
     let comment = #"(?m)(^|\s)//.*$"#
     let text = tests.map { $0.text.replacingOccurrences(of: comment, with: "", options: .regularExpression) }
         .joined(separator: "\n")
-    let called = Set(
-        methods.filter { type, name in names.contains(type) || (!name.isEmpty && text.contains("\"\(name)\"")) }.keys)
+    // Every quoted wire name, gathered once (a search of all the tests for each method took seconds).
+    let quoted = Set(
+        try NSRegularExpression(pattern: #""([\w./-]+)(?=")"#).matches(
+            in: text, range: NSRange(text.startIndex..., in: text)
+        )
+        .compactMap { Range($0.range(at: 1), in: text).map { String(text[$0]) } })
+    let called = Set(methods.filter { type, name in names.contains(type) || quoted.contains(name) }.keys)
     let uncalled = Set(methods.keys).subtracting(called)
     #expect(uncalled.subtracting(untested).sorted() == [], "no test calls these: add one")
     #expect(untested.subtracting(uncalled).sorted() == [], "called by a test now, or gone: take them off the list")
