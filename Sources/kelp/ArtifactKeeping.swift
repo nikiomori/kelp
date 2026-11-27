@@ -23,9 +23,8 @@ extension Main {
             ($0.archived == archived) && (tag.map($0.tags.contains) ?? true)
         }
         if json {
-            let encoder = JSONEncoder()
+            let encoder = JSONEncoder.pretty
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             print(String(decoding: try encoder.encode(pages), as: UTF8.self))
             return
         }

@@ -77,8 +77,10 @@ extension HostBrowser {
                 say.out(text + (plan.note.map { "\n" + $0 } ?? ""))
             } else if case .string(let text) = answer {
                 say.out(text)
-            } else if answer != .null, let text = Self.pretty(answer) {
-                say.out(text)
+            } else if answer != .null,
+                let data = Log.session.attempt("printing an answer", { try JSONEncoder.pretty.encode(answer) })
+            {
+                say.out(String(decoding: data, as: UTF8.self))
             }
             return true
         } catch let wrong as BrowserWords.Wrong {
@@ -87,15 +89,6 @@ extension HostBrowser {
             say.error("error: " + error.rpcMessage)
         }
         return false
-    }
-
-    /// The JSON of an answer as `kelp --json` prints it.
-    static func pretty(_ value: JSONValue) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return Log.session.attempt("printing an answer") { try encoder.encode(value) }.map {
-            String(decoding: $0, as: UTF8.self)
-        }
     }
 
     /// A path as typed in the host's folder `cwd`, made whole there.

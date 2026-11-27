@@ -134,9 +134,8 @@ extension Artifacts {
     }
 
     static func save(_ record: ArtifactRecord, in folder: URL) throws {
-        let encoder = JSONEncoder()
+        let encoder = JSONEncoder.pretty
         encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 

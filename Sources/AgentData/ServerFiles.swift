@@ -36,10 +36,8 @@ public enum ServerFiles {
         var servers: [String: JSONValue] = if case .object(let old)? = all["mcpServers"] { old } else { [:] }
         servers[name] = try entry.map { try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode($0)) }
         all["mcpServers"] = .object(servers)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try Paths.ensure(file.deletingLastPathComponent())
-        try (encoder.encode(JSONValue.object(all)) + Data("\n".utf8)).write(to: file, options: .atomic)
+        try (JSONEncoder.pretty.encode(JSONValue.object(all)) + Data("\n".utf8)).write(to: file, options: .atomic)
     }
 
     /// Builds Codex's command line for `servers` (checked on 0.166, where `-c mcp_servers.<name>={…}` adds a server for
