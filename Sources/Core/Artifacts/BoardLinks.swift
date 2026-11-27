@@ -23,15 +23,15 @@ public enum BoardLinks {
     /// The controls of `html` (one board) and where each goes: links to boards, and dead ends. An `<a>` to an address
     /// outside the design, and a field, are neither.
     public static func controls(_ html: String, board: String) -> [Link] {
-        html.matches(of: /<(a|button)\b([^>]*)>([\s\S]*?)<\/\1>/.ignoresCase()).compactMap { m in
-            let tag = String(m.output.2), words = text(String(m.output.3))
+        html.matches(of: /<(a|button)\b([^>]*)>([\s\S]*?)<\/\1>/.ignoresCase()).compactMap { match in
+            let tag = String(match.output.2), words = text(String(match.output.3))
             let id = attribute(tag, "data-id") ?? ""
             if let to = attribute(tag, "data-link") { return Link(board: board, id: id, words: words, to: to) }
             let href = attribute(tag, "href")
             if let href, href.hasPrefix("#board:") {
                 return Link(board: board, id: id, words: words, to: String(href.dropFirst("#board:".count)))
             }
-            let isLink = m.output.1.lowercased() == "a"
+            let isLink = match.output.1.lowercased() == "a"
             if isLink, let href, !href.isEmpty, href != "#" { return nil }   // goes somewhere outside the design
             if attribute(tag, "type").map({ ["submit", "reset"].contains($0) }) == true, !isLink { return nil }
             return Link(board: board, id: id, words: words, to: nil)
@@ -46,9 +46,9 @@ public enum BoardLinks {
     /// The lines `kelp artifact links` prints: "welcome:start → choose", a dead end "→ (nothing)", and a link to a
     /// board that isn't there "→ nope (no such board)".
     public static func lines(_ links: [Link], boards: [String]) -> [String] {
-        links.map { l in
-            let from = name(l.board) + ":" + (l.id.isEmpty ? "«\(l.words)»" : l.id)
-            guard let to = l.to else { return from + " → (nothing)" }
+        links.map { link in
+            let from = name(link.board) + ":" + (link.id.isEmpty ? "«\(link.words)»" : link.id)
+            guard let to = link.to else { return from + " → (nothing)" }
             return from + " → " + to + (file(to, in: boards) == nil ? " (no such board)" : "")
         }
     }

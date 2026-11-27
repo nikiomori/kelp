@@ -3,15 +3,15 @@ import Foundation
 
 extension Main {
     /// A motion page's `beats` or `captions`.
-    static func motion(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
-        if sub == "beats" { try await beats(cwd, c) } else { try await captions(cwd, c) }
+    static func motion(_ sub: String, _ cwd: String, _ client: RPCClient) async throws {
+        if sub == "beats" { try await beats(cwd, client) } else { try await captions(cwd, client) }
     }
 
     /// `artifact beats <name>`: the beats of a motion page's first sound, at the page's seconds, so the agent can put
     /// its scene changes on them.
-    static func beats(_ cwd: String, _ c: RPCClient) async throws {
+    static func beats(_ cwd: String, _ client: RPCClient) async throws {
         let usage = "artifact beats <name>"
-        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, client), usage: usage)
         guard let data = FileManager.default.contents(atPath: target) else { fail("can't read \(target)") }
         guard let (bpm, times) = try pageBeats(String(decoding: data, as: UTF8.self), at: target) else {
             fail("no <audio> on the page: add the music first (drop a file on the stage, or write the tag)")
@@ -41,11 +41,11 @@ extension Main {
 
     /// `artifact captions <name> --text <file> [--from s] [--to s]`: a motion page's subtitles from a script, a line
     /// each, shared over the page (or from…to) by length, their edges on the music's beats where one is near.
-    static func captions(_ cwd: String, _ c: RPCClient) async throws {
+    static func captions(_ cwd: String, _ client: RPCClient) async throws {
         let usage = "artifact captions <name> --text <file, a subtitle a line> [--from <s>] [--to <s>]"
         guard let script = flag("--text") else { fail(usage) }
         let from = flag("--from").flatMap(Double.init), to = flag("--to").flatMap(Double.init)
-        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, client), usage: usage)
         guard let data = FileManager.default.contents(atPath: target),
             let typed = FileManager.default.contents(atPath: (script as NSString).expandingTildeInPath)
         else { fail("can't read \(target) or \(script)") }

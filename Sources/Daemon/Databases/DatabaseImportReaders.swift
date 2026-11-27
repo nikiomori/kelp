@@ -167,10 +167,10 @@ enum ImportReaders {
     }
 
     /// Reads a DBeaver connection's address: a file's path, a host's address, or the JDBC URL it was given as.
-    private static func dbeaverAddress(_ c: [String: Any], _ cfg: [String: Any], _ engine: DatabaseInfo.Engine)
+    private static func dbeaverAddress(_ connection: [String: Any], _ cfg: [String: Any], _ engine: DatabaseInfo.Engine)
         -> DatabaseInfo?
     {
-        let name = string(c["name"])
+        let name = string(connection["name"])
         if engine.isFile {
             let url = nonEmpty(cfg["url"]).map {
                 $0.replacingOccurrences(of: #"^jdbc:\w+:"#, with: "", options: .regularExpression)

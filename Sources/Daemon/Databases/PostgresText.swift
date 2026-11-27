@@ -126,9 +126,9 @@ enum PostgresText {
         if weight < 0 {
             whole = "0"
         } else {
-            for i in 0...Int(weight) {
-                let group = i < digits.count ? Int(digits[i]) : 0
-                whole += i == 0 ? String(group) : String(format: "%04d", group)
+            for step in 0...Int(weight) {
+                let group = step < digits.count ? Int(digits[step]) : 0
+                whole += step == 0 ? String(group) : String(format: "%04d", group)
             }
         }
         var fraction = ""
@@ -366,17 +366,17 @@ enum PgPass {
 
     static func fields(_ line: String) -> [String] {
         var out: [String] = [], field = "", escaped = false
-        for c in line {
+        for char in line {
             if escaped {
-                field.append(c)
+                field.append(char)
                 escaped = false
-            } else if c == "\\" {
+            } else if char == "\\" {
                 escaped = true
-            } else if c == ":" && out.count < 4 {
+            } else if char == ":" && out.count < 4 {
                 out.append(field)
                 field = ""
             } else {
-                field.append(c)
+                field.append(char)
             }
         }
         out.append(field)

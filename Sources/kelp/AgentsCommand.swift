@@ -88,10 +88,10 @@ extension Main {
                 + (paused > 0 ? " · \(paused) paused" : "")
         ]
         if rows.isEmpty { lines.append("No agents running") }
-        for (i, r) in rows.enumerated().dropFirst(top).prefix(fits) {
-            let title = "\(mark(r.status)) \(r.title)"
-            lines.append(i == at ? "\u{1B}[7m\(title)\u{1B}[0m" : title)
-            lines.append("  \u{1B}[2m\(r.detail)\u{1B}[0m")
+        for (index, row) in rows.enumerated().dropFirst(top).prefix(fits) {
+            let title = "\(mark(row.status)) \(row.title)"
+            lines.append(index == at ? "\u{1B}[7m\(title)\u{1B}[0m" : title)
+            lines.append("  \u{1B}[2m\(row.detail)\u{1B}[0m")
         }
         if let note { lines.append(note) }
         lines.append(
@@ -127,7 +127,7 @@ extension Main {
         if posix_spawnp(&pid, me, nil, nil, argv, environ) == 0 { waitpid(pid, &status, 0) }
     }
 
-    private static func put(_ s: String) { _ = s.withCString { Darwin.write(1, $0, strlen($0)) } }
+    private static func put(_ text: String) { _ = text.withCString { Darwin.write(1, $0, strlen($0)) } }
 }
 
 extension Main {

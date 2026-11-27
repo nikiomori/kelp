@@ -4,14 +4,14 @@ import Foundation
 extension Main {
     /// `artifact guide|new|list|tags|tag|untag|archive|unarchive|sync|open|add|check|links|marks|reply|ask|suggest|
     /// export|beats|captions` handles pages agents make for the user, kept in the project's `.kelp/artifacts`.
-    static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
+    static func artifacts(_ sub: String?, _ rpc: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         switch sub {
         case "guide":
             let whereTo =
-                try await SettingKeys.skillArtifacts.read(in: c.call(SettingsGet())) == "all" ? "local" : "agent"
-            let root = try await projectRoot(cwd, c)
+                try await SettingKeys.skillArtifacts.read(in: rpc.call(SettingsGet())) == "all" ? "local" : "agent"
+            let root = try await projectRoot(cwd, rpc)
             let system = FileManager.default.fileExists(
                 atPath: DesignSystem.dir(root: root).appendingPathComponent("kit.css").path)
             guard let kind = args.first,
@@ -27,12 +27,12 @@ extension Main {
             guard args.count >= 2, let kind = Artifacts.Kind(rawValue: args[0]) else {
                 fail("artifact new <\(Artifacts.Kind.allCases.map(\.rawValue).joined(separator: "|"))> <title>")
             }
-            let file = try await c.call(
+            let file = try await rpc.call(
                 ArtifactNew(kind: kind, title: args.dropFirst().joined(separator: " "), cwd: cwd, session: session))
             var opened = false
             if !quiet {
                 do {
-                    _ = try await IDE.open(file, split: nil, cwd: cwd, client: c)
+                    _ = try await IDE.open(file, split: nil, cwd: cwd, client: rpc)
                     opened = true
                 } catch {   // The page is made all the same.
                     print(
@@ -43,7 +43,7 @@ extension Main {
             print(file + (try keep(source, beside: file)))
             if kind.isCanvas {
                 let folder = (file as NSString).deletingLastPathComponent
-                let system = DesignSystem.dir(root: try await projectRoot(cwd, c)).path
+                let system = DesignSystem.dir(root: try await projectRoot(cwd, rpc)).path
                 print("Boards: \(folder)/boards/ · design system: \(system)/")
                 print(opened ? "Opened beside you; it redraws as you save." : "Write the boards, then canvas.json.")
                 let name = (folder as NSString).lastPathComponent
@@ -58,14 +58,14 @@ extension Main {
                     ? "Opened beside you. Write the page into that file; the tab updates as you save."
                     : "Write the page into that file.")
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
-        case "list": try await listPages(cwd, c)
-        case "tags": try await listTags(cwd, c)
-        case "sync": try await sync(cwd, c)
-        case "tag", "untag", "archive", "unarchive": try await keep(sub ?? "", cwd, c)
+        case "list": try await listPages(cwd, rpc)
+        case "tags": try await listTags(cwd, rpc)
+        case "sync": try await sync(cwd, rpc)
+        case "tag", "untag", "archive", "unarchive": try await keep(sub ?? "", cwd, rpc)
         case "rm", "remove", "delete", "trash":
             fail("Only the user deletes pages. Move it to the archive instead: kelp artifact archive <name>")
         case "open":
-            let root = try await projectRoot(cwd, c)
+            let root = try await projectRoot(cwd, rpc)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name })
             else {
                 fail("artifact open <name> (names: kelp artifact list)")
@@ -75,42 +75,42 @@ extension Main {
             }   // Opened in the browser, because Kelp's tabs aren't signed in to the service.
             else {
                 _ = try await IDE.open(
-                    Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
+                    Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: rpc)
             }
         case "check":
             // A board is also checked at the phone's and the tablet's widths under its own: `--width` keeps those.
             let width = flag("--width")
             if let width, !["390", "768", "1280"].contains(width) { fail("--width takes 390, 768 or 1280") }
-            let root = try await projectRoot(cwd, c)
+            let root = try await projectRoot(cwd, rpc)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
                 artifact.record.file != Artifacts.Kind.review.file
             else {
                 fail("artifact check <name of a page other than a review> (names: kelp artifact list)")
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
-            _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
-            let all = try await c.call(ArtifactCheck(path: target))
+            _ = try await IDE.open(target, split: nil, cwd: cwd, client: rpc)   // The window checks what it draws.
+            let all = try await rpc.call(ArtifactCheck(path: target))
             let issues = width.map { w in all.filter { $0.contains(" @\(w): ") } } ?? all
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
-        case "links": try await links(cwd, c)
-        case "marks": try await listMarks(root: try await projectRoot(cwd, c))
+        case "links": try await links(cwd, rpc)
+        case "marks": try await listMarks(root: try await projectRoot(cwd, rpc))
         case "reply":
             let usage = "artifact reply <name> <#> <what you say about that mark>"
             guard args.count >= 3, let id = Int(args[1].trimmingCharacters(in: CharacterSet(charactersIn: "#"))) else {
                 fail(usage)
             }
-            let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
-            _ = try await c.call(ArtifactReply(path: target, id: id, text: args.dropFirst(2).joined(separator: " ")))
+            let (target, _) = try await page(args.first, root: try await projectRoot(cwd, rpc), usage: usage)
+            _ = try await rpc.call(ArtifactReply(path: target, id: id, text: args.dropFirst(2).joined(separator: " ")))
             print("Said on #\(id). The user sees it under the mark.")
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
             guard let url = args.first, url.hasPrefix("https://") else {
                 fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]")
             }
-            _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
-        case "export": try await exportPage(cwd, c)
-        case "ask", "suggest": try await talk(sub ?? "", cwd, c)
-        case "beats", "captions": try await motion(sub ?? "", cwd, c)
+            _ = try await rpc.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
+        case "export": try await exportPage(cwd, rpc)
+        case "ask", "suggest": try await talk(sub ?? "", cwd, rpc)
+        case "beats", "captions": try await motion(sub ?? "", cwd, rpc)
         default: print(usage)
         }
     }
@@ -209,8 +209,8 @@ extension Main {
 
     /// Returns the folder of the workspace that holds `cwd`, because artifacts belong to the workspace. For a chat
     /// outside any project, it returns `cwd` itself.
-    static func projectRoot(_ cwd: String, _ c: RPCClient) async throws -> String {
-        try await IDE.workspace(cwd: cwd, client: c)?.path ?? cwd
+    static func projectRoot(_ cwd: String, _ rpc: RPCClient) async throws -> String {
+        try await IDE.workspace(cwd: cwd, client: rpc)?.path ?? cwd
     }
 
     /// Called from `kelp hook command`: adds a page that the agent's own tool just published to the project's list. The

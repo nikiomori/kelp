@@ -181,7 +181,7 @@ func show(_ value: JSONValue) {
     }
 }
 /// Prints a typed result as the JSON it came as.
-func show<T: Encodable>(_ v: T) { show((try? JSONValue.from(v)) ?? .null) }
+func show<T: Encodable>(_ value: T) { show((try? JSONValue.from(value)) ?? .null) }
 
 /// Reads a CLI value as JSON when it parses (3, true, [1], "x"), or else as the text itself.
 func jsonOrText(_ text: String) -> JSONValue {

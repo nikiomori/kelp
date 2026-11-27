@@ -166,15 +166,17 @@ extension Git {
     }
 
     /// The files that differ from tree `a` to tree `b`, with the lines added and removed (`git diff --numstat`).
-    public static func numstat(_ a: String, _ b: String, cwd: String, remotes: Remotes) throws -> [(
+    public static func numstat(_ base: String, _ head: String, cwd: String, remotes: Remotes) throws -> [(
         path: String, added: Int, removed: Int
     )] {
-        try run(["diff", "--numstat", "--no-renames", "-z", a, b], cwd: cwd, remotes: remotes).split(separator: "\0")
-            .compactMap { line in
-                let fields = line.split(separator: "\t", maxSplits: 2)
-                guard fields.count == 3 else { return nil }
-                return (String(fields[2]), Int(fields[0]) ?? 0, Int(fields[1]) ?? 0)
-            }
+        try run(["diff", "--numstat", "--no-renames", "-z", base, head], cwd: cwd, remotes: remotes).split(
+            separator: "\0"
+        )
+        .compactMap { line in
+            let fields = line.split(separator: "\t", maxSplits: 2)
+            guard fields.count == 3 else { return nil }
+            return (String(fields[2]), Int(fields[0]) ?? 0, Int(fields[1]) ?? 0)
+        }
     }
 }
 

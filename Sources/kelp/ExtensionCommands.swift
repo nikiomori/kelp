@@ -2,10 +2,10 @@ import Core
 import Foundation
 
 extension Main {
-    static func ext(_ sub: String?, _ c: RPCClient) async throws {
+    static func ext(_ sub: String?, _ rpc: RPCClient) async throws {
         switch sub {
         case "list":
-            for ext in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions) {
+            for ext in try await ExtensionFiles.extensions(client: rpc, dir: Paths.extensions) {
                 let tags = [
                     ext.builtin ? "(built-in)" : nil, ext.enabled ? nil : "(disabled)", ext.error.map { "error: \($0)" }
                 ].compactMap { $0 }
@@ -21,11 +21,11 @@ extension Main {
             )
         case "enable", "disable":
             guard let id = args.first else { fail("ext enable|disable <id>") }
-            try await ExtensionFiles.setExtension(id, enabled: sub == "enable", client: c)
-        case "reload": show(try .from(try await c.call(UICommand(id: "extensions.reload"))))
+            try await ExtensionFiles.setExtension(id, enabled: sub == "enable", client: rpc)
+        case "reload": show(try .from(try await rpc.call(UICommand(id: "extensions.reload"))))
         case "path": print(Paths.extensions.path)
         case "search":
-            for ext in try await c.call(ExtensionLibrary()) where ext.matches(args.joined(separator: " ")) {
+            for ext in try await rpc.call(ExtensionLibrary()) where ext.matches(args.joined(separator: " ")) {
                 print([ext.id, ext.version, ext.name, ext.description ?? ""].joined(separator: "\t"))
             }
         case "install":
@@ -35,20 +35,20 @@ extension Main {
                 let src = URL(fileURLWithPath: what).standardizedFileURL
                 installed(try ExtensionFiles.installExtension(src, as: src.lastPathComponent, in: Paths.extensions))
             } else if what.contains("/") {
-                installed(try await fetch(what, as: nil, c, review: !args.contains("--yes")))
+                installed(try await fetch(what, as: nil, rpc, review: !args.contains("--yes")))
             } else {
-                guard let entry = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
+                guard let entry = try await rpc.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
                     fail("no \(what) in the library (kelp ext search)")
                 }
                 // An extension found by its topic was never reviewed, so what it runs is shown first, as for any
                 // repository.
                 installed(
                     try await fetch(
-                        entry.source, as: nil, c, review: entry.reviewed == false && !args.contains("--yes"),
+                        entry.source, as: nil, rpc, review: entry.reviewed == false && !args.contains("--yes"),
                         files: entry.files))
             }
         case "update":
-            let library = try await c.call(ExtensionLibrary())
+            let library = try await rpc.call(ExtensionLibrary())
             var found = false
             for folder in FileManager.default.items(in: Paths.extensions) {
                 guard let source = ExtensionFiles.extensionSource(folder), let id = manifest(folder)["id"]?.string,
@@ -67,7 +67,7 @@ extension Main {
                 // since. Either way, the user is asked about commands the extension didn't run before.
                 installed(
                     try await fetch(
-                        latest ?? source, as: folder.lastPathComponent, c,
+                        latest ?? source, as: folder.lastPathComponent, rpc,
                         review: (latest == nil || entry?.reviewed == false)
                             && !args.contains("--yes"), files: entry?.files,
                         before: args.contains("--yes") ? nil : folder))
