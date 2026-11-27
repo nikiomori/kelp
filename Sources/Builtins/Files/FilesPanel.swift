@@ -29,6 +29,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel).map(then) }
     }
     let outline = FilesOutline()
+    lazy var quickLook = makeQuickLook()
     /// The row whose name is being edited in place (a rename, or a new file).
     var renaming: (field: NSTextField, url: URL, open: Bool)?
     /// Rows fading on their way to the Trash.
