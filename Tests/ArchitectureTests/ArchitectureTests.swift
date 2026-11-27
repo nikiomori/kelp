@@ -210,7 +210,12 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // −3: the daemon and the sidebar share the project color and its stored representation in Core.
     // +1: a page's tab is shown by its id (`selectTab`), because a shared page and the user's own tab can show the same
     // address.
-    #expect(declared == 390, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +46: tasks are drawn and acted on alike by the Tasks built-in and the Issues panel's Tasks source: the lists
+    // (`TaskViews`, `TaskSource`, `TaskRow`, `TaskWork`, the board's `TaskColumn`), what a person does to a task
+    // (`TaskActions`: tick, run, the menu, add, grow, move, group, remove, a chat's task for the Agents Overview, the
+    // page a task shows on), the row both draw (`TaskCell`), the days a logbook groups by (`DaySections`, with
+    // Artifacts), and `TasksEvent`'s key.
+    #expect(declared == 436, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

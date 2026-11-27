@@ -36,7 +36,7 @@ extension TasksViewController {
             return
         }
         switch row {
-        case .pr, .issue: return   // these open in a tab of their own
+        case .pr, .issue, .task: return   // these open in a tab of their own, a task on its page
         case .jira, .linear:
             guard let brief = Self.brief(row) else { return }
             let title = "\(brief["ref"] ?? "")  \(brief["title"] ?? "")"
@@ -49,6 +49,16 @@ extension TasksViewController {
                 button(String(localized: "Start Agent on This")) { [app] in
                     IssueWork.startHere(app, brief)
                 })
+            if let title = brief["title"], let url = brief["url"] {
+                let known = task(issue: url)
+                detail.addArrangedSubview(
+                    button(known == nil ? String(localized: "Add to Tasks") : String(localized: "Show in Tasks")) {
+                        [weak self, app] in
+                        if let known { return TaskActions.open(app, known) }
+                        guard let repoId = self?.repoId else { return }
+                        Task { _ = await TaskActions.add(app, repo: repoId, text: title, issue: url) }
+                    })
+            }
             body(brief["body"] ?? "")
         case .item(let item):
             detail.addArrangedSubview(label(item.title, size: TextSize.heading, weight: .semibold))

@@ -145,10 +145,14 @@ final class OverviewModel {
         turns = read
     }
 
-    /// Watches what the cards show while the tab is up: each chat's folder (git and pull request) and context. It
-    /// follows the chats as they come and go.
+    /// Watches what the cards show while the tab is up: each chat's folder (git and pull request), context, and its
+    /// project's tasks (a chat started for one says which). It follows the chats as they come and go.
     func follow(_ cards: [OverviewCard]) {
-        let now = Set(cards.flatMap { ["git|\($0.folder)", "pr|\($0.folder)", "context|\($0.id)"] })
+        let now = Set(
+            cards.flatMap { card in
+                ["git|\(card.folder)", "pr|\(card.folder)", "context|\(card.id)"]
+                    + (app.worktree(card.folder).map { ["tasks|\($0.repoId)"] } ?? [])
+            })
         for key in now.subtracting(watched) { toggle(key, on: true) }
         for key in watched.subtracting(now) { toggle(key, on: false) }
         watched = now

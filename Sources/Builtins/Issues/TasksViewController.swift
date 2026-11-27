@@ -57,11 +57,13 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// filter) lands nowhere.
     private var reloads = 0, menus = 0
     private var jiraJQL = "project = ENG AND statusCategory != Done ORDER BY priority DESC"
+    private(set) lazy var tasksWatch = Watched(.tasks, in: app)
 
     override func loadView() {
-        for item in Source.allCases {
+        for item in Source.menuOrder {
             source.addItem(withTitle: item.title)
             source.lastItem?.tag = item.rawValue
+            if item == .tasks { source.menu?.addItem(.separator()) }   // the project's own, then the forges'
         }
         source.selectItem(withTag: Source.pulls.rawValue)
         source.target = self
@@ -112,6 +114,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         } changed: { [weak self] in
             if let prs = $0 { self?.pushed(prs) }
         }
+        followTasks()
         // A task started from an item makes its project a workspace, so the list reads again, quietly, to mark it.
         track(owner: self, now: false) { [weak self] in
             self.map { vc in vc.app.worktrees.filter { $0.repoId == vc.repoId }.map(\.id) } ?? []
@@ -174,6 +177,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let newRepoId = app.worktree(id)?.repoId ?? app.repos.first?.id
         guard newRepoId != repoId else { return }
         repoId = newRepoId
+        tasksWatch.key = newRepoId
         guard isViewLoaded else { return }
         // For another project, drop the rows now, or Merge on one of them before the reload would act on a PR number
         // in this repo.
@@ -319,6 +323,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                         : try await PRsEvent.open(repoId, in: app, again: !quietly)
                     unseen = PRWatch.unseen(prs)
                     rows = prs.map(Row.pr)
+                case .tasks: rows = taskRows(filter: filterIndex)
                 case .issues:
                     rows = try await app.get(GitHubIssues(repoId: repoId, filter: filterIndex == 1 ? "mine" : "open"))
                         .map(Row.issue)
@@ -385,7 +390,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         lastOpened = uri
     }
 
-    /// A double-click keeps the tab, so the next click opens one of its own.
-    @objc private func keepOpened() { lastOpened = nil }
+    /// A double-click keeps the tab, so the next click opens one of its own (a task's shows its line, `openTask`).
+    @objc private func keepOpened() { if !openTask(at: table.clickedRow) { lastOpened = nil } }
 
 }
