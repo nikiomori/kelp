@@ -366,7 +366,8 @@ function newerPage(page) {
 
 function conversationChanged(before, after) {
   return before?.status !== after?.status || before?.statusAt !== after?.statusAt
-    || (after?.agent === 'codex' && (before?.summary !== after.summary || before?.progress !== after.progress));
+    || ((after?.agent === 'codex' || after?.agent === 'omp' || after?.agent === 'pi')
+      && (before?.summary !== after.summary || before?.progress !== after.progress));
 }
 
 function refresh(data, changes) {

@@ -56,6 +56,9 @@ Read the agents and their conversations, mark one read, answer Allow or Deny to 
 Starting a new agent is off until Settings › Phone turns it on. The phone can then start the agents found on this Mac
 in the projects Kelp lists. Projects with a custom sidebar color use it on the phone in both light and dark mode.
 
+The phone can show turns from Claude Code, Codex, pi and oh-my-pi (OMP), including agents in SSH projects.
+For OMP it reads the conversation the process has open, not the most recently changed chat in the same folder.
+
 A phone acts as you: what it does goes through the same calls Kelp's window makes.
 
 ## What each party sees

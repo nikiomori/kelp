@@ -76,17 +76,15 @@ extension Conversations {
         return UUID(uuidString: id)
     }
 
-    /// The pane runs Codex itself or a shell/node wrapper around it. Stop at the agent: its tools can launch other
-    /// chats. Multiple panes, wrapper children or open rollouts leave the identity unresolved.
-    private static func openCodexRollout(pane: String, thread: UUID?) -> String {
-        let id = thread?.uuidString.lowercased() ?? "[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}"
+    /// Start at the agent's own PID or its single remote pane. Stop at the agent rather than following tools it runs.
+    static func openAgentFile(pid: String, executable: String, filename: String) -> String {
         return #"""
-            open_rollout() {
-                pid=$(tmux list-panes -s -t \#(ShellQuote.word("=" + pane + ":")) -F '#{pane_pid}' 2>/dev/null)
+            open_files() {
+                pid=\#(pid)
                 for depth in 1 2 3 4; do
                     [ "$pid" -gt 0 ] 2>/dev/null || return
                     exe=$(ps -o comm= -p "$pid" 2>/dev/null)
-                    if printf '%s\n' "${exe##*/}" | grep -Eq '^codex(-.*)?$'; then
+                    if printf '%s\n' "${exe##*/}" | grep -Eq \#(ShellQuote.word(executable)); then
                         if [ -d "/proc/$pid/fd" ]; then
                             readlink /proc/"$pid"/fd/* 2>/dev/null
                         else
@@ -98,11 +96,21 @@ extension Conversations {
                     pid=$(pgrep -P "$pid" 2>/dev/null)
                 done
             }
-            day='[0-9]{4}/[0-9]{2}/[0-9]{2}'
-            f=$(open_rollout | LC_ALL=C grep -E "^/.*/sessions/$day/rollout-[0-9T:-]+-\#(id)[.]jsonl$" | sort -u)
+            f=$(open_files | LC_ALL=C grep -E \#(ShellQuote.word(filename)) | sort -u)
             case "$f" in *'
             '*) exit 0
             esac
             """#
+    }
+
+    static func panePID(_ pane: String) -> String {
+        #"$(tmux list-panes -s -t \#(ShellQuote.word("=" + pane + ":")) -F '#{pane_pid}' 2>/dev/null)"#
+    }
+
+    private static func openCodexRollout(pane: String, thread: UUID?) -> String {
+        let id = thread?.uuidString.lowercased() ?? "[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}"
+        let day = "[0-9]{4}/[0-9]{2}/[0-9]{2}"
+        return openAgentFile(
+            pid: panePID(pane), executable: "^codex(-.*)?$", filename: "^/.*/sessions/\(day)/rollout-[0-9T:-]+-\(id)[.]jsonl$")
     }
 }

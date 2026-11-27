@@ -3,7 +3,7 @@ import Foundation
 
 /// A conversation as someone away from the terminal reads it, on the phone's page. It holds what the user asked, what
 /// the agent said, and one line for each run of tools in between, summed up the way the agent's terminal does ("Read 3
-/// files, ran 1 command"). It comes from Claude Code's transcript or Codex's rollout. Other agents' files aren't read.
+/// files, ran 1 command"). It reads Claude Code, Codex, pi, and oh-my-pi conversation files.
 public enum ConversationTurns {
     public struct Turn: Equatable, Sendable {
         public enum Role: String, Sendable { case user, did, agent }
@@ -65,8 +65,7 @@ public enum ConversationTurns {
         var turns: [Turn] = []
         private var run = Run()
 
-        /// Reads one entry: Claude Code's `{type: user|assistant, message, timestamp}`, or Codex's
-        /// `{type: response_item, payload}` holding a message or a tool call.
+        /// Reads a Claude Code transcript entry, a pi/oh-my-pi session message, or a Codex response item.
         mutating func read(_ entry: [String: Any]) {
             let payload = entry["payload"] as? [String: Any], at = entry["timestamp"] as? String
             switch (entry["type"] as? String, payload?["type"] as? String) {
@@ -77,6 +76,8 @@ public enum ConversationTurns {
                     entry["isCompactSummary"] as? Bool != true
                 else { return }
                 say(role, (entry["message"] as? [String: Any])?["content"], at: at)
+            case ("message", _):
+                if let message = entry["message"] as? [String: Any] { readPi(message, at: at) }
             case ("response_item", "message"?): say(payload?["role"] as? String, payload?["content"], at: at)
             case ("response_item", let kind?) where kind.hasSuffix("_call"):
                 let sent = payload?["arguments"] ?? payload?["input"] ?? payload?["action"]
@@ -86,22 +87,54 @@ public enum ConversationTurns {
             }
         }
 
+        private mutating func readPi(_ message: [String: Any], at: String?) {
+            let content = message["content"]
+            switch message["role"] as? String {
+            case "user":
+                // oh-my-pi can persist a synthetic continuation with a user role.
+                guard message["synthetic"] as? Bool != true else { return }
+                if let raw = content as? String {
+                    if let text = JSONL.typed(raw) { add(text, role: .user, at: at) }
+                } else {
+                    let items = content as? [[String: Any]] ?? []
+                    let text = items.lazy.compactMap { item -> String? in
+                        guard item["type"] as? String == "text", let raw = item["text"] as? String else { return nil }
+                        return JSONL.typed(raw)
+                    }.joined(separator: "\n\n")
+                    add(text, role: .user, at: at)
+                }
+            case "assistant":
+                for item in content as? [[String: Any]] ?? [] {
+                    switch item["type"] as? String {
+                    case "text":
+                        if let raw = item["text"] as? String, let text = Self.said(raw) { add(text, role: .agent) }
+                    case "toolCall":
+                        run.usedPi(item["name"] as? String, item["arguments"])
+                    default: break
+                    }
+                }
+            default: break
+            }
+        }
+
         private mutating func say(_ role: String?, _ content: Any?, at: String?) {
             guard role == "user" || role == "assistant" else { return }
             let items = content as? [[String: Any]] ?? []
             let texts = JSONL.texts(content)
             let text = texts.compactMap(role == "user" ? JSONL.typed : Self.said).joined(separator: "\n\n")
-            if !text.isEmpty {
-                endRun()
-                let turn = Turn(role: role == "user" ? .user : .agent, text: text, at: role == "user" ? at : nil)
-                if turn.role == .agent, turns.last?.role == .agent, let last = turns.indices.last {
-                    turns[last].text += "\n\n" + text
-                } else {
-                    turns.append(turn)
-                }
-            }
+            add(text, role: role == "user" ? .user : .agent, at: role == "user" ? at : nil)
             for item in items where item["type"] as? String == "tool_use" {
                 run.used(item["name"] as? String, item["input"])
+            }
+        }
+
+        private mutating func add(_ text: String, role: Turn.Role, at: String? = nil) {
+            guard !text.isEmpty else { return }
+            endRun()
+            if role == .agent, turns.last?.role == .agent, let last = turns.indices.last {
+                turns[last].text += "\n\n" + text
+            } else {
+                turns.append(Turn(role: role, text: text, at: at))
             }
         }
 
@@ -121,6 +154,17 @@ public enum ConversationTurns {
     struct Run {
         var patterns = 0, commands = 0, others = 0
         var read: [String] = [], edited: [String] = []
+
+        mutating func usedPi(_ name: String?, _ arguments: Any?) {
+            if name == "edit", let patch = (arguments as? [String: Any])?["input"] as? String {
+                // oh-my-pi's default edit mode puts the paths in the hashline patch, not in a path argument.
+                for file in patch.matches(of: /(?m)^\[([^\r\n]+)#[0-9A-F]{4}\]\r?$/) {
+                    note(String(file.1), in: &edited)
+                }
+            } else {
+                used(name, arguments)
+            }
+        }
 
         /// Counts one tool call: Claude Code's Read/Grep/Glob/Edit/Write/Bash, or Codex's shell, exec_command,
         /// apply_patch and exec. A plan or a to-do list doesn't count as work done.
