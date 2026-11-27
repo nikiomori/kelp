@@ -234,6 +234,32 @@ import os
     #expect(!m.arrangement.isParked(s.id) && m.arrangement.parkedBack[s.id] == "CI failed")
 }
 
+/// An old failure still stored isn't news: another workflow starting, the same reading again after it was forgotten,
+/// or the first reading since launch leave a parked agent parked. A rerun that fails again is news.
+@Test @MainActor func aParkedAgentStaysOnAnOldFailure() {
+    let m = AppModel(), mine = "w"
+    func ci(_ runs: [(Int, String, String, String?)]) -> CIEvent {
+        let made = runs.map { id, workflow, status, conclusion in
+            CIRuns.Run(
+                id: id, title: "", workflow: workflow, status: status, conclusion: conclusion, event: "push", url: "",
+                createdAt: "")
+        }
+        return CIEvent(worktree: mine, result: CIRunsList.Result(branch: "main", runs: made, workflows: []))
+    }
+    let s = Session(worktreeId: mine, cwd: "/", command: "claude", agent: "claude", status: .working)
+    m.upsert(s)
+    m.arrangement.park(s.id, until: Mutes.forever)
+    m.land(ci([(1, "A", "completed", "failure")]))   // the first reading since launch
+    #expect(m.arrangement.isParked(s.id), "an old failure read at launch brings it back")
+    m.land(ci([(2, "B", "in_progress", nil), (1, "A", "completed", "failure")]))
+    #expect(m.arrangement.isParked(s.id), "another workflow starting brings it back")
+    m.latest(CIEvent.self).byKey[mine] = nil   // forgotten, then read again
+    m.land(ci([(2, "B", "in_progress", nil), (1, "A", "completed", "failure")]))
+    #expect(m.arrangement.isParked(s.id), "the same failure read again brings it back")
+    m.land(ci([(2, "B", "completed", "failure"), (1, "A", "completed", "failure")]))
+    #expect(!m.arrangement.isParked(s.id) && m.arrangement.parkedBack[s.id] == "CI failed")
+}
+
 /// New Chat on Branch…: each mode asks the daemon for its own kind of folder.
 @Test @MainActor func theNewChatSheetAsksForWhatWasPicked() {
     var c = NewChatSheet.Choice(mode: .new, name: "Fix login", from: "dev", branch: nil, pr: nil, agent: "codex")

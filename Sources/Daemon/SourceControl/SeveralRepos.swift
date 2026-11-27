@@ -8,16 +8,26 @@ import GitKit
 
 extension SourceControl {
     /// One message makes a commit in each repository that has something to commit: what is staged there, or with
-    /// `all` every change. Returns each one's name and hash.
+    /// `all` every change. Returns each one's name and hash. A failure in one doesn't stop the others, and its error
+    /// names the commits that were made, since they stay.
     func commitInEach(_ folder: String, _ names: [String], message: String, all: Bool, amend: Bool) throws -> String {
         guard !amend else {
             throw RPCError.invalidParams("Amend in one repository at a time: this folder holds several.")
         }
-        var made: [String] = []
+        var made: [String] = [], failed: [String] = []
         for name in names {
-            let repo = folder + "/" + name, changes = try Git.status(repo, remotes: remotes)
-            guard all ? !changes.isEmpty : changes.contains(where: { $0.staged && !$0.conflicted }) else { continue }
-            made.append(name + " " + (try Git.commit(repo, message: message, all: all, remotes: remotes)))
+            let repo = folder + "/" + name
+            do {
+                let changes = try Git.status(repo, remotes: remotes)
+                guard all ? !changes.isEmpty : changes.contains(where: { $0.staged && !$0.conflicted }) else {
+                    continue
+                }
+                made.append(name + " " + (try Git.commit(repo, message: message, all: all, remotes: remotes)))
+            } catch { failed.append("\(name): \((error as? GitError)?.message ?? "\(error)")") }
+        }
+        guard failed.isEmpty else {
+            let committed = made.isEmpty ? [] : ["Committed in " + made.joined(separator: ", ") + "."]
+            throw RPCError.invalidParams((committed + failed).joined(separator: "\n"))
         }
         guard !made.isEmpty else { throw RPCError.invalidParams("None of the folder's repositories has changes.") }
         return made.joined(separator: ", ")

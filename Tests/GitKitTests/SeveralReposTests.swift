@@ -41,3 +41,22 @@ import Testing
     try Git.run(["pack-refs", "--all"], cwd: repo, remotes: .none)
     #expect(Git.defaultBranchFromFiles(repo) == "master")   // packed, as git keeps refs after a gc
 }
+
+/// A branch's folder of repositories holds what it was made with. A folder it links to that becomes a repository later is
+/// the project's own checkout, and a repository cloned into the project later has no worktree there: neither is one of
+/// the branch's, so its changes aren't shown or committed there, and the folder still closes.
+@Test func aBranchFolderKeepsTheRepositoriesItWasMadeWith() throws {
+    let project = tmp().path, dir = tmp()
+    for name in ["be", "fe"] { try FileManager.default.moveItem(atPath: try tempRepo(), toPath: project + "/" + name) }
+    try FileManager.default.createDirectory(atPath: project + "/notes", withIntermediateDirectories: true)
+    let group = try Git.addWorktrees(project: project, branch: "b", into: dir, copyFiles: [], remotes: .none)
+    try Git.run(["init", "-q", "-b", "main"], cwd: project + "/notes", remotes: .none)   // linked from the branch's folder
+    try FileManager.default.moveItem(atPath: try tempRepo(), toPath: project + "/zz")   // cloned in after it was made
+    #expect(Git.nestedRepos(project) == ["be", "fe", "notes", "zz"])
+    #expect(Git.nestedRepos(group) == ["be", "fe"])
+    #expect(Git.checkouts(project: project, folder: group).map(\.folder) == [group + "/be", group + "/fe"])
+    #expect(Git.checkouts(project: project, folder: project).count == 4)   // the project's own: all of them
+    try Git.removeWorktrees(project: project, path: group, branch: "b", force: true, remotes: .none)
+    #expect(!FileManager.default.fileExists(atPath: group))
+    #expect(FileManager.default.fileExists(atPath: project + "/notes/.git"))
+}

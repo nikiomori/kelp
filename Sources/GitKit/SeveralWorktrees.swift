@@ -51,10 +51,19 @@ extension Git {
 
     /// Where a workspace's git is: `project`'s repository with `folder`, or in a folder of repositories each of them
     /// with its worktree in `folder` (`addWorktrees`).
+    /// A branch's folder holds only the repositories it was made with: one added to the project since has no worktree
+    /// there, and a folder linked from the project that became a repository since is the project's own checkout.
     public static func checkouts(project: String, folder: String) -> [(repo: String, folder: String)] {
         let names = nestedRepos(project)
-        return names.isEmpty ? [(project, folder)] : names.map { (project + "/" + $0, folder + "/" + $0) }
+        guard !names.isEmpty else { return [(project, folder)] }
+        let all = names.map { (repo: project + "/" + $0, folder: folder + "/" + $0) }
+        let own = folder == project ? all : all.filter { onBranch($0.folder) }
+        return own.isEmpty ? all : own
     }
+
+    /// Whether a repository's place in a branch's folder is its worktree there: present, and not a link to the
+    /// project's own checkout.
+    static func onBranch(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) && !isLink(path) }
 
     /// Renames the branch in each of `folders` (a folder of repositories' worktrees); when one fails, the ones before
     /// it get the old name back.
@@ -74,7 +83,7 @@ extension Git {
         project: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         let repos = nestedRepos(project)
-        for name in repos where FileManager.default.fileExists(atPath: path + "/" + name) {
+        for name in repos where onBranch(path + "/" + name) {
             try checkRemovable(
                 repo: project + "/" + name, path: path + "/" + name, branch: branch, force: force,
                 dropCommits: dropCommits, remotes: remotes)
@@ -87,7 +96,8 @@ extension Git {
     public static func removeWorktrees(
         project: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes
     ) throws {
-        let repos = nestedRepos(project)
+        // A repository the folder links to (it became one after the folder was made) is the project's: left alone.
+        let repos = nestedRepos(project).filter { !isLink(path + "/" + $0) }
         try checkRemovable(
             project: project, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
         let here = repos.filter { FileManager.default.fileExists(atPath: path + "/" + $0) }

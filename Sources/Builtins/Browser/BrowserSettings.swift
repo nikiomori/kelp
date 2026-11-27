@@ -58,8 +58,7 @@ struct BrowserSettings: View {
     }
 
     private func remove(_ site: String) {
-        let list = app.settings[SettingKeys.agentSites]
-        app.settings.set(SettingKeys.agentSites.key, .array(AgentSites.removing(site, from: list)))
+        Task { await app.call(SettingsAgentSite(site: site)) }
     }
 
     private func signOut() async {

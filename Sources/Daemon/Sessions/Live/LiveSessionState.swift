@@ -273,15 +273,20 @@ extension LiveSession {
                 record.summary = question
                 said = true
             }
+            // A status read off the screen is a guess and is marked as one (`Session.guessed`); hooks and the program's
+            // own reports aren't. So is one from `releaseStale` ("no sign of life"), because a still screen is all it
+            // had, whatever the agent reported before. It follows the source even when the status stays: a hook that
+            // says "working" again ends the guess, and a hooked row read off the screen becomes one.
+            let src = detector.source
+            let guessed = ["screen", "no hook", "no sign of life"].contains(where: src.hasPrefix) ? true : nil
+            if record.status != .exited, guessed != record.guessed {
+                record.guessed = guessed
+                said = true
+            }
             guard status != record.status, record.status != .exited else { return said ? record : nil }
             trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
             if status == .waiting { menuID = UUID() }
             record.status = status
-            // A status read off the screen is a guess and is marked as one (`Session.guessed`); hooks and the program's
-            // own reports aren't. So is one from `releaseStale` ("no sign of life"), because a still screen is all it
-            // had, whatever the agent reported before.
-            let src = detector.source
-            record.guessed = ["screen", "no hook", "no sign of life"].contains(where: src.hasPrefix) ? true : nil
             if status == .done || status == .waiting || status == .exited || status == .error { record.unread = true }
             if status == .done || status == .error {
                 settleLimit()

@@ -137,7 +137,7 @@ extension Daemon {
                 let steps = await logged(.subagents, key) { try await ask(SessionSubagentSteps(id: key)) }
                 return (steps.flatMap { line(SubagentsEvent(session: key, steps: $0)) }, 3)
             }
-        case .work: return Watches.Topic { [self, reader = WorkReader.of(self)] _ in   // a transcript sends no events
+        case .work: return Watches.Topic(backsOffFrom: 2) { [self, reader = WorkReader.of(self)] _ in   // see `touched`
                 ((await logged(.work, key) { try await offload { try reader.event(key) } } ?? nil).flatMap(line), 2) }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:

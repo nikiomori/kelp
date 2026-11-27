@@ -233,7 +233,7 @@ extension Git {
         changes.contains { !$0.untracked || !isLink((path as NSString).appendingPathComponent($0.path)) }
     }
 
-    private static func isLink(_ file: String) -> Bool {
+    static func isLink(_ file: String) -> Bool {
         var info = stat()
         return lstat(file, &info) == 0 && info.st_mode & S_IFMT == S_IFLNK
     }

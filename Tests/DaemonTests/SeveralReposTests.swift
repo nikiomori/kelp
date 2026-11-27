@@ -57,6 +57,25 @@ private func severalRepos(_ w: World) async throws -> Worktree {
     await #expect(throws: RPCError.self) { try await w.c.call(GitCommit(id: wt.id, message: "none", all: true)) }
 }
 
+/// A commit that fails in one repository after another committed says what was made, since it stays: before, only the
+/// error came back, and the commit in the first repository went unnamed.
+@Test func aCommitThatFailsInOneRepositoryNamesTheOnesMade() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await severalRepos(w)
+    let hook = wt.path + "/fe/.git/hooks/pre-commit"
+    try "#!/bin/sh\nexit 1\n".write(toFile: hook, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook)
+    let made = { try Git.line(["rev-parse", "--short", "HEAD"], cwd: wt.path + "/be", remotes: .none) }
+    do {
+        _ = try await w.c.call(GitCommit(id: wt.id, message: "both", all: true))
+        Issue.record("fe's hook refuses its commit")
+    } catch {
+        let said = "\(error)"
+        #expect(said.contains("Committed in be \(try made())") && said.contains("fe:"), "\(said)")
+    }
+}
+
 /// Own Branch of a folder of repositories (B1): the branch in each of them, as worktrees side by side in one folder,
 /// with what isn't a repository linked; removing the group takes each worktree and its branch. Before, the folder had
 /// "no branches".

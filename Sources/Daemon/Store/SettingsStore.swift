@@ -39,7 +39,11 @@ final class SettingsStore: Sendable {
     subscript<Value>(_ setting: Setting<Value>) -> Value { setting.read(self[setting.key]) }
 
     /// Sets `key` and returns all the settings. nil or .null removes the key.
-    func set(_ key: String, _ value: JSONValue?) throws -> [String: JSONValue] {
+    func set(_ key: String, _ value: JSONValue?) throws -> [String: JSONValue] { try update(key) { _ in value } }
+
+    /// Sets `key` to what `change` makes of its value on disk, under the file's lock, so two changes to one list (a
+    /// site allowed while another is stopped) both stay. Returns all the settings; nil or .null removes the key.
+    func update(_ key: String, _ change: (JSONValue?) -> JSONValue?) throws -> [String: JSONValue] {
         try file.withLock {
             // A hand edit saved before this is merged, not overwritten. A file that doesn't parse is the user's work in
             // progress, so nothing is written over it. A file saved while this merged (an editor's save) is read again.
@@ -54,6 +58,7 @@ final class SettingsStore: Sendable {
                     }
                     values = onDisk
                 }
+                let value = change(values[key])
                 values[key] = value == .null ? nil : value
                 // Limit: an editor's save between this look and the write's rename (encoding and writing the file,
                 // well under a millisecond) is written over, and the last good copy then holds Kelp's, not the hand
@@ -234,6 +239,19 @@ extension SettingsSet: Handled {
     }
 }
 
+/// The user's Stop and Undo on a page with their login, and Remove in Settings › Browser. The user's alone, as the key
+/// is (`usersOnly`).
+extension SettingsAgentSite: Handled {
+    func handle(_ settings: SettingsEvents) throws -> Done {
+        _ = try settings.store.update(SettingKeys.agentSites.key) { value in
+            let list = SettingKeys.agentSites.read(value), rest = AgentSites.removing(site, from: list)
+            return .array(entry.map { rest + [$0] } ?? rest)
+        }
+        settings.changedBeforeReply()
+        return Done()
+    }
+}
+
 extension Methods {
-    static let settingsMethods: [any Answered.Type] = [SettingsGet.self, SettingsSet.self]
+    static let settingsMethods: [any Answered.Type] = [SettingsGet.self, SettingsSet.self, SettingsAgentSite.self]
 }

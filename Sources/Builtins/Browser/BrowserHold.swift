@@ -138,19 +138,23 @@ extension BrowserTab {
 
     /// Stop and Undo on the strip of a page with the user's login: Stop takes the site out of the list, so the agent's
     /// next command there is refused, and Undo puts it back. Returns whether the click was one of them.
+    /// Each is one change on the daemon's list, so a site kelpd allows meanwhile stays.
     func stopOrUndoLogin() -> Bool {
         guard let site = loginSite, drive?.takenOver != true else { return false }
-        let list = app.settings[SettingKeys.agentSites]
+        let change: SettingsAgentSite
         if allowsLogin(site) {
-            loginStopped = list.first { $0["site"]?.string == site }
-            app.settings.set(SettingKeys.agentSites.key, .array(AgentSites.removing(site, from: list)))
+            loginStopped = app.settings[SettingKeys.agentSites].first { $0["site"]?.string == site }
+            change = SettingsAgentSite(site: site)
         } else if let stopped = loginStopped {
-            app.settings.set(SettingKeys.agentSites.key, .array(list + [stopped]))
+            change = SettingsAgentSite(site: site, entry: stopped)
             loginStopped = nil
         } else {
             return false
         }
-        showAgentBar()
+        Task { [weak self] in
+            await self?.app.call(change)
+            self?.showAgentBar()
+        }
         return true
     }
 

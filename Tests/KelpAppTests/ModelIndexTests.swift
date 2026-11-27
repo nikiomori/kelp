@@ -118,6 +118,10 @@ import Testing
             id: id, title: "", workflow: workflow, status: "completed", conclusion: conclusion, event: "push", url: "",
             createdAt: "")
     }
+    m.land(
+        CIEvent(
+            worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run(1, "Lint", "failure")], workflows: []))
+    )
     // Newest first: Lint passed just now, and CI's newest run failed.
     let runs = [run(3, "Lint", "success"), run(2, "CI", "failure"), run(1, "Lint", "failure")]
     m.land(CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: runs, workflows: [])))
