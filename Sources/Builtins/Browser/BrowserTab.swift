@@ -37,9 +37,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     private var page: (url: URL?, title: String?) = (nil, nil)
     var uri: String {
         let shown = previewFile != nil ? start : page.url?.absoluteString ?? start
-        return agent ? TabURI.agentPage(shown) : shown
+        guard agent else { return shown }
+        return TabURI.agentPage(shown.isEmpty && pageSet.ownOpened ? "about:blank" : shown, session: ownerSession)
     }
     let start: String
+    let ownerSession: String?
     /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
@@ -95,11 +97,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The page this tab shows now: its own, or a subagent's (`pageSet`).
     var shownPage: BrowserTab { agent ? pageSet.shownTab : self }
 
-    var title: String {
-        let pages = agent && !pageSet.pages.isEmpty ? " +\(pageSet.pages.count)" : ""
-        return ownTitle + pages
-    }
-    private var ownTitle: String {
+    var ownTitle: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page
             .url?.host
             ?? String(localized: "New Page")
@@ -115,6 +113,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
 
     init(uri: String, app: AppModel) {
         agent = TabURI.scheme(uri) == TabURI.agentScheme
+        ownerSession = TabURI.agentPageSession(uri)
         start = TabURI.pageURL(uri)
         self.app = app
         ports = PortsView(app: app)
@@ -125,7 +124,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
         // A window the user's page opened (BrowserDialogs.swift) was made by WebKit, with the opener's cookies and a
         // `window.opener`, and WebKit is loading it already.
-        let opened = BrowserTab.opened.removeValue(forKey: start)
+        let opened = agent ? nil : BrowserTab.opened.removeValue(forKey: start)
         web = opened ?? WKWebView(frame: .zero, configuration: cfg)
         web.allowsBackForwardNavigationGestures = true
         web.isInspectable = true
@@ -216,7 +215,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             if served { self?.reloadPage() }
         }
         if opened == nil {
-            load(start)
+            // A restored host page needs a new proxy and forwarded ports before it can load again.
+            load(ownerSession?.hasPrefix(AgentPages.remotePrefix) == true ? "about:blank" : start)
         } else {
             ports.isHidden = true
             showPage()

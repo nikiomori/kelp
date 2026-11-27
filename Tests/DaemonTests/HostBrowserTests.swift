@@ -63,6 +63,7 @@ private let shop: JSONValue = .object(["title": "Shop", "url": "http://localhost
     let call = try #require(page.asked.withLock { $0.first?.method } as? UIBrowser)
     #expect(call.action == .type && call.worktreeId == "w1")
     #expect(call.args == .object(["ref": "e3", "text": .string(#"it's "a b""#), "submit": true]))
+    #expect(page.asked.withLock { $0.first?.page } == .object(["host": "box"]))
 }
 
 /// With no words, stdin's lines are the steps: each answered under its own line, and the first that fails stops the

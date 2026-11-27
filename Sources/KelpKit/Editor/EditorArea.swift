@@ -438,7 +438,9 @@ final class EditorArea: NSViewController {
         }
         startView.draft = startDraft
         startView.onDraft = { [weak self] in self?.startDraft = $0 }
-        startView.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
+        startView.onOpen = { [weak self] uri in
+            if TabURI.runs(uri) { self?.runURI(uri) } else { self?.open(uri) }
+        }
         startView.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self.starter) } }
         start = startView
         view.pin(startView)

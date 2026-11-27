@@ -232,7 +232,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
     // Agents Overview puts a chat in review or done by it.
     // −3: the daemon and the sidebar share the project color and its stored representation in Core.
-    #expect(declared == 389, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: a page's tab is shown by its id (`selectTab`), because a shared page and the user's own tab can show the same
+    // address.
+    #expect(declared == 390, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

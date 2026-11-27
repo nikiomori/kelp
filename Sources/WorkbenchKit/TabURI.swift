@@ -24,11 +24,27 @@ public enum TabURI {
     }
     /// A new tab of the agent `id`.
     public static func agent(_ id: String) -> String { "agent:" + id }
-    /// A page an agent drives (`kelp browser open`), with cookies and storage of its own: `agentweb:` and its address.
+    /// A page an agent drives (`kelp browser open`), optionally with its owner's stable ID.
     public static let agentScheme = "agentweb"
-    public static func agentPage(_ url: String) -> String { agentScheme + ":" + url }
-    /// The address that a page's tab shows, with an agent page's prefix taken off.
-    public static func pageURL(_ uri: String) -> String { scheme(uri) == agentScheme ? body(uri) : uri }
+    public static func agentPage(_ url: String, session: String? = nil) -> String {
+        guard let session, !session.isEmpty else { return agentScheme + ":" + url }
+        var metadata = URLComponents()
+        metadata.queryItems = [URLQueryItem(name: "session", value: session), URLQueryItem(name: "url", value: url)]
+        return agentScheme + ":" + (metadata.string ?? "")
+    }
+    public static func agentPageSession(_ uri: String) -> String? { agentPageParts(uri).session }
+    /// The address that a page's tab shows, without the agent page's metadata.
+    public static func pageURL(_ uri: String) -> String { agentPageParts(uri).url }
+
+    private static func agentPageParts(_ uri: String) -> (session: String?, url: String) {
+        guard scheme(uri) == agentScheme else { return (nil, uri) }
+        let address = body(uri)
+        guard address.hasPrefix("?session="), let items = URLComponents(string: address)?.queryItems,
+            let session = items.first(where: { $0.name == "session" })?.value, !session.isEmpty,
+            let url = items.first(where: { $0.name == "url" })?.value
+        else { return (nil, address) }
+        return (session, url)
+    }
     /// Whether a tab shows a web page, which `kelp browser` can drive.
     public static func isPage(_ uri: String) -> Bool {
         ["http", "https", "about", "preview", agentScheme].contains(scheme(uri))
