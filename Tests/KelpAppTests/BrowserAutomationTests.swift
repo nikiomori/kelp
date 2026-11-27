@@ -232,6 +232,9 @@ extension OneAtATime {
         #expect(try await waitFor { plainTabs().first?.uri == "https://www.example.com/home" })   // the layout's too
         _ = try await run(.open, ["yourLogin": "example.com", "subagent": "a1"])   // the chat's page, again
         #expect(plainTabs().count == 1)
+        AgentPages.of(app).browsed = [:]   // Kelp started again: only the daemon's UI state knows the tab
+        _ = try await run(.open, ["yourLogin": "example.com"])
+        #expect(plainTabs().count == 1)
         _ = try await run(.info)
         app.settings.apply([:])   // the user takes example.com back
         await #expect(throws: RPCError.self) { try await run(.info) }

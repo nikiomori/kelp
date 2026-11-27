@@ -67,13 +67,18 @@ struct BrowserRequests {
     }
 
     /// Opens `url` with the user's login from Kelp's browser, in a page tab of the chat's own beside it: the one it
-    /// used for `site` before, while that is still on the site. A subagent uses its chat's.
+    /// used for `site` before, while that is still on the site. A subagent uses its chat's. Which tab that is lives in
+    /// the daemon's UI state too, because a plain page's address can't name its chat, and after a restart the chat
+    /// would otherwise open the site in one more tab.
+    /// Limit: an entry stays after its tab closes (one short key per chat and site); the next open writes it over.
     private func openWithLogin(
         _ site: String, _ url: String, _ scope: AgentPages.Scope, _ tabs: [TabRef], _ args: JSONValue
     ) async throws -> JSONValue {
         let pages = AgentPages.of(app), wid = scope.workspace
         let chat = AgentPages.Scope(workspace: wid, owner: scope.owner, subagent: nil)
-        if let last = pages.browsed[chat], last.sharedSite == site,
+        let key = "browserLogin/\(wid)/\(scope.owner)/\(site)"
+        let known = app.uiState[key]?.string.map { AgentPages.Visit(tab: $0, sharedSite: site) }
+        if let last = pages.browsed[chat] ?? known, last.sharedSite == site,
             let page = Self.ownPage(tabs, session: scope.owner, last: last)
         {
             pages.browsed[scope] = last
@@ -82,6 +87,7 @@ struct BrowserRequests {
         guard let page = app.workbench.openBeside(url, in: wid, reuse: false) else { throw Self.noPage }
         pages.browsed[chat] = AgentPages.Visit(tab: page.id, sharedSite: site)
         pages.browsed[scope] = pages.browsed[chat]
+        app.uiState[key] = .string(page.id)
         return try await browse(page, in: wid, .info, args, login: site)
     }
 
