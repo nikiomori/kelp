@@ -104,16 +104,20 @@ public enum TaskLines {
 
     /// What an agent started on a task is told: its words, the issue it came from, where the line is and how to tick
     /// its steps (Kelp's prompts to agents are English). With a `goal`, Claude Code (`slash`) starts with it as its
-    /// /goal, on one line; another agent reads it as the last line.
+    /// /goal, on one line; another agent reads it as the last line. A task from an issue keeps the words its author
+    /// wrote, so they reach the agent framed as data (`Untrusted.frame`).
     public static func brief(_ task: TaskLine, page: String, goal: String? = nil, slash: Bool = false) -> String {
-        var lines = [task.title, ""]
+        var lines = [task.issue == nil ? task.title : Untrusted.frame(task.title, what: "the issue's title"), ""]
         if let issue = task.issue { lines.append("It comes from \(issue).") }
         lines.append(
             "This is a task from the project's task list (\(page), line \(task.line)). "
                 + "`kelp task show \(task.id ?? "")` reads it with the steps under it; tick a step with "
                 + "`kelp task done <id>` when it's done. The person closes the task itself.")
         guard let goal else { return lines.joined(separator: "\n") }
-        if slash { return "/goal \(goal) — " + lines.filter { !$0.isEmpty }.joined(separator: " ") }
+        if slash {
+            let rest = lines.filter { !$0.isEmpty }.joined(separator: " ").replacingOccurrences(of: "\n", with: " ")
+            return "/goal \(goal) — " + rest
+        }
         return (lines + ["", "Done when: \(goal)"]).joined(separator: "\n")
     }
 

@@ -146,9 +146,10 @@ package enum TaskActions {
             let goal = grownPage(row).flatMap { page in
                 app.latest(TasksEvent.self, row.repo)?.pages.first { $0.path == page }?.goal
             }
+            // A task from an issue carries someone else's words: the brief waits on the line for the person's Return.
             starter.newAgent(
                 agent, prompt: brief(line, row.page, goal: goal, slash: agent == Session.claudeAgent),
-                env: ["KELP_TASK": id],
+                draft: line.issue != nil, env: ["KELP_TASK": id],
                 args: plan && agent == Session.claudeAgent ? ["--permission-mode", "plan"] : nil
             ) { session in
                 Task { _ = await app.call(TaskChange(path: path, task: TaskRef(id: id), chat: session.id)) }
