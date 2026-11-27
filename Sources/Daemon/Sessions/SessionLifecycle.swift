@@ -189,8 +189,8 @@ extension Sessions {
 
     private func said(_ session: Session) {
         notify(session)
-        // a turn ended or began, so the context may be fuller now
-        watches.touched(.init(topic: .context, key: session.id), tag: session.status.rawValue)
+        let turn = session.status.rawValue   // a turn ended or began: news for its context and its (slowed) work map
+        [WatchTopic.context, .work].forEach { watches.touched(.init(topic: $0, key: session.id), tag: turn) }
         if let ls = existing(session.id) { touchCommands(ls) }   // a command may end with its turn or its program
         if let agent = session.agent, [.working, .done, .waiting].contains(session.status) {
             agentUsage.planSeen(agent, working: session.status == .working)

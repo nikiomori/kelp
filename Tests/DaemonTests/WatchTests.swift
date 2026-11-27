@@ -397,7 +397,7 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
 }
 
 /// What's asked over the network slows down while nothing changes, up to a ceiling; a CI run going on and the local
-/// clocks don't.
+/// clocks don't, but for a work map's, which stats every transcript behind an agent that may sit idle for hours.
 @Test func pollsOfTheNetworkSlowDownWhileNothingChanges() throws {
     let d = try Daemon(root: tmp())
     func slowed(_ topic: WatchTopic, _ next: TimeInterval, quiet: Int) -> TimeInterval {
@@ -411,6 +411,7 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     #expect(slowed(.git, 10, quiet: 9) == 60)
     #expect(slowed(.ports, 3, quiet: 9) == 3)
     #expect(slowed(.limits, 10, quiet: 9) == 10)
+    #expect(slowed(.work, 2, quiet: 9) == 60)
 }
 
 /// Whoever looks at a subagent hears of its next step; a transcript says nothing of itself, so the topic reads it.
