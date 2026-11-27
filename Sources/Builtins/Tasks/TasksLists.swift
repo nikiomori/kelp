@@ -227,20 +227,8 @@ final class TaskRows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMe
     }
 
     private func cell(_ row: TaskRow) -> NSView {
-        let app = model.app, cell = TaskCell()
         var place = [model.projectName(row.repo) + " › " + row.place]
         if let ref = row.task.issueRef { place.append(ref) }
-        let agent = TaskActions.lastAgent(app)
-        cell.show(
-            row, chats: (row.task.chats ?? []).compactMap(app.session), place: place.joined(separator: " · "),
-            agent: app.catalog.name(agent), icon: { app.catalog.icon($0, size: Metrics.iconSmall) })
-        cell.onToggle = { cancel in cancel ? TaskActions.set(app, row, .cancelled) : TaskActions.toggle(app, row) }
-        cell.onRun = { TaskActions.run(app, row) }
-        cell.onMenu = { view in
-            let menu = NSMenu()
-            TaskActions.fill(menu, app, row)
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
-        }
-        return cell
+        return TaskCell(model.app, row, place: place.joined(separator: " · "))
     }
 }
