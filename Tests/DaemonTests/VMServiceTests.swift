@@ -339,7 +339,7 @@ import os
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
         #expect(!vms.alive("deb"))
-        let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
+        let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)
         #expect(vms.alive("deb"))
         var vms = vms
