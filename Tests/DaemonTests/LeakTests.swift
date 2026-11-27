@@ -94,6 +94,30 @@ private func callPastItsTime(_ engine: DatabaseInfo.Engine) async throws {
     #expect(try await waitFor(5) { server.closed })
 }
 
+/// A MySQL server greets as soon as it takes the connection, and every login reads that greeting, however busy the
+/// machine. The reader used to reach the event loop after the connect, and when the loop read the greeting first it was
+/// dropped: the login waited for it until its time ran out (a third of this test's runs; a quarter of CI's under TSan).
+@Test(.timeLimit(minutes: 1)) func aMySQLGreetingThatComesAtOnceIsRead() async throws {
+    // Twice as many busy threads as cores, so a thread is often stopped between two of its steps
+    let busy = OSAllocatedUnfairLock(initialState: true)
+    defer { busy.withLock { $0 = false } }
+    for _ in 0..<2 * ProcessInfo.processInfo.activeProcessorCount {
+        Thread.detachNewThread { while busy.withLock({ $0 }) {} }
+    }
+    try await withThrowingTaskGroup(of: Void.self) { group in
+        for _ in 0..<200 {
+            group.addTask(priority: .background) {   // the busy threads stop it more often
+                let server = try SilentServer(.mysql)
+                var db = DatabaseInfo(name: "quick", engine: .mysql, host: "127.0.0.1", port: server.port, user: "u")
+                db.ssl = "disable"
+                let conn = try await MySQLWire.open(DatabaseConnection(database: db), handshake: 20 * testSlowness)
+                try await conn.close().get()
+            }
+        }
+        try await group.waitForAll()
+    }
+}
+
 /// What `work` says, or `otherwise` once `seconds` pass first: the work is left running, not awaited (a task group
 /// would wait for it).
 private func firstOf(
