@@ -86,9 +86,9 @@ extension InspectorController {
         }
         let next = order.filter { !shown.contains($0) }
         if more.isHidden != next.isEmpty { more.isHidden = next.isEmpty }
-        for (i, b) in buttons.enumerated() {
-            let off = !shown.contains(i)
-            if b.isHidden != off { b.isHidden = off }
+        for (index, button) in buttons.enumerated() {
+            let off = !shown.contains(index)
+            if button.isHidden != off { button.isHidden = off }
         }
         if next != folded {
             folded = next
@@ -105,11 +105,11 @@ extension InspectorController {
     /// resting on the », it closes when the pointer leaves.
     func showMore(byHover: Bool) {
         let menu = NSMenu()
-        for i in folded {
-            let panel = panels[i],
+        for index in folded {
+            let panel = panels[index],
                 item = NSMenuItem(title: loc(panel.title), action: #selector(selected(_:)), keyEquivalent: "")
             item.target = self
-            item.tag = i
+            item.tag = index
             item.show(.symbol(panel.icon, loc(panel.title)))   // macOS 27 hides an item's image unless asked
             if let badge = panel.badge?(), badge.count > 0 { item.badge = NSMenuItemBadge(count: badge.count) }
             menu.addItem(item)
@@ -138,18 +138,18 @@ extension InspectorController {
         menu.addItem(.sectionHeader(title: String(localized: "Position")))
         // The choices named as Settings names them (Beside the Tabs…), so the two places read the same.
         let names = Builtins.inspectorRows.first { $0.key == SettingKeys.inspectorIconsPosition.key }?.labels ?? [:]
-        for v in ["top", "bottom", "side"] {
-            let choice = (SettingKeys.inspectorIconsPosition.key, v)
-            menu.addItem(item(names[v] ?? loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
+        for edge in ["top", "bottom", "side"] {
+            let choice = (SettingKeys.inspectorIconsPosition.key, edge)
+            menu.addItem(item(names[edge] ?? loc(edge.capitalized), #selector(setChoice(_:)), choice, on: at == edge))
         }
         let side =
             ["left", "right"].contains(settings[SettingKeys.inspectorIcons])
             ? settings[SettingKeys.inspectorIcons] : "center"
         if !column {   // a column has no alignment
             menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
-            for v in ["left", "center", "right"] {
-                let choice = (SettingKeys.inspectorIcons.key, v)
-                menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: side == v))
+            for alignment in ["left", "center", "right"] {
+                let choice = (SettingKeys.inspectorIcons.key, alignment)
+                menu.addItem(item(loc(alignment.capitalized), #selector(setChoice(_:)), choice, on: side == alignment))
             }
         }
         menu.addItem(.separator())

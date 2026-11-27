@@ -48,10 +48,10 @@ final class MenuBuilder {
     /// it ends up empty.
     func placeTheRest(in tools: NSMenu) {
         var extended: Set<NSMenu> = []
-        for c in reg.all.commands where !placed.contains(c.id) {
-            let menu = c.menu.flatMap { bar.item(withTitle: $0)?.submenu } ?? tools
+        for command in reg.all.commands where !placed.contains(command.id) {
+            let menu = command.menu.flatMap { bar.item(withTitle: $0)?.submenu } ?? tools
             if menu !== tools, extended.insert(menu).inserted { menu.addItem(.separator()) }
-            menu.addItem(item(c))
+            menu.addItem(item(command))
         }
         if tools.items.isEmpty { bar.removeItem(at: bar.indexOfItem(withSubmenu: tools)) }
     }
@@ -129,8 +129,8 @@ extension AppDelegate {
             }
         }
         with.addItem(.separator())
-        for e in menuBuilder.reg.all.editors {
-            with.add(e.title, symbol: e.icon) { e.open(IDEContext.of(app), in: app) }
+        for editor in menuBuilder.reg.all.editors {
+            with.add(editor.title, symbol: editor.icon) { editor.open(IDEContext.of(app), in: app) }
         }
         file.add("New Tab", submenu: with)
         menuBuilder.add(
@@ -219,9 +219,9 @@ extension AppDelegate {
         let view = menuBuilder.sub("View")
         menuBuilder.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
         // In the icon row's order, so the number is the icon's place in the row.
-        for (i, p) in InspectorController.shown(app).prefix(9).enumerated() {
-            let menuItem = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
-                app.extensions.run("workbench.showPanel", ["panel": .string(p.id), "keys": .bool(true)])
+        for (index, panel) in InspectorController.shown(app).prefix(9).enumerated() {
+            let menuItem = view.add("  " + panel.title, symbol: panel.icon, key: "\(index + 1)") {
+                app.extensions.run("workbench.showPanel", ["panel": .string(panel.id), "keys": .bool(true)])
             }
             menuItem.keyEquivalentModifierMask = [.command, .option]
         }
@@ -250,9 +250,9 @@ extension AppDelegate {
             "view.paneBelow")
         view.add("Select Pane", submenu: panes)
         menuBuilder.add(view, "-", "editor.nextTab", "editor.previousTab")
-        for n in 1...9 {
-            menuBuilder.add(view, "editor.tab.\(n)").forEach {
-                $0.isHidden = n > 3
+        for number in 1...9 {
+            menuBuilder.add(view, "editor.tab.\(number)").forEach {
+                $0.isHidden = number > 3
                 $0.allowsKeyEquivalentWhenHidden = true
             }
         }
@@ -290,9 +290,9 @@ extension AppDelegate {
         }
         back.keyEquivalentModifierMask = [.control, .shift]
         menuBuilder.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
-        for n in 1...9 {
-            menuBuilder.add(win, "workspace.select.\(n)").forEach {
-                $0.isHidden = n > 1
+        for number in 1...9 {
+            menuBuilder.add(win, "workspace.select.\(number)").forEach {
+                $0.isHidden = number > 1
                 $0.allowsKeyEquivalentWhenHidden = true
             }
         }

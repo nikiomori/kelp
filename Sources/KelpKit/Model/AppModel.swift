@@ -456,23 +456,23 @@ package final class AppModel {
     /// Calls a daemon method and shows an error as a banner, never a blocking alert. It takes only typed methods, so a
     /// renamed field fails to compile.
     @discardableResult
-    package func call<M: RPCMethod>(_ m: M) async -> M.Result? { Self.banner(await tryCall(m)) }
-    private static func banner<T>(_ r: (value: T?, error: String?)) -> T? {
-        if let error = r.error { Banner.show(error, style: .error) }
-        return r.value
+    package func call<M: RPCMethod>(_ method: M) async -> M.Result? { Self.banner(await tryCall(method)) }
+    private static func banner<T>(_ result: (value: T?, error: String?)) -> T? {
+        if let error = result.error { Banner.show(error, style: .error) }
+        return result.value
     }
 
     /// Like `call`, but a failure comes back as its message instead of a banner, for actions that offer a way out. A
     /// cancelled caller isn't waiting for an answer, so it gets nil and no message.
-    package func tryCall<M: RPCMethod>(_ m: M) async -> (value: M.Result?, error: String?) {
-        do { return (try await get(m), nil) } catch is CancellationError { return (nil, nil) } catch {
+    package func tryCall<M: RPCMethod>(_ method: M) async -> (value: M.Result?, error: String?) {
+        do { return (try await get(method), nil) } catch is CancellationError { return (nil, nil) } catch {
             return (nil, Self.message(error))
         }
     }
     /// A throwing `tryCall`, for a chain of calls that one `catch` turns into the panel's error state.
-    package func get<M: RPCMethod>(_ m: M) async throws -> M.Result {
+    package func get<M: RPCMethod>(_ method: M) async throws -> M.Result {
         guard let client else { throw RPCError.internalError(DaemonLink.noService) }
-        return try await client.call(m)
+        return try await client.call(method)
     }
     package static func message(_ error: Error) -> String {
         (error as? RPCError)?.message ?? error.localizedDescription
@@ -483,8 +483,8 @@ package final class AppModel {
     /// because an error there would be noise about something nobody asked for, and the next read tries again. With
     /// `timeout`, a reply that never comes ends this read, not the loop that makes it.
     @discardableResult
-    package func quiet<M: RPCMethod>(_ m: M, timeout: TimeInterval = 30) async -> M.Result? {
-        try? await client?.call(m, timeout: timeout)
+    package func quiet<M: RPCMethod>(_ method: M, timeout: TimeInterval = 30) async -> M.Result? {
+        try? await client?.call(method, timeout: timeout)
     }
 
     /// Sends a fire-and-forget message, for things that stream (an editor's text, a state write). Nothing comes back,
@@ -604,8 +604,8 @@ extension AppModel {
             var numbers: [String: Int] = [:]
             let live = all.filter { $0.status != .exited && $0.title.isEmpty }
             for same in Dictionary(grouping: live, by: { [$0.worktreeId, $0.agent] }).values where same.count > 1 {
-                for (i, s) in same.sorted(by: { $0.createdAt < $1.createdAt }).enumerated() where i > 0 {
-                    numbers[s.id] = i + 1
+                for (index, chat) in same.sorted(by: { $0.createdAt < $1.createdAt }).enumerated() where index > 0 {
+                    numbers[chat.id] = index + 1
                 }
             }
             untitled = numbers

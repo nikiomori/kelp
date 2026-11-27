@@ -55,8 +55,8 @@ extension AppDelegate {
                     main.window?.setContentSize(NSSize(width: size[0], height: size[1]))
                 }
                 if let uris = env["KELP_SNAPSHOT_OPEN"] {
-                    for x in uris.split(separator: "|").map(String.init) {
-                        if TabURI.runs(x) { app.workbench.runURI(x) } else { app.workbench.open(x) }
+                    for uri in uris.split(separator: "|").map(String.init) {
+                        if TabURI.runs(uri) { app.workbench.runURI(uri) } else { app.workbench.open(uri) }
                     }
                 }
                 // KELP_SNAPSHOT_SHEET=clone|remote[=text] shows the clone or SSH sheet (the open panel itself is
@@ -113,26 +113,26 @@ extension AppDelegate {
             // apart.
             if let targets = env["KELP_CLICK"]?.split(separator: "|") {
                 let start = env["KELP_CLICK_DELAY"].flatMap(Double.init) ?? 0.3   // panels that load later need longer
-                for (i, t) in targets.enumerated() {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + start + Double(i) * 0.8) { [self] in
-                        click(text: String(t))
+                for (index, target) in targets.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + start + Double(index) * 0.8) { [self] in
+                        click(text: String(target))
                     }
                 }
             }
             // KELP_SWITCH="a,b,a" switches workspaces (by name or branch) every 0.7 s, timing each switch.
             if let names = env["KELP_SWITCH"]?.split(separator: ",") {
-                for (i, n) in names.enumerated() {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2 + Double(i) * 0.7) {
-                        guard let worktree = app.worktrees.first(where: { $0.displayName == n || $0.branch == n })
+                for (index, name) in names.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2 + Double(index) * 0.7) {
+                        guard let worktree = app.worktrees.first(where: { $0.displayName == name || $0.branch == name })
                         else {
-                            print("SWITCH no \(n)")
+                            print("SWITCH no \(name)")
                             return
                         }
                         let t0 = Date()
                         app.workbench.show(workspace: worktree.id)
                         self.main.window?.contentView?.layoutSubtreeIfNeeded()
                         self.main.window?.displayIfNeeded()
-                        print(String(format: "SWITCH %@ %.0f ms", String(n), Date().timeIntervalSince(t0) * 1000))
+                        print(String(format: "SWITCH %@ %.0f ms", String(name), Date().timeIntervalSince(t0) * 1000))
                     }
                 }
             }
@@ -195,11 +195,13 @@ extension AppDelegate {
             Self.snap(window, to: path)
             // A popover (limits details…) is its own window, drawn next to the snapshot as "<name>-popover.png".
             // An alert shown on its own (a background app has no window to put the sheet on) is "<name>-alert.png".
-            for a in NSApp.windows where a.isVisible && a.className.contains("AlertPanel") {
+            for alert in NSApp.windows where alert.isVisible && alert.className.contains("AlertPanel") {
                 print(
                     "ALERT",
-                    (a.contentView?.allSubviews(of: NSTextField.self) ?? []).map(\.stringValue).filter { !$0.isEmpty })
-                Self.snap(a, to: path.replacingOccurrences(of: ".png", with: "-alert.png"))
+                    (alert.contentView?.allSubviews(of: NSTextField.self) ?? []).map(\.stringValue).filter {
+                        !$0.isEmpty
+                    })
+                Self.snap(alert, to: path.replacingOccurrences(of: ".png", with: "-alert.png"))
             }
             for pop in NSApp.windows where pop.isVisible && pop.className.contains("Popover") {
                 Self.snap(pop, to: path.replacingOccurrences(of: ".png", with: "-popover.png"))
