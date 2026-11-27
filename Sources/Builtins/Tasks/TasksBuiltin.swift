@@ -5,7 +5,7 @@ import KelpKit
 extension Builtins {
 
     /// Tasks: `- [ ]` lines on the projects' pages, gathered in a tab of their own (Window › Tasks), written down with
-    /// ⌃⌥Space from anywhere, and handed to agents. The Issues panel lists the project's tasks too (its Tasks source).
+    /// ⌃⌥⌘T from anywhere, and handed to agents. The Issues panel lists the project's tasks too (its Tasks source).
     package static let tasks = Builtin(
         "kelp.tasks", "Tasks", "Your tasks on the projects’ pages, handed to agents.", icon: "checklist"
     ) { app in

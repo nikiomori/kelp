@@ -148272,104 +148272,104 @@
         }
       }
     },
-    "What you write down with ⌃⌥Space lands here, until you move it onto a page.": {
+    "What you write down with ⌃⌥⌘T lands here, until you move it onto a page.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записанное через ⌃⌥Space попадает сюда, пока вы не перенесёте его на страницу."
+            "value": "Записанное через ⌃⌥⌘T попадает сюда, пока вы не перенесёте его на страницу."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Was du mit ⌃⌥Space notierst, landet hier, bis du es auf eine Seite verschiebst."
+            "value": "Was du mit ⌃⌥⌘T notierst, landet hier, bis du es auf eine Seite verschiebst."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lo que anotas con ⌃⌥Space llega aquí hasta que lo mueves a una página."
+            "value": "Lo que anotas con ⌃⌥⌘T llega aquí hasta que lo mueves a una página."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "⌃⌥Space で書き留めたものは、ページへ移すまでここに入ります。"
+            "value": "⌃⌥⌘T で書き留めたものは、ページへ移すまでここに入ります。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用 ⌃⌥Space 记下的内容会放在这里,直到你把它移到某个页面。"
+            "value": "用 ⌃⌥⌘T 记下的内容会放在这里,直到你把它移到某个页面。"
           }
         }
       }
     },
-    "Write a task down (⌃⌥Space from anywhere)": {
+    "Write a task down (⌃⌥⌘T from anywhere)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записать задачу (⌃⌥Space откуда угодно)"
+            "value": "Записать задачу (⌃⌥⌘T откуда угодно)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aufgabe notieren (⌃⌥Space von überall)"
+            "value": "Aufgabe notieren (⌃⌥⌘T von überall)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anotar una tarea (⌃⌥Space desde cualquier lugar)"
+            "value": "Anotar una tarea (⌃⌥⌘T desde cualquier lugar)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タスクを書き留める(どこからでも ⌃⌥Space)"
+            "value": "タスクを書き留める(どこからでも ⌃⌥⌘T)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记下任务(在任何地方按 ⌃⌥Space)"
+            "value": "记下任务(在任何地方按 ⌃⌥⌘T)"
           }
         }
       }
     },
-    "Write the first one down: ⌃⌥Space from anywhere.": {
+    "Write the first one down: ⌃⌥⌘T from anywhere.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Запишите первую: ⌃⌥Space откуда угодно."
+            "value": "Запишите первую: ⌃⌥⌘T откуда угодно."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notiere die erste: ⌃⌥Space von überall."
+            "value": "Notiere die erste: ⌃⌥⌘T von überall."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anota la primera: ⌃⌥Space desde cualquier lugar."
+            "value": "Anota la primera: ⌃⌥⌘T desde cualquier lugar."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最初のタスクを書き留めましょう: どこからでも ⌃⌥Space。"
+            "value": "最初のタスクを書き留めましょう: どこからでも ⌃⌥⌘T。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记下第一个任务:在任何地方按 ⌃⌥Space。"
+            "value": "记下第一个任务:在任何地方按 ⌃⌥⌘T。"
           }
         }
       }

@@ -69,7 +69,7 @@ final class TasksController: NSViewController {
             guard let self else { return }
             QuickEntry.shared(model.app).show(repo: model.currentProject)
         }
-        write.toolTip = String(localized: "Write a task down (⌃⌥Space from anywhere)")
+        write.toolTip = String(localized: "Write a task down (⌃⌥⌘T from anywhere)")
         views.controlSize = .small
         let bar = Bar.content([title, facts], [write, search, views])
 
@@ -191,9 +191,9 @@ final class TasksController: NSViewController {
         }
     }
     private func emptyText(_ rows: [TaskRow]) -> String? {
-        if rows.isEmpty { return String(localized: "Write the first one down: ⌃⌥Space from anywhere.") }
+        if rows.isEmpty { return String(localized: "Write the first one down: ⌃⌥⌘T from anywhere.") }
         return switch model.source {
-        case .inbox: String(localized: "What you write down with ⌃⌥Space lands here, until you move it onto a page.")
+        case .inbox: String(localized: "What you write down with ⌃⌥⌘T lands here, until you move it onto a page.")
         case .now: String(localized: "Hand a task to an agent with ▶: it shows here while the agent works.")
         case .waiting: String(localized: "Agents’ questions, work to review and their proposals show here.")
         case .journal: String(localized: "Tasks you close or cancel stay here.")

@@ -66,7 +66,7 @@ final class NoProject: NSObject {
         InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, me in
-                // Other hot keys of Kelp's (Quick Entry's ⌃⌥Space) come to the same target: only ours is taken.
+                // Other hot keys of Kelp's (Quick Entry's ⌃⌥⌘T) come to the same target: only ours is taken.
                 var id = EventHotKeyID()
                 GetEventParameter(
                     event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,

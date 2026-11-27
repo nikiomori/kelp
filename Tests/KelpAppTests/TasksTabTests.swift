@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import Core
 import Foundation
 import TestSupport
@@ -110,4 +111,23 @@ import Testing
     view.cacheDisplay(in: view.bounds, to: rep)
     withExtendedLifetime(window) {}
     try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
+}
+
+/// The system gives Quick Entry its keys (⌃⌥⌘T is no macOS shortcut, unlike ⌃⌥Space, which picks the next input
+/// source), and the hot key's event opens the panel.
+@MainActor @Test func theHotKeyOpensQuickEntry() async throws {
+    let app = AppModel(builtins: [])
+    let entry = QuickEntry.shared(app)
+    #expect(entry.registerHotKey() == noErr)
+    defer { entry.unregisterHotKey() }
+    var event: EventRef?
+    CreateEvent(
+        nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, EventAttributes(kEventAttributeNone), &event)
+    var id = EventHotKeyID(signature: QuickEntry.signature, id: 1)
+    SetEventParameter(
+        event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+        MemoryLayout<EventHotKeyID>.size, &id)
+    SendEventToEventTarget(event, GetApplicationEventTarget())
+    #expect(try await waitFor(5) { NSApp.windows.contains { $0 is NSPanel && $0.isVisible } })
+    NSApp.windows.filter { $0 is NSPanel }.forEach { $0.orderOut(nil) }
 }

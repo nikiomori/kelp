@@ -6,7 +6,7 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// Quick Entry: ⌃⌥Space from any app writes a task down without bringing Kelp forward. One field, as Quick Open's and
+/// Quick Entry: ⌃⌥⌘T from any app writes a task down without bringing Kelp forward. One field, as Quick Open's and
 /// the switcher's card (440 wide, the field's size), and where the line goes: the inbox of the project on screen
 /// unless To says otherwise. Return writes it; ⌘Return writes it and shows it on its page; Escape closes and keeps
 /// what was typed for next time.
@@ -168,8 +168,9 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
         return lines.count > 1 ? "\(path):\(lines.lowerBound)-\(lines.upperBound)" : "\(path):\(lines.lowerBound)"
     }
 
-    /// Registers ⌃⌥Space from any app (a Carbon hot key, so no Accessibility permission is needed), as ⌃⌥⌘K is.
-    func registerHotKey() {
+    /// Registers ⌃⌥⌘T from any app (a Carbon hot key, so no Accessibility permission is needed), as ⌃⌥⌘K is.
+    /// The result is the system's answer: an error when the keys can't be had.
+    @discardableResult func registerHotKey() -> OSStatus {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(
             GetApplicationEventTarget(),
@@ -184,9 +185,10 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
                 return noErr
             }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
         let id = EventHotKeyID(signature: Self.signature, id: 1)
-        RegisterEventHotKey(
-            UInt32(kVK_Space), UInt32(controlKey | optionKey), id, GetApplicationEventTarget(), 0, &hotKey)
+        return RegisterEventHotKey(
+            UInt32(kVK_ANSI_T), UInt32(controlKey | optionKey | cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
     }
+    func unregisterHotKey() { hotKey.map { _ = UnregisterEventHotKey($0) } }
     nonisolated static let signature = OSType(0x4B54534B)   // 'KTSK'
 }
 
