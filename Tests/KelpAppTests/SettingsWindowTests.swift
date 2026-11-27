@@ -147,7 +147,8 @@ import Testing
         "usage.bars.shown": "the eyes beside the limits in the plan limits' hover card",
         "usage.bars.hidden": "the eyes beside the limits in the plan limits' hover card",
         "usage.hiddenAgents": "the Agents checks in the plan limits' right-click menu",
-        "workbench.inspector.panelOrder": "the inspector's icons as they were dragged"
+        "workbench.inspector.panelOrder": "the inspector's icons as they were dragged",
+        "browser.agentSites": "Settings › Browser's list of sites, with Remove, and an agent row's Allow"
     ]
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -158,6 +159,7 @@ import Testing
         .allObjects ?? [] where file.pathExtension == "swift"
     {
         let text = try String(contentsOf: file, encoding: .utf8)
+        guard text.contains("= Setting") else { continue }   // the regex is slow, and most files declare none
         for match in text.matches(of: declaration) { declared.insert(String(match.1)) }
     }
     #expect(declared.count > 80, "\(declared.count): the declarations weren't found")

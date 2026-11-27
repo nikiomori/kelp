@@ -62,18 +62,22 @@ func aServersErrorIsKelpsInternalOne(reply: String, result: String?) async throw
     c.terminate()
 }
 
-@Test func sourcekitDefinition() async throws {
-    let dir = tmp().appendingPathComponent("lsp-\(UUID().uuidString.prefix(6))").path
-    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-    let file = dir + "/main.swift"
-    let text = "func greet() -> Int { 1 }\nlet x: String = greet()\n"
-    try text.write(toFile: file, atomically: true, encoding: .utf8)
-    guard let c = LSPClient(argv: ["xcrun", "sourcekit-lsp"], root: dir) else { return }
-    try await c.initialize()
-    c.open(file, text: text, languageId: "swift")
-    let loc = try await c.definition(file, line: 2, column: 18)
-    #expect(loc?.line == 1)
-    c.shutdown()
+/// A definition is read from either shape a server answers with: a Location, or a LocationLink, whose place is its
+/// targetSelectionRange (its targetRange is the whole declaration).
+@Test(
+    arguments: [
+        #"[{"uri":"file:///p/a.swift","range":{"start":{"line":4,"character":2},"end":{"line":4,"character":7}}}]"#,
+        #"[{"targetUri":"file:///p/a.swift","targetRange":{"start":{"line":3,"character":0},"end":{"line":6,"character":1}},"#
+            + #""targetSelectionRange":{"start":{"line":4,"character":2},"end":{"line":4,"character":7}}}]"#
+    ])
+func aDefinitionIsReadFromALocationOrALocationLink(result: String) async throws {
+    let reply = #"{"jsonrpc":"2.0","id":1,"result":\#(result)}"#
+    let script = "read -r line; printf 'Content-Length: \(reply.utf8.count)\\r\\n\\r\\n%s' '\(reply)'; sleep 5"
+    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", script], root: tmp().path))
+    defer { c.terminate() }
+    #expect(
+        try await c.definition("/p/b.swift", line: 2, column: 18)
+            == CodeLocation(path: "/p/a.swift", line: 5, column: 3))
 }
 
 final class Counter: @unchecked Sendable {
@@ -173,7 +177,7 @@ final class Counter: @unchecked Sendable {
             root: tmp().path))
     let pid = try #require(c.pid)
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: set) })   // the trap is set
-    c.terminateNow()
+    c.terminateNow(grace: 0.2)   // SIGTERM is ignored, so only SIGKILL ends it
     #expect(kill(pid, 0) != 0 || Subprocess.isZombie(pid))   // gone, or ended and waiting for its parent to reap it
 }
 

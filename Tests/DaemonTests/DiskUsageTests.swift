@@ -223,8 +223,8 @@ private func blob(_ path: String, mb: Int = 2) throws {
     defer { d.stop() }
     let runs = OSAllocatedUnfairLock(initialState: 0), sweeps = d.workspaces.sweeps
     let sweep: @Sendable () -> [RepoWorktreeSizes.Item] = {
-        runs.withLock { $0 += 1 }
-        Thread.sleep(forTimeInterval: 0.2)
+        // The first runs long enough for the second ask to come while it does.
+        if runs.withLock({ $0 += 1; return $0 == 1 }) { Thread.sleep(forTimeInterval: 0.2) }
         return []
     }
     DispatchQueue.concurrentPerform(iterations: 2) { _ in _ = sweeps.sizes(of: "p", sweep) }

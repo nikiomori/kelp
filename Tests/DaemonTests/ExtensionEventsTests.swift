@@ -37,6 +37,12 @@ private func lines(_ url: URL) -> [String] {
     ).map(String.init)
 }
 
+/// Events fire `seconds` (times `testSlowness`) after their status, not Kelp's 2.5: long enough for what a test changes
+/// right after a status to land first.
+private func eventsAfter(_ seconds: Double, _ w: World) {
+    w.d.sessions.events.eventDelay.withLock { $0 = seconds * testSlowness }
+}
+
 private func temporary() -> URL {
     tmp().appendingPathComponent("kelp-event-\(UUID().uuidString)")
 }
@@ -45,6 +51,7 @@ private func temporary() -> URL {
 @Test func anExtensionHearsAnAgentAskingWithItsWordsAsValues() async throws {
     let w = try await world(agents: [fake]), out = temporary(), pwned = temporary()
     defer { w.d.stop() }
+    eventsAfter(0.3, w)
     try install(w, out: out)
     let title = "$(touch \(pwned.path))"
     let s = try await w.c.call(SessionCreate(worktreeId: try await firstWorkspace(w).id, agent: "fake", title: title))
@@ -57,6 +64,7 @@ private func temporary() -> URL {
 @Test func aResultIsHeardThoughItsAgentEnded() async throws {
     let w = try await world(agents: [fake]), out = temporary()
     defer { w.d.stop() }
+    eventsAfter(1, w)   // both kills land within it
     try install(w, out: out)
     let workspace = try await firstWorkspace(w).id
     let done = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "done"))
@@ -74,6 +82,7 @@ private func temporary() -> URL {
 @Test func anEventIsForAStopThatStands() async throws {
     let w = try await world(agents: [fake]), out = temporary(), off = temporary()
     defer { w.d.stop() }
+    eventsAfter(0.3, w)
     try install(w, out: out)
     try install(w, id: "off", out: off)
     _ = try await w.c.call("settings.set", .obj(["key": "extensions.disabled", "value": .array([.string("off")])]))
@@ -100,6 +109,7 @@ private func temporary() -> URL {
 @Test func anExtensionWithoutARecordRunsNothing() async throws {
     let w = try await world(agents: [fake]), out = temporary(), other = temporary()
     defer { w.d.stop() }
+    eventsAfter(0.3, w)
     try install(w, out: out, allowed: false)
     let workspace = try await firstWorkspace(w).id
     await #expect(throws: RPCError.self) {
@@ -118,6 +128,7 @@ private func temporary() -> URL {
 @Test func anExtensionRunsOnlyAsItWasAllowed() async throws {
     let w = try await world(agents: [fake]), out = temporary(), other = temporary()
     defer { w.d.stop() }
+    eventsAfter(0.3, w)
     try install(w, out: out)
     try install(w, id: "other", out: other)
     let dir = w.root.appendingPathComponent("extensions"), workspace = try await firstWorkspace(w).id

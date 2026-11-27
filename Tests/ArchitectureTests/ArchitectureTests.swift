@@ -8,30 +8,6 @@ import Testing
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent()
 
-/// The app: its target (main.swift and the list of built-ins), the shell (KelpKit) and the built-ins' modules.
-let appDirs = ["Sources/KelpApp", "Sources/KelpKit", "Sources/Builtins"]
-
-/// Every .swift file under these folders (relative to the repo), with its text.
-func sources(_ dirs: [String]) -> [(path: String, text: String)] {
-    dirs.flatMap { dir -> [(path: String, text: String)] in
-        let base = root.appendingPathComponent(dir)
-        let files =
-            FileManager.default.enumerator(at: base, includingPropertiesForKeys: nil)?.compactMap { $0 as? URL } ?? []
-        return files.filter { $0.pathExtension == "swift" }.compactMap { u in
-            (try? String(contentsOf: u, encoding: .utf8)).map { (dir + u.path.dropFirst(base.path.count), $0) }
-        }
-    }
-}
-
-func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
-    let re = try NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
-    return sources(dirs).flatMap { f in
-        re.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)).map { m in
-            "\(f.path):\(f.text[..<(Range(m.range, in: f.text)?.lowerBound ?? f.text.startIndex)].filter { $0 == "\n" }.count + 1)"
-        }
-    }
-}
-
 /// The app and the CLI name a method by its `RPCMethod` type: with a string and hand-built params, a renamed field still
 /// compiles and only breaks when it runs.
 @Test func theAppAndTheCLICallTheDaemonThroughItsTypes() throws {
@@ -92,7 +68,7 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     #expect(modules.contains("BuiltinAgents") && modules.contains("BuiltinFiles"), "\(modules)")   // the scan finds them
     let importing = sources(["Sources/KelpKit", "Sources/Builtins"]).filter { f in
         let code = codeOnly(f.text)
-        return modules.contains { code.range(of: #"\bimport\s+\#($0)\b"#, options: .regularExpression) != nil }
+        return code.matches(of: #/\bimport\s+(\w+)\b/#).contains { modules.contains(String($0.1)) }
     }
     #expect(importing.map(\.path) == [], "a built-in imported by the shell or by another built-in")
     // Each target of the shell or a built-in, read whole to its closing parenthesis: its dependencies can go on over
@@ -232,7 +208,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
     // Agents Overview puts a chat in review or done by it.
     // −3: the daemon and the sidebar share the project color and its stored representation in Core.
-    #expect(declared == 389, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: a page's tab is shown by its id (`selectTab`), because a shared page and the user's own tab can show the same
+    // address.
+    #expect(declared == 390, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -252,35 +230,6 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // and a terminal's each answer it, and the command can't know their kinds.
     #expect(requirements.count <= 15, "\(requirements)")
     #expect(requirements.count >= 15, "fewer now: lower the ceiling")
-}
-
-/// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.
-func codeOnly(_ s: String) -> String {
-    var out = "", i = s.startIndex
-    func skip(to end: String.Index) {
-        out += s[i..<end].filter { $0 == "\n" }
-        i = end
-    }
-    while i < s.endIndex {
-        let rest = s[i...]
-        if rest.hasPrefix("//") {
-            skip(to: rest.firstIndex(of: "\n") ?? s.endIndex)
-        } else if rest.hasPrefix("/*") {
-            skip(to: rest.range(of: "*/")?.upperBound ?? s.endIndex)
-        } else if rest.hasPrefix("\"\"\"") {
-            skip(to: rest.dropFirst(3).range(of: "\"\"\"")?.upperBound ?? s.endIndex)
-        } else if rest.first == "\"" {
-            var j = rest.index(after: rest.startIndex)
-            while j < s.endIndex, s[j] != "\"", s[j] != "\n" {
-                j = s.index(j, offsetBy: s[j] == "\\" && s.index(after: j) < s.endIndex ? 2 : 1)
-            }
-            skip(to: j < s.endIndex && s[j] == "\"" ? s.index(after: j) : j)
-        } else {
-            out.append(s[i])
-            i = s.index(after: i)
-        }
-    }
-    return out
 }
 
 /// The daemon's events reach the app as their types (`RPCClient.onEvent`, decoded once on the client's reader thread):
@@ -553,7 +502,8 @@ func codeOnly(_ s: String) -> String {
         ),
         "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
         "Builtins/Agents/Session/InterruptedAgents.swift": (
-            1, "Continue All wakes the agents Kelp's going down cut short a second apart, so a dozen don't start at once"
+            1,
+            "Continue All wakes the agents Kelp's going down cut short a second apart, so a dozen don't start at once"
         ),
         "KelpKit/Shell/WorkspaceActions+Idle.swift": (
             1, "an empty group's row shows its sand run out for a moment before the group goes"

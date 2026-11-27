@@ -100,7 +100,7 @@ private func tempRoot() throws -> URL {
 /// What claude-artifacts answers a publish with: the link is kept once, a later version of it isn't a new page.
 @Test func artifactFromHook() throws {
     let answer =
-        #"{"slug":"28647d38","title":"Kelp 0.9 for the team","url":"https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL","version":"1"}"#
+        #"{"slug":"5f0c1e9a","title":"Kelp 0.9 for the team","url":"https://claude.ai/artifact/Xq7Lm2Pv9Rt4Wn8Ks3Hd6F","version":"1"}"#
     func hook(_ event: String, _ tool: String) -> JSONValue {
         .obj([
             "hook_event_name": .string(event), "tool_name": .string(tool), "tool_input": .obj(["files": .array([])]),
@@ -109,7 +109,7 @@ private func tempRoot() throws -> URL {
     }
     let p = try #require(Artifacts.published(hook: hook("PostToolUse", "mcp__claude-artifacts__publish_files")))
     #expect(
-        p.url == "https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL" && p.title == "Kelp 0.9 for the team"
+        p.url == "https://claude.ai/artifact/Xq7Lm2Pv9Rt4Wn8Ks3Hd6F" && p.title == "Kelp 0.9 for the team"
             && p.type == "page")
     #expect(Artifacts.published(hook: hook("PreToolUse", "mcp__claude-artifacts__publish_files")) == nil)
     #expect(Artifacts.published(hook: hook("PostToolUse", "Bash")) == nil)

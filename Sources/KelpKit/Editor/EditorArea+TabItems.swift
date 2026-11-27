@@ -28,16 +28,18 @@ extension EditorArea {
     }
 
     /// Gives a tab an agent drives (a page, `TabProvider.driven`) the agent's logo as its icon, the agent's card under
-    /// the pointer, and a glow in the agent's colour while it acts there.
+    /// the pointer, a glow in the agent's colour while it acts there, and a person after the title while it acts with
+    /// the user's login.
     func drivenLook(
         _ item: TabStrip.Item, _ tab: TabRef,
-        _ driven: @MainActor (String) -> [String: (session: String, glow: NSColor?)]
+        _ driven: @MainActor (String) -> [String: (session: String, glow: NSColor?, login: Bool)]
     ) -> TabStrip.Item {
         guard let by = driven(workspaceId)[tab.id], let session = app.session(by.session) else { return item }
         var item = item
         item.icon = app.catalog.icon(session.agent, size: 14) ?? item.icon
         item.card = .agent(session.id)
         item.run = by.glow
+        item.trailing = by.login ? .symbol("person.crop.circle", String(localized: "With your login")) : nil
         return item
     }
 

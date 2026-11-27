@@ -71,7 +71,8 @@ extension HostBrowser {
                 ? UIBrowserAsk(
                     question: params["text"]?.string ?? "", args: .object(params), worktreeId: worktree(session))
                 : UIBrowser(action: action, args: .object(params), worktreeId: worktree(session))
-            let answer = after(action, try call(session, method, page: plan.page), plan, session, channel)
+            let page = plan.page ?? .object(["host": .string(remote.host)])
+            let answer = after(action, try call(session, method, page: page), plan, session, channel)
             if !json, let text = BrowserWords.text(action, BrowserWords.what(params), answer) {
                 say.out(text + (plan.note.map { "\n" + $0 } ?? ""))
             } else if case .string(let text) = answer {

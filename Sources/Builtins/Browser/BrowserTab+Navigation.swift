@@ -91,3 +91,12 @@ extension BrowserTab {
         return false
     }
 }
+
+extension BrowserTab {
+    /// What Safari adds to WebKit's user agent. Without it sites take the page for an unknown browser and serve it
+    /// their fallback layout (old Google, "browser not supported").
+    static let safariName: String = {
+        let safari = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String
+        return "Version/\(safari ?? "26.0") Safari/605.1.15"
+    }()
+}

@@ -28,6 +28,8 @@ final class TabButton: NSControl, NSDraggingSource {
     private let full = NSTextField(labelWithString: "")
     /// What runs beside the tab's agent, whatever it's doing (a dev server), with the names in the tooltip.
     private let chip = Chip()
+    /// The item's mark after the title (`TabStrip.Item.trailing`).
+    private let trailing = NSImageView()
     private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false {
         didSet {
@@ -95,7 +97,10 @@ final class TabButton: NSControl, NSDraggingSource {
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
         full.font = .uiDigits(TextSize.micro, weight: .medium)
-        for part in [slot, title, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
+        trailing.symbolConfiguration = .chrome(Metrics.iconSmall)   // as big as the tab's icon, to be seen
+        trailing.contentTintColor = .systemBlue   // the user's own: blue whatever the accent (Graphite is grey)
+        trailing.setAccessibilityElement(false)
+        for part in [slot, title, trailing, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
         applyWidth()
         pin(row)
         content = row
@@ -152,6 +157,8 @@ final class TabButton: NSControl, NSDraggingSource {
         full.isHidden = level < 3
         full.stringValue = it.badge?.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = .textRed
+        trailing.image = it.trailing
+        trailing.isHidden = it.trailing == nil
         chip.isHidden = (it.badge?.background ?? 0) == 0
         chip.show("terminal", count: it.badge?.background ?? 0)
         chip.toolTip = it.card == nil ? it.badge?.backgroundTip : nil   // the card lists them
@@ -159,7 +166,10 @@ final class TabButton: NSControl, NSDraggingSource {
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"), because on screen the state replaces
         // the icon, and that a file has unsaved changes ("notes.md, Edited"), which on screen is only a dot.
-        let said = [it.title, it.badge?.status?.words, it.edited ? String(localized: "Edited") : nil]
+        let said = [
+            it.title, it.trailing?.accessibilityDescription, it.badge?.status?.words,
+            it.edited ? String(localized: "Edited") : nil
+        ]
         setAccessibilityLabel(said.compactMap { $0 }.joined(separator: ", "))
         setAccessibilityValue(selected)
         updateLook()
@@ -170,10 +180,10 @@ final class TabButton: NSControl, NSDraggingSource {
     private var sizeKey: SizeKey {
         SizeKey(
             title: title.stringValue, font: title.font, chip: chip.isHidden ? 0 : item?.badge?.background ?? 0,
-            meter: meter.isHidden, full: full.isHidden ? "" : full.stringValue)
+            meter: meter.isHidden, full: full.isHidden ? "" : full.stringValue, trailing: !trailing.isHidden)
     }
     private struct SizeKey: Equatable {
-        let title: String, font: NSFont?, chip: Int, meter: Bool, full: String
+        let title: String, font: NSFont?, chip: Int, meter: Bool, full: String, trailing: Bool
     }
 
     /// Whether the slot shows the agent's state: working, asking, failed, paused (the moon its sidebar row shows), or

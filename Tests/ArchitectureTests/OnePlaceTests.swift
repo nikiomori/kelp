@@ -43,7 +43,8 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
 /// (`claude`, `codex` on the PATH), a model's name and a plugin's prefix. Comments don't count.
 @Test func claudeAndCodexAreNamedByTheirIds() {
     let spelled = sources(["Sources"]).map { file in
-        file.text.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+        file.text.split(separator: "\n").filter { $0.contains("\"claude\"") || $0.contains("\"codex\"") }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
             .map { $0.matches(of: #/"(claude|codex)"/#).count }.reduce(0, +)
     }.reduce(0, +)
     #expect(spelled <= 12, "\"claude\" / \"codex\" spelled \(spelled) times: name an agent by Session.claudeAgent")

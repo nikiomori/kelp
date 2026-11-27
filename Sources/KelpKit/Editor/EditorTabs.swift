@@ -40,24 +40,28 @@ extension EditorArea {
     /// Opens a URI in the focused group (or a new group to the right / below), reusing a tab already showing it. It
     /// only shows things, because callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…`
     /// must start nothing.
-    func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true, beside pane: String? = nil) {
-        guard !TabURI.runs(uri) else { return }
+    @discardableResult
+    func open(
+        _ uri: String, split: SplitDirection? = nil, focus: Bool = true, beside pane: String? = nil,
+        reuse: Bool = true
+    ) -> TabRef? {
+        guard !TabURI.runs(uri) else { return nil }
         // A page already open stays where it is, even when asked for beside you, because a second click must not move
         // it.
-        if let tab = layout.pageTab(for: uri) {
+        if reuse, let tab = layout.pageTab(for: uri) {
             select(tab.id, focus: focus)
-            return
+            return tab
         }
         // For a file already open (at another line, or by another path to it), use that tab and move it to the line
         // asked for.
-        if layout.tab(uri: uri) == nil, let tab = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
+        if reuse, layout.tab(uri: uri) == nil, let tab = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
             select(tab.id, focus: focus)
             if let line = TabURI.filePath(uri).line { contents[tab.id]?.goTo(line: line) }
-            return
+            return tab
         }
         // A terminal split keeps its original pane even if focus moved while the shell started.
         let preferredPane = pane.flatMap { layout.groups[$0]?.id ?? layout.focusedGroup?.id }
-        if let tab = layout.tab(uri: uri) {   // already open (maybe added by reconcile a moment ago)
+        if reuse, let tab = layout.tab(uri: uri) {   // already open (maybe added by reconcile a moment ago)
             if let split, let gid = preferredPane ?? layout.group(of: tab.id) {
                 if preferredPane != nil { zoomed = nil }
                 layout.split(tab.id, from: gid, vertical: split == .right, before: false)
@@ -65,12 +69,12 @@ extension EditorArea {
                 render()
             }
             select(tab.id, focus: focus)
-            return
+            return tab
         }
         if TabURI.scheme(uri) != "session", app.extensions.tabProvider(for: uri) == nil {
             if let url = URL(string: uri), url.scheme?.hasPrefix("http") == true {
                 PreviewLinks.openOutside(url)
-                return
+                return nil
             }   // browser extension off
         }
         var target = preferredPane ?? layout.focusedGroup?.id
@@ -82,15 +86,17 @@ extension EditorArea {
         arrange()
         render()
         select(tab.id, focus: focus)
+        return tab
     }
 
     /// Shows what an agent or a script asks for (`kelp open` without `--focus`). The pane you're in stays yours, and so
     /// do the keys. Only a tab that lands on top of what you were looking at takes the keys, because nothing else is
     /// left to type in.
-    func showAside(_ uri: String, split: SplitDirection? = nil) {
+    @discardableResult
+    func showAside(_ uri: String, split: SplitDirection? = nil, reuse: Bool = true) -> TabRef? {
         let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
         let yours = layout.focusedGroup?.selectedTab?.id
-        open(uri, split: split, focus: false)
+        let tab = open(uri, split: split, focus: false, reuse: reuse)
         if let yours, let gid = layout.group(of: yours), layout.groups[gid]?.selected == yours, gid != layout.focused {
             let shown = layout.focused
             layout.focused = gid
@@ -98,6 +104,7 @@ extension EditorArea {
             refreshGroup(gid)
         }
         if typing { focusSelected() }   // a new pane rebuilds the area, which takes the keys from the terminal
+        return tab
     }
 
     func closeTab(_ id: String, remember: Bool = true) { Task { await closeTabAsking(id, remember: remember) } }

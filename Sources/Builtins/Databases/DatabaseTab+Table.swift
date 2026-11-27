@@ -64,9 +64,9 @@ extension DatabaseTab {
         await mark(name, primary: primary, still: still)
     }
 
-    /// Shows "Reading orders…" in the foot only once a second has gone, so a quick read changes nothing
-    /// (`whileSlow`'s rule). A database elsewhere takes more than a moment, so with no rows on show yet its wait shows
-    /// at once, over the grid. With no `table`, it is the user's statement that runs.
+    /// Shows "Reading orders…" in the foot only once a second has gone (`LoadingView.patience`), so a quick read
+    /// changes nothing (`whileSlow`'s rule). A database elsewhere takes more than a moment, so with no rows on show yet
+    /// its wait shows at once, over the grid. With no `table`, it is the user's statement that runs.
     func startReading(_ table: String? = nil) {
         reading?.cancel()
         if table != nil { takesEdits(false) }   // the answer replaces the rows, and edits made meanwhile with them
@@ -76,7 +76,7 @@ extension DatabaseTab {
             rowsWait.show(words)
         }
         reading = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            do { try await Task.sleep(for: .seconds(LoadingView.patience)) } catch { return }
             self?.status.stringValue = words
             self?.busy.startAnimation(nil)
             self?.showStop(true)

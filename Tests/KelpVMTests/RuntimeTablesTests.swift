@@ -6,7 +6,9 @@ import Testing
 @testable import KelpVM
 
 /// What each runtime answers to every request kelpd sends, from each state a test can bring it to, and where that
-/// leaves it: what the shared dispatch (`Lifecycle.handle`) must keep. Each row is a fresh machine on its stand-in.
+/// leaves it: what the shared dispatch (`Lifecycle.handle`) must keep. Each row is a fresh machine on its stand-in, its
+/// emulator or runner ended by `putAway`. Status, share and screen are answered the same from every state (the
+/// dispatch reads none for them), so a stand-in's rows ask them only from off.
 enum Asked: CustomStringConvertible {
     case status, start, begin, sleep, sleepIfIdle, stop, share, screen, show, quit, quitIfDown
     var request: VMHelper.Request {
@@ -53,23 +55,20 @@ extension AndroidRuntimeOnAStandIn {
             (.off, .share, .says(noFolders), .off, false), (.off, .screen, .says(notMine), .off, false),
             (.off, .show, .done, .running, false), (.off, .quit, .done, .off, true),
             (.off, .quitIfDown, .done, .off, true),
-            (.running, .status, .done, .running, false), (.running, .start, .done, .running, false),
+            (.running, .start, .done, .running, false),
             (.running, .begin, .done, .running, false), (.running, .sleep, .done, .sleeping, false),
             (.running, .sleepIfIdle, .says("is in use."), .running, false), (.running, .stop, .done, .off, true),
-            (.running, .share, .says(noFolders), .running, false),
-            (.running, .screen, .says(notMine), .running, false), (.running, .show, .done, .running, false),
+            (.running, .show, .done, .running, false),
             (.running, .quit, .done, .off, true), (.running, .quitIfDown, .says(inUse), .running, false),
-            (.paused, .status, .done, .paused, false), (.paused, .start, .done, .running, false),
+            (.paused, .start, .done, .running, false),
             (.paused, .begin, .done, .running, false), (.paused, .sleep, .done, .sleeping, false),
             (.paused, .sleepIfIdle, .done, .sleeping, false), (.paused, .stop, .done, .off, true),
-            (.paused, .share, .says(noFolders), .paused, false), (.paused, .screen, .says(notMine), .paused, false),
             (.paused, .show, .done, .running, false), (.paused, .quit, .done, .off, true),
             (.paused, .quitIfDown, .says(inUse), .paused, false),
-            (.sleeping, .status, .done, .sleeping, false), (.sleeping, .start, .done, .running, false),
+            (.sleeping, .start, .done, .running, false),
             (.sleeping, .begin, .done, .running, false), (.sleeping, .sleep, .done, .sleeping, false),
             (.sleeping, .sleepIfIdle, .done, .sleeping, false), (.sleeping, .stop, .done, .off, true),
-            (.sleeping, .share, .says(noFolders), .sleeping, false),
-            (.sleeping, .screen, .says(notMine), .sleeping, false), (.sleeping, .show, .done, .running, false),
+            (.sleeping, .show, .done, .running, false),
             (.sleeping, .quit, .done, .off, true), (.sleeping, .quitIfDown, .done, .off, true)
         ]
         for (from, asked, answer, state, exits) in rows {
@@ -97,7 +96,6 @@ extension AndroidRuntimeOnAStandIn {
             if exits { #expect(try await waitFor(5) { ended }, "\(row): kelp-vm ends") }
             await aTurnLater()
             #expect(ended == exits, "\(row): ended \(ended)")
-            if !exits { _ = await askAndroid(vm, .init(op: .stop)) }   // its emulator quit before the SDK goes
         }
     }
 }
@@ -113,28 +111,30 @@ extension IOSRuntimeOnAStandIn {
             (.off, .share, .says("shares no folders"), .off, false),
             (.off, .screen, .says("kelpd's to drive"), .off, false), (.off, .quit, .done, .off, true),
             (.off, .quitIfDown, .done, .off, true),
-            (.running, .status, .done, .running, false), (.running, .start, .done, .running, false),
+            (.running, .start, .done, .running, false),
             (.running, .begin, .done, .running, false), (.running, .sleep, .done, .off, true),
             // the start that brought it up is a runner call under way (`callWindow`)
             (.running, .sleepIfIdle, .says("is in use."), .running, false), (.running, .stop, .done, .off, true),
-            (.running, .share, .says("shares no folders"), .running, false),
-            (.running, .screen, .says("kelpd's to drive"), .running, false), (.running, .quit, .done, .off, true),
+            (.running, .quit, .done, .off, true),
             (.running, .quitIfDown, .says("in use again"), .running, false),
             // its simulator still booting (a slow bootstatus): what doesn't stop it waits, or is answered at once
-            (.starting, .status, .done, .running, false), (.starting, .start, .done, .running, false),
+            (.starting, .start, .done, .running, false),
             (.starting, .begin, .done, .running, false), (.starting, .sleep, .done, .off, true),
             (.starting, .sleepIfIdle, .done, .running, false), (.starting, .stop, .done, .off, true),
-            (.starting, .share, .says("shares no folders"), .running, false),
-            (.starting, .screen, .says("kelpd's to drive"), .running, false), (.starting, .quit, .done, .off, true),
+            (.starting, .quit, .done, .off, true),
             (.starting, .quitIfDown, .says("in use again"), .running, false)
         ]
         for (from, asked, answer, state, exits) in rows {
-            let (vm, folder) = try iOS(simctl: from == .starting ? #"[ "$2" = bootstatus ] && sleep 1"# : "")
+            let (vm, folder) = try iOS(
+                simctl: from == .starting ? #"[ "$2" = bootstatus ] && { \#(untilTheGateOpens); }"# : "")
             defer { putAway(folder) }
             var ended = false
             vm.exitProcess = { ended = true }
-            func ask(_ request: VMHelper.Request) async -> String? {
-                await withCheckedContinuation { c in vm.handle(request) { c.resume(returning: $0) } }
+            func ask(_ request: VMHelper.Request, then: () -> Void = {}) async -> String? {
+                await withCheckedContinuation { c in
+                    vm.handle(request) { c.resume(returning: $0) }
+                    then()
+                }
             }
             var booting: Task<String?, Never>?
             switch from {
@@ -147,17 +147,13 @@ extension IOSRuntimeOnAStandIn {
             }
             let row = "\(from), \(asked)"
             #expect(vm.state == "\(from)".vmState, "\(row): set up")
-            let said = await ask(asked.request)
+            let said = await ask(asked.request) { openGate(folder) }   // a boot under way goes on once it's asked
             #expect(answer.fits(said), "\(row): said \(said ?? "nothing")")
             #expect(try await waitFor(5) { vm.state == state }, "\(row): \(vm.state), not \(state)")
             if exits { #expect(try await waitFor(5) { ended }, "\(row): kelp-vm ends") }
             await aTurnLater()
             #expect(ended == exits, "\(row): ended \(ended)")
             _ = await booting?.value   // answered: up, or told it was shut down
-            if !exits {
-                vm.exitProcess = {}
-                _ = await ask(.init(op: .stop))
-            }
         }
     }
 }

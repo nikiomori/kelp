@@ -40,7 +40,6 @@ extension OneAtATime {
             (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
         }
         #expect(try await waitFor { onDisk()?["editor.autoSave"]?.bool == true })
-        #expect(onDisk()?["editor.autoSave"]?.bool == true)
 
         _ = try await cli.call("settings.set", .obj(["key": "editor.lsp", "value": false]))   // elsewhere
         #expect(try await waitFor { s.bool("editor.lsp") == false })
