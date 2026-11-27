@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import KelpKit
 import WebKit
@@ -15,6 +16,7 @@ extension BrowserTab: WKDownloadDelegate {
         async
         -> (WKNavigationActionPolicy, WKWebpagePreferences)
     {
+        if awaitsHostNetwork { return (.cancel, preferences) }
         if let url = action.request.url, leavesSharedSite(url, mainFrame: action.targetFrame?.isMainFrame != false) {
             noteLog("[blocked] \(url.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
@@ -32,13 +34,14 @@ extension BrowserTab: WKDownloadDelegate {
         return (action.shouldPerformDownload ? .download : .allow, preferences)
     }
 
-    /// Whether `url` leaves the one site the user let the agent use in their logged-in browser (`open --shared`). While
-    /// the agent drives the page, the page stays on that site, and another site must be asked for again.
+    /// Whether `url` leaves the site where the agent uses the user's login (`loginSite`, subdomains included). While
+    /// the agent drives the page it stays on that site; while the user has it, they go where they like (a Google
+    /// sign-in).
     func leavesSharedSite(_ url: URL, mainFrame: Bool) -> Bool {
         guard agentAnswers, !agent, mainFrame, url.scheme != "about",
-            let allowed = URL(string: start).flatMap(PageOrigin.of)
+            let site = loginSite ?? AgentSites.site(of: start)
         else { return false }
-        return PageOrigin.of(url) != allowed
+        return AgentSites.site(of: url.absoluteString).map { !AgentSites.covers(site, $0) } ?? true
     }
 
     /// The schemes a page loads itself. Any other scheme is a link out of the page.

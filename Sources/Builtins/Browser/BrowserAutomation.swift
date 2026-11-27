@@ -14,7 +14,8 @@ extension BrowserTab {
     func browse(_ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
         let name = action.rawValue
         // A subagent's command goes to the subagent's own page in this tab (BrowserPages.swift).
-        if agent, host == nil, let page = pageSet.route(action, args) { return try await page.browse(action, args) }
+        if agent, host == nil, let page = try pageSet.route(action, args) { return try await page.browse(action, args) }
+        if action != .open, awaitsHostNetwork { throw BrowserRequests.noPage }
         defer { (host ?? self).pageSetActed() }
         func need(_ key: String) throws -> String {
             guard let value = args[key]?.string, !value.isEmpty else {
@@ -24,7 +25,9 @@ extension BrowserTab {
         }
         // The user's logged-in tab belongs to the agent on the one site the user allowed. Once the tab has gone to
         // another site (the user took it there after the agent left it), it belongs to the user again.
-        if !agent, let now = web.url, now.scheme != "about", PageOrigin.of(now) != PageOrigin.of(URL(string: start)) {
+        if !agent, let site = loginSite ?? AgentSites.site(of: start), let now = web.url, now.scheme != "about",
+            AgentSites.site(of: now.absoluteString).map({ AgentSites.covers(site, $0) }) != true
+        {
             throw RPCError.invalidParams(
                 "This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again."
             )
@@ -63,7 +66,8 @@ extension BrowserTab {
             // reloads with nothing from the cache. A dev server that doesn't ask for revalidation would hand back the
             // old script.
             let url = try need("url")
-            if let remote = args["remote"], remote != .null { try await onHost(remote) }
+            let remote = args["remote"] ?? .null
+            if requiresHostNetwork || remote != .null { try await onHost(remote) }
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case .reload:

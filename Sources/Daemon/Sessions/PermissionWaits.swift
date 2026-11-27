@@ -18,7 +18,8 @@ final class PermissionWaits: Sendable {
     /// to run it for), or its timeout. Two commands asking at once (parallel tool calls) wait their turn, oldest first.
     struct KelpWait: Sendable {
         let question: String, token: UUID
-        /// The database run the question is for, if any (`SessionChoose.run`).
+        /// The database run the question is for, or the login question's (`AgentSites.run`), if any
+        /// (`SessionChoose.run`).
         let run: String?
         let answer: CheckedContinuation<String?, Never>
         let exit: DispatchSourceProcess?
@@ -96,8 +97,12 @@ final class PermissionWaits: Sendable {
         return waiting != nil
     }
 
+    /// The sites whose login the user denied an agent, by session, until its turn ends: it isn't asked again meanwhile.
+    let deniedLogins = OSAllocatedUnfairLock<[String: Set<String>]>(initialState: [:])
+
     /// Ends every question Kelp asks for `id`'s commands with no answer, because the turn and its commands are over.
     func endKelpQuestions(_ id: String) {
+        deniedLogins.withLock { $0[id] = nil }
         let all = kelpWaits.withLock { $0.removeValue(forKey: id) } ?? []
         for wait in all {
             wait.exit?.cancel()

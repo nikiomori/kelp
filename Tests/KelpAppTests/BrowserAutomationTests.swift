@@ -131,13 +131,115 @@ import WorkbenchKit
     #expect(try await tab.browse(.eval, .object(["js": .string("window.kept ?? 0")])) == .int(0))
 }
 
-/// The user's own page tabs carry their logins: `kelp browser` drives only a page an agent opened, never one of those.
-@MainActor @Test func anAgentDrivesOnlyItsOwnPage() async throws {
+@MainActor @Test func browserRoutingRestoresOnlyTheCallersTab() throws {
     var layout = WorkspaceLayout()
-    _ = layout.add("https://example.com/", to: nil)   // the user's own
-    #expect(BrowserRequests.ownPage(layout.allTabs, last: nil) == nil)
-    _ = layout.add(TabURI.agentPage("about:blank"), to: nil)
-    #expect(BrowserRequests.ownPage(layout.allTabs, last: nil)?.uri == TabURI.agentPage("about:blank"))
+    let url = "https://example.com/?a=1&session=page#fragment"
+    let user = layout.add(url)
+    let legacy = layout.add(TabURI.agentPage(url))
+    let parent = layout.add(TabURI.agentPage(url, session: "parent"))
+    let child = layout.add(TabURI.agentPage(url, session: "child"))
+    let host = layout.add(TabURI.agentPage(url, session: "remote:parent"))
+    let restored = try JSONDecoder().decode(WorkspaceLayout.self, from: JSONEncoder().encode(layout))
+    #expect(TabURI.pageURL(parent.uri) == url && TabURI.pageURL(legacy.uri) == url)
+    #expect(TabURI.agentPageSession(legacy.uri) == nil && TabURI.agentPageSession(user.uri) == nil)
+    #expect(TabURI.agentPageSession(TabURI.agentPage(url, session: "id+ /&?#")) == "id+ /&?#")
+    #expect(BrowserRequests.ownPage(restored.allTabs, session: "parent", last: nil) == parent)
+    #expect(BrowserRequests.ownPage(restored.allTabs, session: "child", last: nil) == child)
+    #expect(BrowserRequests.ownPage(restored.allTabs, session: "remote:parent", last: nil) == host)
+    #expect(BrowserRequests.ownPage(restored.allTabs, session: "new", last: nil) == nil)
+    #expect(BrowserRequests.ownPage(restored.allTabs, session: "user", last: nil) == nil)
+    for tab in [parent, user] {
+        #expect(
+            BrowserRequests.ownPage(restored.allTabs, session: "new", last: .init(tab: tab.id, sharedSite: nil)) == nil)
+    }
+    let shared = layout.add("https://example.com/consented")
+    let grant = AgentPages.Visit(tab: shared.id, sharedSite: "example.com")
+    #expect(BrowserRequests.ownPage(layout.allTabs, session: "new", last: grant) == shared)
+    _ = layout.replace(shared.uri, with: "https://elsewhere.example/")
+    #expect(BrowserRequests.ownPage(layout.allTabs, session: "new", last: grant) == nil)
+    layout.remove(shared.id)
+    #expect(BrowserRequests.ownPage(layout.allTabs, session: "new", last: grant) == nil)
+}
+
+extension OneAtATime {
+    @Test func browserRoutingOpensSeparateTabsForTheSameURL() async throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let app = AppModel(builtins: [Builtins.browser])
+        app.extensions.reload()
+        let main = MainWindowController(app: app)
+        defer { withExtendedLifetime(main) {} }
+        app.repos = [Repo(id: "p", name: "Pages", path: "/tmp")]
+        app.worktrees = [Worktree(id: "w", repoId: "p", branch: "main", path: "/tmp")]
+        let bench = app.workbench
+        bench.show(workspace: "w")
+        let url = "about:blank", requests = BrowserRequests(app: app)
+        func run(_ action: BrowserAction, as owner: String?) async throws -> JSONValue {
+            var args: [String: JSONValue] = ["url": .string(url)]
+            args["session"] = owner.map(JSONValue.string)
+            return try await requests.run(
+                UIBrowserEvent(UIBrowser(action: action, args: .object(args), worktreeId: "w"), request: "routing"))
+        }
+        _ = try await run(.open, as: "parent")
+        await #expect(throws: RPCError.self) { try await run(.info, as: "child") }
+        _ = try await run(.open, as: "child")
+        await #expect(throws: RPCError.self) { try await run(.info, as: nil) }
+        let tabs = try #require(bench.loadedTabs("w"))
+        let parent = try #require(tabs.first { TabURI.agentPageSession($0.uri) == "parent" })
+        let child = try #require(tabs.first { TabURI.agentPageSession($0.uri) == "child" })
+        let parentPage = try #require(bench.content(parent, in: "w") as? BrowserTab)
+        let childPage = try #require(bench.content(child, in: "w") as? BrowserTab)
+        #expect(parentPage.web !== childPage.web)
+        childPage.web.loadHTMLString("<p>Moved</p>", baseURL: URL(string: "https://example.test/moved"))
+        #expect(try await waitFor { TabURI.pageURL(childPage.uri) == "https://example.test/moved" })
+        #expect(TabURI.agentPageSession(childPage.uri) == "child" && TabURI.pageURL(parentPage.uri) == url)
+
+        let user = try #require(bench.openBeside(url, in: "w"))
+        let dedicated = try #require(bench.openBeside(url, in: "w", reuse: false))
+        #expect(user.id != dedicated.id)
+    }
+
+    /// An open kelpd marked with the user's login gets a tab of the user's own browser beside the chat, which the
+    /// chat and its subagents open again while it shows the site. Once the user takes the site back, the agent's next
+    /// command there is refused; `--shared` that kelpd didn't mark is refused too.
+    @Test func anOpenWithTheUsersLoginGetsAPageOfTheirBrowser() async throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let app = AppModel(builtins: [Builtins.browser])
+        app.extensions.reload()
+        let main = MainWindowController(app: app)
+        defer { withExtendedLifetime(main) {} }
+        app.repos = [Repo(id: "p", name: "Pages", path: "/tmp")]
+        app.worktrees = [Worktree(id: "w", repoId: "p", branch: "main", path: "/tmp")]
+        app.settings.apply([SettingKeys.agentSites.key: .array(AgentSites.adding("example.com", chat: "c", to: []))])
+        let bench = app.workbench, requests = BrowserRequests(app: app)
+        bench.show(workspace: "w")
+        func run(_ action: BrowserAction, _ extra: [String: JSONValue] = [:]) async throws -> JSONValue {
+            let args = ["url": "about:blank", "session": "chat"].merging(extra) { $1 }
+            return try await requests.run(
+                UIBrowserEvent(UIBrowser(action: action, args: .object(args), worktreeId: "w"), request: "login"))
+        }
+        func plainTabs() -> [TabRef] {
+            (bench.loadedTabs("w") ?? []).filter {
+                TabURI.isPage($0.uri) && TabURI.scheme($0.uri) != TabURI.agentScheme
+            }
+        }
+        _ = try await run(.open, ["yourLogin": "example.com"])
+        let tab = try #require(plainTabs().first)
+        let page = try #require(bench.content(tab, in: "w") as? BrowserTab)
+        #expect(!page.agent && page.loginSite == "example.com" && plainTabs().count == 1)
+        page.web.loadHTMLString("<p>Feed</p>", baseURL: URL(string: "https://www.example.com/home"))
+        #expect(try await waitFor { plainTabs().first?.uri == "https://www.example.com/home" })   // the layout's too
+        _ = try await run(.open, ["yourLogin": "example.com", "subagent": "a1"])   // the chat's page, again
+        #expect(plainTabs().count == 1)
+        AgentPages.of(app).browsed = [:]   // Kelp started again: only the daemon's UI state knows the tab
+        _ = try await run(.open, ["yourLogin": "example.com"])
+        #expect(plainTabs().count == 1)
+        _ = try await run(.info)
+        app.settings.apply([:])   // the user takes example.com back
+        await #expect(throws: RPCError.self) { try await run(.info) }
+        await #expect(throws: RPCError.self) { try await run(.open, ["shared": true]) }
+    }
 }
 
 /// An extension's page runs its own scripts, and markup it shows from elsewhere (an issue's title through innerHTML) runs
@@ -270,6 +372,40 @@ extension OneAtATime {
     let own = BrowserTab(uri: TabURI.agentPage("https://example.com/"), app: AppModel())
     own.watch()
     #expect(!own.leavesSharedSite(other, mainFrame: true))   // its own page has no login to keep
+}
+
+/// A page with the user's login says so on its strip. Stop takes the site out of the list, so the agent's next command
+/// there is refused, and Undo puts the same entry back. While the user holds the page, the button hands it back instead.
+@MainActor @Test func aPageWithTheUsersLoginStopsAndUndoes() {
+    let app = AppModel(), entry = AgentSites.adding("example.com", chat: "read posts", to: [])
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    let tab = BrowserTab(uri: "https://www.example.com/", app: app)
+    tab.loginSite = "example.com"
+    let drive = tab.watch()
+    drive.drivenAt = Date()
+    #expect(tab.stripLook().button == "Stop" && tab.stripLook().text.hasSuffix("your login on example.com"))
+    #expect(tab.stopOrUndoLogin())
+    #expect(app.settings[SettingKeys.agentSites].isEmpty && tab.stripLook().button == "Undo")
+    #expect(tab.stopOrUndoLogin())
+    #expect(app.settings[SettingKeys.agentSites] == entry && tab.stripLook().button == "Stop")
+    drive.takenOver = true
+    #expect(!tab.stopOrUndoLogin())
+}
+
+/// The strip of a page with the user's login follows the list of sites: taken away anywhere (Settings › Browser,
+/// another page's Stop), the strip says so without waiting for the agent's next step; given back, it says so again.
+@MainActor @Test func aLoginStripFollowsTheListOfSites() async throws {
+    let app = AppModel(), entry = AgentSites.adding("example.com", chat: "read posts", to: [])
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    let tab = BrowserTab(uri: "https://www.example.com/", app: app)
+    tab.loginSite = "example.com"
+    tab.watch().drivenAt = Date()
+    tab.showAgentBar()
+    #expect(tab.agentLabel.stringValue.hasSuffix("your login on example.com"))
+    app.settings.apply([:])
+    #expect(try await waitFor { tab.agentLabel.stringValue.hasPrefix("Agents no longer use your login") })
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    #expect(try await waitFor { tab.agentLabel.stringValue.hasSuffix("your login on example.com") })
 }
 
 /// The user's tab, once taken to another site (by the user, after the agent left it), isn't the agent's to drive there.
@@ -574,6 +710,9 @@ extension OneAtATime {
     _ = try await tab.web.evaluateJavaScript("window.open('about:blank', '_blank'); 1")
     #expect(try await waitFor { !BrowserTab.opened.isEmpty })
     let (key, popup) = try #require(BrowserTab.opened.first)
+    let agent = BrowserTab(uri: TabURI.agentPage(key), app: app)
+    #expect(agent.web !== popup && !agent.web.configuration.websiteDataStore.isPersistent)
+    #expect(BrowserTab.opened[key] === popup)
     let opened = BrowserTab(uri: key, app: app)
     #expect(opened.web === popup && BrowserTab.opened.isEmpty)
     #expect(try await opened.web.evaluateJavaScript("window.opener !== null") as? Bool == true)
@@ -678,8 +817,7 @@ extension OneAtATime {
     #expect(tab.drive?.takenOver == false && answer["url"]?.string == "https://example.com/")
 }
 
-/// A subagent that opens a page gets one of its own in the agent's page tab, the row over it switching; what it does
-/// before that, and what the page's first driver does, goes to the tab's own page. Its page goes when it ends.
+/// A subagent can drive its page once it opens one. The page goes when it ends.
 @MainActor @Test(.timeLimit(minutes: 1)) func aSubagentsPageIsItsOwnInTheAgentsTab() async throws {
     let app = AppModel()
     var session = Session(cwd: "/", command: "claude")
@@ -689,10 +827,10 @@ extension OneAtATime {
     let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
     let own: [String: JSONValue] = ["session": .string(session.id)]
     _ = try await host.browse(.info, .object(own))
-    #expect(host.pageSet.owner == "" && host.pageSet.pages.isEmpty)
+    #expect(host.pageSet.pages.isEmpty)
     var mobile = own
     mobile["subagent"] = "a1"
-    _ = try await host.browse(.info, .object(mobile))   // no page of its own yet: the shared one
+    await #expect(throws: RPCError.self) { try await host.browse(.info, .object(mobile)) }
     #expect(host.pageSet.pages.isEmpty)
     mobile["url"] = "about:blank#mobile"
     _ = try await host.browse(.open, .object(mobile))
@@ -709,24 +847,29 @@ extension OneAtATime {
     #expect(!host.title.hasSuffix(" +1"))
 }
 
-/// A subagent drove the tab first, then the agent itself opened a page: a pill each, and each brings its own page.
-@MainActor @Test(.timeLimit(minutes: 1)) func theAgentsPageHasItsOwnPillWhenASubagentCameFirst() async throws {
+/// A native subagent gets an ephemeral WebView even when it opens before the parent.
+@MainActor @Test(.timeLimit(minutes: 1)) func browserRoutingReservesTheParentWebView() async throws {
     let app = AppModel()
     var session = Session(cwd: "/", command: "claude")
     session.status = .working
     session.subagents = ["a1": "general-purpose"]
     app.sessions = [session]
-    let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
-    _ = try await host.browse(.info, .object(["session": .string(session.id), "subagent": "a1"]))
-    #expect(host.pageSet.owner == "a1")
+    let host = BrowserTab(uri: TabURI.agentPage("", session: session.id), app: app)
+    let child: JSONValue = .object(["session": .string(session.id), "subagent": "a1", "url": "about:blank#child"])
+    await #expect(throws: RPCError.self) { try await host.browse(.info, child) }
+    _ = try await host.browse(.open, child)
+    let page = try #require(host.pageSet.pages.first)
+    #expect(page.who == "a1" && page.tab.web !== host.web && host.shownPage === page.tab)
+    #expect(TabURI.agentPageSession(page.tab.uri) == nil)
+    #expect(TabURI.agentPageSession(host.uri) == session.id && TabURI.pageURL(host.uri).isEmpty)
+    await #expect(throws: RPCError.self) { try await host.browse(.info, .object(["session": .string(session.id)])) }
     _ = try await host.browse(.open, .object(["session": .string(session.id), "url": "about:blank#agent"]))
-    let agents = try #require(host.pageSet.pages.first)
-    #expect(agents.who == "" && host.pageSet.shown == "")
+    #expect(TabURI.agentPageSession(host.uri) == session.id && TabURI.pageURL(host.uri) == "about:blank")
     #expect(host.pageSet.pills.count == 2)
-    host.pageSet.pills["a1"]?.onClick?()
-    #expect(host.pageSet.shown == nil && host.shownPage === host)
     host.pageSet.pills[""]?.onClick?()
-    #expect(host.pageSet.shown == "" && host.shownPage === agents.tab)
+    #expect(host.pageSet.shown == nil && host.shownPage === host)
+    host.pageSet.pills["a1"]?.onClick?()
+    #expect(host.pageSet.shown == "a1" && host.shownPage === page.tab)
 }
 
 /// A page sees Safari's user agent, not WebKit's bare one, or sites serve it their unknown-browser layout.

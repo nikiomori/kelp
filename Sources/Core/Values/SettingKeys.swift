@@ -47,6 +47,8 @@ public enum SettingKeys {
     public static let databaseDensity = Setting("databases.density", "compact")
     /// "auto", "on" or "off". Before it had three choices, this setting was true or false.
     public static let skillBrowser = Setting("agents.skills.browser", "auto")
+    /// The sites where agents use the user's login from Kelp's browser (`AgentSites`).
+    public static let agentSites = Setting<[JSONValue]>("browser.agentSites", [])
 
     // Notifications
     public static let onWaiting = Setting("agents.onWaiting", "sound")

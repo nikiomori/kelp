@@ -277,7 +277,7 @@ extension Daemon {
             return try await Sessions.$asker.withValue(caller.origin) {
                 switch method {
                 case let ask as UIBrowserAsk: try await ask.handle(relay, conn: -1)
-                case let browse as UIBrowser: try await browse.handle(relay)
+                case let browse as UIBrowser: try await browse.handle(relay, conn: -1)
                 default: throw RPCError.methodNotFound
                 }
             }

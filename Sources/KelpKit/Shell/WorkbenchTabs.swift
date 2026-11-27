@@ -13,14 +13,17 @@ extension Workbench {
     package func content(_ tab: TabRef, in workspace: String) -> TabContent? { editors?.area(workspace)?.content(tab) }
 
     /// Opens `uri` in a new pane to the right and leaves the keys where they are (`kelp open` without `--focus`),
-    /// whether or not the workspace is on screen. Returns the tab it shows in (a page already open stays where it is).
-    package func openBeside(_ uri: String, in workspace: String) -> TabRef? {
+    /// whether or not the workspace is on screen. A new shared browser page can opt out of reusing an open tab.
+    package func openBeside(_ uri: String, in workspace: String, reuse: Bool = true) -> TabRef? {
         guard let area = editors?.area(workspace) else { return nil }
         if editors?.current === area {
-            area.showAside(uri, split: .right)
-        } else {
-            area.open(uri, split: .right, focus: false)
+            return area.showAside(uri, split: .right, reuse: reuse)
         }
-        return area.layout.tab(uri: uri) ?? area.layout.pageTab(for: uri)
+        return area.open(uri, split: .right, focus: false, reuse: reuse)
+    }
+
+    package func selectTab(_ id: String, in workspace: String) {
+        guard let area = editors?.area(workspace), area.layout.group(of: id) != nil else { return }
+        area.select(id, focus: false)
     }
 }

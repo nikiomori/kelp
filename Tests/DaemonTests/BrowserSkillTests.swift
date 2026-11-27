@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Daemon
@@ -139,28 +140,96 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(vm())
 }
 
-/// A subagent's `kelp browser` says whose it is: of the commands running, the one with its words, by its hook's agent.
-@Test func aBrowserCommandIsTheSubagentsThatRunsIt() {
-    let main = AgentCommand(id: "t1", command: "npm test")
-    let mobile = AgentCommand(id: "t2", command: "kelp browser click e12")
-    let desktop = AgentCommand(id: "t3", command: "cd web && kelp browser type e4 'hi'")
-    let agents = ["t2": "mobile", "t3": "desktop"]
-    #expect(LiveSession.browsing("click e12", [main, mobile, desktop], agents) == "mobile")
-    #expect(LiveSession.browsing("type e4", [main, mobile, desktop], agents) == "desktop")
-    #expect(LiveSession.browsing("info", [main, desktop], agents) == "desktop")   // only one runs it
+/// Codex names the caller's thread and tool call, so its answer is exact: a call or thread at odds with the hooks is
+/// refused.
+@Test func browserRoutingUsesCodexCallAndThreadMetadata() throws {
+    let main = AgentCommand(id: "call_root", command: "kelp browser snapshot")
+    let mobile = AgentCommand(id: "call_mobile", command: main.command)
+    let desktop = AgentCommand(id: "call_desktop", command: main.command)
+    let agents = [mobile.id: "mobile", desktop.id: "desktop"]
+    func driver(_ call: String?, _ thread: LiveSession.BrowserThread, _ running: [AgentCommand]) throws -> String? {
+        try LiveSession.browsing(
+            (call, thread), words: "snapshot", commands: running, agents: agents, hasSubagents: true)
+    }
+    #expect(try driver(mobile.id, .unknown, [main, desktop, mobile]) == "mobile")
+    #expect(try driver(desktop.id, .child("desktop"), [main, mobile, desktop]) == "desktop")
+    #expect(try driver(main.id, .unknown, [main, mobile]) == nil)
+    #expect(try driver("call_without_hook", .root, [mobile]) == nil)
+    #expect(try driver("call_without_hook", .child("no_hook"), [mobile]) == "no_hook")
+    #expect(throws: RPCError.self) { try driver(mobile.id, .root, [mobile]) }
+    #expect(throws: RPCError.self) { try driver(mobile.id, .child("desktop"), [mobile]) }
+    #expect(throws: RPCError.self) { try driver("call_without_hook", .unknown, [mobile]) }
     var ended = mobile
     ended.outcome = .ok
-    #expect(LiveSession.browsing("click e12", [ended], agents) == nil)   // over: not this call's
-    #expect(LiveSession.browsing("info", [AgentCommand(id: "t4", command: "kelp browser info")], agents) == nil)   // the agent's own
+    #expect(throws: RPCError.self) { try driver(mobile.id, .unknown, [ended]) }
+}
+
+/// With no call id (Claude Code), a `kelp browser` command is the one running with its words, by its hook's agent;
+/// the same words run by two owners at once are refused.
+@Test(arguments: [
+    ("click e12", ["t1", "t2", "t3"], "mobile"),
+    ("type e4", ["t1", "t2", "t3"], "desktop"),
+    ("info", ["t1", "t3"], "desktop"),   // only one runs `kelp browser`
+    ("info", ["t4"], nil),   // the main thread's
+    ("snapshot", ["t5", "t1"], nil),   // the main thread browses while a subagent runs tests
+    ("open http://localhost:3000", ["t6", "t7"], nil),   // its address as typed, beside a subagent's ask
+    ("click e12", ["t6", "t8"], "desktop"),   // quoted
+    ("info", ["t6", "t7"], nil)   // two run it, neither with these words: the main thread's
+])
+func aBrowserCommandIsTheOneRunningWithItsWords(words: String, running: [String], owner: String?) throws {
+    let commands = [
+        AgentCommand(id: "t1", command: "npm test"), AgentCommand(id: "t2", command: "kelp browser click e12"),
+        AgentCommand(id: "t3", command: "cd web && kelp browser type e4 'hi'"),
+        AgentCommand(id: "t4", command: "kelp browser info"), AgentCommand(id: "t5", command: "kelp browser snapshot"),
+        AgentCommand(id: "t6", command: "kelp browser open localhost:3000"),
+        AgentCommand(id: "t7", command: "kelp browser ask 'Log in please'"),
+        AgentCommand(id: "t8", command: #"kelp browser click "e12""#)
+    ]
+    let agents = ["t1": "tests", "t2": "mobile", "t3": "desktop", "t7": "mobile", "t8": "desktop"]
+    let mine = commands.filter { running.contains($0.id) }
+    #expect(try LiveSession.browsing(words, mine, agents) == owner)
+}
+
+/// Two owners running the very same words can't be told apart: refused, not guessed. An ended command isn't the caller.
+@Test func theSameBrowserWordsFromTwoOwnersAreRefused() throws {
+    let main = AgentCommand(id: "t1", command: "kelp browser snapshot")
+    var mobile = AgentCommand(id: "t2", command: "kelp browser snapshot")
+    #expect(throws: RPCError.self) { try LiveSession.browsing("snapshot", [main, mobile], ["t2": "mobile"]) }
+    mobile.outcome = .ok
+    #expect(try LiveSession.browsing("snapshot", [main, mobile], ["t2": "mobile"]) == nil)
     #expect(UIBrowser.words(.click, .object(["ref": "e12", "session": "s"])) == "click e12")
-    // The agent's own command, its address as typed, while a subagent's waits: the agent's, not the subagent's.
-    let asking = AgentCommand(id: "t5", command: "kelp browser ask 'Log in please'")
-    let opening = AgentCommand(id: "t6", command: "kelp browser open localhost:3000")
-    let quoted = AgentCommand(id: "t7", command: #"kelp browser click "e12""#)
-    let all = agents.merging(["t5": "mobile", "t7": "desktop"]) { $1 }
-    #expect(LiveSession.browsing("open http://localhost:3000", [asking, opening], all) == nil)
-    #expect(LiveSession.browsing("click e12", [asking, quoted], all) == "desktop")
-    #expect(LiveSession.browsing("info", [asking, opening], all) == nil)   // two run it, neither said so: the agent's
+}
+
+@Test func browserRoutingRefusesAgentOwnerURIsInUIOpen() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let agent = Session(worktreeId: wt.id, cwd: wt.path, command: "codex", agent: "codex")
+    try w.d.store.save(agent)
+    for uri in ["AGENTWEB:?session=other&url=https://example.test", "settings:browser"] {
+        let tab = UIOpen(uri: uri, worktreeId: wt.id)
+        #expect(throws: RPCError.self) { try w.d.allow(tab, conn: -1, caller: .session(agent.id)) }
+        try w.d.allow(tab, conn: -1, caller: .user)
+    }
+}
+
+@Test func browserRoutingReadsTheKelpPeersInitialEnvironment() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let peer = Process()
+    peer.executableURL = URL(fileURLWithPath: try builtProduct("kelp"))
+    peer.arguments = ["browser"]
+    peer.standardInput = Pipe()   // browser waits for commands from stdin
+    peer.environment = [
+        "KELP_SOCKET": w.root.appendingPathComponent("kelp.sock").path,
+        "CODEX_TOOL_CALL_ID": "call_test", "CODEX_THREAD_ID": "thread", "UNRELATED": "omitted"
+    ]
+    try peer.run()
+    defer { if peer.isRunning { peer.terminate() } }
+    #expect(Subprocess.arguments(peer.processIdentifier)?.last == "browser")
+    #expect(
+        Subprocess.environment(peer.processIdentifier, keys: ["CODEX_TOOL_CALL_ID", "CODEX_THREAD_ID", "MISSING"])
+            == ["CODEX_TOOL_CALL_ID": "call_test", "CODEX_THREAD_ID": "thread"])
 }
 
 /// `kelp browser ask` asks on a session's row: from outside any session, it says where it runs instead of asking nobody.

@@ -20,6 +20,8 @@ extension TabStrip {
         /// Whether the title ends with what tells it apart from a namesake ("README.md — docs"). Such a title truncates
         /// in the middle, so the end stays.
         var keepsEnd = false
+        /// A mark after the title in blue, the user's own colour: a page an agent drives with the user's login.
+        var trailing: NSImage?
     }
 }
 

@@ -160,9 +160,10 @@ public enum BrowserAction: String, Codable, CaseIterable, Sendable {
 public struct UIBrowser: InternalMethod {
     public static let name = "ui.browser"
     public typealias Result = JSONValue
-    /// How long the daemon waits for the app's answer. The call itself waits a little longer.
+    /// How long the daemon waits for the app's answer. The call itself waits longer: an `open` may first wait for the
+    /// user's answer on the agent's row, to use their login on a site (`UIBrowserAsk.wait`).
     public static let wait: TimeInterval = 60
-    public static var timeout: TimeInterval? { wait + 5 }
+    public static var timeout: TimeInterval? { wait + 5 + UIBrowserAsk.wait }
     public var action: BrowserAction, args: JSONValue?, worktreeId: String?
     public init(action: BrowserAction, args: JSONValue? = nil, worktreeId: String? = nil) {
         self.action = action
