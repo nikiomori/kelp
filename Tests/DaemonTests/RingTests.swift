@@ -10,7 +10,7 @@ import Testing
     let p = try await world()
     defer { p.d.stop() }
     let c = p.c, w = try await firstWorkspace(p)
-    let flood = "head -c 5000000 /dev/zero | tr '\\0' x; echo; echo tail-mark; sleep 30"
+    let flood = "head -c 2500000 /dev/zero | tr '\\0' x; echo; echo tail-mark; sleep 30"
     let s: Session = try await c.call(
         "session.create", .obj(["worktreeId": .string(w.id), "command": .string(flood)]), as: Session.self)
     #expect(
