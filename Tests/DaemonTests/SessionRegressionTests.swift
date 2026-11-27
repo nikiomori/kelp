@@ -220,8 +220,9 @@ private func submitted(_ screen: String) -> String {
 /// would pick the default, usually "Yes". Here the agent is up and quiet before it asks, so the send isn't held back
 /// as "still starting"; only the question holds it.
 @Test func aSendNeverAnswersAQuestionOnScreen() async throws {
+    let gate = tmp().path + "-up"   // made once the session has started up: then it asks
     let script =
-        "echo starting; sleep 5; stty -icanon -echo; "
+        "echo starting; until [ -e '\(gate)' ]; do sleep 0.1; done; stty -icanon -echo; "
         + #"printf 'Do you trust the files in this folder?\n\xe2\x9d\xaf 1. Yes, proceed\n  2. No, exit\n'; "#
         + #"r=NOT-ANSWERED; while IFS= read -rsn1 -t 4 k; do if [[ -z "$k" ]]; then r=ANSWERED-BY-ENTER; break; fi; done; "#
         + #"echo $r; stty icanon echo; printf '❯ '; exec cat"#   // then its input box, as Claude Code draws it
@@ -234,6 +235,8 @@ private func submitted(_ screen: String) -> String {
     func screen() async throws -> String {
         (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
     }
+    #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
+    FileManager.default.createFile(atPath: gate, contents: nil)
     #expect(try await waitFor(15) { try await screen().contains("Do you trust") })
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "hello"]))   // `kelp send`, review comments: with Enter
     #expect(
