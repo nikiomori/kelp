@@ -7,8 +7,8 @@ extension Git {
         String(branch.map { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" ? $0 : "-" })
     }
 
-    /// The path in `dir` for a new worktree of `branch` that nothing is at: "feat/a" and "feat-a" make one slug, and the
-    /// second gets "-2" rather than a confusing "already exists" from git.
+    /// The path in `dir` for a new worktree of `branch` that nothing is at: "feat/a" and "feat-a" make one slug, and
+    /// the second gets "-2" rather than a confusing "already exists" from git.
     static func freeFolder(_ branch: String, in dir: URL) -> String {
         var path = dir.appendingPathComponent(slug(branch)).path, n = 2
         while FileManager.default.fileExists(atPath: path) {

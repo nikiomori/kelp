@@ -155,11 +155,6 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         next = max(try c.decodeIfPresent(Int.self, forKey: .next) ?? 1, (marks.map(\.id).max() ?? 0) + 1)
     }
 
-    /// Returns the marks in the `notes.json` in `folder`, as `read(_:)` does; none when it is too big to be one.
-    package static func read(in folder: URL) -> ArtifactMarks {
-        read(Artifacts.small(folder.appendingPathComponent(file).path))
-    }
-
     /// Returns the marks in a `notes.json`. A file from before marks had numbers (a list of drafts) reads as those
     /// drafts. A file that doesn't read gives no marks.
     public static func read(_ data: Data?) -> ArtifactMarks {
