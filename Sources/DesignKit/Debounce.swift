@@ -12,4 +12,11 @@ public final class Debounce {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
     public func cancel() { work?.cancel() }
+    /// Runs the waiting action now, as its delay running out would, and not again later: a test steps time with it.
+    public func flush() {
+        guard let item = work, !item.isCancelled else { return }
+        work = nil
+        item.perform()
+        item.cancel()
+    }
 }

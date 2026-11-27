@@ -192,9 +192,10 @@ extension OneAtATime {
         // The tab's own first read is over: no kelpd here, so it failed under the rows.
         #expect(try await waitFor { !tab.failureBar.isHidden })
         tab.startReading("orders")
+        let read = tab.reading
         await tab.leave(to: .query)
-        // The wheel and its words come only past `patience`: three times that, and they haven't.
-        try await Task.sleep(for: .seconds(3 * LoadingView.patience * testSlowness))
+        // The wait that brings the wheel and its words past `patience` was cancelled: once it is over, they never come.
+        await read?.value
         #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
     }
 }
