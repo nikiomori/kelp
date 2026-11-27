@@ -85,7 +85,7 @@ enum ForgeRows {
         if !issue.labels.isEmpty { parts.append(issue.labels.joined(separator: ", ")) }
         if working { parts.append(String(localized: "in work")) }
         if let task, !working {
-            parts.append(task.work == .none ? String(localized: "in Tasks") : TaskCell.word(task, nil))
+            parts.append(task.work == .none ? String(localized: "in Tasks") : task.word(nil))
         }
         return ForgeRowCell(
             symbol: "smallcircle.filled.circle", tint: issue.state == "CLOSED" ? .textPurple : .textGreen,

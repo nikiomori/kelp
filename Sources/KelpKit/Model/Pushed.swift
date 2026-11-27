@@ -87,3 +87,14 @@ extension ContextEvent: Pushed {
         return shown?.window != old?.shown?.window || abs(share(shown) - share(old?.shown)) > 0.01
     }
 }
+extension TasksEvent: Pushed {
+    package var key: String { repo }
+    package static var forgottenWith: WatchTopic? { .tasks }
+
+    /// The task a chat was started for, as its project's tasks were last read (while something watches them).
+    @MainActor
+    package static func task(of session: Session, in app: AppModel) -> TaskLine? {
+        guard let repo = app.worktree(session.worktreeId)?.repoId else { return nil }
+        return TaskViews.task(of: session.id, in: app.latest(TasksEvent.self, repo)?.pages ?? [])
+    }
+}

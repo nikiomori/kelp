@@ -1,26 +1,17 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import WorkbenchKit
-
-extension TasksEvent: Pushed {
-    package var key: String { repo }
-    package static var forgottenWith: WatchTopic? { .tasks }
-}
 
 /// What the person does to a task from any list (the Tasks tab, the Issues panel's Tasks source): tick it, give it up,
 /// take an agent's proposal, open its page at its line, or hand it to an agent. Each change goes to the daemon, which
 /// writes the line; the lists follow the project's watch (`WatchTopic.tasks`).
 @MainActor
-package enum TaskActions {
-    /// The list's title and first heading when a first task makes it, in the window's language.
-    package static var listNames: TaskListNames {
-        TaskListNames(title: String(localized: "Tasks"), inbox: String(localized: "Inbox"))
-    }
-
+enum TaskActions {
     /// The agent the last task went to, offered first next time (the window's state); the one ⌘N starts until then.
     static let lastAgentKey = "tasks.lastAgent"
-    package static func lastAgent(_ app: AppModel) -> String {
+    static func lastAgent(_ app: AppModel) -> String {
         let last = app.uiState[lastAgentKey]?.string
         return app.catalog.installed.contains { $0.id == last && Session.isAgent($0.id) }
             ? last ?? app.catalog.defaultAgent : app.catalog.defaultAgent
@@ -28,7 +19,7 @@ package enum TaskActions {
 
     /// Sets the person's decision. Giving up a task whose agent still works asks whether to stop the agent too: the
     /// task is cancelled either way, and the chats stay.
-    package static func set(_ app: AppModel, _ row: TaskRow, _ state: TaskState) {
+    static func set(_ app: AppModel, _ row: TaskRow, _ state: TaskState) {
         let live = (row.task.chats ?? []).compactMap(app.session).filter {
             $0.status == .working || $0.status == .waiting
         }
@@ -48,19 +39,19 @@ package enum TaskActions {
         }
     }
     /// The box's click: done, or open again.
-    package static func toggle(_ app: AppModel, _ row: TaskRow) {
+    static func toggle(_ app: AppModel, _ row: TaskRow) {
         if row.task.proposed == true { return take(app, row) }
         set(app, row, row.task.state == .open ? .done : .open)
     }
     static func take(_ app: AppModel, _ row: TaskRow) {
         Task { _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), accept: true)) }
     }
-    package static func remove(_ app: AppModel, _ row: TaskRow) {
+    static func remove(_ app: AppModel, _ row: TaskRow) {
         Task { _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), remove: true)) }
     }
 
     /// Makes the task a page of its own, with a Plan heading for its steps, and opens it.
-    package static func grow(_ app: AppModel, _ row: TaskRow) {
+    static func grow(_ app: AppModel, _ row: TaskRow) {
         Task { if let grown = await Self.grown(app, row) { open(app, grown) } }
     }
     /// The row once its task grew into a page with a Plan heading; nil when it didn't.
@@ -75,7 +66,7 @@ package enum TaskActions {
     }
 
     /// Takes the task, with its chats, under `heading` of the page `path`.
-    package static func move(_ app: AppModel, _ row: TaskRow, to path: String, under heading: String?) {
+    static func move(_ app: AppModel, _ row: TaskRow, to path: String, under heading: String?) {
         Task {
             _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), move: path, under: heading))
         }
@@ -83,10 +74,10 @@ package enum TaskActions {
 
     /// Several lines become one task: the first grows into a page, the others go under its Plan, as Craft groups
     /// blocks into a page (⌥⌘G).
-    package static func group(_ app: AppModel, _ rows: [TaskRow]) {
+    static func group(_ app: AppModel, _ rows: [TaskRow]) {
         guard let first = rows.first, rows.count > 1 else { return NSSound.beep() }
         Task {
-            guard let grown = await Self.grown(app, first), let page = grownPage(grown) else { return }
+            guard let grown = await Self.grown(app, first), let page = grown.grownPage else { return }
             for row in rows.dropFirst() {
                 _ = await app.call(
                     TaskChange(
@@ -108,29 +99,18 @@ package enum TaskActions {
     }
 
     /// The page the task grew into, or the page it is on, at its line.
-    package static func open(_ app: AppModel, _ row: TaskRow) {
-        if let path = grownPage(row) {
+    static func open(_ app: AppModel, _ row: TaskRow) {
+        if let path = row.grownPage {
             app.workbench.open(TabURI.file(path))
         } else {
             app.workbench.open(TabURI.file(row.page.path, line: row.task.line))
         }
     }
 
-    /// The page that shows the task: the one it grew into, or the one it is on.
-    package static func pageFile(_ row: TaskRow) -> String { grownPage(row) ?? row.page.path }
-
-    /// The file of the page the task grew into, if it did.
-    static func grownPage(_ row: TaskRow) -> String? {
-        row.task.page.map {
-            URL(fileURLWithPath: row.page.path).deletingLastPathComponent().appendingPathComponent($0)
-                .standardizedFileURL.path
-        }
-    }
-
     /// Starts `agent` (the last one used when nil) on the task in its project's own screen, and links the chat to the
     /// line, which gets an id first if it has none. `plan` starts Claude Code in its plan mode: it writes the plan and
     /// asks, and changes no code.
-    package static func run(_ app: AppModel, _ row: TaskRow, agent: String? = nil, plan: Bool = false) {
+    static func run(_ app: AppModel, _ row: TaskRow, agent: String? = nil, plan: Bool = false) {
         let agent = agent ?? lastAgent(app)
         Task { _ = await app.uiState.save(lastAgentKey, .string(agent)) }
         Task {
@@ -143,7 +123,7 @@ package enum TaskActions {
             guard let starter = app.workbench.starter else { return NSSound.beep() }
             let path = row.page.path
             // A grown page's "Done when" is the chat's goal: Claude Code's /goal, which Kelp follows; others read it.
-            let goal = grownPage(row).flatMap { page in
+            let goal = row.grownPage.flatMap { page in
                 app.latest(TasksEvent.self, row.repo)?.pages.first { $0.path == page }?.goal
             }
             // A task from an issue carries someone else's words: the brief waits on the line for the person's Return.
@@ -154,14 +134,6 @@ package enum TaskActions {
             ) { session in
                 Task { _ = await app.call(TaskChange(path: path, task: TaskRef(id: id), chat: session.id)) }
             }
-        }
-    }
-
-    /// The task a chat was started for, as its project's tasks were last read (while something watches them).
-    package static func task(of session: Session, in app: AppModel) -> TaskLine? {
-        guard let repo = app.worktree(session.worktreeId)?.repoId else { return nil }
-        return app.latest(TasksEvent.self, repo)?.pages.lazy.flatMap(\.tasks).first {
-            $0.chats?.contains(session.id) == true
         }
     }
 
@@ -177,14 +149,14 @@ package enum TaskActions {
     }
 
     /// Adds a task to the project's list (its inbox unless `under` names a heading), as the person writes it.
-    package static func add(
+    static func add(
         _ app: AppModel, repo: String, text: String, under: String? = nil, issue: String? = nil, chat: String? = nil
     ) async -> TaskAdd.Result? {
-        await app.call(TaskAdd(repoId: repo, under: under, text: text, issue: issue, chat: chat, names: listNames))
+        await app.call(TaskAdd(repoId: repo, under: under, text: text, issue: issue, chat: chat, names: .localized))
     }
 
     /// The task's menu, the same in every list.
-    package static func fill(_ menu: NSMenu, _ app: AppModel, _ row: TaskRow) {
+    static func fill(_ menu: NSMenu, _ app: AppModel, _ row: TaskRow) {
         let isOpen = row.task.state == .open
         if row.task.proposed == true {
             menu.add(String(localized: "Take Task")) { take(app, row) }
