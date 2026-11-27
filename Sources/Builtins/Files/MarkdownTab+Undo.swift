@@ -53,8 +53,7 @@ extension MarkdownTab {
     private func write(_ path: String, from: String, to: String) async -> Bool {
         if path == url.path {
             guard editor.text == from else { return false }
-            editor.apply(text: to, selection: NSRange(location: 0, length: 0))
-            _ = await saveFile?()
+            _ = await save(to).value
             return true
         }
         guard let file = await app.call(FilesRead(path: path)), file.text == from,

@@ -28,8 +28,7 @@ extension MarkdownTab {
         if path == url.path {   // a motion page's stage is the tab's own file
             guard let given = BoardEdit.giveID(editor.text, tag: tag, index: index) else { return nil }
             if given.text != editor.text {
-                editor.apply(text: given.text, selection: NSRange(location: 0, length: 0))
-                _ = await saveFile?()
+                _ = await save(given.text).value
             }
             return given.id
         }

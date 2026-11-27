@@ -258,16 +258,14 @@ extension MarkdownTab {
             guard let line = (body["line"] as? NSNumber)?.intValue,
                 let next = SlideVariants.keep(editor.text, line: line)
             else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "slideAt":
             if let at = (body["at"] as? NSNumber)?.intValue { Presenter.follow(self, at: at) }
         case "task":
             guard let line = (body["line"] as? NSNumber)?.intValue, let done = body["done"] as? Bool else { break }
             let next = MarkdownTasks.set(editor.text, line: line, done: done)
             guard next != editor.text else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "taskRun":   // ▶ on a task line of the page (`taskScript`)
             guard let line = (body["line"] as? NSNumber)?.intValue, let row = taskRow(line: line) else { break }
             TaskActions.run(app, row)
@@ -282,14 +280,12 @@ extension MarkdownTab {
                     String(localized: "That one has formatting, a list or a quote in it: change it in the text."))
                 break
             }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "notes":
             guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
             let next = SlideNotes.set(editor.text, line: line, text: text)
             guard next != editor.text else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         default: return false
         }
         return true

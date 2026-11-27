@@ -345,8 +345,7 @@ extension MarkdownTab {
                     != nil
             else { return false }
         }
-        editor.apply(text: snapshot.canvas, selection: NSRange(location: 0, length: 0))
-        return await saveFile?() ?? false
+        return await save(snapshot.canvas).value
     }
 
     /// Sends the check's findings to the chat that made the canvas (or else to the agent on screen), to fix.

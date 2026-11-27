@@ -123,8 +123,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// Restores an older version: the file's text becomes `text`, and the file is saved.
     @discardableResult func restore(_ text: String) async -> Bool {
         if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return await restoreCanvas(snapshot) }
+        return await save(text).value
+    }
+
+    /// The file's text becomes `text` now, the caret at its start, and the file is saved (await the value to know).
+    @discardableResult func save(_ text: String) -> Task<Bool, Never> {
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
-        return await saveFile?() ?? false
+        return Task { await saveFile?() ?? false }
     }
 
     /// Prints the page as the preview shows it, through the system's print panel (which can also save a PDF).
