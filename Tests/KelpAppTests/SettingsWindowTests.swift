@@ -147,7 +147,8 @@ import Testing
         "usage.bars.shown": "the eyes beside the limits in the plan limits' hover card",
         "usage.bars.hidden": "the eyes beside the limits in the plan limits' hover card",
         "usage.hiddenAgents": "the Agents checks in the plan limits' right-click menu",
-        "workbench.inspector.panelOrder": "the inspector's icons as they were dragged"
+        "workbench.inspector.panelOrder": "the inspector's icons as they were dragged",
+        "browser.agentSites": "Settings › Browser's list of sites, with Remove, and an agent row's Allow"
     ]
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
