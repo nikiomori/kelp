@@ -29,7 +29,11 @@ extension Builtins {
                     schemes: ["tasks"], make: { TasksTab(uri: $0, app: app) },
                     placeholder: { _ in (TasksTab.title, .symbol("checklist"), nil) })
             ],
-            skills: [tasksSkill]
+            skills: [tasksSkill],
+            tasks: ListedTasks(
+                cell: { TaskCell(app, $0, place: $1, fill: $2) }, fill: { TaskActions.fill($0, app, $1) },
+                open: { TaskActions.open(app, $0) }, run: { TaskActions.run(app, $0) },
+                lastAgent: { TaskActions.lastAgent(app) })
         )
     }
 }

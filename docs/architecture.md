@@ -130,6 +130,7 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
 | dockUsage (built-ins only) | the Dock icon's Plan Usage face, the fullest limit (Agents'); none, and the plain icon |
 | runs (built-ins only) | what runs in a workspace (Run): the window bar's run chip and the page it serves, the Run menu's project commands, a run's tab (its look, port and Hide in Run Menu), the "+" menu's and the empty workspace's Run rows, the hover card's pages, a run's printed page, a new workspace's setup; none, and every session is a row and a tab |
 | skills (built-ins only) | a skill for agents about the built-in's feature (`SkillSpec`: Machines' `kelp vm`, Databases' `kelp db`, Browser's, Files' artifacts, Agents' terminals and child agents), written with the shell's own two (`AgentSkills`); off with its built-in |
+| tasks (built-ins only) | what another built-in's list of tasks does with one (`ListedTasks`: the Tasks tab's row and menu, opening its page, handing it to an agent): the Issues panel's Tasks source, a page's task lines (Tasks') |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
 or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
@@ -141,7 +142,7 @@ Every action of the app is a command with an id (`workbench.toggleSidebar`, `edi
 VS Code and Zed: the menu bar is laid out by id (`AppDelegate.buildMenu`), settings.json `keys` rebinds by id, and agents
 run the same ids with `kelp run`.
 
-Built-ins (Agents, Files, Run, Git, Issues, Browser, Activity, Routines, Machines, Servers, Databases) can be turned off like any other extension. Each is a
+Built-ins (Agents, Files, Run, Git, Issues, Browser, Activity, Routines, Machines, Servers, Databases, Work, Tasks) can be turned off like any other extension. Each is a
 module of its own (`Sources/Builtins/<Feature>`, target `Builtin<Feature>`) that depends on KelpKit — the shell — and on
 no other built-in. It sees only what KelpKit declares `package`: the contribution types (`TabContent`, `PanelSpec`,
 `CommandSpec`…), `AppModel` and its one error path, `app.workbench` (open a URI, show a panel), shared views and
@@ -172,6 +173,22 @@ The Git built-in is a VS Code-style Source Control panel (`Sources/Builtins/Git/
 whose lanes GitKit computes (`GitKit/History.swift`). Rows open `diff:` tabs, side by side or inline with hunk staging.
 Git runs in the daemon (`Daemon/SourceControl/GitHandlers.swift`: `git.branches`, `git.switch`, `git.graph`, `git.commitFiles`,
 `git.discard`, `git.remote`, `git.stash` …), never on the main thread.
+
+## Tasks
+A task is a `- [ ]` line on a Markdown page in a project's `.kelp/artifacts`: the project's list (`tasks/doc.md`, made
+with the first task) or a page a task grew into (Open as Page, its steps under `## Plan`). The file is the record: no
+store keeps tasks. How a line reads and is written, its id, chats, issue and state, is `TaskLines` (Core, pure), which
+the daemon, the Tasks built-in and the CLI share; what the lists show (`TaskRow`, `TaskSource`, `TaskViews`) is pure
+too, beside it.
+
+kelpd writes the lines (`task.add`, `task.change`, `TaskStore`), one change at a time under `TaskLines.lock`, since
+each reads a page whole and writes it back. A move writes the page it goes to before the one it leaves. An agent's
+calls keep to the project it works in (`ensureOwn`, `Paths.inside`), and what it adds is `proposed`, at most
+`TaskAdd.proposalsPerTurn` a turn, until the person takes it. The person closes a task on the list; an agent ticks the
+steps under it and the steps on a page its task grew into. Agents use it through `kelp task list|show|add|done` and the
+Tasks skill; a chat started for a task gets `KELP_TASK`. The app follows a project's pages through the `tasks` watch
+(`TasksEvent`), read when its `.kelp/artifacts` changes. The Tasks built-in draws the tab and acts on a task, and the
+Issues panel and pages reach those through `ListedTasks`.
 
 ## Settings
 `~/.kelp/settings.json`, owned by the daemon (`settings.get` / `settings.set`, `event.settings`

@@ -45,7 +45,7 @@ final class TasksController: NSViewController {
     private let loading = LoadingView(rows: true, rowHeight: Metrics.rowTwoLine)
     private var shown = false
     lazy var quickLook = QuickLookList { [weak self] in
-        self?.list.chosen.map { URL(fileURLWithPath: TaskActions.pageFile($0)) }
+        self?.list.chosen.map { URL(fileURLWithPath: $0.pageFile) }
     }
 
     init(model: TasksModel) {

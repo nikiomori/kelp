@@ -27,12 +27,13 @@ extension MarkdownTab {
     /// What each task line of the page shows beside its box, as the Tasks tab's row does: what its agent does (orange
     /// when it asks), and, under the pointer, ▶ for a line no agent works on.
     func taskScript() -> String? {
-        let path = url.standardizedFileURL.path, agent = app.catalog.name(TaskActions.lastAgent(app))
+        let path = url.standardizedFileURL.path
+        let agent = app.catalog.name(app.extensions.all.tasks?.lastAgent() ?? app.catalog.defaultAgent)
         struct Mark: Encodable { var w: String, o: Bool, run: Bool, t: String }
         var marks: [String: Mark] = [:]
         for row in taskRows() where row.page.path == path && row.task.state == .open {
             let chats = (row.task.chats ?? []).compactMap(app.session)
-            let word = TaskCell.word(row, chats.last)
+            let word = row.word(chats.last)
             let run = row.task.proposed != true && (row.work == .none || row.work == .review)
             guard !word.isEmpty || run else { continue }
             marks[String(row.task.line)] = Mark(
@@ -91,7 +92,7 @@ extension MarkdownTab {
             }
         }
         let rows = TaskViews.rows([(repo.id, app.latest(TasksEvent.self, repo.id)?.pages ?? [])], session: app.session)
-        guard let row = rows.first(where: { $0.task.page != nil && TaskActions.pageFile($0) == path }) else {
+        guard let row = rows.first(where: { $0.task.page != nil && $0.pageFile == path }) else {
             return ""
         }
         var items = [MarkdownHTML.esc(String(localized: "On \(row.page.title) › \(row.place)"))]

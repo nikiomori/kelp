@@ -1,13 +1,14 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// One task in a list (the Tasks tab, the Issues panel's Tasks source): the box, which is the person's (done, or given
 /// up with ⌥), the words on two lines' worth of row with where the line is under them, and on the right what an agent
 /// does with it: its logo with the chat's mark, as the sidebar draws the chat, and a word. Under the pointer a line no
 /// agent works on offers ▶ (do it with the last agent) and ⋯ (its menu).
 @MainActor
-package final class TaskCell: NSView {
+final class TaskCell: NSView {
     private let box = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let name = NSTextField.label("", font: .ui(TextSize.row))
     private let line = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
@@ -18,11 +19,11 @@ package final class TaskCell: NSView {
     private let more = IconButton(.symbol("ellipsis"), tip: String(localized: "More Actions")) {}
     private var hovering = false { didSet { showButtons() } }
     private var offersRun = false
-    package var onToggle: (_ cancel: Bool) -> Void = { _ in }
-    package var onRun: () -> Void = {}
-    package var onMenu: (NSView) -> Void = { _ in }
+    var onToggle: (_ cancel: Bool) -> Void = { _ in }
+    var onRun: () -> Void = {}
+    var onMenu: (NSView) -> Void = { _ in }
 
-    package init() {
+    init() {
         super.init(frame: .zero)
         box.target = self
         box.action = #selector(boxed)
@@ -63,7 +64,7 @@ package final class TaskCell: NSView {
 
     /// A cell showing `row` with `place` under its words, wired as every list has it: the box, ▶ with the last agent,
     /// and ⋯, whose menu `fill` fills (with the task's own actions when nil).
-    package convenience init(_ app: AppModel, _ row: TaskRow, place: String, fill: ((NSMenu) -> Void)? = nil) {
+    convenience init(_ app: AppModel, _ row: TaskRow, place: String, fill: ((NSMenu) -> Void)? = nil) {
         self.init()
         show(
             row, chats: (row.task.chats ?? []).compactMap(app.session), place: place,
@@ -103,25 +104,13 @@ package final class TaskCell: NSView {
         mark.status = chat?.status
         if let chat { mark.follow(chat) }
         mark.isHidden = chat == nil
-        word.stringValue = Self.word(row, chat)
+        word.stringValue = row.word(chat)
         word.textColor = row.work == .asks || row.task.proposed == true ? .textOrange : .secondaryLabelColor
         word.isHidden = word.stringValue.isEmpty
         offersRun = task.state == .open && task.proposed != true && (row.work == .none || row.work == .review)
         run.toolTip = String(localized: "Do with \(agent)")
         showButtons()
         setAccessibilityLabel([task.title, place, word.stringValue].filter { !$0.isEmpty }.joined(separator: ", "))
-    }
-
-    /// The word beside the mark: what the person would want to know of the work.
-    package static func word(_ row: TaskRow, _ chat: Session?) -> String {
-        if row.task.proposed == true { return String(localized: "Proposed") }
-        switch row.work {
-        case .asks: return String(localized: "Asks you")
-        case .failed: return String(localized: "Failed")
-        case .working: return chat?.status == .paused ? String(localized: "Paused") : String(localized: "Working")
-        case .review: return row.task.state == .open ? String(localized: "To Review") : ""
-        case .none: return ""
-        }
     }
 
     private func showButtons() {
@@ -136,13 +125,13 @@ package final class TaskCell: NSView {
     @objc private func runClicked() { onRun() }
     @objc private func moreClicked() { onMenu(more) }
 
-    override package func updateTrackingAreas() {
+    override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
-    override package func mouseEntered(with event: NSEvent) { hovering = true }
-    override package func mouseExited(with event: NSEvent) { hovering = false }
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
 }

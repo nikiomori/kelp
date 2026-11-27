@@ -137,7 +137,7 @@ struct OverviewCardView: View {
             )
             .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             // The task the chat was started for, the person's line (☐), as the Tasks tab lists it.
-            if let task = TaskActions.task(of: s, in: app) {
+            if let task = TasksEvent.task(of: s, in: app) {
                 Label(task.title, systemImage: task.state == .done ? "checkmark.square" : "square")
                     .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             }

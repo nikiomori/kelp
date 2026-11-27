@@ -219,7 +219,10 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // and `register`). +18 for what built-ins each wrote their own way: ⌘F on a web view (`WebFind`: the browser, a
     // Markdown tab's page), Quick Look for a list's selection (`QuickLookList`: Files, Tasks), and a movie written
     // frame by frame (`FrameWriter`: the browser's recording, a motion page's video).
-    #expect(declared == 457, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // −35: what tasks are (`TaskRow`, `TaskSource`, `TaskViews`, `DaySections`) moved to Core beside `TaskLines`, and
+    // what is done with them (`TaskActions`, `TaskCell`, the board) into the Tasks built-in. Other lists of tasks reach
+    // those through `ListedTasks`, one built-in's contribution.
+    #expect(declared == 422, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

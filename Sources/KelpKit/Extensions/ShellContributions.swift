@@ -250,7 +250,7 @@ package struct Contributions {
         subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = [],
         events: [@MainActor (any RPCEvent) -> Bool] = [],
         quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:],
-        quickSections: [QuickSection] = []
+        quickSections: [QuickSection] = [], tasks: ListedTasks? = nil
     ) {
         self.panels = panels
         self.editors = editors
@@ -277,6 +277,7 @@ package struct Contributions {
         self.events = events
         self.quickPrefixes = quickPrefixes
         self.quickSections = quickSections
+        self.tasks = tasks
     }
     package var panels: [PanelSpec] = []
     var editors: [EditorSpec] = []
@@ -344,6 +345,8 @@ package struct Contributions {
     /// Rows for whatever is typed in ⌘P, each section under its heading after ⌘P's own matches (Agents' lines of
     /// terminal output).
     var quickSections: [QuickSection] = []
+    /// What other built-ins' lists of tasks do with a task, from one built-in (the first that has it).
+    package var tasks: ListedTasks?
 
     /// Merges another extension's contributions after this one's (the registry merges them in load order): a list gets
     /// the other's items after these, and a single hook keeps the first extension's. A new field needs its own line
@@ -371,6 +374,7 @@ package struct Contributions {
         dockMenu += contributions.dockMenu
         dockUsage = dockUsage ?? contributions.dockUsage
         runs = runs ?? contributions.runs
+        tasks = tasks ?? contributions.tasks
         skills += contributions.skills
         agentCards += contributions.agentCards
         subagentSteps += contributions.subagentSteps
