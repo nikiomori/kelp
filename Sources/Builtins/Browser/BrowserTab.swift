@@ -44,6 +44,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let ownerSession: String?
     /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
+    /// The site where an agent drives this page with the user's login (`AgentSites`), or nil.
+    var loginSite: String?
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
     /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.

@@ -16,21 +16,22 @@ public enum AgentSites {
         }
     }
 
-    /// The site of an address an agent opens: its host in lower case, without `www.`. An address without a scheme is
-    /// a site's (`x.com/home`). nil for anything but http and https.
+    /// The site of an address an agent opens, as far as a login reaches (`PageOrigin`): `x.com` for
+    /// `https://mobile.x.com/home`, without the scheme. An address without a scheme is a site's (`x.com/home`). nil for
+    /// anything but http and https.
     public static func site(of address: String) -> String? {
-        let text = address.contains("://") ? address : "https://" + address
-        guard let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased()),
-            var host = url.host?.lowercased(), !host.isEmpty
-        else { return nil }
-        if host.hasPrefix("www.") { host.removeFirst(4) }
-        return host
+        let url = URL(string: address.contains("://") ? address : "https://" + address)
+        guard ["http", "https"].contains(url?.scheme?.lowercased()), let origin = PageOrigin.of(url) else { return nil }
+        return origin.components(separatedBy: "://").last
     }
 
     /// The site in `entries` that covers `host`: the site itself or one of its subdomains (`mobile.x.com` for `x.com`).
     public static func allowed(_ host: String, in entries: [Entry]) -> String? {
-        entries.first { host == $0.site || host.hasSuffix("." + $0.site) }?.site
+        entries.first { covers($0.site, host) }?.site
     }
+
+    /// Whether `site` covers `host`: it is the site or one of its subdomains.
+    public static func covers(_ site: String, _ host: String) -> Bool { host == site || host.hasSuffix("." + site) }
 
     /// The list with `site` added for `chat`, now. A site already there stays as it was.
     public static func adding(_ site: String, chat: String, to list: [JSONValue], at: Date = Date()) -> [JSONValue] {

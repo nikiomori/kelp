@@ -153,7 +153,7 @@ import WorkbenchKit
             BrowserRequests.ownPage(restored.allTabs, session: "new", last: .init(tab: tab.id, sharedSite: nil)) == nil)
     }
     let shared = layout.add("https://example.com/consented")
-    let grant = AgentPages.Visit(tab: shared.id, sharedSite: "https://example.com")
+    let grant = AgentPages.Visit(tab: shared.id, sharedSite: "example.com")
     #expect(BrowserRequests.ownPage(layout.allTabs, session: "new", last: grant) == shared)
     _ = layout.replace(shared.uri, with: "https://elsewhere.example/")
     #expect(BrowserRequests.ownPage(layout.allTabs, session: "new", last: grant) == nil)
@@ -197,6 +197,45 @@ extension OneAtATime {
         let user = try #require(bench.openBeside(url, in: "w"))
         let dedicated = try #require(bench.openBeside(url, in: "w", reuse: false))
         #expect(user.id != dedicated.id)
+    }
+
+    /// An open kelpd marked with the user's login gets a tab of the user's own browser beside the chat, which the
+    /// chat and its subagents open again while it shows the site. Once the user takes the site back, the agent's next
+    /// command there is refused; `--shared` that kelpd didn't mark is refused too.
+    @Test func anOpenWithTheUsersLoginGetsAPageOfTheirBrowser() async throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let app = AppModel(builtins: [Builtins.browser])
+        app.extensions.reload()
+        let main = MainWindowController(app: app)
+        defer { withExtendedLifetime(main) {} }
+        app.repos = [Repo(id: "p", name: "Pages", path: "/tmp")]
+        app.worktrees = [Worktree(id: "w", repoId: "p", branch: "main", path: "/tmp")]
+        app.settings.apply([SettingKeys.agentSites.key: .array(AgentSites.adding("example.com", chat: "c", to: []))])
+        let bench = app.workbench, requests = BrowserRequests(app: app)
+        bench.show(workspace: "w")
+        func run(_ action: BrowserAction, _ extra: [String: JSONValue] = [:]) async throws -> JSONValue {
+            let args = ["url": "about:blank", "session": "chat"].merging(extra) { $1 }
+            return try await requests.run(
+                UIBrowserEvent(UIBrowser(action: action, args: .object(args), worktreeId: "w"), request: "login"))
+        }
+        func plainTabs() -> [TabRef] {
+            (bench.loadedTabs("w") ?? []).filter {
+                TabURI.isPage($0.uri) && TabURI.scheme($0.uri) != TabURI.agentScheme
+            }
+        }
+        _ = try await run(.open, ["yourLogin": "example.com"])
+        let tab = try #require(plainTabs().first)
+        let page = try #require(bench.content(tab, in: "w") as? BrowserTab)
+        #expect(!page.agent && page.loginSite == "example.com" && plainTabs().count == 1)
+        page.web.loadHTMLString("<p>Feed</p>", baseURL: URL(string: "https://www.example.com/home"))
+        #expect(try await waitFor { plainTabs().first?.uri == "https://www.example.com/home" })   // the layout's too
+        _ = try await run(.open, ["yourLogin": "example.com", "subagent": "a1"])   // the chat's page, again
+        #expect(plainTabs().count == 1)
+        _ = try await run(.info)
+        app.settings.apply([:])   // the user takes example.com back
+        await #expect(throws: RPCError.self) { try await run(.info) }
+        await #expect(throws: RPCError.self) { try await run(.open, ["shared": true]) }
     }
 }
 

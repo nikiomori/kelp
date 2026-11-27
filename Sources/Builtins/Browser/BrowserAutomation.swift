@@ -25,7 +25,9 @@ extension BrowserTab {
         }
         // The user's logged-in tab belongs to the agent on the one site the user allowed. Once the tab has gone to
         // another site (the user took it there after the agent left it), it belongs to the user again.
-        if !agent, let now = web.url, now.scheme != "about", PageOrigin.of(now) != PageOrigin.of(URL(string: start)) {
+        if !agent, let site = loginSite ?? AgentSites.site(of: start), let now = web.url, now.scheme != "about",
+            AgentSites.site(of: now.absoluteString).map({ AgentSites.covers(site, $0) }) != true
+        {
             throw RPCError.invalidParams(
                 "This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again."
             )
