@@ -242,6 +242,6 @@ enum PhoneHTTP {
             hash.update(data: Data(name.utf8))
             hash.update(data: bytes)
         }
-        return files.isEmpty ? nil : hash.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
+        return files.isEmpty ? nil : hash.finalize().prefix(8).hex
     }
 }

@@ -276,7 +276,7 @@ struct MySQLWire: DatabaseRunner {
         guard binary else { return String(buffer: value) }
         let shown = value.getBytes(at: value.readerIndex, length: min(value.readableBytes, PostgresText.byteaShown))
         let count = value.readableBytes
-        return "0x" + (shown ?? []).map { String(format: "%02x", $0) }.joined()
+        return "0x" + (shown ?? []).hex
             + (count > PostgresText.byteaShown ? "… (\(count) bytes)" : "")
     }
 

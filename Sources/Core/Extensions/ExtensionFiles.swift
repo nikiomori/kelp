@@ -324,7 +324,7 @@ extension Data {
     public var sha256: String { SHA256.hash(data: self).hex }
 }
 
-extension Digest {
+extension Sequence where Element == UInt8 {
     /// The bytes as hex, the way `shasum` writes them.
     public var hex: String { map { String(format: "%02x", $0) }.joined() }
 }
