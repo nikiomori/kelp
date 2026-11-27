@@ -15,11 +15,11 @@ enum DayPaint {
         guard rect.width > 0 else { return }
         context.fill(Path(rect), with: .color(Color(nsColor: .fillRest)))
         var strokes = Path()
-        var x = rect.minX - rect.height
-        while x < rect.maxX {
-            strokes.move(to: CGPoint(x: x, y: rect.maxY))
-            strokes.addLine(to: CGPoint(x: x + rect.height, y: rect.minY))
-            x += 4
+        var left = rect.minX - rect.height
+        while left < rect.maxX {
+            strokes.move(to: CGPoint(x: left, y: rect.maxY))
+            strokes.addLine(to: CGPoint(x: left + rect.height, y: rect.minY))
+            left += 4
         }
         var clipped = context
         clipped.clip(to: Path(rect))
@@ -149,11 +149,11 @@ struct OverviewDay: View {
         let counts = DayLine.atOnce(cards.map(\.line), from: from, to: now, step: step)
         let top = CGFloat(max(1, counts.max() ?? 1))
         var line = Path()
-        for (i, n) in counts.enumerated() {
+        for (index, count) in counts.enumerated() {
             let point = CGPoint(
-                x: x(from.addingTimeInterval(Double(i) * step + step / 2), size.width, from: from, to: to),
-                y: size.height - 2 - (size.height - 6) * CGFloat(n) / top)
-            if i == 0 { line.move(to: point) } else { line.addLine(to: point) }
+                x: x(from.addingTimeInterval(Double(index) * step + step / 2), size.width, from: from, to: to),
+                y: size.height - 2 - (size.height - 6) * CGFloat(count) / top)
+            if index == 0 { line.move(to: point) } else { line.addLine(to: point) }
         }
         guard !counts.isEmpty, let last = line.currentPoint else { return }
         let start = line.boundingRect.minX

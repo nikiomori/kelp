@@ -128,18 +128,18 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         for (i, rule) in rules.enumerated() { view.addArrangedSubview(line(i, rule)) }
     }
 
-    private func line(_ i: Int, _ rule: Rule) -> NSView {
+    private func line(_ index: Int, _ rule: Rule) -> NSView {
         let on = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggled(_:)))
-        on.tag = i
+        on.tag = index
         on.state = rule.on ? .on : .off
         on.setAccessibilityLabel(String(localized: "Use This Condition"))
         let column = NSPopUpButton()
         column.controlSize = .small
         column.addItems(withTitles: columns + [Self.raw])
         column.selectItem(withTitle: rule.column.isEmpty ? (columns.first ?? Self.raw) : rule.column)
-        if rule.column.isEmpty { rules[i].column = column.titleOfSelectedItem ?? Self.raw }
+        if rule.column.isEmpty { rules[index].column = column.titleOfSelectedItem ?? Self.raw }
         column.setAccessibilityLabel(String(localized: "Column"))
-        column.tag = i
+        column.tag = index
         column.target = self
         column.action = #selector(columnPicked(_:))
         let op = NSPopUpButton()
@@ -147,10 +147,10 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         op.addItems(withTitles: Condition.allCases.map(\.title))
         op.selectItem(withTitle: rule.op.title)
         op.setAccessibilityLabel(String(localized: "Condition"))
-        op.tag = i
+        op.tag = index
         op.target = self
         op.action = #selector(opPicked(_:))
-        let raw = rules[i].column == Self.raw
+        let raw = rules[index].column == Self.raw
         op.isHidden = raw
         let value = NSTextField(string: rule.value)
         value.controlSize = .small
@@ -159,7 +159,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
             raw ? "status = 'paid' AND total > 10" : rule.op == .isIn ? "a, b, c" : String(localized: "Value")
         value.isHidden = !raw && !rule.op.takesValue
         value.setAccessibilityLabel(raw ? Self.raw : String(localized: "Value"))
-        value.tag = i
+        value.tag = index
         value.delegate = self
         let to = NSTextField(string: rule.to)   // between's second value
         to.controlSize = .small
@@ -168,18 +168,18 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         to.isHidden = raw || rule.op != .between
         to.setAccessibilityLabel(String(localized: "To"))
         to.identifier = Self.toId
-        to.tag = i
+        to.tag = index
         to.delegate = self
         if rule.op == .between { value.placeholderString = String(localized: "From") }
         let remove = IconButton(.symbol("minus"), tip: String(localized: "Remove This Condition")) { [weak self] in
-            self?.remove(i)
+            self?.remove(index)
         }
         let more = IconButton(.symbol("plus"), tip: String(localized: "Add a Condition")) { [weak self] in
-            self?.rules.insert(Rule(), at: i + 1)
+            self?.rules.insert(Rule(), at: index + 1)
             self?.lay()
         }
         var views: [NSView] = [on, column, op, value, to, remove, more]
-        if i == 0 {
+        if index == 0 {
             let apply = ClosureButton(title: String(localized: "Apply")) { [weak self] in self?.apply() }
             apply.controlSize = .small
             apply.bezelStyle = .push
@@ -196,8 +196,8 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
 
     private static let toId = NSUserInterfaceItemIdentifier("filter.to")
 
-    private func remove(_ i: Int) {
-        rules.remove(at: i)
+    private func remove(_ index: Int) {
+        rules.remove(at: index)
         if rules.isEmpty {
             rules = [Rule()]
             view.isHidden = true

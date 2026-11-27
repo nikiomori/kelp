@@ -255,7 +255,8 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         }
 
         private func dot(_ at: NSPoint) {
-            let r = Metrics.gapTight, box = NSRect(x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r)
+            let radius = Metrics.gapTight,
+                box = NSRect(x: at.x - radius, y: at.y - radius, width: 2 * radius, height: 2 * radius)
             let color = Self.color(row.lane)
             switch row.step.kind {
             case .edit:

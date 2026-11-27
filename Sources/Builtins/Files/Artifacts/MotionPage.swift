@@ -30,10 +30,10 @@ enum MotionPage {
         var before: [String: String] = [:]
         let file = folder.appendingPathComponent(board).path
         for mark in marks.marks where mark.state == .check {
-            guard let n = mark.rounds.last?.before, before["\(board)@\(n)@light"] == nil,
-                let old = read(URL(fileURLWithPath: Artifacts.versionPath(target: file, n)))
+            guard let round = mark.rounds.last?.before, before["\(board)@\(round)@light"] == nil,
+                let old = read(URL(fileURLWithPath: Artifacts.versionPath(target: file, round)))
             else { continue }
-            before["\(board)@\(n)@light"] = stage(old)
+            before["\(board)@\(round)@light"] = stage(old)
         }
         let frame = """
             <div class="frame"><iframe sandbox="allow-same-origin" data-board="\(board)" data-theme="light" \
@@ -49,8 +49,8 @@ enum MotionPage {
     static func size(_ text: String) -> (Int, Int) {
         let body = text.firstMatch(of: /<body[^>]*>/).map { String($0.output) } ?? ""
         let number = { (name: String) -> Int? in
-            guard let r = body.range(of: name + #"\s*=\s*"?(\d+)"#, options: .regularExpression) else { return nil }
-            return Int(body[r].filter(\.isNumber))
+            guard let found = body.range(of: name + #"\s*=\s*"?(\d+)"#, options: .regularExpression) else { return nil }
+            return Int(body[found].filter(\.isNumber))
         }
         return (min(max(number("data-width") ?? 1920, 16), 8000), min(max(number("data-height") ?? 1080, 16), 8000))
     }

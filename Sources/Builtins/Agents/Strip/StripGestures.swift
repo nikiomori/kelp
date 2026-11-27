@@ -27,7 +27,7 @@ extension StripModel {
     static func way(_ vector: CGVector) -> StripWay? {
         let major = max(abs(vector.dx), abs(vector.dy))
         guard major > 0 else { return nil }
-        func axis(_ d: CGFloat) -> Int { abs(d) < major * slant ? 0 : d > 0 ? 1 : -1 }
+        func axis(_ delta: CGFloat) -> Int { abs(delta) < major * slant ? 0 : delta > 0 ? 1 : -1 }
         return StripWay(x: axis(vector.dx), y: axis(vector.dy))
     }
 

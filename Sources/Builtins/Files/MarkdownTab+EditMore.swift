@@ -92,10 +92,11 @@ extension MarkdownTab {
             let list = body["changes"] as? [[String: Any]]
         else { return true }
         let changes = list.compactMap { c -> (id: String, property: String)? in
-            guard let id = c["id"] as? String, let p = c["property"] as? String, properties.contains(p) else {
+            guard let id = c["id"] as? String, let property = c["property"] as? String, properties.contains(property)
+            else {
                 return nil
             }
-            return (id, p)
+            return (id, property)
         }
         guard let first = changes.first else { return true }
         let edit = { (source: String) in
@@ -122,9 +123,9 @@ extension MarkdownTab {
         }
         menu.add(String(localized: "Nowhere")) { pick(nil) }.state = now.isEmpty ? .on : .off
         menu.addItem(.separator())
-        for b in boards {
-            guard let name = b["name"] as? String else { continue }
-            menu.add(b["title"] as? String ?? name) { pick(name) }.state = name == now ? .on : .off
+        for board in boards {
+            guard let name = board["name"] as? String else { continue }
+            menu.add(board["title"] as? String ?? name) { pick(name) }.state = name == now ? .on : .off
         }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }

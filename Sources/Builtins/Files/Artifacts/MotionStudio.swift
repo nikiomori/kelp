@@ -179,9 +179,9 @@ final class MotionStudio {
         }
         timeline.range = state.range
         rangeChip.isHidden = state.range == nil
-        if let r = state.range {
+        if let range = state.range {
             rangeChip.title = String(
-                format: String(localized: "Work Area %.1f–%.1f s"), r.lowerBound, r.upperBound)
+                format: String(localized: "Work Area %.1f–%.1f s"), range.lowerBound, range.upperBound)
         }
         exportOptions.range = state.range
         timeline.setCaptions(state.captions)
@@ -252,9 +252,9 @@ final class MotionStudio {
     }
 
     @objc private func formatChosen() {
-        let i = size.indexOfSelectedItem - (size.numberOfItems - Self.formats.count)
-        guard Self.formats.indices.contains(i) else { return }
-        onFormat?(Self.formats[i].width, Self.formats[i].height)
+        let index = size.indexOfSelectedItem - (size.numberOfItems - Self.formats.count)
+        guard Self.formats.indices.contains(index) else { return }
+        onFormat?(Self.formats[index].width, Self.formats[index].height)
     }
 
     /// Opens Export Video's popover under its button (the command does it too).

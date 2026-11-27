@@ -55,9 +55,9 @@ enum ResultText {
     /// numbers when every value is written as JSON writes one, so a zip code with its leading zero stays text.
     static func json(_ columns: [String], _ rows: [[String?]], types: [String?] = []) -> String {
         let numbers = Set(
-            columns.indices.filter { i in
-                if types.indices.contains(i), let type = types[i] { return ResultGrid.isNumber(type) }
-                let values = rows.compactMap { $0.indices.contains(i) ? $0[i] : nil }
+            columns.indices.filter { index in
+                if types.indices.contains(index), let type = types[index] { return ResultGrid.isNumber(type) }
+                let values = rows.compactMap { $0.indices.contains(index) ? $0[index] : nil }
                 return !values.isEmpty && values.allSatisfy { $0.wholeMatch(of: jsonNumber) != nil }
             })
         let objects = rows.map { row -> [String: Any] in
@@ -104,8 +104,8 @@ enum ResultText {
     }
 
     static func markdown(_ columns: [String], _ rows: [[String?]]) -> String {
-        func cell(_ s: String?) -> String {
-            (s ?? "NULL").replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
+        func cell(_ value: String?) -> String {
+            (value ?? "NULL").replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
         }
         let head = "| " + columns.map(cell).joined(separator: " | ") + " |"
         let rule = "|" + columns.map { _ in " --- |" }.joined()

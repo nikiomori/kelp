@@ -294,14 +294,14 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     /// Returns false when the row is no group that folds.
     @discardableResult
     private func fold(row: Int) -> Bool {
-        guard lines.indices.contains(row), case .group(let g, let count, _, _) = lines[row], count > 0 else {
+        guard lines.indices.contains(row), case .group(let group, let count, _, _) = lines[row], count > 0 else {
             return false
         }
         let key = lines[row].key, selected = table.selectedRow == row
         if !display.filter.isEmpty {
-            if toggledFiltering.remove(g) == nil { toggledFiltering.insert(g) }
-        } else if toggled.remove(g) == nil {
-            toggled.insert(g)
+            if toggledFiltering.remove(group) == nil { toggledFiltering.insert(group) }
+        } else if toggled.remove(group) == nil {
+            toggled.insert(group)
         }
         relist(settling: table.rowPlaces(lineKey))
         guard let now = lines.firstIndex(where: { $0.key == key }), case .group(_, _, _, let open) = lines[now] else {
@@ -364,9 +364,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         rows.onKeep = { [weak self] in Task { await tidy.keep { self?.reload() } } }
         return switch lines[row] {
         case .section(let section, let count): rows.section(section, count: count)
-        case .group(let g, let count, let tokens, let open):
+        case .group(let group, let count, let tokens, let open):
             rows.group(
-                g, count: count, tokens: tokens, open: open, off: g.key == nil ? nil : AddonGroups.isOff(g, items))
+                group, count: count, tokens: tokens, open: open,
+                off: group.key == nil ? nil : AddonGroups.isOff(group, items))
         case .item(let addon, let depth):
             rows.item(
                 addon, depth: depth, width: tableView.bounds.width, parent: AddonGroups.parent(of: row, in: lines))

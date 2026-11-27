@@ -9,18 +9,20 @@ enum SlideNotes {
         var lines = source.components(separatedBy: "\n")
         let start = min(max(line - 1, 0), lines.count)
         let rule = { (i: Int) in
-            let t = lines[i].trimmingCharacters(in: .whitespaces)
-            return t.count >= 3 && Set(t).count == 1 && "-*_".contains(t.first ?? " ")
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            return trimmed.count >= 3 && Set(trimmed).count == 1 && "-*_".contains(trimmed.first ?? " ")
                 && (i == 0 || lines[i - 1].trimmingCharacters(in: .whitespaces).isEmpty)
         }
         let end = (start..<lines.count).first { $0 > start && rule($0) } ?? lines.count
         let words = text.split(whereSeparator: \.isNewline).joined(separator: " ").trimmingCharacters(in: .whitespaces)
-        if let i = (start..<end).first(where: { lines[$0].hasPrefix("Notes:") }) {
+        if let found = (start..<end).first(where: { lines[$0].hasPrefix("Notes:") }) {
             if !words.isEmpty {
-                lines[i] = "Notes: " + words
+                lines[found] = "Notes: " + words
             } else {
-                lines.remove(at: i)
-                if i > 0, lines[i - 1].trimmingCharacters(in: .whitespaces).isEmpty { lines.remove(at: i - 1) }
+                lines.remove(at: found)
+                if found > 0, lines[found - 1].trimmingCharacters(in: .whitespaces).isEmpty {
+                    lines.remove(at: found - 1)
+                }
             }
         } else if !words.isEmpty {
             var at = end

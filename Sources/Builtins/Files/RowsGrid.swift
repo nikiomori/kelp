@@ -118,17 +118,19 @@ final class RowsGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTe
     }
 
     func tableView(_: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        guard let c = column.flatMap({ Int($0.identifier.rawValue) }), order.indices.contains(row) else { return nil }
+        guard let columnIndex = column.flatMap({ Int($0.identifier.rawValue) }), order.indices.contains(row) else {
+            return nil
+        }
         let cells = rows[order[row]]
-        let field = NSTextField(string: c < cells.count ? cells[c] : "")
+        let field = NSTextField(string: columnIndex < cells.count ? cells[columnIndex] : "")
         field.isBordered = false
         field.drawsBackground = false
         field.isEditable = true
         field.lineBreakMode = .byTruncatingTail
-        field.font = numeric.contains(c) ? .uiDigits(TextSize.row) : .ui(TextSize.row)
-        field.alignment = numeric.contains(c) ? .right : .left
+        field.font = numeric.contains(columnIndex) ? .uiDigits(TextSize.row) : .ui(TextSize.row)
+        field.alignment = numeric.contains(columnIndex) ? .right : .left
         field.delegate = self
-        field.tag = c
+        field.tag = columnIndex
         return field
     }
 

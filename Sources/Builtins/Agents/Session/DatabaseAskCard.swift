@@ -179,13 +179,14 @@ final class DatabaseAskCard: NSView {
                     localized:
                         "Drops a table: \(n) rows of \(table) go with it. Undo This Change can’t bring them back.")
         case .truncate:
-            guard let n = risk.values else {
+            guard let values = risk.values else {
                 return String(localized: "Empties \(table). Undo This Change can’t bring its rows back.")
             }
-            return n == 1
+            return values == 1
                 ? String(localized: "Empties a table: 1 row of \(table) goes. Undo This Change can’t bring it back.")
                 : String(
-                    localized: "Empties a table: \(n) rows of \(table) go. Undo This Change can’t bring them back.")
+                    localized: "Empties a table: \(values) rows of \(table) go. Undo This Change can’t bring them back."
+                )
         }
     }
 

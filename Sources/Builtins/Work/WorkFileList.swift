@@ -169,16 +169,17 @@ final class FileRow: NSView {
         let gap = Metrics.gapTight, left = Metrics.inset, right = bounds.width - Metrics.inset
         func size(_ view: NSView) -> NSSize { view.fittingSize }
         func place(_ view: NSView, x: CGFloat, width: CGFloat) {
-            let h = size(view).height
-            view.frame = NSRect(x: x, y: ((bounds.height - h) / 2).rounded(), width: max(0, width), height: h)
+            let viewHeight = size(view).height
+            view.frame = NSRect(
+                x: x, y: ((bounds.height - viewHeight) / 2).rounded(), width: max(0, width), height: viewHeight)
         }
         let linesWidth = size(lines).width
         place(lines, x: right - linesWidth, width: linesWidth)
         let end = right - (linesWidth > 0 ? linesWidth + gap : 0)
         place(mark, x: left, width: size(mark).width)
-        var x = left + size(mark).width + gap
+        var cursor = left + size(mark).width + gap
         let nameWidth = size(name).width
-        var room = end - x - nameWidth
+        var room = end - cursor - nameWidth
         shown = []
         for (index, extra) in extras.enumerated() {
             let width = size(extra).width + gap
@@ -186,14 +187,14 @@ final class FileRow: NSView {
             room -= width
             shown.insert(index)
         }
-        place(name, x: x, width: min(nameWidth, end - x))
-        x += min(nameWidth, end - x) + gap
+        place(name, x: cursor, width: min(nameWidth, end - cursor))
+        cursor += min(nameWidth, end - cursor) + gap
         for (index, extra) in extras.enumerated() {
             extra.isHidden = !shown.contains(index)
             guard shown.contains(index) else { continue }
             let width = size(extra).width
-            place(extra, x: x, width: width)
-            x += width + gap
+            place(extra, x: cursor, width: width)
+            cursor += width + gap
         }
     }
 }

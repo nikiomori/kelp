@@ -9,22 +9,22 @@ extension MarkdownTab {
     func markDetails(_ marks: [ArtifactMark]) async -> [Int: String] {
         var details: [Int: String] = [:]
         let folder = url.deletingLastPathComponent()
-        for m in marks {
-            if m.kind == .quote, let place = Self.place(of: m.text, in: editor.text) {
-                details[m.id] =
+        for mark in marks {
+            if mark.kind == .quote, let place = Self.place(of: mark.text, in: editor.text) {
+                details[mark.id] =
                     Artifacts.projectPath(url.path) + ":\(place.line)"
                     + (place.heading.map { " under «\($0)»" } ?? "")
                 continue
             }
-            guard m.kind == .element, m.like == nil, let id = m.elementID else { continue }
-            let path = folder.appendingPathComponent(m.board).path
+            guard mark.kind == .element, mark.like == nil, let id = mark.elementID else { continue }
+            let path = folder.appendingPathComponent(mark.board).path
             let source = path == url.path ? editor.text : await app.quiet(FilesRead(path: path))?.text ?? ""
             let tag = BoardEdit.element(source, id: id).flatMap { $0.firstMatch(of: /<[^>]*>/) }.map {
                 String($0.output)
             }
-            let look = await self.look(board: m.board, id: id)
+            let look = await self.look(board: mark.board, id: id)
             let parts = [tag.map { String($0.prefix(120)) + ($0.count > 120 ? "…" : "") }, look].compactMap { $0 }
-            if !parts.isEmpty { details[m.id] = parts.joined(separator: "; ") }
+            if !parts.isEmpty { details[mark.id] = parts.joined(separator: "; ") }
         }
         return details
     }
@@ -63,9 +63,9 @@ extension MarkdownTab {
         // The words may run on over a line break: a line holds the first, and it with the next few holds them all.
         let first = String(words.prefix { !$0.isWhitespace })
         guard
-            let at = lines.indices.first(where: { i in
-                flat(lines[i]).contains(first)
-                    && flat(lines[i..<min(i + 4, lines.count)].joined(separator: " ")).contains(words)
+            let at = lines.indices.first(where: { index in
+                flat(lines[index]).contains(first)
+                    && flat(lines[index..<min(index + 4, lines.count)].joined(separator: " ")).contains(words)
             })
         else { return nil }
         let heading = lines[...at].last { $0.hasPrefix("#") }.map {

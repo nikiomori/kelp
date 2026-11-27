@@ -235,9 +235,9 @@ private struct Lister {
         guard open else { return [head] }
         return [head]
             + ordered.flatMap { plugin -> [AddonLine] in
-                let g = AddonGroup(kind: .skill, source: .plugin, plugin: plugin.name)
+                let made = AddonGroup(kind: .skill, source: .plugin, plugin: plugin.name)
                 return plugin.skills.isEmpty
-                    ? [.group(g, count: 0, tokens: nil, open: false)] : group(g, plugin.skills, depth: 2)
+                    ? [.group(made, count: 0, tokens: nil, open: false)] : group(made, plugin.skills, depth: 2)
             }
     }
 
