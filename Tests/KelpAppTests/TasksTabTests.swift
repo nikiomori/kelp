@@ -113,21 +113,29 @@ import Testing
     try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
 }
 
-/// Quick Entry's hot key (⌃⌥⌘T, which macOS leaves free, unlike ⌃⌥Space, its next input source) opens the panel.
-@MainActor @Test func theHotKeyOpensQuickEntry() async throws {
-    let app = AppModel(builtins: [])
-    let entry = QuickEntry.shared(app)
-    // The system's answer is noErr on a Mac with a person at it; CI's runners have no session to grant hot keys in.
-    entry.registerHotKey()
-    defer { entry.unregisterHotKey() }
-    var event: EventRef?
-    CreateEvent(
-        nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, EventAttributes(kEventAttributeNone), &event)
-    var id = EventHotKeyID(signature: QuickEntry.signature, id: 1)
-    SetEventParameter(
-        event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
-        MemoryLayout<EventHotKeyID>.size, &id)
-    SendEventToEventTarget(event, GetApplicationEventTarget())
-    #expect(try await waitFor(5) { NSApp.windows.contains { $0 is NSPanel && $0.isVisible } })
-    NSApp.windows.filter { $0 is NSPanel }.forEach { $0.orderOut(nil) }
+extension OneAtATime {
+    // A hot key and a key window are the process's own: one at a time.
+    /// Quick Entry's hot key (⌃⌥⌘T, which macOS leaves free, unlike ⌃⌥Space, its next input source) opens the panel.
+    @Test func theHotKeyOpensQuickEntry() async throws {
+        let app = AppModel(builtins: [])
+        let entry = QuickEntry.shared(app)
+        // The system's answer is noErr on a Mac with a person at it; CI's runners have no session to grant hot keys in.
+        entry.registerHotKey()
+        defer { entry.unregisterHotKey() }
+        var event: EventRef?
+        CreateEvent(
+            nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, EventAttributes(kEventAttributeNone),
+            &event)
+        var id = EventHotKeyID(signature: QuickEntry.signature, id: 1)
+        SetEventParameter(
+            event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+            MemoryLayout<EventHotKeyID>.size, &id)
+        SendEventToEventTarget(event, GetApplicationEventTarget())
+        #expect(try await waitFor(5) { NSApp.windows.contains { $0 is NSPanel && $0.isVisible } })
+        // Leaves no field of the panel in the responder chain: a later test's Find would go to it.
+        for panel in NSApp.windows where panel is NSPanel {
+            panel.makeFirstResponder(nil)
+            panel.orderOut(nil)
+        }
+    }
 }
