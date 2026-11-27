@@ -192,7 +192,7 @@ extension LiveSession {
     func browsing(toolCall: String?, thread: BrowserThread, words: String) throws -> String? {
         try state.withLock { st in
             try Self.browsing(
-                toolCall: toolCall, thread: thread, words: words, commands: st.commands, agents: st.commandAgents,
+                (toolCall, thread), words: words, commands: st.commands, agents: st.commandAgents,
                 hasSubagents: !st.record.runningSubagents.isEmpty)
         }
     }
@@ -200,9 +200,10 @@ extension LiveSession {
     /// Codex names the thread and the tool call (`CODEX_THREAD_ID`, `CODEX_TOOL_CALL_ID`), so its answer is exact.
     /// Claude Code names neither: then the running `kelp browser` command with these words is the caller's.
     static func browsing(
-        toolCall: String?, thread: BrowserThread, words: String, commands: [AgentCommand], agents: [String: String],
-        hasSubagents: Bool
+        _ caller: (toolCall: String?, thread: BrowserThread), words: String, commands: [AgentCommand],
+        agents: [String: String], hasSubagents: Bool
     ) throws -> String? {
+        let (toolCall, thread) = caller
         let match = toolCall.flatMap { id in commands.first { $0.id == id } }
         let hooked = match.flatMap { agents[$0.id] }
         // Codex code mode may have no shell hook for the nested execution.
