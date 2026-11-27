@@ -202,10 +202,7 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 
     /// The part of `text` that `other` doesn't share: what is left between their common start and end (UTF-16).
     private static func changed(_ text: String, from other: String) -> NSRange {
-        let mine = Array(text.utf16), theirs = Array(other.utf16), most = min(mine.count, theirs.count)
-        var start = 0, end = 0
-        while start < most, mine[start] == theirs[start] { start += 1 }
-        while end < most - start, mine[mine.count - 1 - end] == theirs[theirs.count - 1 - end] { end += 1 }
+        let mine = Array(text.utf16), (start, end) = NextEdit.shared(mine, Array(other.utf16)) ?? (mine.count, 0)
         return NSRange(location: start, length: mine.count - start - end)
     }
 

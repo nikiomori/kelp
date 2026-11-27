@@ -41,10 +41,16 @@ func anAnswerOffersTheLinesItChanged(current: String, answer: String, lines: Ran
     if let proposal { #expect(proposal.old == old && proposal.new == new) }
 }
 
-@Test func aLineWrittenAnotherWayShowsOnlyWhatGoesAndWhatComes() {
-    let (gone, put) = NextEdit.inline("folder.font = .systemFont(ofSize: 13)", "folder.font = .ui(13)")
-    #expect(gone == NSRange(location: 15, length: 19))   // "systemFont(ofSize: "
-    #expect(put == "ui(")
+@Test(
+    arguments: [
+        ("folder.font = .systemFont(ofSize: 13)", "folder.font = .ui(13)", NSRange(location: 15, length: 19), "ui("),
+        ("same", "same", NSRange(location: 4, length: 0), ""),   // nothing goes, at the end
+        ("aa", "aaa", NSRange(location: 2, length: 0), "a")   // the shared start and end don't overlap
+    ] as [(String, String, NSRange, String)])
+func aLineWrittenAnotherWayShowsOnlyWhatGoesAndWhatComes(old: String, new: String, gone: NSRange, put: String) {
+    let got = NextEdit.inline(old, new)
+    #expect(got.gone == gone)
+    #expect(got.put == put)
 }
 
 @Test(

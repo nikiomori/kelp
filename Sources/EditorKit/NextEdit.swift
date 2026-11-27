@@ -51,9 +51,10 @@ public enum NextEdit {
         )
     }
 
-    /// How many lines `a` and `b` share at the start and at the end (never overlapping); nil when they're the same.
-    static func shared(
-        _ a: [String], _ b: [String], same: (String, String) -> Bool = (==)
+    /// How many lines (or characters) `a` and `b` share at the start and at the end (never overlapping); nil when
+    /// they're the same.
+    package static func shared<T: Equatable>(
+        _ a: [T], _ b: [T], same: (T, T) -> Bool = (==)
     ) -> (start: Int, end: Int)? {
         var start = 0
         while start < a.count, start < b.count, same(a[start], b[start]) { start += 1 }
@@ -109,14 +110,7 @@ public enum NextEdit {
     /// For a line written another way: what goes (in the old line's UTF-16 offsets) and what comes in its place.
     static func inline(_ old: String, _ new: String) -> (gone: NSRange, put: String) {
         let a = old as NSString, b = new as NSString
-        var start = 0
-        while start < a.length, start < b.length, a.character(at: start) == b.character(at: start) { start += 1 }
-        var end = 0
-        while end < a.length - start, end < b.length - start,
-            a.character(at: a.length - 1 - end) == b.character(at: b.length - 1 - end)
-        {
-            end += 1
-        }
+        let (start, end) = shared(Array(old.utf16), Array(new.utf16)) ?? (a.length, 0)
         return (
             NSRange(location: start, length: a.length - start - end),
             b.substring(with: NSRange(location: start, length: b.length - start - end))
