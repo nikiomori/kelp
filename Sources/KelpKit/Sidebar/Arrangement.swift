@@ -37,6 +37,9 @@ final class Arrangement {
     }
     /// Why a parked agent came back. It shows on the agent's row until the agent is opened.
     var parkedBack: [String: String] = [:]
+    /// The runs failed at each folder's last CI reading (`followParked`), so only a run that newly failed brings an
+    /// agent back. Kept past the reading being forgotten: the same old failure read again is no news.
+    @ObservationIgnored var ciFailed: [String: Set<Int>] = [:]
     /// Each project's colour, by id.
     var projectColors: [String: ProjectColor] = [:] {
         didSet { app.uiState[ProjectColor.key] = ProjectColor.value(projectColors) }
