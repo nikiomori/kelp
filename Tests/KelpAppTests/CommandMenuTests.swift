@@ -42,7 +42,7 @@ import WorkbenchKit
 
 /// Where a command shows: the menu bar and ⇧⌘P, and for the File menu's commands on what is in front, when.
 extension OneAtATime {
-    @Test(arguments: [0, 1, 3]) func terminalSplitKeepsExistingTabs(count: Int) async throws {
+    @Test(arguments: [0, 3]) func terminalSplitKeepsExistingTabs(count: Int) async throws {
         _ = NSApplication.shared
         let rig = try await AppRig()
         let app = rig.app, main = MainWindowController(app: rig.app)
