@@ -150,17 +150,11 @@ struct WorkReader {
         guard let (a, b) = Self.snapshots(marks, start: start, end: end) else { return [] }
         // Two snapshots' difference never changes: kept, so an earlier turn shown while the agent works isn't diffed
         // again on every pass.
-        let out = usage.work.recent("diff:\(a.tree):\(b.tree)", fresh: WorkIndex.idle) {
+        return usage.work.recent("diff:\(a.tree):\(b.tree)", fresh: WorkIndex.idle) {
             Log.session.attempt("reading turn \(a.id)'s changes") {
-                try Git.run(
-                    ["diff", "--numstat", "--no-renames", "-z", a.tree, b.tree], cwd: a.folder, remotes: remotes)
+                try Git.numstat(a.tree, b.tree, cwd: a.folder, remotes: remotes).map(WorkMap.Changed.init)
             }
-        }
-        return (out ?? "").split(separator: "\0").compactMap { line in
-            let fields = line.split(separator: "\t", maxSplits: 2)
-            guard fields.count == 3 else { return nil }
-            return WorkMap.Changed(path: String(fields[2]), added: Int(fields[0]) ?? 0, removed: Int(fields[1]) ?? 0)
-        }
+        } ?? []
     }
 
     /// The snapshots a turn from `start` to `end` began and ended with: the oldest taken as it began, and the next, if
