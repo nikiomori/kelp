@@ -173,7 +173,7 @@ final class Counter: @unchecked Sendable {
             root: tmp().path))
     let pid = try #require(c.pid)
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: set) })   // the trap is set
-    c.terminateNow()
+    c.terminateNow(grace: 0.2)   // SIGTERM is ignored, so only SIGKILL ends it
     #expect(kill(pid, 0) != 0 || Subprocess.isZombie(pid))   // gone, or ended and waiting for its parent to reap it
 }
 

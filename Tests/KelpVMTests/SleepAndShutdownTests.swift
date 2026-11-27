@@ -37,6 +37,7 @@ extension AndroidRuntimeOnAStandIn {
     @Test(.timeLimit(minutes: 1)) func anEmulatorThatWontQuitIsKilledAndTheSleepSaysSo() async throws {
         let (vm, sdk, putAway) = try androidStandIn(booting: "trap '' TERM", adb: #"*"emu kill"*) ;;"#)
         defer { putAway() }
+        vm.endGrace = 0.2   // SIGTERM is ignored, so only SIGKILL ends it
         #expect(await askAndroid(vm, .init(op: .start)) == nil)
         let text = try String(contentsOf: sdk.appendingPathComponent("emulator.pid"), encoding: .utf8)
         let pid = try #require(pid_t(text.trimmingCharacters(in: .newlines)))
