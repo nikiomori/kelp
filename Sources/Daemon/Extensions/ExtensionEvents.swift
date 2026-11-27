@@ -49,13 +49,14 @@ final class ExtensionEvents: Sendable {
     /// How long a status has to stand before its event fires. A program may say idle for a second as a turn starts
     /// (Codex), and a question answered at once didn't need anybody away from the Mac.
     /// KELP_TEST_SLOW stretches it along with the tests' waits (in a sanitizer's run), so a status that has to stand
-    /// still does, at the slower pace.
-    static let eventDelay = 2.5 * (ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1)
+    /// still does, at the slower pace. Tests that only need events in order shorten it.
+    let eventDelay = OSAllocatedUnfairLock(
+        initialState: 2.5 * (ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1))
 
     /// Hears every saved change of a session (`Sessions.said`) and fires its event once per stop.
     func heard(_ session: Session) {
         guard let event = event(of: session) else { return }
-        queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
+        queue.asyncAfter(deadline: .now() + eventDelay.withLock { $0 }) { [weak self] in
             guard let self else { return }
             // When the session is gone since, a result still stands, but a question has nobody left to answer it.
             let now = live[session.id]?.snapshot.status
