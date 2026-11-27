@@ -18,7 +18,8 @@ final class PermissionWaits: Sendable {
     /// to run it for), or its timeout. Two commands asking at once (parallel tool calls) wait their turn, oldest first.
     struct KelpWait: Sendable {
         let question: String, token: UUID
-        /// The database run the question is for, if any (`SessionChoose.run`).
+        /// The database run the question is for, or the login question's (`AgentSites.run`), if any
+        /// (`SessionChoose.run`).
         let run: String?
         let answer: CheckedContinuation<String?, Never>
         let exit: DispatchSourceProcess?

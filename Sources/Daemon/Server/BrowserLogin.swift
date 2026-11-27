@@ -33,8 +33,12 @@ extension BrowserRelay {
         let agent = AgentManifest.load(dir: Paths.agents(in: home)).first { $0.id == ls.snapshot.agent }?.name
         let question = Self.question(agent: agent ?? "the agent", site: site)
         let answer = await asks.permissions.waitForKelp(
-            ls, question: question, within: UIBrowserAsk.wait, asker: asker)
+            ls, question: question, within: UIBrowserAsk.wait, asker: asker, run: AgentSites.run(site))
         guard answer == "allow" else {
+            // A command cut short (a tool's time limit) didn't hear a Deny: the chat may ask again.
+            guard answer != PermissionWaits.askerGone else {
+                throw RPCError.refused("Your command ended before the user answered about \(site): ask again.")
+            }
             asks.permissions.deniedLogins.withLock { $0[session, default: []].insert(site) }
             guard answer == "deny" else {
                 throw RPCError.refused("Nobody answered whether you may use the user's login on \(site).")

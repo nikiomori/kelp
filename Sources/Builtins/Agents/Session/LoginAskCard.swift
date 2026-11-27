@@ -69,7 +69,11 @@ final class LoginAskCard: NSView {
 
     @objc private func allowed() { answer("allow") }
     @objc private func denied() { answer("deny") }
+    /// The answer names the login question's run, so it answers that question alone. A row whose words only look
+    /// like it (a shell command's permission, worded by the agent) shows the card, but its buttons answer nothing.
     private func answer(_ action: String) {
-        Notifications.answer(app, session, action, question: app.session(session)?.summary)
+        let question = app.session(session)?.summary
+        guard let site = question.flatMap(AgentSites.asked) else { return }
+        Notifications.answer(app, session, action, question: question, run: AgentSites.run(site))
     }
 }

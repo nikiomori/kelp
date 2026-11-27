@@ -19,6 +19,16 @@ func aSiteCoversItsSubdomainsOnly(address: String, covered: String?) {
     #expect(AgentSites.site(of: address).flatMap { AgentSites.allowed($0, in: AgentSites.entries(list)) } == covered)
 }
 
+/// A login question names its site, read back by the card that answers it; any other question names none.
+@Test(arguments: [
+    (AgentSites.question(agent: "Demo Agent", site: "x.com"), "x.com"),
+    (AgentSites.question(agent: "Claude Code", site: "mobile.x.com"), "mobile.x.com"),
+    ("Allow changing 3 rows of orders in shop?", nil), ("On its page: Sign in", nil)
+])
+func aLoginQuestionNamesItsSite(question: String, site: String?) {
+    #expect(AgentSites.asked(question) == site)
+}
+
 /// An agent gets the user's login only on a site they allowed. `--shared` asks on its row; no answer says nobody
 /// answered; a Deny isn't asked again until the turn ends; Allow adds the site, and after that a plain open gets the
 /// login with no question.
@@ -40,7 +50,15 @@ func aSiteCoversItsSubdomainsOnly(address: String, covered: String?) {
     }
     #expect(try await login("x.com") == nil)   // not allowed: a page of its own, nobody asked
 
-    let unanswered = Task { try await login("x.com", shared: true) }
+    let cutShort = Task { try await login("x.com", shared: true) }
+    #expect(try await waitFor { try asked() })
+    #expect(permissions.answerKelp(agent.id, question: nil, PermissionWaits.askerGone))   // its tool's time ran out
+    do {
+        _ = try await cutShort.value
+        Issue.record("a command cut short got the login")
+    } catch { #expect("\(error)".contains("ended before the user answered")) }
+
+    let unanswered = Task { try await login("x.com", shared: true) }   // asked again: no Deny was heard
     #expect(try await waitFor { try asked() })
     #expect(permissions.answerKelp(agent.id, question: nil, nil))   // its ten minutes ran out
     do {
@@ -58,7 +76,9 @@ func aSiteCoversItsSubdomainsOnly(address: String, covered: String?) {
 
     let allowed = Task { try await login("https://x.com/home", shared: true) }
     #expect(try await waitFor { try asked() })
-    #expect(permissions.answerKelp(agent.id, question: nil, "allow"))
+    // An answer names the login question's run: another site's, or a question worded like it, answers nothing.
+    #expect(!permissions.answerKelp(agent.id, question: nil, "allow", run: AgentSites.run("evil.com")))
+    #expect(permissions.answerKelp(agent.id, question: nil, "allow", run: AgentSites.run("x.com")))
     #expect(try await allowed.value == "x.com")
     #expect(AgentSites.entries(w.d.settings[SettingKeys.agentSites]).map(\.site) == ["x.com"])
     #expect(try await login("mobile.x.com") == "x.com")   // allowed now: at once, no question

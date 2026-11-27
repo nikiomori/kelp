@@ -47,6 +47,19 @@ public enum AgentSites {
         "Allow \(agent) to use your login on \(site)?"
     }
 
+    /// What a login question's answer names (`SessionChoose.run`), so it answers that question alone: never another
+    /// question worded like it, such as a shell command's permission ("Allow <command>?"), whose words the agent chose.
+    public static func run(_ site: String) -> String { "login/" + site }
+
+    /// The site a login question asks about, read back from its words.
+    public static func asked(_ question: String) -> String? {
+        guard asksLogin(question), let at = question.range(of: " to use your login on ", options: .backwards) else {
+            return nil
+        }
+        let site = question[at.upperBound...].dropLast()
+        return site.isEmpty ? nil : String(site)
+    }
+
     public static func asksLogin(_ question: String) -> Bool {
         question.hasPrefix("Allow ") && question.hasSuffix("?") && question.contains(" to use your login on ")
     }
