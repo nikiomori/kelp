@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
     paths-ignore: [README.md, CONTRIBUTING.md, SECURITY.md, 'docs/**']
-concurrency:   # a newer push to the same branch cancels the run it makes stale
+concurrency:   # a newer push to a pull request's branch cancels the run it makes stale; every merge to main is run whole
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 env:
   XCODE: '27.2'
   # Every test at once (each with its daemons, PTYs and git) starves a 3-core runner into timeouts.
