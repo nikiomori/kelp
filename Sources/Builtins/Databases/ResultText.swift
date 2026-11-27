@@ -119,8 +119,8 @@ enum ResultText {
     ) -> String {
         rows.map { row in
             let given = row.indices.filter { columns.indices.contains($0) && !DatabaseInfo.Engine.standIn(row[$0]) }
-            return "INSERT INTO \(DatabaseEdits.name(table, engine)) ("
-                + given.map { DatabaseEdits.name(columns[$0], engine) }.joined(separator: ", ") + ") VALUES ("
+            return "INSERT INTO \(engine.table(table)) ("
+                + given.map { engine.table(columns[$0]) }.joined(separator: ", ") + ") VALUES ("
                 + given.map { engine.literal(row[$0], type: types.indices.contains($0) ? types[$0] ?? "" : "") }
                 .joined(separator: ", ") + ");"
         }.joined(separator: "\n")

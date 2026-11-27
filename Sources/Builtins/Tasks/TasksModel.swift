@@ -90,14 +90,12 @@ final class TasksModel {
 
     // A list that names a project or a tag isn't kept: it may be gone next time.
     private func keepSource() {
-        let fixed: [TaskSource: String] = [
-            .inbox: "inbox", .now: "now", .waiting: "waiting", .all: "all", .journal: "journal"
-        ]
-        guard let name = fixed[source] else { return }
+        guard let name = Self.kept.first(where: { $0.value == source })?.key else { return }
         let app = self.app
         Task { _ = await app.uiState.save(Self.sourceKey, .string(name)) }
     }
-    static func source(_ name: String?) -> TaskSource? {
-        ["inbox": .inbox, "now": .now, "waiting": .waiting, "all": .all, "journal": .journal][name ?? ""]
-    }
+    private static let kept: [String: TaskSource] = [
+        "inbox": .inbox, "now": .now, "waiting": .waiting, "all": .all, "journal": .journal
+    ]
+    static func source(_ name: String?) -> TaskSource? { kept[name ?? ""] }
 }

@@ -50,14 +50,8 @@ extension TasksViewController {
                     IssueWork.startHere(app, brief)
                 })
             if let title = brief["title"], let url = brief["url"] {
-                let known = task(issue: url)
-                detail.addArrangedSubview(
-                    button(known == nil ? String(localized: "Add to Tasks") : String(localized: "Show in Tasks")) {
-                        [weak self, app] in
-                        if let known { return TaskActions.open(app, known) }
-                        guard let repoId = self?.repoId else { return }
-                        Task { _ = await TaskActions.add(app, repo: repoId, text: title, issue: url) }
-                    })
+                let add = Self.taskAction(app, known: task(issue: url), repo: repoId, title: title, url: url)
+                detail.addArrangedSubview(button(add.title, add.action))
             }
             body(brief["body"] ?? "")
         case .item(let item):

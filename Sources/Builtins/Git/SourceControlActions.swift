@@ -25,14 +25,14 @@ extension SourceControlController {
     /// Pulls, pushes or fetches (`ops`, one after another) through `GitSync`, as the window bar does, so the branch
     /// chip shows it and one runs at a time. `done` is what the button says afterwards; when it's nil, the button says
     /// nothing unless the run failed.
-    func remote(_ ops: [GitRemoteOp.Step], done: String?, title: String? = nil) {
+    func remote(_ ops: [GitRemoteOp.Step], done: String?) {
         // The menu's Pull and Push are refused too while busy, because a second run would race the first.
         guard let wid = worktreeId, !busy else {
             NSSound.beep()
             return
         }
         Task {
-            let error = await GitSync.run(app, wid, ops, title: title)
+            let error = await GitSync.run(app, wid, ops)
             if let error {
                 // A rejected push, or a pull that stopped on conflicts, is work for the agent. Other failures just say
                 // why.

@@ -96,7 +96,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
     private func sql(_ rule: Rule) -> String? {
         if rule.column == Self.raw { return rule.value.trimmingCharacters(in: .whitespaces).isEmpty ? nil : rule.value }
         guard columns.contains(rule.column) else { return nil }
-        let name = DatabaseEdits.name(rule.column, engine), v = rule.value
+        let name = engine.table(rule.column), v = rule.value
         if rule.op.takesValue, v.isEmpty || (rule.op == .between && rule.to.isEmpty) { return nil }
         let like = engine.likeAnyCase
         switch rule.op {

@@ -52,15 +52,9 @@ extension ForgeItemTab {
         }
         // Beside Start: the issue as a task, or the task it is already.
         let rows = TaskViews.rows([(repoId, app.latest(TasksEvent.self, repoId)?.pages ?? [])], session: app.session)
-        if let known = rows.first(where: { $0.task.issue == issue.url }) {
-            trailing.insert(
-                TextButton(String(localized: "Show in Tasks")) { [app] in TaskActions.open(app, known) }, at: 0)
-        } else {
-            trailing.insert(
-                TextButton(String(localized: "Add to Tasks")) { [app, repoId] in
-                    Task { _ = await TaskActions.add(app, repo: repoId, text: issue.title, issue: issue.url) }
-                }, at: 0)
-        }
+        let add = TasksViewController.taskAction(
+            app, known: rows.first { $0.task.issue == issue.url }, repo: repoId, title: issue.title, url: issue.url)
+        trailing.insert(TextButton(add.title) { add.action() }, at: 0)
         trailing.append(moreButton(issueMenu: true))
         return Bar.content([route], trailing, stretching: route)
     }
