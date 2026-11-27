@@ -91,6 +91,21 @@ final class Conversations: Sendable {
     func phoneConversation(of session: Session, live: LiveSession?)
         -> (turns: [ConversationTurns.Turn], reply: String?)
     {
+        if session.agent == "omp" || session.agent == "pi" {
+            let remote = host(of: session)
+            guard let script = Self.piTailScript(session, localPID: remote == nil ? live?.snapshot.pid : nil)
+            else { return ([], nil) }
+            let tail: Data?
+            if let remote {
+                tail = readConversation(script, on: remote)
+            } else {
+                tail = Log.session.attempt("reading \(session.agent ?? "pi")'s conversation") {
+                    try Subprocess.output(["/bin/sh", "-c", script], cwd: session.cwd, timeLimit: 5)
+                }
+            }
+            let turns = tail.map { ConversationTurns.last(inTail: $0) } ?? []
+            return (turns, live == nil ? nil : turns.last(where: { $0.role == .agent })?.text)
+        }
         guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else {
             return ([], live.flatMap(lastReply(of:)))
         }

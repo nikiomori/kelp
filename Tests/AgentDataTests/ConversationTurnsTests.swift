@@ -85,6 +85,58 @@ private typealias Turn = ConversationTurns.Turn
         ])
 }
 
+@Test func aPiSessionReadsAsTurns() {
+    let tail = #"""
+        {"type":"session","version":3,"cwd":"/p"}
+        {"type":"message","timestamp":"2026-11-12T07:00:00.000Z","message":{"role":"user","content":"Fix the build.","timestamp":1794466800000}}
+        {"type":"message","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Private reasoning"}]}}
+        {"type":"message","message":{"role":"assistant","content":[{"type":"toolCall","id":"read1","name":"read","arguments":{"path":"/p/Build.swift"}}]}}
+        {"type":"message","message":{"role":"toolResult","toolCallId":"read1","toolName":"read","content":[{"type":"text","text":"Private file content"}]}}
+        {"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Found it."},{"type":"text","text":"I'll fix it."}]}}
+        {"type":"message","message":{"role":"assistant","content":[{"type":"toolCall","id":"edit1","name":"edit","arguments":{"path":"/p/Build.swift"}}]}}
+        """#
+    #expect(
+        ConversationTurns.last(inTail: Data(tail.utf8)) == [
+            Turn(role: .user, text: "Fix the build.", at: "2026-11-12T07:00:00.000Z"),
+            Turn(role: .did, text: "Read 1 file"),
+            Turn(role: .agent, text: "Found it.\n\nI'll fix it."),
+            Turn(role: .did, text: "Edited Build.swift")
+        ])
+}
+
+@Test func anOhMyPiSessionKeepsOnlyVisibleSpeechAndToolCallsInOrder() throws {
+    let at = "2026-11-12T08:00:00.000Z"
+    let userContent = [
+        ["type": "text", "text": "<system-reminder>Private context</system-reminder>\nPatch this."],
+        ["type": "image", "data": "aW1hZ2U=", "mimeType": "image/png"],
+        ["type": "text", "text": "Keep the layout."]
+    ]
+    let assistantContent: [[String: Any]] = [
+        ["type": "text", "text": "Working on it."],
+        [
+            "type": "toolCall", "id": "edit1", "name": "edit",
+            "arguments": ["input": "[src/View.swift#ABCD]\nPUT 1.=1:\n+ replacement"]
+        ],
+        ["type": "redactedThinking", "data": "Private reasoning"],
+        ["type": "toolCall", "id": "bash1", "name": "bash", "arguments": ["command": "make"]],
+        ["type": "text", "text": "Done."]
+    ]
+    let url = try file([
+        ["type": "message", "message": ["role": "developer", "content": "Private developer instruction"]],
+        ["type": "custom_message", "customType": "context", "display": false, "content": "Private extension context"],
+        ["type": "message", "message": ["role": "user", "synthetic": true, "content": "Synthetic continuation"]],
+        ["type": "message", "timestamp": at, "message": ["role": "user", "content": userContent]],
+        ["type": "message", "message": ["role": "assistant", "content": assistantContent]]
+    ])
+    #expect(
+        ConversationTurns.last(in: url) == [
+            Turn(role: .user, text: "Patch this.\n\nKeep the layout.", at: at),
+            Turn(role: .agent, text: "Working on it."),
+            Turn(role: .did, text: "Edited 1 file, ran 1 command"),
+            Turn(role: .agent, text: "Done.")
+        ])
+}
+
 /// The last turns that fit, a long one cut: what was said keeps its end, what was asked its start.
 @Test func onlyTheLastTurnsThatFitAreKept() {
     let long = String(repeating: "a", count: 300) + "END"
@@ -109,8 +161,13 @@ private typealias Turn = ConversationTurns.Turn
     let exact = Turn(role: .user, text: "🙂🙂"), over = Turn(role: .agent, text: "🙂🙂🙂")
     let small = [Turn(role: .user, text: "AB🙂"), Turn(role: .agent, text: "🙂CD")]
     let rows: [(turns: [Turn], limit: Int, kept: [Turn])] = [
-        (wide, 44, [Turn(role: .user, text: edge + "…", at: "now"), Turn(role: .did, text: "…" + edge),
-                    Turn(role: .agent, text: "…" + edge)]),
+        (
+            wide, 44,
+            [
+                Turn(role: .user, text: edge + "…", at: "now"), Turn(role: .did, text: "…" + edge),
+                Turn(role: .agent, text: "…" + edge)
+            ]
+        ),
         ([exact, over], 32, [exact, Turn(role: .agent, text: "…🙂")]),
         (small, Int.min, []), (small, 0, []), (small, 1, []), (small, 3, []),
         (small, 4, [Turn(role: .user, text: "A"), Turn(role: .agent, text: "D")]),

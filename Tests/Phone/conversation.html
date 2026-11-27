@@ -312,6 +312,18 @@ async function run() {
   await settle();
   check(transcript.firstChild === shownNode && transcript.textContent.endsWith('Turn 79'),
     'An unchanged conversation should stay as it is shown');
+
+  const omp = { ...codex, id: 'omp', agent: 'omp', title: 'oh-my-pi' };
+  event(omp);
+  await select(omp.id);
+  reads.at(-1).resolve({ ...omp, turns: [{ role: 'user', text: 'Question for OMP' }], conversation: 'omp1' });
+  await settle();
+  advance(1);
+  event({ ...omp, summary: 'Answered' });
+  check(reads.at(-1).seen === 'omp1', 'New OMP activity should refresh its open conversation');
+  reads.at(-1).resolve({ ...omp, turns: [{ role: 'agent', text: 'OMP answer' }] });
+  await settle();
+  check(transcript.textContent.endsWith('OMP answer'), 'The open OMP chat should show its new answer');
 }
 try {
   await run();
