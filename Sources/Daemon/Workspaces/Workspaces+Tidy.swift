@@ -36,7 +36,8 @@ extension Workspaces {
                 return here.contains { [.working, .waiting].contains($0.status) } ? nil : here
             }
             // A folder of repositories (`RepoKey`) is each of them: a branch group of one holds a worktree of each.
-            let several = repos(in: repo), checkouts = self.checkouts(workspace, repo)
+            let several = Git.nestedRepos(repo.path),
+                checkouts = Git.checkouts(project: repo.path, folder: workspace.path)
             guard try look() != nil, try !checkouts.contains(where: { try Git.isDirty($0.1, remotes: remotes) }) else {
                 return
             }
