@@ -47,16 +47,18 @@ extension WorkspaceLayout {
     /// Returns the pane on that side of `from` that is nearest by center (Ghostty's goto_split). Panes only touching
     /// the edge by
     /// 2 points or less still count as beside it. Window coordinates: y grows upward (`.maxY` is up).
-    public static func nearestPane(from a: CGRect, among panes: [String: CGRect], toward edge: NSRectEdge) -> String? {
+    public static func nearestPane(from origin: CGRect, among panes: [String: CGRect], toward edge: NSRectEdge)
+        -> String?
+    {
         panes.compactMap { id, b -> (String, CGFloat)? in
             let beyond =
                 switch edge {
-                case .minX: b.maxX <= a.minX + 2
-                case .maxX: b.minX >= a.maxX - 2
-                case .minY: b.maxY <= a.minY + 2
-                default: b.minY >= a.maxY - 2
+                case .minX: b.maxX <= origin.minX + 2
+                case .maxX: b.minX >= origin.maxX - 2
+                case .minY: b.maxY <= origin.minY + 2
+                default: b.minY >= origin.maxY - 2
                 }
-            return beyond ? (id, hypot(b.midX - a.midX, b.midY - a.midY)) : nil
+            return beyond ? (id, hypot(b.midX - origin.midX, b.midY - origin.midY)) : nil
         }.min { $0.1 < $1.1 || ($0.1 == $1.1 && $0.0 < $1.0) }?.0
     }
 }

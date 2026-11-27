@@ -150,11 +150,11 @@ extension CodeEditor {
     /// Puts the cursor where the edit starts: the first character a line changes, or the end of the line above the
     /// lines it adds.
     private func goTo(_ shown: NextEditState.Shown) {
-        let p = shown.proposal
+        let proposal = shown.proposal
         var at = shown.range.location
-        if p.old.count == 1, p.new.count == 1 {
-            at += NextEdit.inline(p.old[0], p.new[0]).gone.location
-        } else if p.old.isEmpty {
+        if proposal.old.count == 1, proposal.new.count == 1 {
+            at += NextEdit.inline(proposal.old[0], proposal.new[0]).gone.location
+        } else if proposal.old.isEmpty {
             at = max(0, at - 1)
         }
         textView.setSelectedRange(NSRange(location: at, length: 0))
@@ -170,23 +170,23 @@ extension CodeEditor {
 
     private func drawNextEdit() {
         guard let shown = nextEdit.shown else { return }
-        let p = shown.proposal, range = shown.range, string = textView.string as NSString
+        let proposal = shown.proposal, range = shown.range, string = textView.string as NSString
         let green = NSColor.textGreen, tint = NSColor.diffAdded
-        if p.old.count == 1, p.new.count == 1 {
-            let (gone, put) = NextEdit.inline(p.old[0], p.new[0])
+        if proposal.old.count == 1, proposal.new.count == 1 {
+            let (gone, put) = NextEdit.inline(proposal.old[0], proposal.new[0])
             strike(NSRange(location: range.location + gone.location, length: gone.length))
             let ghost = put.isEmpty ? nil : (put, range.location + NSMaxRange(gone))
             nextEdit.view = placeGhost(nextEdit.view, ghost, color: green, tint: tint)
         } else {
             // What comes goes under the last line it replaces, or under the line above where it only adds.
             let anchor =
-                p.old.isEmpty
+                proposal.old.isEmpty
                 ? range.location - 1 : MultiCursor.lineEnd(string, max(range.location, NSMaxRange(range) - 1))
             // No tint: the last line's is as tall as the room under it, where the lines that come show.
-            if !p.old.isEmpty {
+            if !proposal.old.isEmpty {
                 strike(NSRange(location: range.location, length: anchor - range.location), tint: false)
             }
-            let ghost = p.new.isEmpty ? nil : ("\n" + p.new.joined(separator: "\n"), anchor)
+            let ghost = proposal.new.isEmpty ? nil : ("\n" + proposal.new.joined(separator: "\n"), anchor)
             nextEdit.view = placeGhost(nextEdit.view, ghost, color: green, tint: tint)
         }
         placePill()

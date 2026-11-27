@@ -21,13 +21,13 @@ extension QuickOpen {
                             image: TabURI.scheme(uri) == "file" ? app.fileIcons.image(title) : nil))
                 }
             }
-            for w in app.worktrees where !w.archived && app.groupName(w) != nil {
-                let repo = app.projectName(w.repoId) ?? ""
+            for worktree in app.worktrees where !worktree.archived && app.groupName(worktree) != nil {
+                let repo = app.projectName(worktree.repoId) ?? ""
                 items.append(
                     Item(
-                        kind: "Group", icon: "arrow.triangle.branch", title: w.displayName,
-                        detail: "\(repo) · \(w.branch)",
-                        action: { app.workbench.show(workspace: w.id) }))
+                        kind: "Group", icon: "arrow.triangle.branch", title: worktree.displayName,
+                        detail: "\(repo) · \(worktree.branch)",
+                        action: { app.workbench.show(workspace: worktree.id) }))
             }
             for host in app.remoteHosts {
                 let projects = app.projects(onServer: host).compactMap { app.projectName($0.id) }

@@ -11,18 +11,18 @@ extension QuickOpen {
     enum Prefix: Equatable {
         case line(Int?, column: Int? = nil), files(String), symbols(String), everywhere(String)
 
-        init?(_ q: String) {
-            if q.hasPrefix(":") {
-                let parts = q.dropFirst().split(separator: ":", omittingEmptySubsequences: false).map { Int($0) }
+        init?(_ query: String) {
+            if query.hasPrefix(":") {
+                let parts = query.dropFirst().split(separator: ":", omittingEmptySubsequences: false).map { Int($0) }
                 self = .line(parts.first ?? nil, column: parts.count > 1 ? parts[1] : nil)
-            } else if q.hasPrefix("/") {
-                self = .files(String(q.dropFirst()))
-            } else if q.lowercased().hasPrefix("file:") {
-                self = .files(String(q.dropFirst(5)))
-            } else if q.hasPrefix("@@") {
-                self = .everywhere(String(q.dropFirst(2)))
-            } else if q.hasPrefix("@") {
-                self = .symbols(String(q.dropFirst()))
+            } else if query.hasPrefix("/") {
+                self = .files(String(query.dropFirst()))
+            } else if query.lowercased().hasPrefix("file:") {
+                self = .files(String(query.dropFirst(5)))
+            } else if query.hasPrefix("@@") {
+                self = .everywhere(String(query.dropFirst(2)))
+            } else if query.hasPrefix("@") {
+                self = .symbols(String(query.dropFirst()))
             } else {
                 return nil
             }
@@ -140,8 +140,8 @@ extension QuickOpen {
         }
     }
 
-    private func showSymbols(_ items: [Item], _ q: String) {
-        let found = q.isEmpty ? items : items.filter { Self.wordScore($0.title, q) != nil }
+    private func showSymbols(_ items: [Item], _ query: String) {
+        let found = query.isEmpty ? items : items.filter { Self.wordScore($0.title, query) != nil }
         setRows(found, grouped: false, heading: found.isEmpty ? String(localized: "No symbols") : nil)
     }
 

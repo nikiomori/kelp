@@ -122,10 +122,10 @@ extension AppDelegate {
             "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
         let alternates = NSMenuItem.noteColumn(app.catalog.installed.map { NSMenu.inNewGroup($0.name) })
-        for a in app.catalog.installed {
-            let item = with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
-            with.addNewGroupAlternate(of: item, agent: a.name, column: alternates) {
-                app.workbench.newChatInGroup(agent: a.id)
+        for installed in app.catalog.installed {
+            let item = with.add(installed.name) { app.extensions.run("agents.new", ["agent": .string(installed.id)]) }
+            with.addNewGroupAlternate(of: item, agent: installed.name, column: alternates) {
+                app.workbench.newChatInGroup(agent: installed.id)
             }
         }
         with.addItem(.separator())

@@ -13,7 +13,7 @@ final class DaemonLink {
     /// The connection that calls go through, or nil while there is none.
     private(set) var client: RPCClient?
     /// Uses a connection opened elsewhere (by a test), or none, instead of opening one here.
-    func use(_ c: RPCClient?) { client = c }
+    func use(_ next: RPCClient?) { client = next }
 
     /// Connects to kelpd, one connection at a time. Launch, a dropped connection and Restart Background Service all
     /// come through here.
@@ -109,13 +109,13 @@ final class DaemonLink {
     /// Watches for a hung kelpd. A connected kelpd that hangs never says so: quiet reads stay quiet, and a person's
     /// action waits for minutes. Two checks in a row without an answer show a banner with the way out. A connection
     /// that ended is handled by `onClose`.
-    private func watchLife(_ c: RPCClient) {
+    private func watchLife(_ rpc: RPCClient) {
         Task { [weak self] in
             var missed = 0
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
-                guard let self, client === c else { return }
-                missed = await Self.answers(c, within: 10) ? 0 : missed + 1
+                guard let self, client === rpc else { return }
+                missed = await Self.answers(rpc, within: 10) ? 0 : missed + 1
                 if missed == 2 { sayNotAnswering() }
             }
         }
@@ -132,14 +132,14 @@ final class DaemonLink {
     /// update in place when it can (`daemon.upgrade`, so agents keep running). Otherwise it restarts right away when no
     /// agent is running, and else Kelp asks first, because restarting ends running sessions. Returns true when an
     /// upgrade or a restart is in progress.
-    private func checkDaemonVersion(_ c: RPCClient) async -> Bool {
+    private func checkDaemonVersion(_ rpc: RPCClient) async -> Bool {
         guard
             let mine =
                 (try? FileManager.default.attributesOfItem(atPath: bundledDaemon.path)[.modificationDate] as? Date)?
                 .timeIntervalSince1970
         else { return false }
         let info: DaemonInfo.Result
-        do { info = try await c.call(DaemonInfo()) } catch {
+        do { info = try await rpc.call(DaemonInfo()) } catch {
             // It is connected but doesn't answer. The lists asked for next would leave an empty window for minutes,
             // with no word why, so say so now.
             if (error as? RPCError)?.isNoReply == true { sayNotAnswering() }
@@ -156,7 +156,7 @@ final class DaemonLink {
         var upgrading = false, refusal: String?
         if samePath {
             do {
-                _ = try await c.call(DaemonUpgrade())
+                _ = try await rpc.call(DaemonUpgrade())
                 upgrading = true
             } catch { refusal = (error as? RPCError)?.message ?? "\(error)" }
         }
@@ -179,9 +179,11 @@ final class DaemonLink {
                 guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
             }
             // A daemon too old to take daemon.shutdown is stopped by signal, or else the reconnect finds it again.
-            do { _ = try await c.call(DaemonShutdown()) } catch { if let pid = c.daemonPID { await Self.stop(pid) } }
+            do { _ = try await rpc.call(DaemonShutdown()) } catch {
+                if let pid = rpc.daemonPID { await Self.stop(pid) }
+            }
         }
-        c.close()
+        rpc.close()
         client = nil
         try? await Task.sleep(for: .milliseconds(600))
         await open()

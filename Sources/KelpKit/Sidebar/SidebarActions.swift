@@ -101,12 +101,14 @@ extension SidebarController {
     /// The rows to show for these sessions: each agent's row, its parent's row, and the rows above them.
     func rows(showing sessions: [Session]) -> Set<Node> {
         var nodes: Set<Node> = []
-        for s in sessions {
-            for id in [s.id, s.parent].compactMap({ $0 }) { if let n = node("a:" + id) { nodes.insert(n) } }
-            var above = s.worktreeId.flatMap(workspaceNode)
-            while let n = above {
-                nodes.insert(n)
-                above = outline.parent(forItem: n) as? Node
+        for session in sessions {
+            for id in [session.id, session.parent].compactMap({ $0 }) {
+                if let found = node("a:" + id) { nodes.insert(found) }
+            }
+            var above = session.worktreeId.flatMap(workspaceNode)
+            while let parent = above {
+                nodes.insert(parent)
+                above = outline.parent(forItem: parent) as? Node
             }
         }
         return nodes

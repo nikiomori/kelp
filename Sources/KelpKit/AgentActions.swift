@@ -80,12 +80,14 @@ package struct AgentActions {
     /// transcript instead of the latest part.
     func handoffMenu(_ sid: String) -> NSMenu {
         let menu = NSMenu()
-        for a in app.catalog.installed {
-            menu.add(a.name) { handoff(sid, to: a.id, full: false) }.show(app.catalog.icon(a.id))
-            let full = menu.add(String(localized: "\(a.name) — Full Transcript")) { handoff(sid, to: a.id, full: true) }
+        for agent in app.catalog.installed {
+            menu.add(agent.name) { handoff(sid, to: agent.id, full: false) }.show(app.catalog.icon(agent.id))
+            let full = menu.add(String(localized: "\(agent.name) — Full Transcript")) {
+                handoff(sid, to: agent.id, full: true)
+            }
             full.isAlternate = true
             full.keyEquivalentModifierMask = .option
-            full.show(app.catalog.icon(a.id))
+            full.show(app.catalog.icon(agent.id))
         }
         return menu
     }

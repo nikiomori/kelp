@@ -581,8 +581,9 @@ package final class AppModel {
 extension AppModel {
     /// Returns the agent whose command line shows the command session `s`. It is nil for any other session, and once
     /// that agent has ended or gone away.
-    func owner(of s: Session) -> Session? {
-        guard let id = s.startedBy, let agent = session(id), agent.status != .exited, agent.worktreeId == s.worktreeId
+    func owner(of chat: Session) -> Session? {
+        guard let id = chat.startedBy, let agent = session(id), agent.status != .exited,
+            agent.worktreeId == chat.worktreeId
         else { return nil }
         return agent
     }

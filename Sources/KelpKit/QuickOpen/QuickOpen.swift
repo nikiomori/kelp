@@ -241,9 +241,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         line.boxType = .separator
         let top = NSBox()
         top.boxType = .separator   // under the field, which is the panel's top, not a box of its own
-        for v in [field, top, sv, line, keys] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            effect.addSubview(v)
+        for part in [field, top, sv, line, keys] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            effect.addSubview(part)
         }
         // The field, the rows, the headings and the keys start at one edge, `Metrics.inset` in: the list stands
         // `gapTight` in and a row's content `gapWide` in from it (PaletteCell), 6 pt inside the row's pill.
@@ -360,10 +360,10 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     /// Returns the 200 best matches for `q`, best first, as indices into `items` and then `files` (counted on from
     /// `items.count`). Files match by fuzzy path. Everything else matches by the words of its title, so "them" finds
     /// Color Theme, not random letters.
-    nonisolated static func best(_ items: [Match], _ q: String, files: [ProjectFiles.FuzzyPath] = []) -> [Int] {
-        let fq = ProjectFiles.fuzzyQuery(q)
-        var scored = items.indices.compactMap { i in
-            wordScore(items[i].title, q).map { (i, $0 + (items[i].command ? 2 : 0)) }
+    nonisolated static func best(_ items: [Match], _ query: String, files: [ProjectFiles.FuzzyPath] = []) -> [Int] {
+        let fq = ProjectFiles.fuzzyQuery(query)
+        var scored = items.indices.compactMap { index in
+            wordScore(items[index].title, query).map { (index, $0 + (items[index].command ? 2 : 0)) }
         }
         for (i, fuzzy) in files.enumerated() {
             if let score = ProjectFiles.fuzzyScore(fuzzy, fq) { scored.append((items.count + i, score)) }

@@ -93,11 +93,11 @@ extension AppModel {
     /// Keeps `e` as the latest of its kind if it differs (each change re-renders its readers), and returns whether it
     /// did. Only what the daemon pushed (`watched`) and the shell's own refresh land here. A built-in asks again
     /// (`watchAgain`) rather than writing its own copy, so the store holds one source.
-    @discardableResult func land<E: Pushed>(_ e: E) -> Bool {
+    @discardableResult func land<E: Pushed>(_ event: E) -> Bool {
         let box = latest(E.self)
-        guard e.replaces(box.byKey[e.key]) else { return false }
-        box.byKey[e.key] = e
-        landed(e)
+        guard event.replaces(box.byKey[event.key]) else { return false }
+        box.byKey[event.key] = event
+        landed(event)
         return true
     }
 
@@ -111,13 +111,13 @@ extension AppModel {
     }
 
     /// Stores a project or workspace as it is now, so the lists follow the daemon's records without reading them again.
-    func record<R: Revised & Equatable>(_ r: R, in list: ReferenceWritableKeyPath<AppModel, [R]>) {
-        recordEvents[r.id, default: 0] += 1
-        if let index = self[keyPath: list].firstIndex(where: { $0.id == r.id }) {
+    func record<R: Revised & Equatable>(_ item: R, in list: ReferenceWritableKeyPath<AppModel, [R]>) {
+        recordEvents[item.id, default: 0] += 1
+        if let index = self[keyPath: list].firstIndex(where: { $0.id == item.id }) {
             let old = self[keyPath: list][index]
-            if old != r, !r.isOlder(than: old) { self[keyPath: list][index] = r }
+            if old != item, !item.isOlder(than: old) { self[keyPath: list][index] = item }
         } else {
-            self[keyPath: list].append(r)
+            self[keyPath: list].append(item)
         }
     }
 
