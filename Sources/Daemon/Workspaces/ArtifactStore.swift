@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 
 /// The daemon is the only process that writes `.kelp/artifacts`. It makes new pages (`artifact.new`), and it keeps
 /// links to pages published on a service together with Kelp's copy of what was sent (`artifact.add`). It also keeps
@@ -164,17 +165,8 @@ extension Artifacts {
     /// Adds `entry` as a line in the repository's own `info/exclude`, never in a tracked file, so git status stays
     /// clean. Removing that line lets git see the artifacts, so they can be committed and shared.
     static func excludeFromGit(root: String, entry: String = "/\(folder)/") throws {
-        let fm = FileManager.default, dotGit = URL(fileURLWithPath: root).appendingPathComponent(".git")
-        var isDir: ObjCBool = false
-        guard fm.fileExists(atPath: dotGit.path, isDirectory: &isDir) else { return }
-        var common = dotGit
-        if !isDir.boolValue {   // a worktree: "gitdir: <repo>/.git/worktrees/<name>"; exclude lives in <repo>/.git
-            let line = fm.contents(atPath: dotGit.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
-            guard let match = line.firstMatch(of: /gitdir:\s*(.+)/) else { return }
-            let gitdir = String(match.1).trimmingCharacters(in: .whitespacesAndNewlines)
-            common = URL(fileURLWithPath: gitdir, relativeTo: URL(fileURLWithPath: root, isDirectory: true))
-                .standardizedFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        }
+        guard let common = Git.commonDir(root) else { return }
+        let fm = FileManager.default
         let exclude = common.appendingPathComponent("info/exclude")
         let text = fm.contents(atPath: exclude.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
         guard !text.split(separator: "\n").contains(where: { $0 == entry }) else { return }

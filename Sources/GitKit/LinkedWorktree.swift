@@ -7,15 +7,16 @@ extension Git {
     /// `.claude/worktrees/…`). Read off the files alone, no git run, because each of an agent's hooks asks it.
     public static func linkedWorktree(containing dir: String, besides folder: String) -> String? {
         guard let here = checkout(dir), here.linked, let home = checkout(folder), here.top != home.top,
-            let repository = commonFolder(here), repository == commonFolder(home)
+            let repository = commonDir(here.top)?.resolvingSymlinksInPath(),
+            repository == commonDir(home.top)?.resolvingSymlinksInPath()
         else { return nil }
         return here.top
     }
 
     /// The branch a checkout has out, read from its HEAD file; nil while HEAD is detached or can't be read.
     public static func headBranch(_ folder: String) -> String? {
-        guard let checkout = checkout(folder), let gitDir = gitDir(checkout),
-            let data = FileManager.default.contents(atPath: gitDir + "/HEAD"),
+        guard let checkout = checkout(folder), let gitDir = gitDir(checkout.top),
+            let data = FileManager.default.contents(atPath: gitDir.path + "/HEAD"),
             let head = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
             head.hasPrefix("ref: refs/heads/")
         else { return nil }
@@ -69,21 +70,42 @@ extension Git {
         return nil
     }
 
-    /// The checkout's git folder: its `.git` folder, or the one its `.git` file points at.
-    private static func gitDir(_ checkout: (top: String, linked: Bool)) -> String? {
-        guard checkout.linked else { return checkout.top + "/.git" }
-        guard let data = FileManager.default.contents(atPath: checkout.top + "/.git"),
-            let text = String(data: data, encoding: .utf8), text.hasPrefix("gitdir: ")
-        else { return nil }
-        let pointed = text.dropFirst("gitdir: ".count).trimmingCharacters(in: .whitespacesAndNewlines)
-        return pointed.hasPrefix("/")
-            ? pointed : URL(fileURLWithPath: checkout.top).appendingPathComponent(pointed).path
+    /// The git folder of the checkout whose top folder is `top`: its `.git` folder, or the one its `.git` file points
+    /// at (a linked worktree's, a submodule's). nil when there is no `.git` or its file names no folder.
+    static func gitDir(_ top: String) -> URL? {
+        let dotGit = URL(fileURLWithPath: top).appendingPathComponent(".git")
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dotGit.path, isDirectory: &isDir) else { return nil }
+        if isDir.boolValue { return dotGit }
+        guard let text = String(contentsIfAny: dotGit), text.hasPrefix("gitdir: ") else { return nil }
+        let pointed = text.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines)
+        return URL(fileURLWithPath: pointed, relativeTo: URL(fileURLWithPath: top, isDirectory: true))
+            .standardizedFileURL
     }
 
-    /// The main checkout's folder that the repository's worktrees share.
-    private static func commonFolder(_ checkout: (top: String, linked: Bool)) -> String? {
-        guard checkout.linked else { return checkout.top }
-        guard let gitDir = gitDir(checkout), let cut = gitDir.range(of: "/.git/worktrees/") else { return nil }
-        return URL(fileURLWithPath: String(gitDir[..<cut.lowerBound])).resolvingSymlinksInPath().path
+    /// The git folder that all of a repository's worktrees share, where its config, refs and `info/exclude` live, for
+    /// the checkout whose top folder is `top`: its git folder, or the one that folder's `commondir` file names.
+    public static func commonDir(_ top: String) -> URL? {
+        guard let gitDir = gitDir(top) else { return nil }
+        guard let common = String(contentsIfAny: gitDir.appendingPathComponent("commondir")) else { return gitDir }
+        return URL(fileURLWithPath: common.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: gitDir)
+            .standardizedFileURL
+    }
+
+    /// The host of the repository's `origin` (github.com) for the repository `cwd` is in: where `git push` and `gh`
+    /// go. Read off its config file, no git runs.
+    public static func originHost(_ cwd: String) -> String? {
+        guard let file = RepoFilters.configFile(cwd), let config = String(contentsIfAny: URL(fileURLWithPath: file))
+        else {
+            return nil
+        }
+        var inOrigin = false
+        for line in config.split(separator: "\n").map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            if line.hasPrefix("[") { inOrigin = line == "[remote \"origin\"]" }
+            if inOrigin, line.hasPrefix("url"), let eq = line.firstIndex(of: "=") {
+                return webRepo(line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces))?.0
+            }
+        }
+        return nil
     }
 }

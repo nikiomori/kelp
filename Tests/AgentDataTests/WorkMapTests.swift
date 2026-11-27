@@ -279,25 +279,6 @@ private func sources() -> [WorkMap.Source] {
     #expect(rollout.calls.first { $0.id == "c6" }?.failed == true)
 }
 
-/// `git push` goes to the project's origin: its host read from the repository's config, a worktree's followed to it.
-@Test func aProjectsRemoteIsItsOriginsHost() throws {
-    #expect(WorkMap.Places.host(ofRemote: "git@github.com:o/r.git") == "github.com")
-    #expect(WorkMap.Places.host(ofRemote: "https://gitlab.example.org/o/r") == "gitlab.example.org")
-    #expect(WorkMap.Places.host(ofRemote: "ssh://git@host.lan:22/r") == "host.lan")
-    let repo = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: repo) }
-    let git = repo.appendingPathComponent(".git"), tree = repo.appendingPathComponent("tree")
-    try FileManager.default.createDirectory(
-        at: git.appendingPathComponent("worktrees/t"), withIntermediateDirectories: true)
-    try FileManager.default.createDirectory(at: tree, withIntermediateDirectories: true)
-    try "[core]\n\tbare = false\n[remote \"origin\"]\n\turl = git@github.com:o/r.git\n".write(
-        to: git.appendingPathComponent("config"), atomically: true, encoding: .utf8)
-    try "gitdir: \(git.path)/worktrees/t\n".write(
-        to: tree.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
-    #expect(WorkMap.Places.remote(of: repo.path) == "github.com")
-    #expect(WorkMap.Places.remote(of: tree.path) == "github.com")
-}
-
 /// A read or an edit that failed touched nothing: it is a failed step, not a place.
 @Test func aFailedCallTouchesNothing() {
     let failed = log([

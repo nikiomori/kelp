@@ -87,7 +87,7 @@ struct WorkReader {
             sources.append(WorkMap.Source(agent: role, log: childLog))
         }
         let root = try session.worktreeId.flatMap { try store.worktree($0)?.path } ?? log.cwd ?? session.cwd
-        return (sources, WorkMap.Places(root: root, home: NSHomeDirectory(), remote: WorkMap.Places.remote(of: root)))
+        return (sources, WorkMap.Places(root: root, home: NSHomeDirectory(), remote: Git.originHost(root)))
     }
 
     /// A subagent's source, from its file's name (`agent-<id>`) and its `.meta.json`.

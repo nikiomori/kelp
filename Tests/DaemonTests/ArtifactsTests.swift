@@ -89,6 +89,8 @@ private func tempRoot() throws -> URL {
     try FileManager.default.createDirectory(at: wt, withIntermediateDirectories: true)
     try "gitdir: \(repo.path)/.git/worktrees/wt\n".write(
         to: wt.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+    try "../..\n".write(
+        to: repo.appendingPathComponent(".git/worktrees/wt/commondir"), atomically: true, encoding: .utf8)
     try "*.log".write(to: repo.appendingPathComponent(".git/info/exclude"), atomically: true, encoding: .utf8)
     try Artifacts.excludeFromGit(root: wt.path)
     try Artifacts.excludeFromGit(root: wt.path)
