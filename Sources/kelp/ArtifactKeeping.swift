@@ -104,7 +104,6 @@ extension Main {
     /// with claude.ai's artifact tools saves them to disk. --check counts again once that's done.
     static func sync(_ cwd: String, _ c: RPCClient) async throws {
         let every = has("--all"), check = has("--check")
-        _ = has("--plan")
         var all = 0
         var short: [(url: String, folder: String, state: String)] = []
         for root in try await roots(every: every, cwd, c) {
