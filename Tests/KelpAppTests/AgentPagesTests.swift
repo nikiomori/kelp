@@ -84,7 +84,7 @@ import WorkbenchKit
     #expect(try #require(BrowserMarks.row(.agent("s1"), app).first).tint == .secondaryLabelColor)
     pages.change("p1") { $0.login = "x.com" }
     let mark = try #require(BrowserMarks.row(.agent("s1"), app).first)
-    #expect(mark.tint == .themeAccent && mark.tip == "Its page, with your login on x.com: Home / X")
+    #expect(mark.tint == .systemBlue && mark.tip == "Its page, with your login on x.com: Home / X")
     #expect(BrowserMarks.driven("w", app)["t1"]?.login == true)
 }
 

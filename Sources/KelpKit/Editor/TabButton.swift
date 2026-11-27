@@ -97,8 +97,8 @@ final class TabButton: NSControl, NSDraggingSource {
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
         full.font = .uiDigits(TextSize.micro, weight: .medium)
-        trailing.symbolConfiguration = .chrome(Metrics.iconTiny)
-        trailing.contentTintColor = .themeAccent   // the user's own colour, as on the page's "Your login"
+        trailing.symbolConfiguration = .chrome(Metrics.iconSmall)   // as big as the tab's icon, to be seen
+        trailing.contentTintColor = .systemBlue   // the user's own: blue whatever the accent (Graphite is grey)
         trailing.setAccessibilityElement(false)
         for part in [slot, title, trailing, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
         applyWidth()

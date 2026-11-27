@@ -24,10 +24,10 @@ enum BrowserMarks {
         case .user: (tip, tint) = (String(localized: "You have its page: \(title)"), .secondaryLabelColor)
         case .asked: (tip, tint) = (String(localized: "It asks you on its page: \(title)"), .textOrange)
         case .agent where lit == nil:
-            // The user's own colour on a page with their login, as on the page's "Your login" chip.
+            // The user's own colour on a page with their login, as the person on the page's tab.
             let login = first.page.login.map { String(localized: "Its page, with your login on \($0): \(title)") }
             tip = login ?? String(localized: "Its page: \(title)")
-            tint = login == nil ? .secondaryLabelColor : .themeAccent
+            tint = login == nil ? .secondaryLabelColor : .systemBlue   // as the tab's person, whatever the accent
         case .agent: (tip, tint) = (String(localized: "Working in its page: \(title)"), lit ?? .secondaryLabelColor)
         }
         return [

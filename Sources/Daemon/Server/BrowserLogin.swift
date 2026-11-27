@@ -44,7 +44,7 @@ extension BrowserRelay {
         let now = settings.store[SettingKeys.agentSites]   // read again: the user may have changed it meanwhile
         let added = AgentSites.adding(site, chat: ls.snapshot.displayTitle, to: now)
         _ = try settings.store.set(SettingKeys.agentSites.key, .array(added))
-        settings.changed()
+        settings.changedBeforeReply()   // the app hears the site is allowed before it opens the page
         return .string(site)
     }
 

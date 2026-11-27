@@ -48,6 +48,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// that the strip's Stop took away, which its Undo puts back.
     var loginSite: String?
     @ObservationIgnored var loginStopped: JSONValue?
+    @ObservationIgnored var followsLogins = false
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
     /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.
@@ -85,7 +86,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// or Hand Back. It has no height until then.
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
-    @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
+    @ObservationIgnored let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentIcon = NSImageView(image: .symbol("cursorarrow.motionlines"))
     @ObservationIgnored private let agentButton = PointerButton()
     /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.

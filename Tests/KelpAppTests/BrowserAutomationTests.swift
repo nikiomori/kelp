@@ -389,6 +389,22 @@ extension OneAtATime {
     #expect(!tab.stopOrUndoLogin())
 }
 
+/// The strip of a page with the user's login follows the list of sites: taken away anywhere (Settings › Browser,
+/// another page's Stop), the strip says so without waiting for the agent's next step; given back, it says so again.
+@MainActor @Test func aLoginStripFollowsTheListOfSites() async throws {
+    let app = AppModel(), entry = AgentSites.adding("example.com", chat: "read posts", to: [])
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    let tab = BrowserTab(uri: "https://www.example.com/", app: app)
+    tab.loginSite = "example.com"
+    tab.watch().drivenAt = Date()
+    tab.showAgentBar()
+    #expect(tab.agentLabel.stringValue.hasSuffix("your login on example.com"))
+    app.settings.apply([:])
+    #expect(try await waitFor { tab.agentLabel.stringValue.hasPrefix("Agents no longer use your login") })
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    #expect(try await waitFor { tab.agentLabel.stringValue.hasSuffix("your login on example.com") })
+}
+
 /// The user's tab, once taken to another site (by the user, after the agent left it), isn't the agent's to drive there.
 @MainActor @Test(.timeLimit(minutes: 1)) func aSharedTabOnAnotherSiteIsntDriven() async throws {
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())

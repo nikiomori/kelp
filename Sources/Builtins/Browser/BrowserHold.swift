@@ -158,6 +158,14 @@ extension BrowserTab {
     /// a host never has the login.
     func showLoginChip() {
         guard let site = loginSite, !requiresHostNetwork else { return }
+        if !followsLogins {   // the strip says whether the site is still allowed: Stop, Settings › Browser, kelpd
+            followsLogins = true
+            track(owner: self, now: false) { [app] in
+                app.settings[SettingKeys.agentSites]
+            } changed: { [weak self] _ in
+                self?.showAgentBar()
+            }
+        }
         hostChip.title = String(localized: "Your login")
         hostChip.toolTip = String(localized: "Agents use your login from Kelp’s browser on \(site): Settings › Browser")
         hostChip.onClick = { [weak self] in self?.app.workbench.open("settings:browser") }
