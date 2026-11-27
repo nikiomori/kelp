@@ -94,9 +94,6 @@ final class ConflictBar {
         return conflicts.firstIndex { NSMaxRange($0.whole) > caret } ?? 0
     }
 
-    /// Whether the file has a conflict left (the bar's commands act only then).
-    var hasConflicts: Bool { !conflicts.isEmpty }
-
     /// Resolves the conflict the caret is at, keeping `keep`.
     func accept(_ keep: MergeConflict.Keep) {
         guard let editor, !conflicts.isEmpty else { return }
