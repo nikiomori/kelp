@@ -29,13 +29,19 @@ func aSiteCoversItsSubdomainsOnly(address: String, covered: String?) {
     let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
     let relay = BrowserRelay.of(w.d), permissions = w.d.sessions.permissions
     let question = BrowserRelay.question(agent: "Bot", site: "x.com")   // its own name, from its file
+    /// Whether kelpd waits on the question now, with the row saying it. Not the row alone: after an answer it may
+    /// still show the question before.
+    func asked() throws -> Bool {
+        let waits = permissions.kelpWaits.withLock { $0[agent.id]?.count == 1 }
+        return try waits && summary(w, agent.id) == question
+    }
     func login(_ url: String, shared: Bool = false) async throws -> JSONValue? {
         try await relay.login(["url": .string(url), "shared": .bool(shared)], driver: (agent.id, nil), asker: nil)
     }
     #expect(try await login("x.com") == nil)   // not allowed: a page of its own, nobody asked
 
     let unanswered = Task { try await login("x.com", shared: true) }
-    #expect(try await waitFor { try summary(w, agent.id) == question })
+    #expect(try await waitFor { try asked() })
     #expect(permissions.answerKelp(agent.id, question: nil, nil))   // its ten minutes ran out
     do {
         _ = try await unanswered.value
@@ -44,14 +50,14 @@ func aSiteCoversItsSubdomainsOnly(address: String, covered: String?) {
     permissions.endKelpQuestions(agent.id)
 
     let denied = Task { try await login("x.com", shared: true) }
-    #expect(try await waitFor { try summary(w, agent.id) == question })
+    #expect(try await waitFor { try asked() })
     #expect(permissions.answerKelp(agent.id, question: nil, "deny"))
     await #expect(throws: RPCError.self) { try await denied.value }
     await #expect(throws: RPCError.self) { try await login("x.com", shared: true) }   // not asked again this turn
     permissions.endKelpQuestions(agent.id)   // the turn ends
 
     let allowed = Task { try await login("https://x.com/home", shared: true) }
-    #expect(try await waitFor { try summary(w, agent.id) == question })
+    #expect(try await waitFor { try asked() })
     #expect(permissions.answerKelp(agent.id, question: nil, "allow"))
     #expect(try await allowed.value == "x.com")
     #expect(AgentSites.entries(w.d.settings[SettingKeys.agentSites]).map(\.site) == ["x.com"])

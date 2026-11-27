@@ -49,7 +49,5 @@ extension BrowserRelay {
     }
 
     /// What the agent's row asks. Allow keeps the site in Settings › Browser.
-    static func question(agent: String, site: String) -> String {
-        "Let \(agent) use your login on \(site)?"
-    }
+    static func question(agent: String, site: String) -> String { AgentSites.question(agent: agent, site: site) }
 }

@@ -40,6 +40,14 @@ public enum AgentSites {
         return list + [.object(["site": .string(site), "chat": .string(chat), "at": when])]
     }
 
+    /// What an agent's row asks before the agent gets the user's login on `site` (kelpd's `BrowserRelay.login`); the
+    /// app answers it on a card over the agent's terminal (`asksLogin`).
+    public static func question(agent: String, site: String) -> String { "Let \(agent) use your login on \(site)?" }
+
+    public static func asksLogin(_ question: String) -> Bool {
+        question.hasPrefix("Let ") && question.hasSuffix("?") && question.contains(" use your login on ")
+    }
+
     public static func removing(_ site: String, from list: [JSONValue]) -> [JSONValue] {
         list.filter { $0["site"]?.string != site }
     }

@@ -30,6 +30,8 @@ final class PaneView: NSView {
     /// The card that also sits over the bottom of the terminal, made the first time this agent asks to change a
     /// database (`DatabaseAskCard`).
     private var askCard: DatabaseAskCard?
+    /// The card in the same place for the user's login on a site (`LoginAskCard`).
+    private var loginCard: LoginAskCard?
     /// Whether `kelp attach` still streams, and which daemon it streams from (the value of `AppModel.connections` when
     /// it started).
     private var attached = true
@@ -87,6 +89,9 @@ final class PaneView: NSView {
         let card = DatabaseAskCard(app: app, session: sessionId, worktree: worktree)   // it shows and hides itself
         askCard = card
         overlay(card)
+        let login = LoginAskCard(app: app, session: sessionId)   // so does this one, for another question
+        loginCard = login
+        overlay(login)
     }
 
     /// Places a card over the bottom of the terminal, inset from its edges, above the ended bar.
