@@ -19,6 +19,12 @@ extension Artifacts {
         return out
     }
 
+    /// The folder of the page at `path`, which must be a page in a project's `.kelp/artifacts`.
+    static func pageFolder(_ path: String) throws -> URL {
+        guard page(at: path) != nil else { throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)") }
+        return URL(fileURLWithPath: path).deletingLastPathComponent()
+    }
+
     /// Whether the page in `folder` has marks with chat `session`, waiting for its turn to end.
     static func hasMarks(sentTo session: String, in folder: URL) -> Bool {
         ArtifactMarks.read(in: folder).marks.contains {
@@ -85,10 +91,7 @@ extension ArtifactMarksChange: Handled {
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
 
     func handle(_: NoService) throws -> ArtifactMarks {
-        let folder = URL(fileURLWithPath: path).deletingLastPathComponent()
-        guard Artifacts.page(at: path) != nil else {
-            throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)")
-        }
+        let folder = try Artifacts.pageFolder(path)
         var change = change
         if change.kind == .send {
             let edits = ArtifactMarks.read(in: folder).edits
@@ -173,12 +176,9 @@ extension ArtifactAsk: Handled {
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
 
     func handle(_: NoService) throws -> Int {
-        guard Artifacts.page(at: path) != nil else {
-            throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)")
-        }
+        let folder = try Artifacts.pageFolder(path)
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty else { throw RPCError.invalidParams("ask something") }
-        let folder = URL(fileURLWithPath: path).deletingLastPathComponent()
         guard let board = Artifacts.board(holding: id, page: path) else {
             throw RPCError.invalidParams("no element with data-id=\"\(id)\" on the page")
         }
@@ -194,10 +194,7 @@ extension ArtifactSuggest: Handled {
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
 
     func handle(_: NoService) throws -> Bool {
-        guard Artifacts.page(at: path) != nil else {
-            throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)")
-        }
-        let folder = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let folder = try Artifacts.pageFolder(path)
         _ = try ArtifactMarks.update(in: folder) { $0.apply(.suggest(lines)) }
         return true
     }
@@ -222,12 +219,9 @@ extension ArtifactReply: Handled {
     var fence: Fence { Fence(writesInFolder: (path as NSString).deletingLastPathComponent) }
 
     func handle(_: NoService) throws -> Bool {
-        guard Artifacts.page(at: path) != nil else {
-            throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)")
-        }
+        let folder = try Artifacts.pageFolder(path)
         let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !line.isEmpty else { throw RPCError.invalidParams("say something about the mark") }
-        let folder = URL(fileURLWithPath: path).deletingLastPathComponent()
         guard try ArtifactMarks.update(in: folder, { $0.apply(.reply(id: id, text: String(line.prefix(2000)))) }) != nil
         else {
             throw RPCError.invalidParams("no mark #\(id) with you or waiting for the user: see kelp artifact marks")
