@@ -81,6 +81,14 @@ extension MarkdownTab {
         }
     }
 
+    /// The slide in `box` (page points) as a PNG 1920 pixels wide and `height` high.
+    func slidePNG(_ box: CGRect, height: Int) async throws -> Data? {
+        let shot = WKSnapshotConfiguration()
+        shot.rect = box
+        shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
+        return Self.png(try await web.takeSnapshot(configuration: shot), width: 1920, height: height)
+    }
+
     private static func copy(_ png: Data) {
         let board = NSPasteboard.general
         board.clearContents()

@@ -264,14 +264,6 @@ extension MarkdownTab {
         try await writePowerPoint(slides, texts: texts, to: to)
     }
 
-    /// The slide in `box` (page points) as a PNG 1920 pixels wide and `height` high.
-    func slidePNG(_ box: CGRect, height: Int) async throws -> Data? {
-        let shot = WKSnapshotConfiguration()
-        shot.rect = box
-        shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
-        return Self.png(try await web.takeSnapshot(configuration: shot), width: 1920, height: height)
-    }
-
     /// A PowerPoint of `slides` (PNG pictures) with `texts` over them, at `to`.
     func writePowerPoint(_ slides: [Data], texts: [[PowerPoint.Text]], to: URL) async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
