@@ -175,9 +175,7 @@ extension NSColor {
         guard hex.hasPrefix("#") else { return nil }
         hex.removeFirst()
         if hex.count == 3 { hex = hex.map { "\($0)\($0)" }.joined() }
-        guard hex.count == 6, let value = Int(hex, radix: 16) else { return nil }
-        self.init(
-            srgbRed: CGFloat(value >> 16 & 0xff) / 255, green: CGFloat(value >> 8 & 0xff) / 255,
-            blue: CGFloat(value & 0xff) / 255, alpha: 1)
+        guard hex.count == 6 else { return nil }
+        self.init(hex: hex)
     }
 }

@@ -30,7 +30,7 @@ extension MarkdownTab {
         panel.showsAlpha = false
         panel.isContinuous = false   // one hand edit when the pick is made, not one each step of a drag
         let pick = ColourPick()   // held by the tab, as the panel holds its target weakly
-        pick.picked = { [weak self] colour in self?.setColour(key, Self.hex(colour)) }
+        pick.picked = { [weak self] colour in self?.setColour(key, colour.hexString) }
         Self.picks.setObject(pick, forKey: self)
         panel.setTarget(pick)
         panel.setAction(#selector(ColourPick.picked(_:)))
@@ -40,12 +40,6 @@ extension MarkdownTab {
     private func setColour(_ key: String, _ hex: String) {
         Self.recent = Array(([hex] + Self.recent.filter { $0 != hex }).prefix(6))
         runJS("window.kelpProps?.set(\(Self.js(key)), \(Self.js(hex)))")
-    }
-
-    static func hex(_ colour: NSColor) -> String {
-        let c = colour.usingColorSpace(.sRGB) ?? colour
-        let parts = [c.redComponent, c.greenComponent, c.blueComponent].map { Int(($0 * 255).rounded()) }
-        return "#" + parts.map { String(format: "%02x", $0) }.joined()
     }
 
     /// How two colours read against each other (WCAG): 1 to 21.
