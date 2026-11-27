@@ -222,8 +222,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if opened != nil {
             ports.isHidden = true
             showPage()
-        } else if !agent || ownerSession != nil || previewFile != nil {
-            // Legacy agent web addresses have no record of which network they were opened on.
+        } else if !agent || ownerSession != nil || previewFile != nil || !Self.loopback(start) {
+            // An agent's page from before owners were recorded loads as it did, but for a local address: which
+            // machine's localhost it was (this Mac's or an ssh host's) isn't known.
             load(start)
         }
     }

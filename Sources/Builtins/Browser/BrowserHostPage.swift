@@ -50,6 +50,13 @@ extension BrowserTab {
         }
     }
 
+    /// Whether an address is a loopback one (localhost, 127.x, ::1), whose machine a page's address alone doesn't say.
+    static func loopback(_ address: String) -> Bool {
+        let host = URL(string: address.contains("://") ? address : "http://" + address)?.host?.lowercased() ?? ""
+        return host == "localhost" || host.hasSuffix(".localhost") || host.hasPrefix("127.") || host == "::1"
+            || host == "0.0.0.0"
+    }
+
     /// WebKit's content rules that block this Mac's loopback (any scheme, so WebSockets too) but for `ports`.
     static func loopbackRules(allowing ports: [Int]) -> String {
         let blocked = [#"localhost[:/]"#, #"[^/]*\.localhost[:/]"#, #"127\."#, #"0\.0\.0\.0[:/]"#, #"\[::1\]"#]

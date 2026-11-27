@@ -14,7 +14,11 @@ import WorkbenchKit
 @MainActor @Test(.timeLimit(minutes: 1)) func aPageDrivenFromAHostReachesOnlyItsForwardedPorts() async throws {
     let app = AppModel(), address = "http://localhost:3002/"
     let legacy = BrowserTab(uri: TabURI.agentPage(address), app: app)
-    #expect(legacy.web.url == nil && !legacy.web.isLoading)
+    #expect(legacy.web.url == nil && !legacy.web.isLoading)   // whose localhost it was isn't known
+    let site = BrowserTab(uri: TabURI.agentPage("https://example.invalid/old"), app: app)   // an old page elsewhere loads
+    #expect(try await waitFor { site.web.isLoading || site.web.url != nil || site.loadError != nil })
+    #expect(
+        BrowserTab.loopback("127.0.0.1:8080") && BrowserTab.loopback("app.localhost") && !BrowserTab.loopback("x.com"))
     let tab = BrowserTab(uri: TabURI.agentPage(address, session: "remote:\(UUID())"), app: app)
     let store = tab.web.configuration.websiteDataStore
     #expect(!store.isPersistent && tab.awaitsHostNetwork)

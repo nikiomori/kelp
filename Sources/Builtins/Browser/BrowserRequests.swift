@@ -46,7 +46,14 @@ struct BrowserRequests {
 
         guard let url = args["url"]?.string, !url.isEmpty else { throw RPCError.invalidParams("open needs url") }
         // kelpd alone says an open gets the user's login (`BrowserRelay.login`); it refused `--shared` without it.
-        if let site = args["yourLogin"]?.string { return try await openWithLogin(site, url, scope, tabs, args) }
+        if let site = args["yourLogin"]?.string {
+            // A command from outside Kelp's chats (a script, an agent in another terminal app) has no row to ask on:
+            // a site not in the list is asked for here, as `--shared` always was.
+            if session == nil, !allows(site), await !Self.allowOutside(site) {
+                throw RPCError.refused("The user didn't let this command use their login on \(site).")
+            }
+            return try await openWithLogin(site, url, scope, tabs, args)
+        }
         guard args["shared"]?.bool != true else {
             throw RPCError.refused("The user didn't let you use their login there.")
         }
@@ -89,6 +96,14 @@ struct BrowserRequests {
         pages.browsed[scope] = pages.browsed[chat]
         app.uiState[key] = .string(page.id)
         return try await browse(page, in: wid, .info, args, login: site)
+    }
+
+    private static func allowOutside(_ site: String) async -> Bool {
+        await confirm(
+            String(localized: "Let this command use your login on \(site)?"),
+            detail: String(
+                localized: "It comes from outside Kelp’s chats and can act as you on \(site) with your cookies."),
+            action: String(localized: "Allow"), cancel: String(localized: "Don’t Allow"))
     }
 
     /// Whether agents may still use the user's login on `site` (Settings › Browser, a page's Stop).

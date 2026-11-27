@@ -186,6 +186,8 @@ struct BrowserRelay {
         guard HostBrowser.page == nil, let live = asks.existing(session) else { return (session, nil) }
         var call: String?, thread = LiveSession.BrowserThread.unknown
         if live.snapshot.agent == Session.codexAgent, let pid = asks.clients.connection(conn)?.peerPID {
+            // Limit: the agent sets its own environment, so a Codex thread could name another thread of its chat. The
+            // chat itself comes from the caller's process, and a page with the user's login is the chat's anyway.
             let env = Subprocess.environment(pid, keys: ["CODEX_TOOL_CALL_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"])
             call = env["CODEX_TOOL_CALL_ID"].flatMap { $0.isEmpty ? nil : $0 }
             if let label = env["CODEX_THREAD_ID"], let id = UUID(uuidString: label),

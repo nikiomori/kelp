@@ -220,7 +220,9 @@ extension SettingsSet: Handled {
         // every project's language servers, with their own settings: some name a program they run (a check command)
         SettingKeys.languageServers.key,
         "editor.suggestion", "editor.nextEdit",   // the Files built-in's keys, by prefix as `phone.`
-        SettingKeys.agentSites.key   // the sites where agents act as the user: an agent adding one would let itself in
+        // the sites where agents act as the user: an agent adding one would let itself in. Limit: as for every key
+        // here, the fence is on `settings.set`; a program running as the user can still edit settings.json.
+        SettingKeys.agentSites.key
     ]
     var fence: Fence {
         Fence(
