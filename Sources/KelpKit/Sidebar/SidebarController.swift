@@ -101,7 +101,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             }
         }
     }
-    var roots: [Node] = []
+    var roots: [Node] = [] {
+        didSet { index = NodeIndex(roots) }
+    }
+    /// The rows by key and by the workspace they stand for, made again with the tree, so finding a session's rows
+    /// doesn't walk the whole tree for each session that changed.
+    private(set) var index = NodeIndex([])
     var shape: [String] = []
     /// Project id → the host the project is on. A host's header and its projects share one hatched card
     /// (`placeCards`).

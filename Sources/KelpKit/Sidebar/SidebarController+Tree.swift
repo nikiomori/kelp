@@ -110,7 +110,7 @@ extension SidebarController {
         let chat = TabURI.scheme(tab) == "session" ? TabURI.body(tab) : nil
         if id != revealed, let chat,
             let project = Self.isHeader(workspace) ? workspace : outline.parent(forItem: workspace) as? Node,
-            isCollapsed(project), find({ $0.hidden.contains(chat) }) != nil
+            isCollapsed(project), index.holding[chat] != nil
         {
             revealed = id
             unfold(project)
@@ -177,7 +177,7 @@ extension SidebarController {
     /// The row a node shows in: its own row, the nearest folded row above it, or the row of a folded project that
     /// holds it as a logo.
     private func shownRow(_ key: String) -> Int? {
-        if key.hasPrefix("a:"), case let id = String(key.dropFirst(2)), let holder = find({ $0.hidden.contains(id) }) {
+        if key.hasPrefix("a:"), case let id = String(key.dropFirst(2)), let holder = index.holding[id] {
             let row = outline.row(forItem: holder)
             if row >= 0 { return row }
         }
