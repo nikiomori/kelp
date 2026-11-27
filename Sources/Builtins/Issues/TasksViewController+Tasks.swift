@@ -86,17 +86,24 @@ extension TasksViewController {
         menu.add(String(localized: "Show in Tasks Tab")) { [app] in app.extensions.run("tasks.show", [:]) }
     }
 
-    /// An issue's "Add to Tasks", or "Show in Tasks" when it is one already: a line in the inbox with the issue's
-    /// link, its words the issue's title.
     func addTaskItem(_ menu: NSMenu, title: String, url: String) {
-        if let known = task(issue: url) {
-            menu.add(String(localized: "Show in Tasks")) { [app] in TaskActions.open(app, known) }
-        } else {
-            menu.add(String(localized: "Add to Tasks")) { [app, repoId] in
-                guard let repoId else { return }
-                Task { _ = await TaskActions.add(app, repo: repoId, text: title, issue: url) }
+        let item = Self.taskAction(app, known: task(issue: url), repo: repoId, title: title, url: url)
+        menu.add(item.title, item.action)
+    }
+
+    /// An issue's "Add to Tasks", or "Show in Tasks" when `known` is its task already: a line in the inbox with the
+    /// issue's link, its words the issue's title.
+    static func taskAction(
+        _ app: AppModel, known: TaskRow?, repo: String?, title: String, url: String
+    ) -> (title: String, action: @MainActor () -> Void) {
+        if let known { return (String(localized: "Show in Tasks"), { TaskActions.open(app, known) }) }
+        return (
+            String(localized: "Add to Tasks"),
+            {
+                guard let repo else { return }
+                Task { _ = await TaskActions.add(app, repo: repo, text: title, issue: url) }
             }
-        }
+        )
     }
 
     /// Writes down a chat started from an issue as the issue's task (the line it has, or a new one in the inbox), so
