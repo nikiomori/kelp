@@ -111,15 +111,18 @@ public struct TaskAdd: RPCMethod {
 /// proposed.
 /// `grow` makes the line a page of its own (the person's alone): a page titled with the line's words, a **Done when:**
 /// line in `goalLabel`'s words, a heading named `grow` for its plan, and the line becomes a link to it.
+/// `move` takes the line, with its id and chats, to the page of that file (the same one too), as the last line under
+/// the heading `under` (its first heading when nil); the person's alone.
 /// Returns the line as written, or nil once removed.
 public struct TaskChange: RPCMethod {
     public static let name = "task.change"
     public typealias Result = TaskLine?
     public var path: String, task: TaskRef
     public var state: TaskState?, accept: Bool?, chat: String?, remove: Bool?, grow: String?, goalLabel: String?
+    public var move: String?, under: String?
     public init(
         path: String, task: TaskRef, state: TaskState? = nil, accept: Bool? = nil, chat: String? = nil,
-        remove: Bool? = nil, grow: String? = nil, goalLabel: String? = nil
+        remove: Bool? = nil, grow: String? = nil, goalLabel: String? = nil, move: String? = nil, under: String? = nil
     ) {
         self.path = path
         self.task = task
@@ -129,5 +132,7 @@ public struct TaskChange: RPCMethod {
         self.remove = remove
         self.grow = grow
         self.goalLabel = goalLabel
+        self.move = move
+        self.under = under
     }
 }

@@ -23,6 +23,8 @@ final class TasksTab: KelpKit.TabContent {
         view = controller.view
     }
     func focus() { controller.focus() }
+    var canGroup: Bool { controller.list.selected.count > 1 }
+    func group() { controller.groupChosen() }
 }
 
 /// Lays the tab out (its bar, the lists, the rows) and follows the model.
@@ -49,6 +51,7 @@ final class TasksController: NSViewController {
         list = TaskRows(model: model)
         board = TaskBoard(model: model)
         super.init(nibName: nil, bundle: nil)
+        list.table.onSpace = { [weak self] in self?.togglePreview() }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -135,6 +138,9 @@ final class TasksController: NSViewController {
     }
 
     func focus() { view.window?.makeFirstResponder(list.table) }
+
+    /// ⌥⌘G: the chosen lines become one task, the first growing into a page with the others as its plan.
+    func groupChosen() { TaskActions.group(model.app, list.selected) }
 
     private func reload() {
         let rows = model.rows

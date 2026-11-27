@@ -173,11 +173,25 @@ extension TaskChange: Handled {
         let own = agent != nil && current.by == agent && current.proposed == true
         if agent != nil {
             if grow != nil { throw RPCError.refused("only the person makes a task a page") }
+            if move != nil { throw RPCError.refused("only the person moves a task") }
             if accept == true { throw RPCError.refused("only the person takes a proposed task") }
             if remove == true, !own { throw RPCError.refused("an agent removes only the tasks it proposed") }
             if let state, current.depth == 0, !(own && state == .cancelled) {
                 throw RPCError.refused("a task line is closed by the person; mark the steps under it")
             }
+        }
+        if let move {
+            // Out of this page, into the other (or into another heading of this one), as written, set in no further.
+            var line = current
+            line.depth = 0
+            let source = try TaskLines.remove(text, task)
+            try TaskStore.write(source, to: path)
+            let target = move == path ? source : try TaskStore.read(move)
+            let (moved, at) = TaskLines.add(line, under: under, to: target, newSection: under ?? "Inbox")
+            try TaskStore.write(moved, to: move)
+            line.line = at
+            line.section = under ?? TaskLines.sections(moved).first
+            return line
         }
         if remove == true {
             guard (current.chats ?? []).isEmpty else {

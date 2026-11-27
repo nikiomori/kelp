@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 import WorkbenchKit
 
@@ -24,6 +25,10 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
     private let field = NSTextField()
     private let to = NSPopUpButton()
     private var hotKey: EventHotKeyRef?
+    /// The code the line is about, when it was written down with code selected in Kelp's editor: `path:line` in the
+    /// project, said under the field and added to the line.
+    private var code: String?
+    private let from = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     /// Where each item of To sends the line: a project, and a heading of its list (nil: its inbox).
     private var places: [(repo: String, under: String?)] = []
 
@@ -31,7 +36,10 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
 
     /// Shows the card, the line going to `repo`'s inbox unless the person picks another place.
     func show(repo: String?) {
+        code = NSApp.isActive ? Self.codeHere(app) : nil
         let panel = self.panel ?? make()
+        from.stringValue = code.map { "↪ " + $0 } ?? ""
+        from.isHidden = code == nil
         fillPlaces(repo: repo ?? app.worktree(app.workbench.workspaceId)?.repoId)
         if let screen = NSScreen.main {
             let frame = screen.visibleFrame, size = panel.frame.size
@@ -83,7 +91,8 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
             NSTextField.label(String(localized: "To:"), font: .ui(TextSize.caption)), to, NSView(), hint
         ])
         foot.spacing = Metrics.gap
-        let stack = NSStackView(views: [top, foot])
+        from.lineBreakMode = .byTruncatingMiddle
+        let stack = NSStackView(views: [top, from, foot])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gapWide
@@ -134,9 +143,11 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
         guard !words.isEmpty, places.indices.contains(picked) else { return NSSound.beep() }
         let place = places[picked], app = self.app
         Task {
-            guard let made = await TaskActions.add(app, repo: place.repo, text: words, under: place.under) else {
+            let text = code.map { "\(words) (`\($0)`)" } ?? words
+            guard let made = await TaskActions.add(app, repo: place.repo, text: text, under: place.under) else {
                 return
             }
+            code = nil
             field.stringValue = ""
             panel?.orderOut(nil)
             if andOpen {
@@ -145,6 +156,16 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
                 app.workbench.open(TabURI.file(made.path, line: made.task.line))
             }
         }
+    }
+
+    /// The selection in Kelp's focused editor as `path:line` in its project (or the line with the cursor).
+    static func codeHere(_ app: AppModel) -> String? {
+        guard let editor = CodeEditor.focused, let file = app.workbench.focusedContent?.fileURL?.path,
+            let lines = editor.selectedLines ?? editor.cursor.map({ $0.line...$0.line })
+        else { return nil }
+        let root = app.worktree(app.workbench.workspaceId)?.path
+        let path = root.map { Paths.inside(file, $0) ? String(file.dropFirst($0.count + 1)) : file } ?? file
+        return lines.count > 1 ? "\(path):\(lines.lowerBound)-\(lines.upperBound)" : "\(path):\(lines.lowerBound)"
     }
 
     /// Registers ⌃⌥Space from any app (a Carbon hot key, so no Accessibility permission is needed), as ⌃⌥⌘K is.

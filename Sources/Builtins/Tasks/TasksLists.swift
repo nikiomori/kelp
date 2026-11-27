@@ -151,6 +151,7 @@ final class TaskRows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMe
         table.menu = NSMenu()
         table.menu?.delegate = self
         table.doubleAction = #selector(doubleClicked)
+        table.allowsMultipleSelection = true   // ⌘/⇧-click: several lines, to group (⌥⌘G), close or cancel at once
         table.target = self
         // Return shows the line, ⌘Return ticks it, ⇧Return hands it to the last agent.
         table.onReturn = { [weak self] in
@@ -180,6 +181,8 @@ final class TaskRows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMe
     }
 
     var chosen: TaskRow? { task(at: table.clickedRow >= 0 ? table.clickedRow : table.selectedRow) }
+    /// The chosen lines, in the list's order.
+    var selected: [TaskRow] { table.selectedRowIndexes.compactMap(task(at:)) }
     private func task(at index: Int) -> TaskRow? {
         guard rows.indices.contains(index), case .task(let row) = rows[index] else { return nil }
         return row
@@ -190,7 +193,20 @@ final class TaskRows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMe
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard let row = task(at: table.clickedRow) else { return }
-        TaskActions.fill(menu, model.app, row)
+        let many = selected
+        guard many.count > 1, table.selectedRowIndexes.contains(table.clickedRow) else {
+            return TaskActions.fill(menu, model.app, row)
+        }
+        // Several chosen: what is done to all of them at once. Handing them to an agent at once isn't offered (it
+        // would be a queue): group them into one task first.
+        let app = model.app
+        menu.add(String(localized: "Make One Task of \(many.count)"), key: "g") { TaskActions.group(app, many) }
+            .keyEquivalentModifierMask = [.option, .command]
+        menu.addItem(.separator())
+        menu.add(String(localized: "Mark \(many.count) as Done")) { for r in many { TaskActions.set(app, r, .done) } }
+        menu.add(String(localized: "Cancel \(many.count) Tasks")) {
+            for r in many { TaskActions.set(app, r, .cancelled) }
+        }
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }

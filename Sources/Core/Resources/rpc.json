@@ -15487,7 +15487,7 @@
       }
     },
     {
-      "description" : "Changes the task `task` names on the page `path`: its `state`, taking an agent's proposal (`accept`), adding a `chat` started for it, or removing the line (`remove`; refused while chats are linked). Only the person closes or cancels a task line: an agent's program may tick the steps under one (an indented line), and cancel what it proposed. `grow` makes the line a page of its own (the person's alone): a page titled with the line's words, a **Done when:** line in `goalLabel`'s words, a heading named `grow` for its plan, and the line becomes a link to it. Returns the line as written, or nil once removed.",
+      "description" : "Changes the task `task` names on the page `path`: its `state`, taking an agent's proposal (`accept`), adding a `chat` started for it, or removing the line (`remove`; refused while chats are linked). Only the person closes or cancels a task line: an agent's program may tick the steps under one (an indented line), and cancel what it proposed. `grow` makes the line a page of its own (the person's alone): a page titled with the line's words, a **Done when:** line in `goalLabel`'s words, a heading named `grow` for its plan, and the line becomes a link to it. `move` takes the line, with its id and chats, to the page of that file (the same one too), as the last line under the heading `under` (its first heading when nil); the person's alone. Returns the line as written, or nil once removed.",
       "name" : "task.change",
       "paramStructure" : "by-name",
       "params" : [
@@ -15520,6 +15520,13 @@
           }
         },
         {
+          "name" : "move",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "path",
           "required" : true,
           "schema" : {
@@ -15545,6 +15552,13 @@
           "required" : true,
           "schema" : {
             "$ref" : "#/components/schemas/TaskRef"
+          }
+        },
+        {
+          "name" : "under",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         }
       ],

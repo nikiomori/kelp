@@ -18,7 +18,11 @@ extension Builtins {
             editors: [EditorSpec(id: "tasks.open", title: "Tasks", icon: "checklist") { _ in TasksTab.uri }],
             commands: [
                 cmd("tasks.show", "Tasks") { app.workbench.open(TasksTab.uri) },
-                cmd("tasks.new", "New Task…") { entry.show(repo: nil) }
+                cmd("tasks.new", "New Task…") { entry.show(repo: nil) },
+                CommandSpec(
+                    id: "tasks.group", title: "Tasks: Make One Task of the Chosen", key: "opt+cmd+g",
+                    enabled: { (app.workbench.focusedContent as? TasksTab)?.canGroup ?? false }
+                ) { _ in (app.workbench.focusedContent as? TasksTab)?.group() }
             ],
             tabs: [
                 TabProvider(

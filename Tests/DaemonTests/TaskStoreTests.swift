@@ -144,3 +144,34 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     #expect(pages.first { $0.path == page.path }?.tasks.map(\.section) == ["Plan"])
     #expect(pages.first { $0.path == page.path }?.goal == "found in 200 ms")
 }
+
+/// A line moves to another heading or page with its id and chats; only the person moves one.
+@Test func aTaskMovesWithItsChats() throws {
+    let p = try project()
+    defer { try? FileManager.default.removeItem(at: p.root) }
+    let first = try TaskAdd(repoId: p.repo.id, text: "Search chats").handle(p.store)
+    let second = try TaskAdd(repoId: p.repo.id, text: "Index transcripts", chat: "s1").handle(p.store)
+    try Sessions.$asker.withValue(p.agent.id) {
+        #expect(throws: RPCError.self) {
+            try TaskChange(path: second.path, task: TaskRef(second.task), move: second.path, under: "Later").handle(
+                p.store)
+        }
+    }
+    let later = try #require(
+        try TaskChange(path: second.path, task: TaskRef(second.task), move: second.path, under: "Later").handle(p.store)
+    )
+    #expect(later.section == "Later" && later.chats == ["s1"])
+    let grown = try #require(
+        try TaskChange(path: first.path, task: TaskRef(first.task), grow: "Plan").handle(p.store))
+    let page = URL(fileURLWithPath: first.path).deletingLastPathComponent().appendingPathComponent(
+        try #require(grown.page)
+    )
+    .standardizedFileURL.path
+    _ = try TaskChange(path: first.path, task: TaskRef(id: second.task.id), move: page, under: "Plan").handle(p.store)
+    let pages = try TaskList(repoId: p.repo.id).handle(p.store)
+    #expect(
+        pages.first { $0.path == page }?.tasks.map { [$0.text, $0.section, $0.id] } == [
+            ["Index transcripts", "Plan", second.task.id]
+        ])
+    #expect(pages.first { $0.isList == true }?.tasks.map(\.text) == ["[Search chats](../search-chats/doc.md)"])
+}

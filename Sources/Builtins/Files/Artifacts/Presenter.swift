@@ -268,6 +268,9 @@ extension MarkdownTab {
             guard next != editor.text else { break }
             editor.apply(text: next, selection: NSRange(location: 0, length: 0))
             Task { _ = await saveFile?() }
+        case "taskRun":   // ▶ on a task line of the page (`taskScript`)
+            guard let line = (body["line"] as? NSNumber)?.intValue, let row = taskRow(line: line) else { break }
+            TaskActions.run(app, row)
         case "retext":
             guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
             guard

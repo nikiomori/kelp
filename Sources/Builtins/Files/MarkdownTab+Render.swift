@@ -89,6 +89,8 @@ extension MarkdownTab {
             let markLabels = pageMarkLabels,
                 slideLabels = slidesLabels
             let turn = shown == nil && kind == .markdown ? baseline : nil
+            let linked = agents && kind == .markdown ? linkedBlock() : ""
+            let tasks = agents ? taskScript() : nil
             let noSource = String(localized: "Where it came from isn’t said: ask its agent for a data-source.")
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
@@ -132,7 +134,7 @@ extension MarkdownTab {
                         [ReviewPage.script], nil
                     )
                 }
-                let body = MarkdownHTML.render(text, marking: true)
+                let body = MarkdownHTML.render(text, marking: true) + linked
                 var html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
                 let mermaid = MarkdownHTML.mermaid(for: text, dark: dark), math = MarkdownHTML.math(for: body)
                 var scripts = [mermaid, math, MarkdownHTML.scrollSync].compactMap { $0 }
@@ -160,6 +162,7 @@ extension MarkdownTab {
                     MarkColumn.source(marks: marks, labels: columnLabels), PageMarks.source(labels: markLabels)
                 ]
                 if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
+                if let tasks { scripts.append(tasks) }   // after PageMarks, which turns the boxes on
                 return (html, scripts + again, nil)
             }.value
             guard !Task.isCancelled else { return }

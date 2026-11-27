@@ -18,8 +18,13 @@ package enum TaskActions {
         TaskListNames(title: String(localized: "Tasks"), inbox: String(localized: "Inbox"))
     }
 
-    /// The agent a task goes to with ▶: the one ⌘N starts.
-    package static func lastAgent(_ app: AppModel) -> String { app.catalog.defaultAgent }
+    /// The agent the last task went to, offered first next time (the window's state); the one ⌘N starts until then.
+    static let lastAgentKey = "tasks.lastAgent"
+    package static func lastAgent(_ app: AppModel) -> String {
+        let last = app.uiState[lastAgentKey]?.string
+        return app.catalog.installed.contains { $0.id == last && Session.isAgent($0.id) }
+            ? last ?? app.catalog.defaultAgent : app.catalog.defaultAgent
+    }
 
     /// Sets the person's decision. Giving up a task whose agent still works asks whether to stop the agent too: the
     /// task is cancelled either way, and the chats stay.
@@ -69,6 +74,46 @@ package enum TaskActions {
         }
     }
 
+    /// Takes the task, with its chats, under `heading` of the page `path`.
+    package static func move(_ app: AppModel, _ row: TaskRow, to path: String, under heading: String?) {
+        Task {
+            _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), move: path, under: heading))
+        }
+    }
+
+    /// Several lines become one task: the first grows into a page, the others go under its Plan, as Craft groups
+    /// blocks into a page (⌥⌘G).
+    package static func group(_ app: AppModel, _ rows: [TaskRow]) {
+        guard let first = rows.first, rows.count > 1 else { return NSSound.beep() }
+        Task {
+            let plan = String(localized: "Plan")
+            guard
+                let line = await app.call(
+                    TaskChange(
+                        path: first.page.path, task: TaskRef(first.task), grow: plan,
+                        goalLabel: String(localized: "Done when"))) ?? nil
+            else { return }
+            var grown = first
+            grown.task = line
+            guard let page = grownPage(grown) else { return }
+            for row in rows.dropFirst() {
+                _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), move: page, under: plan))
+            }
+            open(app, grown)
+        }
+    }
+
+    /// The places a task can move to in its project: the list's headings, then the pages tasks grew into.
+    static func places(_ app: AppModel, _ row: TaskRow) -> [(title: String, path: String, under: String?)] {
+        let pages = app.latest(TasksEvent.self, row.repo)?.pages ?? []
+        let list = pages.first { $0.isList == true }
+        let headings = (list?.sections ?? []).map { (title: $0, path: list?.path ?? "", under: Optional($0)) }
+        let grown = pages.filter { $0.isList != true && $0.path != row.page.path }.map {
+            (title: $0.title, path: $0.path, under: String?.none)
+        }
+        return (headings + grown).filter { !($0.path == row.page.path && $0.under == row.task.section) }
+    }
+
     /// The page the task grew into, or the page it is on, at its line.
     package static func open(_ app: AppModel, _ row: TaskRow) {
         if let path = grownPage(row) {
@@ -77,6 +122,9 @@ package enum TaskActions {
             app.workbench.open(TabURI.file(row.page.path, line: row.task.line))
         }
     }
+
+    /// The page that shows the task: the one it grew into, or the one it is on.
+    package static func pageFile(_ row: TaskRow) -> String { grownPage(row) ?? row.page.path }
 
     /// The file of the page the task grew into, if it did.
     static func grownPage(_ row: TaskRow) -> String? {
@@ -91,6 +139,7 @@ package enum TaskActions {
     /// asks, and changes no code.
     package static func run(_ app: AppModel, _ row: TaskRow, agent: String? = nil, plan: Bool = false) {
         let agent = agent ?? lastAgent(app)
+        Task { _ = await app.uiState.save(lastAgentKey, .string(agent)) }
         Task {
             guard let line = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task))) ?? nil,
                 let id = line.id
@@ -128,19 +177,9 @@ package enum TaskActions {
         return app.worktrees.first { $0.repoId == repo && $0.path == path && !$0.archived }?.id
     }
 
-    /// What the agent is told: the task's words, where it is, and how to tick its steps. In English, as Kelp's other
-    /// prompts to agents are.
+    /// What the agent is told (`TaskLines.brief`).
     static func brief(_ task: TaskLine, _ page: TaskPage, goal: String? = nil, slash: Bool = false) -> String {
-        var lines = [task.title, ""]
-        if let issue = task.issue { lines.append("It comes from \(issue).") }
-        lines.append(
-            "This is a task from the project's task list (\(page.path), line \(task.line)). "
-                + "`kelp task show \(task.id ?? "")` reads it with the steps under it; tick a step with "
-                + "`kelp task done <id>` when it's done. The person closes the task itself.")
-        guard let goal else { return lines.joined(separator: "\n") }
-        // /goal takes one line: the condition, then the task it is for.
-        if slash { return "/goal \(goal) — " + lines.filter { !$0.isEmpty }.joined(separator: " ") }
-        return (lines + ["", "Done when: \(goal)"]).joined(separator: "\n")
+        TaskLines.brief(task, page: page.path, goal: goal, slash: slash)
     }
 
     /// Adds a task to the project's list (its inbox unless `under` names a heading), as the person writes it.
@@ -181,6 +220,12 @@ package enum TaskActions {
         }
         menu.add(row.task.page == nil ? String(localized: "Show on Its Page") : String(localized: "Open Page")) {
             open(app, row)
+        }
+        let places = places(app, row)
+        if isOpen, !places.isEmpty {
+            let sub = NSMenu()
+            for place in places { sub.add(place.title) { move(app, row, to: place.path, under: place.under) } }
+            menu.add(String(localized: "Move To"), submenu: sub)
         }
         let chats = (row.task.chats ?? []).compactMap(app.session)
         for chat in chats {

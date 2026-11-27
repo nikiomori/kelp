@@ -82,7 +82,7 @@ let package = Package(
         .target(name: "BuiltinDatabases", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit", "EditorKit"], path: "Sources/Builtins/Databases"),
         .target(name: "BuiltinRun", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Run"),
         .target(name: "BuiltinWork", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Work"),
-        .target(name: "BuiltinTasks", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Tasks"),
+        .target(name: "BuiltinTasks", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit", "EditorKit"], path: "Sources/Builtins/Tasks"),
         .executableTarget(
             name: "KelpApp",
             dependencies: ["KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues", "BuiltinActivity",
