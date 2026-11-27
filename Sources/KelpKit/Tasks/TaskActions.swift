@@ -61,17 +61,17 @@ package enum TaskActions {
 
     /// Makes the task a page of its own, with a Plan heading for its steps, and opens it.
     package static func grow(_ app: AppModel, _ row: TaskRow) {
-        Task {
-            guard
-                let line = await app.call(
-                    TaskChange(
-                        path: row.page.path, task: TaskRef(row.task), grow: String(localized: "Plan"),
-                        goalLabel: String(localized: "Done when"))) ?? nil
-            else { return }
-            var grown = row
-            grown.task = line
-            open(app, grown)
-        }
+        Task { if let grown = await Self.grown(app, row) { open(app, grown) } }
+    }
+    /// The row once its task grew into a page with a Plan heading; nil when it didn't.
+    private static func grown(_ app: AppModel, _ row: TaskRow) async -> TaskRow? {
+        let change = TaskChange(
+            path: row.page.path, task: TaskRef(row.task), grow: String(localized: "Plan"),
+            goalLabel: String(localized: "Done when"))
+        guard let line = await app.call(change) ?? nil else { return nil }
+        var grown = row
+        grown.task = line
+        return grown
     }
 
     /// Takes the task, with its chats, under `heading` of the page `path`.
@@ -86,18 +86,11 @@ package enum TaskActions {
     package static func group(_ app: AppModel, _ rows: [TaskRow]) {
         guard let first = rows.first, rows.count > 1 else { return NSSound.beep() }
         Task {
-            let plan = String(localized: "Plan")
-            guard
-                let line = await app.call(
-                    TaskChange(
-                        path: first.page.path, task: TaskRef(first.task), grow: plan,
-                        goalLabel: String(localized: "Done when"))) ?? nil
-            else { return }
-            var grown = first
-            grown.task = line
-            guard let page = grownPage(grown) else { return }
+            guard let grown = await Self.grown(app, first), let page = grownPage(grown) else { return }
             for row in rows.dropFirst() {
-                _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), move: page, under: plan))
+                _ = await app.call(
+                    TaskChange(
+                        path: row.page.path, task: TaskRef(row.task), move: page, under: String(localized: "Plan")))
             }
             open(app, grown)
         }
