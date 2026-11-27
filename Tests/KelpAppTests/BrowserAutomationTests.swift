@@ -443,7 +443,9 @@ extension OneAtATime {
             - main
               - button "Add to cart" [ref=e3]
             """)
-    #expect(await BrowserTab.snapshotReply(snap, .find("checkout")).0?.hasSuffix(#"Nothing on the page mentions "checkout"."#) == true)
+    #expect(
+        await BrowserTab.snapshotReply(snap, .find("checkout")).0?.hasSuffix(
+            #"Nothing on the page mentions "checkout"."#) == true)
     // What's inside a match comes with it: a heading's list, a form's fields.
     #expect(
         await BrowserTab.snapshotReply(snap, .find("site")).0 == """
@@ -455,8 +457,9 @@ extension OneAtATime {
             """)
     let children = (1...21).map { "    child \($0)" }
     let uneven = ["Page", " group", "    MATCH", "        inner", "  Match"] + children + [" unrelated"]
-    #expect(await BrowserTab.snapshotReply(uneven.joined(separator: "\n"), .find("match")).0
-        == (Array(uneven.prefix(5)) + children.prefix(20)).joined(separator: "\n"))
+    #expect(
+        await BrowserTab.snapshotReply(uneven.joined(separator: "\n"), .find("match")).0
+            == (Array(uneven.prefix(5)) + children.prefix(20)).joined(separator: "\n"))
 }
 
 /// A link with `download` on an agent's page: the file lands in Kelp's temporary folder, and the click's answer says
@@ -696,8 +699,12 @@ extension OneAtATime {
     let dense = await BrowserTab.snapshotReply(siblings, .fresh).0
     #expect(dense?.hasSuffix("… 19960 more: snapshot shows them") == true)
     let long = (["Page"] + (1...50).map { "- text: \"\($0)\" [new]" }).joined(separator: "\n")
-    #expect(await BrowserTab.snapshotReply(long, .page).0?.hasSuffix("\"40\" [new]\n… 10 more lines: snapshot shows them") == true)
-    #expect(await BrowserTab.snapshotReply(long, .fresh).0?.hasSuffix("\"40\" [new]\n… 10 more: snapshot shows them") == true)
+    #expect(
+        await BrowserTab.snapshotReply(long, .page).0?.hasSuffix("\"40\" [new]\n… 10 more lines: snapshot shows them")
+            == true)
+    #expect(
+        await BrowserTab.snapshotReply(long, .fresh).0?.hasSuffix("\"40\" [new]\n… 10 more: snapshot shows them")
+            == true)
 }
 
 /// The pointer the user watches says whose it is and what it does, in a colour that stands out on any page: the

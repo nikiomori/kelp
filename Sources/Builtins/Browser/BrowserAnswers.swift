@@ -48,7 +48,9 @@ extension BrowserTab {
     nonisolated static func snapshotReply(_ text: String, _ format: SnapshotFormat) async
         -> (String?, [(String, String)])
     {
-        let lines = text.unicodeScalars.split(separator: "\n", omittingEmptySubsequences: false).lazy.map { Substring($0) }
+        let lines = text.unicodeScalars.split(separator: "\n", omittingEmptySubsequences: false).lazy.map {
+            Substring($0)
+        }
         let names: [(String, String)] = lines.compactMap(named)
         let body = lines.dropFirst()
         switch format {
