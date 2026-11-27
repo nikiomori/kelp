@@ -37,12 +37,7 @@ final class WorkIndex: Sendable {
     /// Runs `body` holding `key`'s lock: one reader of a file (or a host session) at a time, the next one waits and
     /// continues from where it got to, instead of reading it again from the start.
     func locked<T>(_ key: String, _ body: () throws -> T) rethrows -> T {
-        let lock = reading.withLock { locks in
-            if let lock = locks[key] { return lock }
-            let lock = NSLock()
-            locks[key] = lock
-            return lock
-        }
+        let lock = lock(key)
         lock.lock()
         defer { lock.unlock() }
         return try body()
@@ -51,15 +46,20 @@ final class WorkIndex: Sendable {
     /// Runs `body` if nobody holds `key`'s lock, else returns nil at once: a reader that would wait on another's ssh
     /// run takes the answer kept instead (`kept`).
     func ifFree<T>(_ key: String, _ body: () throws -> T?) rethrows -> T? {
-        let lock = reading.withLock { locks in
+        let lock = lock(key)
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        return try body()
+    }
+
+    /// `key`'s lock, made the first time it is asked for.
+    private func lock(_ key: String) -> NSLock {
+        reading.withLock { locks in
             if let lock = locks[key] { return lock }
             let lock = NSLock()
             locks[key] = lock
             return lock
         }
-        guard lock.try() else { return nil }
-        defer { lock.unlock() }
-        return try body()
     }
 
     /// The answer kept for `key`, however old.

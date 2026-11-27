@@ -7,6 +7,17 @@ extension Git {
         String(branch.map { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" ? $0 : "-" })
     }
 
+    /// The path in `dir` for a new worktree of `branch` that nothing is at: "feat/a" and "feat-a" make one slug, and
+    /// the second gets "-2" rather than a confusing "already exists" from git.
+    static func freeFolder(_ branch: String, in dir: URL) -> String {
+        var path = dir.appendingPathComponent(slug(branch)).path, n = 2
+        while FileManager.default.fileExists(atPath: path) {
+            path = dir.appendingPathComponent("\(slug(branch))-\(n)").path
+            n += 1
+        }
+        return path
+    }
+
     /// Makes a branch from `base` in a new worktree, or with `existing` checks out a branch that is already there (a
     /// remote "origin/x" gets a local "x" that follows it). `copying` says whether the worktree gets the project's own
     /// files (`copyFiles` in the repo root and what `.worktreeinclude` names, like `.env`), which a PR shouldn't read.
@@ -14,12 +25,7 @@ extension Git {
         repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
         copying: Bool = true, remotes: Remotes
     ) throws -> String {
-        // "feat/a" and "feat-a" make one slug: the second gets "-2" rather than a confusing "already exists" from git.
-        var path = dir.appendingPathComponent(slug(branch)).path, n = 2
-        while FileManager.default.fileExists(atPath: path) {
-            path = dir.appendingPathComponent("\(slug(branch))-\(n)").path
-            n += 1
-        }
+        let path = freeFolder(branch, in: dir)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         if !existing {
             try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)

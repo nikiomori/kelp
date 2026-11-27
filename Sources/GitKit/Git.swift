@@ -350,23 +350,8 @@ enum RepoFilters {
     static func configFile(_ cwd: String) -> String? {
         var dir = URL(fileURLWithPath: cwd).standardizedFileURL
         while true {
-            let git = dir.appendingPathComponent(".git")
-            var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: git.path, isDirectory: &isDir) {
-                if isDir.boolValue { return git.appendingPathComponent("config").path }
-                guard let text = String(contentsIfAny: git), text.hasPrefix("gitdir: ") else {
-                    return nil
-                }
-                let gitdir = URL(
-                    fileURLWithPath: text.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: dir
-                ).standardizedFileURL
-                let common =
-                    String(contentsIfAny: gitdir.appendingPathComponent("commondir"))
-                    .map {
-                        URL(fileURLWithPath: $0.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: gitdir)
-                            .standardizedFileURL
-                    } ?? gitdir
-                return common.appendingPathComponent("config").path
+            if FileManager.default.fileExists(atPath: dir.appendingPathComponent(".git").path) {
+                return Git.commonDir(dir.path)?.appendingPathComponent("config").path
             }
             let up = dir.deletingLastPathComponent()
             if up.path == dir.path { return nil }

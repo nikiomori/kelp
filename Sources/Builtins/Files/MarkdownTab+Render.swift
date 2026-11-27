@@ -155,7 +155,7 @@ extension MarkdownTab {
                         mermaid: mermaid != nil, math: math != nil, body: body)
                     return (html, scripts, kind == .markdown ? swap : nil)
                 }
-                let marks = ArtifactMarks.read(Artifacts.small(base.appendingPathComponent(ArtifactMarks.file).path))
+                let marks = ArtifactMarks.read(in: base)
                 html += PageMarks.style
                 scripts += [
                     ownAccent, CanvasChrome.source(labels: chrome, floats: false), PageCheck.source(text, folder: base),

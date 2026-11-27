@@ -13,6 +13,14 @@ import Testing
     #expect(BrowserWords.address("preview:/tmp/a.html") == "preview:/tmp/a.html")   // a local page, as `kelp open` refuses it
 }
 
+/// A page on this Mac's loopback is the host's own when an agent there opens it, and a local one in the browser tab.
+@Test func aLoopbackHostIsThisMachine() {
+    let loopback = ["localhost", "LocalHost", "app.localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]
+    #expect(loopback.allSatisfy { BrowserWords.isLoopback(host: $0) })
+    #expect(!["example.com", "localhost.example.com", "127.0.0.2", ""].contains { BrowserWords.isLoopback(host: $0) })
+    #expect(!BrowserWords.isLoopback(host: nil))
+}
+
 /// An action's answer reads as one line, what came under it; a line from stdin splits into words as a shell would.
 @Test func aBrowserAnswerIsALine() {
     let clicked: JSONValue = .object([

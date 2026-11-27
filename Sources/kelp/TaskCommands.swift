@@ -17,9 +17,7 @@ extension Main {
                 return page
             }
             if json {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-                print(String(decoding: try encoder.encode(listed), as: UTF8.self))
+                show(listed)
                 return
             }
             let lines = listed.flatMap { page in page.tasks.map { Self.row($0, page) } }

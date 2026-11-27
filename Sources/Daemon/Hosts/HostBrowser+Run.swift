@@ -77,8 +77,10 @@ extension HostBrowser {
                 say.out(text + (plan.note.map { "\n" + $0 } ?? ""))
             } else if case .string(let text) = answer {
                 say.out(text)
-            } else if answer != .null, let text = Self.pretty(answer) {
-                say.out(text)
+            } else if answer != .null,
+                let data = Log.session.attempt("printing an answer", { try JSONEncoder.pretty.encode(answer) })
+            {
+                say.out(String(decoding: data, as: UTF8.self))
             }
             return true
         } catch let wrong as BrowserWords.Wrong {
@@ -87,15 +89,6 @@ extension HostBrowser {
             say.error("error: " + error.rpcMessage)
         }
         return false
-    }
-
-    /// The JSON of an answer as `kelp --json` prints it.
-    static func pretty(_ value: JSONValue) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return Log.session.attempt("printing an answer") { try encoder.encode(value) }.map {
-            String(decoding: $0, as: UTF8.self)
-        }
     }
 
     /// A path as typed in the host's folder `cwd`, made whole there.
@@ -146,7 +139,7 @@ extension HostBrowser {
             }
             var note: String?
             if let wid = worktree(session) {
-                if Self.isLoopback(url) {
+                if BrowserWords.isLoopback(host: URLComponents(string: url)?.host) {
                     let here = forwards.forward(url: url, in: wid, remote)
                     params["url"] = .string(here)
                     let (asked, got) = (URLComponents(string: url)?.port, URLComponents(string: here)?.port)
@@ -246,12 +239,6 @@ extension HostBrowser {
                 try forwards.forward("localhost:\(port.port)", in: wid, remote)
             }
         }
-    }
-
-    /// Whether an address is a loopback one, which the host means as its own.
-    static func isLoopback(_ url: String) -> Bool {
-        guard let host = URLComponents(string: url)?.host?.lowercased() else { return false }
-        return ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].contains(host) || host.hasSuffix(".localhost")
     }
 
     /// Text with this Mac's forwarded ports put back as the host's (`localhost:3001` → `localhost:3000`), and a note

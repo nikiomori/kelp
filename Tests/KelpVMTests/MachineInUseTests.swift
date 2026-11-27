@@ -42,7 +42,7 @@ import Testing
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let child = try Process.run(URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "trap '' TERM; exec sleep 60"])
     defer { if child.isRunning { kill(child.processIdentifier, SIGKILL) } }
-    Lifecycle.remember(child, in: folder, as: "emulator")
+    Lifecycle.remember(child.processIdentifier, in: folder, as: "emulator")
     let note = folder.appendingPathComponent("emulator.child")
     #expect(FileManager.default.fileExists(atPath: note.path))
     Lifecycle.endLeftover(in: folder, "emulator")

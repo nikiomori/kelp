@@ -122,11 +122,9 @@ final class SettingsStore: Sendable {
 
     /// Writes the settings while holding `file`. The values in memory change only once they're on disk.
     private func write(_ values: [String: JSONValue]) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // Writes to where a symlink points (settings.json kept in a dotfiles repo), because an atomic write would
         // replace the link itself.
-        let data = try encoder.encode(JSONValue.object(values)) + Data("\n".utf8)
+        let data = try JSONEncoder.pretty.encode(JSONValue.object(values)) + Data("\n".utf8)
         try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
         remember(data)
         let mtime = modified()   // our own write isn't a hand edit

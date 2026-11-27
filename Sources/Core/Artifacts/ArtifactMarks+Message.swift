@@ -1,6 +1,11 @@
 import Foundation
 
 extension ArtifactMarks {
+    /// Returns the marks in the `notes.json` in `folder`, as `read(_:)` does; none when it is too big to be one.
+    package static func read(in folder: URL) -> ArtifactMarks {
+        read(Artifacts.small(folder.appendingPathComponent(file).path))
+    }
+
     /// The message that sends `marks` (drafts about to go) to the agent, with the hand edits waiting. `page` is the
     /// page's path in the project (`.kelp/artifacts/home/canvas.json`), `name` its folder's name, and `version` the
     /// version they are sent with. `details` says more about some marks, by number: an element's opening tag and its

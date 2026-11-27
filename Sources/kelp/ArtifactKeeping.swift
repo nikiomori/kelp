@@ -23,9 +23,8 @@ extension Main {
             ($0.archived == archived) && (tag.map($0.tags.contains) ?? true)
         }
         if json {
-            let encoder = JSONEncoder()
+            let encoder = JSONEncoder.pretty
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             print(String(decoding: try encoder.encode(pages), as: UTF8.self))
             return
         }
@@ -105,7 +104,6 @@ extension Main {
     /// with claude.ai's artifact tools saves them to disk. --check counts again once that's done.
     static func sync(_ cwd: String, _ c: RPCClient) async throws {
         let every = has("--all"), check = has("--check")
-        _ = has("--plan")
         var all = 0
         var short: [(url: String, folder: String, state: String)] = []
         for root in try await roots(every: every, cwd, c) {

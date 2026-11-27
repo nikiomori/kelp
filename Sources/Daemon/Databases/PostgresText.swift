@@ -208,7 +208,7 @@ enum PostgresText {
     private static func bytea(_ byteBuffer: inout ByteBuffer) -> String {
         let count = byteBuffer.readableBytes
         let shown = byteBuffer.readBytes(length: min(count, byteaShown)) ?? []
-        return "\\x" + shown.map { String(format: "%02x", $0) }.joined()
+        return "\\x" + shown.hex
             + (count > byteaShown ? "… (\(count) bytes)" : "")
     }
 

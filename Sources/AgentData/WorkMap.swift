@@ -21,48 +21,13 @@ public enum WorkMap {
     /// Where the agent's machine keeps things: the project, the home folder, temporary folders.
     public struct Places: Sendable {
         public var root: String, home: String
-        public var temporary: [String]
+        static let temporary = ["/tmp", "/private/tmp", "/var/folders"]
         /// The host of the project's `origin` (github.com): where `git push` and `gh` go, one place for both.
         public var remote: String?
-        public init(
-            root: String, home: String, temporary: [String] = ["/tmp", "/private/tmp", "/var/folders"],
-            remote: String? = nil
-        ) {
+        public init(root: String, home: String, remote: String? = nil) {
             self.root = root
             self.home = home
-            self.temporary = temporary
             self.remote = remote
-        }
-
-        /// The host in a remote's URL: `git@github.com:o/r.git`, `https://github.com/o/r`, `ssh://git@host:22/r`.
-        public static func host(ofRemote url: String) -> String? {
-            if let parsed = URL(string: url), let host = parsed.host, !host.isEmpty { return host }
-            guard let colon = url.firstIndex(of: ":"), !url.hasPrefix("/") else { return nil }
-            let user = url[..<colon]
-            return user.split(separator: "@").last.map(String.init)
-        }
-
-        /// The host of `origin` in the git config of the repository at `root` (a worktree's `.git` file followed to
-        /// its repository), read from the file: no git runs.
-        public static func remote(of root: String) -> String? {
-            var git = (root as NSString).appendingPathComponent(".git")
-            func text(_ path: String) -> String? {
-                FileManager.default.contents(atPath: path).map { String(decoding: $0, as: UTF8.self) }
-            }
-            if let link = text(git), link.hasPrefix("gitdir: ") {
-                let dir = link.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines)
-                // A worktree's gitdir is <repo>/.git/worktrees/<name>: the config is two folders up.
-                git = ((dir as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent
-            }
-            guard let config = text(git + "/config") else { return nil }
-            var inOrigin = false
-            for line in config.split(separator: "\n").map({ $0.trimmingCharacters(in: .whitespaces) }) {
-                if line.hasPrefix("[") { inOrigin = line == "[remote \"origin\"]" }
-                if inOrigin, line.hasPrefix("url"), let eq = line.firstIndex(of: "=") {
-                    return host(ofRemote: line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces))
-                }
-            }
-            return nil
         }
     }
 
@@ -318,7 +283,7 @@ public enum WorkMap {
                     return .project(unfolded.name, worktree: unfolded.worktree)
                 }
             }
-            let own = [layout.home + "/.claude", layout.home + "/.codex"] + layout.temporary.flatMap(Self.variants)
+            let own = [layout.home + "/.claude", layout.home + "/.codex"] + Places.temporary.flatMap(Self.variants)
             if own.contains(where: { path == $0 }) || own.contains(where: { Paths.relative(path, to: $0) != nil }) {
                 return .outside(.own, Self.ownName(path, home: layout.home))
             }

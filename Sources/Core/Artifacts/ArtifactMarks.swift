@@ -178,9 +178,7 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     }
 
     public func encoded() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return try encoder.encode(self)
+        try JSONEncoder.pretty.encode(self)
     }
 
     /// How many marks are in each state, for the bar and the artifacts list.

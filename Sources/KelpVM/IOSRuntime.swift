@@ -186,7 +186,7 @@ final class IOSRuntime: MachineRuntime {
             }
             try process.run()
             runner = process
-            Lifecycle.remember(process, in: folder, as: "runner")
+            Lifecycle.remember(process.processIdentifier, in: folder, as: "runner")
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
                 let answered = await ping()

@@ -123,10 +123,8 @@ extension AddonMenu {
 
     /// Returns the entry as `{"name": {…}}`, the way the agents' files spell it.
     static func json(_ name: String, _ entry: ServerEntry) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         do {
-            return String(decoding: try encoder.encode([name: entry]), as: UTF8.self)
+            return String(decoding: try JSONEncoder.pretty.encode([name: entry]), as: UTF8.self)
         } catch {
             return ""   // a ServerEntry holds only strings and lists of strings, so it always encodes
         }

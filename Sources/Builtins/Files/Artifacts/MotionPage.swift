@@ -26,7 +26,7 @@ enum MotionPage {
             "<base href=\"\(folder.absoluteString)/\"><style>:root { \(vars) }</style>" + page
         }
         let (w, h) = size(text)
-        let marks = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
+        let marks = ArtifactMarks.read(in: folder)
         var before: [String: String] = [:]
         let file = folder.appendingPathComponent(board).path
         for mark in marks.marks where mark.state == .check {

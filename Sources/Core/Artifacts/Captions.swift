@@ -79,8 +79,8 @@ public enum Captions {
     public static func write(_ page: String, cues: [Cue]) -> String {
         let look = attribute(page) ?? "box bottom 48"
         let lines = cues.enumerated().map { i, cue in
-            "<p data-id=\"cap-\(i + 1)\" data-start=\"\(number(cue.start))\" "
-                + "data-duration=\"\(number(cue.end - cue.start))\">\(BoardEdit.escape(cue.text))</p>"
+            "<p data-id=\"cap-\(i + 1)\" data-start=\"\(MotionPresets.number(cue.start))\" "
+                + "data-duration=\"\(MotionPresets.number(cue.end - cue.start))\">\(BoardEdit.escape(cue.text))</p>"
         }
         let block =
             "<div data-id=\"captions\" data-kelp-captions=\"\(look)\">\n" + lines.joined(separator: "\n") + "\n</div>"
@@ -161,8 +161,6 @@ public enum Captions {
         }
         return out
     }
-
-    static func number(_ v: Double) -> String { String(format: "%g", (v * 1000).rounded() / 1000) }
 
     /// Seconds as an SRT time, `00:00:01,250`.
     static func clock(_ seconds: Double) -> String {

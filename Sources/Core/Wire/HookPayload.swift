@@ -77,9 +77,9 @@ extension SessionHook {
     /// connection, which waits in the socket's queue for the next kelpd. A hook sent twice only says the same thing
     /// twice. Limit: that queue (128 connections) is the only buffer, with no file behind it. That is enough because a
     /// hook is for a running session, and a session outlives its daemon only by being handed over, which keeps the
-    /// socket open.
-    public func send(socket: String, within seconds: TimeInterval = 10) async throws {
-        let end = Date().addingTimeInterval(seconds)
+    /// socket open. It retries for 10 seconds.
+    public func send(socket: String) async throws {
+        let end = Date().addingTimeInterval(10)
         while true {
             do {
                 let client = try RPCClient(socket: socket, patience: 2)

@@ -97,7 +97,7 @@ enum CanvasPage {
             rows += "<section class=\"row\">\(title)<div class=\"boards\">\(frames)</div></section>"
         }
         let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
-        let marks = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
+        let marks = ArtifactMarks.read(in: folder)
         // Each board a mark to check was sent with, drawn as it was then, in the themes shown now.
         var before: [String: String] = [:]
         let canvasFile = folder.appendingPathComponent(Artifacts.Kind.design.file).path

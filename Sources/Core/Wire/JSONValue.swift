@@ -76,3 +76,13 @@ public enum JSONValue: Codable, Sendable, Hashable {
         try JSONDecoder().decode(T.self, from: JSONEncoder().encode(self))
     }
 }
+
+extension JSONEncoder {
+    /// An encoder for JSON that people read: indented, keys sorted, `/` left as it is. A new one on each use, because
+    /// an encoder isn't Sendable.
+    public static var pretty: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return encoder
+    }
+}

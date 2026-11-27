@@ -172,11 +172,11 @@ func connect() throws -> RPCClient {
 }
 
 func show(_ value: JSONValue) {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     if case .string(let text) = value {
         print(text)
-    } else if value != .null, let data = try? encoder.encode(value), let text = String(bytes: data, encoding: .utf8) {
+    } else if value != .null, let data = try? JSONEncoder.pretty.encode(value),
+        let text = String(bytes: data, encoding: .utf8)
+    {
         print(text)
     }
 }

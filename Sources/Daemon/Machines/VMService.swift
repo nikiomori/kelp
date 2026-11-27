@@ -133,10 +133,8 @@ struct VMService: Sendable {
     /// 45 minutes, which is longer than a macOS first boot, the longest quiet step. A kelpd that started meanwhile goes
     /// on with the making (`resumeMaking`).
     func making(_ name: String) -> VMMaking? {
-        var st = stat()
         guard let data = FileManager.default.contents(atPath: folder(name).creating.path),
-            stat(folder(name).creating.path, &st) == 0,
-            Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700
+            let at = FileManager.default.modified(folder(name).creating.path), Date().timeIntervalSince(at) < 2700
         else { return nil }
         // A kelpd from before 2026-11-06 wrote plain words here, not JSON.
         do { return try JSONDecoder().decode(VMMaking.self, from: data) } catch {

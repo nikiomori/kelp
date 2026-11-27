@@ -113,7 +113,7 @@ final class NextEditServer: Sendable {
 
     private func launch(_ offloads: Slots) async -> SuggestAnswer {
         let (command, notes) = (command, notes)
-        guard let port = Self.freePort(), let base = URL(string: "http://127.0.0.1:\(port)") else {
+        guard let port = Unix.freePort(), let base = URL(string: "http://127.0.0.1:\(port)") else {
             return SuggestAnswer(problem: .failed)
         }
         let spawned: Process?
@@ -251,24 +251,6 @@ final class NextEditServer: Sendable {
         let short = !event.isDisjoint(with: [.warning, .critical])
         state.withLock { $0.pressed = short }
         if short { stop() }
-    }
-
-    /// A port nothing listens on now, from the system.
-    static func freePort() -> Int? {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        guard fd >= 0 else { return nil }
-        defer { close(fd) }
-        var address = sockaddr_in()
-        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_addr.s_addr = inet_addr("127.0.0.1")
-        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
-        let bound = withUnsafeMutablePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(fd, $0, length) == 0 && getsockname(fd, $0, &length) == 0
-            }
-        }
-        return bound ? Int(UInt16(bigEndian: address.sin_port)) : nil
     }
 
     /// Sweep Next-Edit's prompt, as it was trained: the edits made as diffs, then the cursor's lines before the latest

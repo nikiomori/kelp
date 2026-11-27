@@ -58,6 +58,24 @@ public enum Unix {
         return withAddress(address) { Darwin.connect(fd, $0, $1) } == 0
     }
 
+    /// A port nothing on this Mac's loopback listens on now, from the system.
+    public static func freePort() -> Int? {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, length) == 0 && getsockname(fd, $0, &length) == 0
+            }
+        }
+        return bound ? Int(UInt16(bigEndian: address.sin_port)) : nil
+    }
+
     /// Calls `body` with `address` as the `sockaddr` and length that connect and bind take.
     private static func withAddress<Address, T>(
         _ address: Address, _ body: (UnsafePointer<sockaddr>, socklen_t) -> T

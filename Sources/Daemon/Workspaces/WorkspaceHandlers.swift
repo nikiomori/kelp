@@ -190,7 +190,8 @@ extension WorktreeRemove: Handled {
         // A branch that was there before the workspace (checked out with `--existing`) isn't Kelp's to delete: only
         // its folder goes, as when a group tidies itself away.
         let branch = workspaces.branchNow(of: workspace, in: repo)
-        let made = workspaces.checkouts(workspace, repo)[0].repo   // a folder of repositories: one of its own
+        // In a folder of repositories, one of its own.
+        let made = Git.checkouts(project: repo.path, folder: workspace.path)[0].repo
         let theirs = try !Git.made(repo: made, branch, at: workspace.createdAt, remotes: workspaces.remotes)
         try workspaces.removeWorkspace(
             workspace, repo, force: force == true, dropCommits: dropCommits == true, keepBranch: theirs)

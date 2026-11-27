@@ -120,15 +120,10 @@ enum Lifecycle {
     /// machine is in use by now, though it wasn't when the budget looked. The user's own sleep is never refused.
     static func refusesSleep(_ request: VMHelper.Request, inUse: Bool) -> Bool { request.ifIdle && inUse }
 
-    /// Notes a child process (an emulator, an iOS runner) in the machine's folder, with its pid and when it started. A
-    /// kelp-vm that's killed can't clean up as it leaves, so the next kelp-vm for the machine ends what the killed one
-    /// left (`endLeftover`).
-    static func remember(_ process: Process, in folder: URL, as name: String) {
-        remember(process.processIdentifier, in: folder, as: name)
-    }
-
-    /// Notes a process by its pid, the same way a child is noted. kelp-vm notes itself this way, so that kelpd can end
-    /// a kelp-vm that no longer answers (`VMService.quit`).
+    /// Notes a process (an emulator, an iOS runner, kelp-vm itself) in the machine's folder, with its pid and when it
+    /// started. A kelp-vm that's killed can't clean up as it leaves, so the next kelp-vm for the machine ends the
+    /// children the killed one left (`endLeftover`), and kelpd can end a kelp-vm that no longer answers
+    /// (`VMService.quit`).
     static func remember(_ pid: pid_t, in folder: URL, as name: String) {
         let note = "\(pid) \(Subprocess.started(pid) ?? 0)"
         do {

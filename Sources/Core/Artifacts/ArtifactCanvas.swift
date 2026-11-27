@@ -108,9 +108,7 @@ public struct CanvasSnapshot: Codable, Equatable, Sendable {
     /// The snapshot as a version keeps it. Keys are sorted, so the same canvas gives the same bytes and makes no new
     /// version.
     public var data: Data? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-        do { return try encoder.encode(self) } catch { return nil }
+        do { return try JSONEncoder.pretty.encode(self) } catch { return nil }
     }
 }
 
