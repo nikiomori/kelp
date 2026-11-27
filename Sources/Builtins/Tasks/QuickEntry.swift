@@ -9,17 +9,9 @@ import WorkbenchKit
 /// Quick Entry: ⌃⌥⌘T from any app writes a task down without bringing Kelp forward. One field, as Quick Open's and
 /// the switcher's card (440 wide, the field's size), and where the line goes: the inbox of the project on screen
 /// unless To says otherwise. Return writes it; ⌘Return writes it and shows it on its page; Escape closes and keeps
-/// what was typed for next time.
+/// what was typed for next time. The app keeps one (`app.part`).
 @MainActor
 final class QuickEntry: NSObject, NSTextFieldDelegate {
-    private static var one: QuickEntry?
-    static func shared(_ app: AppModel) -> QuickEntry {
-        if let one { return one }
-        let made = QuickEntry(app: app)
-        one = made
-        return made
-    }
-
     private let app: AppModel
     private var panel: NSPanel?
     private let field = NSTextField()
@@ -32,7 +24,7 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
     /// Where each item of To sends the line: a project, and a heading of its list (nil: its inbox).
     private var places: [(repo: String, under: String?)] = []
 
-    private init(app: AppModel) { self.app = app }
+    init(app: AppModel) { self.app = app }
 
     /// Shows the card, the line going to `repo`'s inbox unless the person picks another place.
     func show(repo: String?) {
