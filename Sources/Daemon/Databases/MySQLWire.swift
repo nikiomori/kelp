@@ -188,14 +188,19 @@ struct MySQLWire: DatabaseRunner {
         let address = host == "localhost" ? "127.0.0.1" : host
         let port = db.port ?? db.engine.defaultPort ?? 0
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
-        let connecting = MySQLConnection.connect(
-            to: socket, username: db.user ?? "root", database: db.database ?? "", password: databaseConnection.password,
-            tlsConfiguration: db.ssl == "disable"
-                ? nil : try DatabaseWire.tls(db, name: databaseConnection.serverName),
-            serverHostname: db.ssl == "verify-full" ? databaseConnection.serverName ?? host : nil,
-            logger: DatabaseWire.logger,
-            on: DatabaseWire.eventLoop
-        )
+        let tls = db.ssl == "disable" ? nil : try DatabaseWire.tls(db, name: databaseConnection.serverName)
+        let user = db.user ?? "root", database = db.database ?? "", password = databaseConnection.password
+        let serverHostname = db.ssl == "verify-full" ? databaseConnection.serverName ?? host : nil
+        // Started on its own event loop: MySQLNIO adds its packet reader in a callback on the connect, and a callback
+        // added from another thread reaches the loop as a task of its own. When that thread was held up in between, the
+        // loop read the server's greeting first, with nothing there to take it: dropped, and the login waited for it
+        // until its time ran out.
+        let loop = DatabaseWire.eventLoop
+        let connecting = loop.flatSubmit {
+            MySQLConnection.connect(
+                to: socket, username: user, database: database, password: password, tlsConfiguration: tls,
+                serverHostname: serverHostname, logger: DatabaseWire.logger, on: loop)
+        }
         // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps
         // its socket until the far end closes it. A connection whose handshake ends late is closed then.
         do {
@@ -216,7 +221,7 @@ struct MySQLWire: DatabaseRunner {
     /// out). Limit: by then the login has gone without TLS, the password as MySQL's scramble of it or encrypted to the
     /// key the server sent; no query has.
     private static func encrypted(_ conn: MySQLConnection, _ db: DatabaseInfo) async throws {
-        do { _ = try await conn.channel.pipeline.handler(type: NIOSSLClientHandler.self).get() } catch {
+        do { try await conn.channel.pipeline.containsHandler(type: NIOSSLClientHandler.self).get() } catch {
             await DatabaseWire.close { try await conn.close().get() }
             throw DatabaseFailure.failed(
                 "\(db.name) didn't offer TLS, and its address requires it (sslmode=\(db.ssl ?? "require")): "
