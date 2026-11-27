@@ -76,8 +76,7 @@ extension OneAtATime {
 
     /// A chat offers Continue On for the copies of its project, by where they are; a project with none offers nothing.
     @Test func aChatOffersItsProjectsCopiesToMoveTo() async throws {
-        let rig = try await AppRig(files: [:])
-        defer { rig.done() }
+        let rig = BareApp()
         let chat = Session(worktreeId: rig.workspace.id, cwd: rig.workspace.path, command: "claude", agent: "claude")
         rig.app.sessions = [chat]
         func moves() -> [String]? {
