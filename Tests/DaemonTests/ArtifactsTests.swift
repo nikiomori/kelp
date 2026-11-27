@@ -547,19 +547,31 @@ private func tempRoot() throws -> URL {
     #expect(try !ArtifactRename(path: path, title: "   ").handle(NoService()))
     // An agent tags and archives it; the list says so, and the user's Undo puts the page back. A folder outside
     // .kelp/artifacts is refused.
+    let store = try Store()
     let tagged = try ArtifactChange(folder: folder.path, add: ["Launch"], archived: true, session: "s2")
-        .handle(NoService())
+        .handle(store)
     #expect(tagged == ["launch"])
     let listed = try #require(Artifacts.items(root: root.path).first)
     #expect(listed.tags == ["launch"] && listed.archived == true && listed.agentChange?.session == "s2")
     // Kept by the user, the change is forgotten: the same chat's next one is undone on its own.
-    _ = try ArtifactChange(folder: folder.path, keep: true).handle(NoService())
+    _ = try ArtifactChange(folder: folder.path, keep: true).handle(store)
     #expect(Artifacts.record(in: folder)?.agentChange == nil)
-    _ = try ArtifactChange(folder: folder.path, add: ["more"], session: "s2").handle(NoService())
+    _ = try ArtifactChange(folder: folder.path, add: ["more"], session: "s2").handle(store)
     #expect(Artifacts.record(in: folder)?.agentChange?.tags == ["launch"])
-    #expect(try ArtifactChange(folder: folder.path, undo: true).handle(NoService()) == ["launch"])
-    _ = try ArtifactChange(folder: folder.path, remove: ["launch"], archived: false).handle(NoService())
+    #expect(try ArtifactChange(folder: folder.path, undo: true).handle(store) == ["launch"])
+    _ = try ArtifactChange(folder: folder.path, remove: ["launch"], archived: false).handle(store)
     #expect(Artifacts.record(in: folder).map { ($0.archived, $0.agentChange) } ?? (true, nil) == (nil, nil))
-    #expect(throws: RPCError.self) { try ArtifactChange(folder: root.path, add: ["x"]).handle(NoService()) }
+    #expect(throws: RPCError.self) { try ArtifactChange(folder: root.path, add: ["x"]).handle(store) }
+    // An agent's change is its own session's, whatever the call names, and it neither keeps nor undoes one.
+    var agent = Session(cwd: root.path, command: "claude")
+    agent.agent = "claude"
+    agent = try store.save(agent)
+    try Sessions.$asker.withValue(agent.id) {
+        _ = try ArtifactChange(folder: folder.path, add: ["quiet"]).handle(store)
+        #expect(Artifacts.record(in: folder)?.agentChange?.session == agent.id)
+        for call in [ArtifactChange(folder: folder.path, keep: true), ArtifactChange(folder: folder.path, undo: true)] {
+            #expect(throws: RPCError.self) { try call.handle(store) }
+        }
+    }
     #expect(try ArtifactRoundCost(session: "no-such-chat", from: 0, to: 1).handle(NoService()) == nil)
 }
