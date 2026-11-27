@@ -42,7 +42,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
     let start: String
     let ownerSession: String?
-    /// Whether this is an agent's page (`kelp browser open`), with its own website data store.
+    /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
@@ -118,11 +118,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         self.app = app
         ports = PortsView(app: app)
         let cfg = WKWebViewConfiguration()
-        if agent {
-            let session = ownerSession.flatMap(app.session)
-            cfg.websiteDataStore = app.part { BrowserDataStores() }.store(
-                owner: session?.isAgent == true ? session?.id : nil)
-        }
+        if agent { cfg.websiteDataStore = .nonPersistent() }
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.applicationNameForUserAgent = Self.safariName
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
@@ -394,11 +390,4 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         load(BrowserHistory.address(for: address.stringValue))
         view.window?.makeFirstResponder(web)
     }
-
-    /// What Safari adds to WebKit's user agent. Without it sites take the page for an unknown browser and serve it
-    /// their fallback layout (old Google, "browser not supported").
-    static let safariName: String = {
-        let safari = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String
-        return "Version/\(safari ?? "26.0") Safari/605.1.15"
-    }()
 }
