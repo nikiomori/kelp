@@ -40,10 +40,13 @@ enum BrowserMarks {
 
     /// Returns the page tabs in `workspace` that an agent drives, each with the agent's session, and with a glow in the
     /// agent's colour while it acts there.
-    static func driven(_ workspace: String, _ app: AppModel) -> [String: (session: String, glow: NSColor?)] {
+    static func driven(_ workspace: String, _ app: AppModel) -> [String: (session: String, glow: NSColor?, login: Bool)]
+    {
         let pages = AgentPages.of(app)
         let here = pages.pages.values.filter { $0.workspace == workspace }
-        return Dictionary(here.map { ($0.tab, ($0.session, pages.glow(tab: $0.tab))) }) { first, _ in first }
+        return Dictionary(here.map { ($0.tab, ($0.session, pages.glow(tab: $0.tab), $0.login != nil)) }) { first, _ in
+            first
+        }
     }
 
     /// Returns the browser part of an agent's card: whether the agent's chats get the browser skill, and the page it

@@ -86,7 +86,9 @@ final class EditorArea: NSViewController {
         // A tab an agent drives (a page) glows while the agent acts there (`drivenLook`).
         track(owner: self, now: false) { [weak self, app] in
             app.extensions.all.tabs.compactMap(\.driven).flatMap { driven in
-                driven(self?.workspaceId ?? "").map { "\($0.key) \($0.value.session) \($0.value.glow != nil)" }
+                driven(self?.workspaceId ?? "").map {
+                    "\($0.key) \($0.value.session) \($0.value.glow != nil) \($0.value.login)"
+                }
             }.sorted()
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
