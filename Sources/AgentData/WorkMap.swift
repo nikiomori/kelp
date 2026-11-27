@@ -21,16 +21,12 @@ public enum WorkMap {
     /// Where the agent's machine keeps things: the project, the home folder, temporary folders.
     public struct Places: Sendable {
         public var root: String, home: String
-        public var temporary: [String]
+        static let temporary = ["/tmp", "/private/tmp", "/var/folders"]
         /// The host of the project's `origin` (github.com): where `git push` and `gh` go, one place for both.
         public var remote: String?
-        public init(
-            root: String, home: String, temporary: [String] = ["/tmp", "/private/tmp", "/var/folders"],
-            remote: String? = nil
-        ) {
+        public init(root: String, home: String, remote: String? = nil) {
             self.root = root
             self.home = home
-            self.temporary = temporary
             self.remote = remote
         }
     }
@@ -287,7 +283,7 @@ public enum WorkMap {
                     return .project(unfolded.name, worktree: unfolded.worktree)
                 }
             }
-            let own = [layout.home + "/.claude", layout.home + "/.codex"] + layout.temporary.flatMap(Self.variants)
+            let own = [layout.home + "/.claude", layout.home + "/.codex"] + Places.temporary.flatMap(Self.variants)
             if own.contains(where: { path == $0 }) || own.contains(where: { Paths.relative(path, to: $0) != nil }) {
                 return .outside(.own, Self.ownName(path, home: layout.home))
             }

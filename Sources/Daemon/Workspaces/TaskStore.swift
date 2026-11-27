@@ -70,10 +70,6 @@ enum TaskStore {
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func write(_ text: String, to path: String) throws {
-        try text.write(toFile: path, atomically: true, encoding: .utf8)
-    }
-
     /// Refuses `agent` a page outside the tasks of the project it works in. The list sits in the project's own folder,
     /// so a chat on a branch of its own reaches it, though the folder isn't its workspace's.
     static func ensureOwn(_ store: Store, agent: String, path: String) throws {
@@ -128,7 +124,7 @@ extension TaskAdd: Handled {
             let (text, task) = try TaskLines.change(try TaskStore.read(page.path), TaskRef(known)) { line in
                 if let chat, !(line.chats ?? []).contains(chat) { line.chats = (line.chats ?? []) + [chat] }
             }
-            try TaskStore.write(text, to: page.path)
+            try text.write(toFile: page.path, atomically: true, encoding: .utf8)
             return Result(path: page.path, task: task)
         }
         let now = Date()
@@ -151,7 +147,7 @@ extension TaskAdd: Handled {
         if let path, let agent = try TaskStore.agent(store) { try TaskStore.ensureOwn(store, agent: agent, path: path) }
         let page = try path ?? TaskStore.list(root: repo.path, names: names, project: repo.name, now: now)
         let (text, line) = TaskLines.add(task, under: under, to: try TaskStore.read(page), newSection: names.inbox)
-        try TaskStore.write(text, to: page)
+        try text.write(toFile: page, atomically: true, encoding: .utf8)
         task.line = line
         return Result(path: page, task: TaskLines.parse(text).first { $0.id == task.id } ?? task)
     }
@@ -184,10 +180,10 @@ extension TaskChange: Handled {
             var line = current
             line.depth = 0
             let source = try TaskLines.remove(text, task)
-            try TaskStore.write(source, to: path)
+            try source.write(toFile: path, atomically: true, encoding: .utf8)
             let target = move == path ? source : try TaskStore.read(move)
             let (moved, at) = TaskLines.add(line, under: under, to: target, newSection: under ?? "Inbox")
-            try TaskStore.write(moved, to: move)
+            try moved.write(toFile: move, atomically: true, encoding: .utf8)
             line.line = at
             line.section = under ?? TaskLines.sections(moved).first
             return line
@@ -196,7 +192,7 @@ extension TaskChange: Handled {
             guard (current.chats ?? []).isEmpty else {
                 throw RPCError.refused("the task has chats: cancel it instead of removing it")
             }
-            try TaskStore.write(try TaskLines.remove(text, task), to: path)
+            try TaskLines.remove(text, task).write(toFile: path, atomically: true, encoding: .utf8)
             return nil
         }
         let now = Date().timeIntervalSince1970
@@ -223,7 +219,7 @@ extension TaskChange: Handled {
             }
             if let chat, !(line.chats ?? []).contains(chat) { line.chats = (line.chats ?? []) + [chat] }
         }
-        if next != text { try TaskStore.write(next, to: path) }
+        if next != text { try next.write(toFile: path, atomically: true, encoding: .utf8) }
         return line
     }
 }
