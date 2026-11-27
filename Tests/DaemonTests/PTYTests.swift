@@ -73,8 +73,7 @@ final class Box: @unchecked Sendable {
     #expect(!box.text.contains("tty=??"), "no controlling terminal: \(box.text.debugDescription)")
     #expect(box.text.contains("size=30 100"), "initial size lost: \(box.text.debugDescription)")
     p.resize(cols: 50, rows: 20)
-    #expect(try await waitFor(5) { box.text.contains("20 50") })   // a busy machine is slow, not wrong
-    #expect(box.text.contains("20 50"), "\(box.text.debugDescription)")
+    #expect(try await waitFor(5) { box.text.contains("20 50") }, "\(box.text.debugDescription)")   // a busy machine is slow, not wrong
     p.kill()
 }
 
@@ -139,8 +138,7 @@ final class Box: @unchecked Sendable {
         pid = p.pid
         p.terminate()
     }
-    #expect(try await waitFor(5) { kill(pid, 0) != 0 })
-    #expect(kill(pid, 0) != 0, "still there: stuck exiting on a terminal nobody reads")
+    #expect(try await waitFor(5) { kill(pid, 0) != 0 }, "still there: stuck exiting on a terminal nobody reads")
 }
 
 /// Once its program has exited a PTY's fd (and pid) may be someone else's: typing into it reaches nobody.
@@ -150,7 +148,6 @@ final class Box: @unchecked Sendable {
     p.onExit = { box.exit($0) }
     p.start()
     #expect(try await waitFor(5) { box.code != nil })
-    #expect(box.code != nil)
     // The freed fd number goes to whatever opens next: socket pairs, so anything written to one end shows at the other.
     var pairs: [[Int32]] = []
     for _ in 0..<16 {

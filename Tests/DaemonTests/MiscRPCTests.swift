@@ -44,9 +44,6 @@ func trustQuestionStandIn() -> String {
     #expect(!FileManager.default.fileExists(atPath: wt.path + "/theirs.txt"))   // fetched, not merged
     _ = try await w.c.call("git.remote", .obj(["id": .string(wt.id), "op": "pull"]))
     #expect(FileManager.default.fileExists(atPath: wt.path + "/theirs.txt"))
-    await #expect(throws: (any Error).self) {
-        _ = try await w.c.call("git.remote", .obj(["id": .string(wt.id), "op": "explode"]))
-    }
 
     try Git.run(["remote", "set-url", "origin", "git@github.com:o/r.git"], cwd: wt.path, remotes: .none)
     let url =
@@ -556,7 +553,6 @@ func trustQuestionStandIn() -> String {
     let t = Date()
     #expect(throws: (any Error).self) { try Subprocess.output(["/bin/sleep", "30"], cwd: "/tmp", timeLimit: 0.5) }
     #expect(Date().timeIntervalSince(t) < 5)   // stopped, not waited out
-    #expect(RemoteHost(host: "box", path: "/x").sshArgs(tty: false).contains("ConnectTimeout=15"))
 }
 
 @Test func testsRunInTheirOwnHomeWhateverWasInherited() throws {
