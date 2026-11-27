@@ -22,35 +22,53 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Build and test
+          - name: App tests
             cache: tests
+            save: true
             # Built by the test run itself: each `swift` start loads the package again, and each build copies the Swift
             # libraries into every test bundle and signs them, nothing compiled or not: 40 s for a second one.
             build: "true"
             # One at a time: the app's tests share one main thread, and side by side their waits ran out on a busy one
-            test: swift test --manifest-cache local --no-parallel --skip DaemonTests   # those: the job below
+            test: swift test --manifest-cache local --no-parallel --filter KelpAppTests
+          - name: Other tests
+            cache: tests
+            build: "true"
+            # Side by side: none of these shares the app's main thread. Then the app itself, on a few scenes, as pictures.
+            test: swift test --manifest-cache local --skip 'KelpAppTests|DaemonTests'   # those: the jobs beside
+            smoke: true
           - name: Release build
             cache: release
+            save: true
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
             # No dSYMs, as bundle.sh: dsymutil warns of every CodeEditLanguages object (its debug map is its maker's Mac).
             build: swift build --manifest-cache local -c release -debug-info-format none
             test: "true"
-          - name: Daemon under Thread Sanitizer
+          # DaemonTests sanitized take longer than all the rest: two runners share them, those named a… (aSendIsTyped)
+          # and the others, about half each.
+          - name: Daemon under Thread Sanitizer (a…)
             cache: tsan
+            save: true
+            pick: filter
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
             # tmux (Kelp's tmux terminals, a pane's caller: those tests skip without it) installs while the build runs.
-            build: |
+            build: &tsan-build |
               (command -v tmux || brew install tmux) & tmux=$!
               for p in DaemonTests kelp kelpd; do swift build --manifest-cache local --sanitize=thread --product $p; done
               wait $tmux
             # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
             # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
-            test: |
+            test: &tsan-test |
               X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
               B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
               env KELP_TEST_SLOW=4 DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
                 DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
-                $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
+                $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing \
+                --$PICK 'DaemonTests\.(\w+/)?a'
+          - name: Daemon under Thread Sanitizer (the rest)
+            cache: tsan
+            pick: skip
+            build: *tsan-build
+            test: *tsan-test
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
@@ -92,17 +110,19 @@ jobs:
         run: ${{ matrix.build }}
       - name: Test
         run: ${{ matrix.test }}
+        env: { PICK: "${{ matrix.pick }}" }
       # The app itself, on a few scenes (start page, Settings, a file, a terminal that ran a command), as pictures.
       - name: UI smoke
-        if: matrix.cache == 'tests'
+        if: matrix.smoke
         run: scripts/ui-smoke.sh ui-smoke
-      - if: always() && matrix.cache == 'tests'
+      - if: always() && matrix.smoke
         uses: actions/upload-artifact@v7
         with: { name: ui-smoke, path: ui-smoke, if-no-files-found: ignore }
-      # Saved even when a test failed, for the next push to build on. repositories is 3.5 GB of clones nothing reads again.
-      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+      # Saved even when a test failed, for the next push to build on, by one job of those that share it. repositories is
+      # 3.5 GB of clones nothing reads again.
+      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push' && matrix.save
         run: rm -rf .build/repositories
-      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push' && matrix.save
         uses: actions/cache/save@v6
         with:
           path: .build
