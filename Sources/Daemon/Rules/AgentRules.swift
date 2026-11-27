@@ -126,6 +126,14 @@ private struct FenceCheck {
                 "An agent starts sessions under its own account, not another of the user's: leave out `profile`, or "
                     + "ask the user to start it from Kelp's window.")
         }
+        // The same account picked another way: a variable that points the agent at another account's folder.
+        if let env = (method as? SessionCreate)?.env,
+            let key = env.keys.sorted().first(where: AgentHome.variables.contains)
+        {
+            throw RPCError.refused(
+                "An agent starts sessions under its own account: leave \(key) out of `env`, or ask the user to start "
+                    + "it from Kelp's window.")
+        }
         // With `openURLs`, the first local page the session prints opens by itself as a plain page tab, logged in as
         // the user. `UIOpen` refuses an agent that for the same reason, so an agent opens what it serves with cookies
         // of its own.
@@ -225,8 +233,13 @@ extension Store {
             }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
-        // A repository inside a workspace's folder (`RepoKey`) names that workspace.
-        return try strings(params, depth: 0).map { RepoKey.parts($0)?.id ?? $0 }.filter { UUID(uuidString: $0) != nil }
+        // A repository inside a workspace's folder (`RepoKey`) names that workspace, and a chat's own branch folder
+        // (`Session.branchKey`) names that chat's session.
+        func named(_ key: String) -> String {
+            let id = RepoKey.parts(key)?.id ?? key
+            return id.hasPrefix(Session.branchKeyPrefix) ? String(id.dropFirst(Session.branchKeyPrefix.count)) : id
+        }
+        return try strings(params, depth: 0).map(named).filter { UUID(uuidString: $0) != nil }
     }
 
     /// Whether an agent may work in `workspace`. It may in the workspace of `own` or of a session that started it, in a

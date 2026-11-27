@@ -154,3 +154,21 @@ private func demo() throws -> (root: URL, folder: URL) {
         PageCheck.missingFiles(md, folder: folder)
             == ["a link to gone.md: no such file", "a link to my%20notes.md: no such file"])
 }
+
+/// Commands a dashboard may run are allowed for its page in its project: a cloned repository with a page at the same
+/// place doesn't inherit them, and a link to the page is the page.
+@Test func aDashboardsAllowedCommandsStayInItsProject() throws {
+    let base = tmp().appendingPathComponent("sources-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: base) }
+    let page = ".kelp/artifacts/stats/canvas.json"
+    let mine = base.appendingPathComponent("mine/" + page), theirs = base.appendingPathComponent("clone/" + page)
+    for url in [mine, theirs] {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: url)
+    }
+    let link = base.appendingPathComponent("link")
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: base.appendingPathComponent("mine"))
+    let key = { (page: URL) in MarkdownTab.sourcesKey("artifacts.sources:", page.path) }
+    #expect(key(mine) != key(theirs))
+    #expect(key(link.appendingPathComponent(page)) == key(mine))
+}

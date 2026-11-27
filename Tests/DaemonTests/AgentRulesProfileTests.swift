@@ -22,6 +22,11 @@ import Testing
     try w.d.sessions.store.save(mine)
     try w.d.sessions.store.save(kid)
     let own = Caller.session(mine.id)
+    func withEnv(_ env: [String: String]) -> SessionCreate {
+        var create = SessionCreate(worktreeId: wt.id, agent: "claude", parent: mine.id)
+        create.env = env
+        return create
+    }
     try expectRows(
         w.d,
         [
@@ -35,6 +40,8 @@ import Testing
                 "not under another of the user's"
             ),
             (own, SessionRestart(id: kid.id, profile: "personal"), false, "nor moves its child to one"),
+            (own, withEnv(["CLAUDE_CONFIG_DIR": "/Users/x/.claude-personal"]), false, "nor names one's folder"),
+            (own, withEnv(["OPENAI_BASE_URL": "http://localhost:8080"]), true, "other variables it sets"),
             (.detached, SessionCreate(cwd: "/tmp", command: "cat"), true, "from nowhere, a terminal"),
             (
                 .detached, SessionCreate(cwd: "/tmp", command: "cat", profile: "work"), false,

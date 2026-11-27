@@ -433,7 +433,7 @@ the IDE in their workspaces, what their skills use), act on their own session an
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
 `Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, what only reads (`.reads`) aside,
 and one named another way, by the window, a path or a tab's address (`db:<workspace>/…`, `diff:<workspace>`), says so
-with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
+with `inWorkspace`), open web pages with cookies of their own except on a site the user allowed (`kelp browser open`; a plain page tab is the
 user's, logged in, and `kelp shot` would see it, so neither `ui.open`, ⇧⌘O (`scripts.openPage`, not one of `UICommand.forAgents`) nor a session started with
 `openURLs`, whose printed page opens by itself, gives an agent one; a tab an agent opens names its workspace (`kelp
 open` names the agent's own), never just the one on screen), make workspaces only in the project
@@ -451,6 +451,12 @@ for what's the user's. It isn't a boundary against an agent set on getting aroun
 so one with a shell can write what Kelp keeps as the user can (its database, settings.json, a shell's startup file, an
 agent's manifest in ~/.kelp/agents), make a bundle of its own to look like an app, add a cron line, put a window of its
 own in front of the user in their tmux, or start an app for the user to watch run something (`open -a Terminal`). Holding that takes a sandbox around the agent itself, which Kelp doesn't add.
+
+**A site the user allowed is the user's login for every agent.** Allow on a login question keeps the site in
+`browser.agentSites` (Settings › Browser): from then on every agent, in every project and every later chat, opens it
+with the user's login, without asking again, until the user removes it there or with a page's Stop. On that site an
+agent can do through its own pages whatever the user can (on github.com: merge, change a repository's settings), the
+things the fence refuses it over RPC, and `kelp browser` reads what those pages show. The question says so (`AgentSites.question`).
 
 **Code suggestions send code only where the user chose.** With a model on this Mac (Settings › Editor › Code
 suggestions), the code around the cursor stays on it. With a cloud provider it goes to that provider, with the key the

@@ -157,11 +157,18 @@ extension ArtifactChange: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(writesInFolder: folder) }
 
-    func handle(_: NoService) throws -> [String] {
+    /// An agent's change names the session it came from, whatever the call says, so the user's Undo bar shows it; only
+    /// the user keeps or undoes one.
+    func handle(_ store: Store) throws -> [String] {
         let dir = URL(fileURLWithPath: folder).standardizedFileURL
         guard dir.deletingLastPathComponent().path.hasSuffix("/" + Artifacts.folder),
             let record = Artifacts.record(in: dir)
         else { throw RPCError.invalidParams("not an artifact's folder in .kelp/artifacts: \(folder)") }
+        let agent = try Sessions.asker.flatMap { try store.forAnAgent($0) ? $0 : nil }
+        if agent != nil, keep == true || undo == true {
+            throw RPCError.refused("The user keeps or undoes an agent's change to a page, in Artifacts Overview.")
+        }
+        let session = agent.map { Caller.session(of: $0) ?? $0 } ?? session
         var next = Artifacts.changed(
             record, add: add ?? [], remove: remove ?? [], archived: archived, session: session, undo: undo == true,
             now: Date())

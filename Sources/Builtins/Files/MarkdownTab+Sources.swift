@@ -16,8 +16,14 @@ extension MarkdownTab {
         return true
     }
 
-    private var allowedKey: String { "artifacts.sources:" + Artifacts.projectPath(url.path) }
-    private var everyKey: String { "artifacts.sourcesEvery:" + Artifacts.projectPath(url.path) }
+    private var allowedKey: String { Self.sourcesKey("artifacts.sources:", url.path) }
+    private var everyKey: String { Self.sourcesKey("artifacts.sourcesEvery:", url.path) }
+
+    /// A dashboard's UIState key: its page's real path, so commands allowed in one project don't run when another
+    /// project (a cloned repository) has a page at the same place with the same commands.
+    nonisolated static func sourcesKey(_ prefix: String, _ path: String) -> String {
+        prefix + URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+    }
 
     /// Minutes between updates while the dashboard is open, or nil: only when it opens and on Update.
     var updateEvery: Int? {
