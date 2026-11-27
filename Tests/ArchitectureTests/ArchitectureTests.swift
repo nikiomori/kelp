@@ -898,6 +898,15 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
             in: chromeDirs + ["Sources/EditorKit"]),
         0, "system text styles")
     exactly(try matches(#"(cornerRadius|[dD]uration) = \d"#, in: chromeDirs), 1, "radii and durations")
+    // A gap or an inset of 2 pt or more typed as a number: a constraint's constant, a stack's spacing, a SwiftUI
+    // padding, an edge inset (one count a call). A 1-pt step is a hairline's, not a gap. Most equal a token already
+    // (`Metrics.gap`, `inset`, `gapTight`…); the rest are a place's own optical fit.
+    exactly(
+        try matches(
+            #"(constant: *-?|(?<!-)\b\w*[sS]pacing(?: =|:) *|\.padding\((?:\.\w+, *)?|EdgeInsets\([^)]*?: *-?)"#
+                + #"(?:[2-9]|[1-9]\d+)(?:\.\d+)?\b"#,
+            in: chromeDirs),
+        247, "gaps and insets")
     // A dev aid's, and key bindings read back: neither is motion.
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
