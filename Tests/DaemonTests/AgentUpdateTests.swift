@@ -5,13 +5,19 @@ import Testing
 
 @testable import Daemon
 
-/// A session whose /restart would land in `cat`, which prints it; its turn just ended with this payload.
-private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil, crons: [JSONValue]? = nil) async throws
-    -> (Session, LiveSession)
-{
+/// A session whose /restart would land in `cat`, which prints it, still starting up.
+private func started(_ w: World, _ name: String) async throws -> (Session, LiveSession) {
     let wt = try await workspace(w, name)
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
-    let ls = try #require(w.d.sessions.live[s.id])
+    return (s, try #require(w.d.sessions.live[s.id]))
+}
+
+/// A `started` session once it started up and its turn ended with this payload. Sessions a test needs are all started
+/// before the first is waited for, so they start up side by side.
+private func finished(
+    _ w: World, _ turn: (Session, LiveSession), tasks: [JSONValue]? = nil, crons: [JSONValue]? = nil
+) async throws -> (Session, LiveSession) {
+    let (s, ls) = turn
     #expect(try await waitFor(30) { ls.startedUp })
     _ = try await w.c.call(SessionSend(id: s.id, text: "a prompt"))
     _ = try await w.c.call(SessionHook(id: s.id, event: "done", backgroundTasks: tasks, sessionCrons: crons))
@@ -23,7 +29,7 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 @Test func anIdleAgentRestartsOncePerVersion() async throws {
     let w = try await world()
     defer { w.d.stop() }
-    let (s, ls) = try await finishedTurn(w, "update")
+    let (s, ls) = try await finished(w, started(w, "update"))
     #expect(!ls.restartAgent(into: "v2", quiet: 3600))   // not quiet for long enough
     #expect(ls.restartAgent(into: "v2", quiet: 0))
     #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: s.id)).contains("/restart") })
@@ -36,8 +42,9 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 @Test func theTickerRestartsOneOutdatedClaudeCodeARound() async throws {
     let w = try await world()
     defer { w.d.stop() }
+    let begun = [try await started(w, "round-a"), try await started(w, "round-b"), try await started(w, "round-plain")]
     var turns: [LiveSession] = []
-    for name in ["a", "b", "plain"] { turns.append(try await finishedTurn(w, "round-" + name).1) }
+    for turn in begun { turns.append(try await finished(w, turn).1) }
     for ls in turns.prefix(2) { _ = ls.update { $0.agent = Session.claudeAgent } }
     for ls in turns { ls.state.withLock { $0.lastOutputAt = .distantPast } }   // quiet long enough
     let start = Date().addingTimeInterval(3600)   // past whatever the daemon's own ticker took
@@ -65,8 +72,9 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
     defer { w.d.stop() }
     let server: JSONValue = .obj(["id": "b1", "type": "shell", "status": "running", "command": "npm run dev"])
     let cron: JSONValue = .obj(["id": "c1", "schedule": "*/5 * * * *", "recurring": true, "prompt": "go on"])
-    #expect(!(try await finishedTurn(w, "tasks", tasks: [server]).1.restartAgent(into: "v2", quiet: 0)))
-    #expect(!(try await finishedTurn(w, "crons", crons: [cron]).1.restartAgent(into: "v2", quiet: 0)))
+    let (tasks, crons) = (try await started(w, "tasks"), try await started(w, "crons"))
+    #expect(!(try await finished(w, tasks, tasks: [server]).1.restartAgent(into: "v2", quiet: 0)))
+    #expect(!(try await finished(w, crons, crons: [cron]).1.restartAgent(into: "v2", quiet: 0)))
 }
 
 /// Any key since the last line sent: /restart would land behind what's in the box and its Return send both. ↑ puts an old
@@ -74,7 +82,7 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 @Test func anAgentWithKeysInItsBoxIsLeftAlone() async throws {
     let w = try await world()
     defer { w.d.stop() }
-    let (s, ls) = try await finishedTurn(w, "keys")
+    let (s, ls) = try await finished(w, started(w, "keys"))
     func keys(_ k: String) async throws {
         let before = ls.inputs
         _ = try await w.c.call(SessionWrite(id: s.id, base64: Data(k.utf8).base64EncodedString()))
@@ -94,9 +102,10 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
     let wt = try await workspace(w, "fresh")
     let fresh = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let ls = try #require(w.d.sessions.live[fresh.id])
+    let asks = try await started(w, "asks")
     #expect(try await waitFor(30) { ls.startedUp })
     #expect(!ls.restartAgent(into: "v2", quiet: 0))
-    let (s, done) = try await finishedTurn(w, "asks")
+    let (s, done) = try await finished(w, asks)
     _ = try await w.c.call(SessionHook(id: s.id, event: "waiting"))
     #expect(try await waitFor(10) { done.snapshot.status == .waiting })
     #expect(!done.restartAgent(into: "v2", quiet: 0))

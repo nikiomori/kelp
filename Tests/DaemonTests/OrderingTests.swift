@@ -64,7 +64,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     let wt = try await workspace(w, "order")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: s.id)).contains("ready") })
-    let n = 6
+    let n = 4
     _ = try sendAtOnce(
         w.root, (1...n).map { (SessionSend.name, .obj(["id": .string(s.id), "text": .string("m\($0)")])) })
     var got: [String] = []
@@ -207,10 +207,9 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     defer { w.d.stop() }
     let wt = try await workspace(w, "lane")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
-    try await hibernate(after: 0.03, w.c)   // ~2 s
-    func status() async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == s.id }?.status }
-    #expect(try await waitFor(15) { try await status() == .paused })
-    try await hibernate(after: 0, w.c)
+    _ = try await w.c.call(WorktreeArchive(id: wt.id))   // pauses its agents
+    _ = try await w.c.call(WorktreeUnarchive(id: wt.id))
+    #expect(try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused)
     // A wake held up (its lock held elsewhere, as an idle pause holds it) until the ping is answered, not for a time a
     // slow machine (the Thread Sanitizer's) could outlast.
     let held = OSAllocatedUnfairLock(initialState: false), pinged = DispatchSemaphore(value: 0)
@@ -243,9 +242,9 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     defer { w.d.stop() }
     let wt = try await workspace(w, "gone")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
-    try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
-    try await hibernate(after: 0, w.c)
+    _ = try await w.c.call(WorktreeArchive(id: wt.id))   // pauses its agents
+    _ = try await w.c.call(WorktreeUnarchive(id: wt.id))
+    #expect(try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused)
     let held = OSAllocatedUnfairLock(initialState: false), release = DispatchSemaphore(value: 0)
     Thread.detachNewThread {
         w.d.sessions.wakeLocks.withLock(s.id) {

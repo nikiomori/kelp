@@ -103,7 +103,10 @@ extension Workbench {
         history.target(step, current: workspaceId) { app.worktree($0) != nil }
     }
 
+    /// Opens `uri` in a tab. `settings:<section>` opens Settings there instead, for a built-in's own control that
+    /// leads to its section (a page's "Your login" chip).
     package func open(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil, focus: Bool = true) {
+        if TabURI.scheme(uri) == "settings" { return SettingsWindow.show(app, section: TabURI.body(uri)) }
         if raiseOwnWindow(uri) { return }
         area(workspace)?.open(uri, split: split, focus: focus)
     }

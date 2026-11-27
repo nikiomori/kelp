@@ -343,7 +343,7 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 // The lines below are from real runs: Pretype's XCTest, Kelp's Swift Testing and compiler errors, a killed process.
 @Test func aFailedLogSaysWhatBrokeWhereverItSits() {
-    let noise = (0..<4000).map {
+    let noise = (0..<300).map {   // about 27 KB: well past the 12 KB tail
         "Test Case '-[App.A test\($0)]' started.\nTest Case '-[App.A test\($0)]' passed (0.001 seconds)."
     }
     let log =
@@ -363,7 +363,7 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
                 line: 284,
                 messages: [#"XCTAssertNil failed: "sept""#, #":285 XCTAssertNil failed: "rip" - a lookalike"#])
         ])
-    #expect(r.tests == 4001)
+    #expect(r.tests == 301)
     #expect(!r.log.contains("testAFinishedPrefixOfRealWords"))   // the tail lost it: this is why the log is read whole
     #expect(
         r.forAgent.hasPrefix(

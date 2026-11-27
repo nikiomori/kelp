@@ -38,15 +38,13 @@ import WorkbenchKit
     vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
     rig.show(vc, 200, 200)
     let card = HoverCard(app: rig.app)
-    card.hover(.project(rig.project.id), rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
-    #expect(try await waitFor { card.shownKind != nil })
+    card.open(.project(rig.project.id), rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
     #expect(card.shownKind != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())   // another window's: not its
     await mainActorTurns()
     #expect(card.shownKind != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
     #expect(try await waitFor { card.shownKind == nil })
-    #expect(card.shownKind == nil)
 }
 
 /// A tab's look is compared with its last on every session's change: a new image each time never equals it.

@@ -31,6 +31,8 @@ final class AndroidRuntime: MachineRuntime {
     var now: () -> Date = { Date() }
     /// Where the Android SDK is. It is found (`AndroidSDK.root`) by default, and a test gives its stand-in's.
     var sdk: () -> URL? = { AndroidSDK.root }
+    /// How long an emulator told to end has before SIGKILL (`end`). A test whose stand-in ignores SIGTERM shortens it.
+    var endGrace: TimeInterval = 2
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// `saving` is a sleep under way, and `afterSave` holds the wakes to run once it's done, because a wake meanwhile
@@ -324,8 +326,8 @@ final class AndroidRuntime: MachineRuntime {
 
     /// Ends an emulator that didn't quit when told, with SIGTERM and then SIGKILL, and waits for it. kelp-vm may end
     /// right after, and a SIGKILL left for later would never come.
-    private func end(_ process: Process, grace: TimeInterval = 2) async {
-        let pid = process.processIdentifier
+    private func end(_ process: Process, grace: TimeInterval? = nil) async {
+        let pid = process.processIdentifier, grace = grace ?? endGrace
         await Task.detached { Subprocess.stopTreeNow(pid, grace: grace) }.value
     }
 

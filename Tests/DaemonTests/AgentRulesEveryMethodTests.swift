@@ -164,7 +164,7 @@ private func export(_ root: String, to: String) -> UICommand {
 }
 
 /// Settings an agent may set, but the user's own (`SettingsSet.usersOnly`): how an agent calls the user, every
-/// project's language servers, and where code suggestions send the code.
+/// project's language servers, where code suggestions send the code, and where agents use the user's login.
 @Test func whoMaySetASetting() async throws {
     let r = try await rows()
     defer { r.w.d.stop() }
@@ -186,6 +186,10 @@ private func export(_ root: String, to: String) -> UICommand {
                 "nor where the code around the cursor goes, with the user's key"
             ),
             (agent, SettingsSet(key: "editor.suggestions", value: .string("cloud")), false, "nor that it goes at all"),
-            (agent, SettingsSet(key: "editor.nextEdit", value: .bool(true)), false, "nor a model kelpd downloads")
+            (agent, SettingsSet(key: "editor.nextEdit", value: .bool(true)), false, "nor a model kelpd downloads"),
+            (
+                agent, SettingsSet(key: SettingKeys.agentSites.key, value: .array([.object(["site": "x.com"])])), false,
+                "nor the sites where agents use the user's login"
+            )
         ])
 }

@@ -47,7 +47,7 @@ func theLaunchPromptWaitsForAStartupQuestion(question: String, inputBox: String?
     let wt = try await workspace(w, "startup")
     let fake =
         #"printf '\#(question)'; "#
-        + #"if IFS= read -rsn1 -t \#(scaled(6)) k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; "#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; "#
         + #"printf '\#(inputBox ?? "")'; exec cat -v"#
     let s: Session = try await w.c.call(
         "session.create",
@@ -82,12 +82,7 @@ func theLaunchPromptWaitsForAStartupQuestion(question: String, inputBox: String?
             (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("up") == true
         })
     _ = try await w.c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))   // finished: it may be paused
-    try await hibernate(after: 0.03, w.c)
-    defer { Task { try? await hibernate(after: 0, w.c) } }
-    #expect(
-        try await waitFor(15) {
-            try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused
-        })
+    #expect(try await pausedWhenIdle(w, s.id))
     #expect(try await waitFor(5) { kill(s.pid, 0) != 0 })
 }
 

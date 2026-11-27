@@ -434,10 +434,8 @@ private func onHost() -> LiveSession.State {
     let asks = try await started(), done = try await started()
     _ = try await w.c.call(SessionHook(id: asks.id, event: "waiting"))
     _ = try await w.c.call(SessionHook(id: done.id, event: "done"))
-    try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await status(done) == .paused })
+    #expect(try await pausedWhenIdle(w, done.id))
     #expect(try await status(asks) == .waiting)
-    try await hibernate(after: 0, w.c)
 }
 
 /// At rest an agent with hooks still redraws (Claude Code's "Checking for updates"): that isn't work, so it pauses all the same.

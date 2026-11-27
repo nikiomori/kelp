@@ -22,21 +22,28 @@ import os
 /// it still runs (each went on to the end, one rg per key on a big repo); a search nothing replaces (an agent's) runs on.
 @Test func aNewerSearchBoxSearchStopsTheOneBefore() async throws {
     let folder = "/tmp/search-\(UUID().uuidString.prefix(6))"
-    let running = OSAllocatedUnfairLock(initialState: 0)
+    let running = OSAllocatedUnfairLock<[pid_t]>(initialState: [])
     func sleeper(_ seconds: String, in place: String?) throws -> Subprocess.Output {
         try ProjectFiles.replacingSearch(in: place) { started in
             try Subprocess.checked(["/bin/sleep", seconds], cwd: "/tmp") { pid in
                 started?(pid)
-                running.withLock { $0 += 1 }
+                running.withLock { $0.append(pid) }
             }
         }
     }
     let first = Task.detached { try? sleeper("30", in: folder) }
-    let agents = Task.detached { try? sleeper("1", in: nil) }
-    try await waitFor { running.withLock { $0 } == 2 }   // both running
+    try await waitFor { running.withLock { $0.count } == 1 }
+    let agents = Task.detached { () -> Int32? in
+        do { _ = try sleeper("30", in: nil) } catch { return (error as? ProgramError)?.status }
+        return nil
+    }
+    try await waitFor { running.withLock { $0.count } == 2 }   // both running
+    let agent = running.withLock { $0[1] }
     let t0 = Date()
     _ = try sleeper("0", in: folder)
     #expect(await first.value == nil)   // stopped
     #expect(Date().timeIntervalSince(t0) < 10)
-    #expect(await agents.value != nil)
+    // The agent's runs on: it ends of the signal sent now, not of the stop's SIGTERM.
+    kill(agent, SIGINT)
+    #expect(await agents.value == SIGINT)
 }

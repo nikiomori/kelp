@@ -220,8 +220,7 @@ private func sampleWork() -> AgentWork {
 
 /// The steps list draws every kind of step on its lanes.
 @MainActor @Test func theStepsListDrawsEveryKind() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
+    let rig = BareApp()
     let work = sampleWork()
     let steps = StepsList()
     steps.scroll.frame = NSRect(x: 0, y: 0, width: 380, height: 300)
@@ -321,8 +320,7 @@ private func sampleWork() -> AgentWork {
 /// A file's row in a narrow panel keeps its name and lines and drops what doesn't fit whole, never a sliver; the card
 /// under the pointer keeps every line inside its margins.
 @MainActor @Test func aRowAndACardStayWithinTheirWidth() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
+    let rig = BareApp()
     var work = sampleWork()
     work.places[2].worktree = "agent-a9e8be3e7cccd0c8a"
     work.agents += (0..<5).map { _ in .init(role: .subagent, agent: "claude", name: "general-purpose") }
@@ -361,8 +359,7 @@ private func sampleWork() -> AgentWork {
 /// The turn menu keeps every turn, two asked the same thing in one minute included, and Whole Session last; built
 /// again only when the turns change.
 @MainActor @Test func theTurnMenuKeepsTurnsOfOneTitle() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
+    let rig = BareApp()
     let model = WorkModel(app: rig.app, choices: WorkChoices())
     let at = Date(timeIntervalSince1970: 0)
     var work = AgentWork()
@@ -377,8 +374,7 @@ private func sampleWork() -> AgentWork {
 
 /// A remote session's work names the host's folder; its files open from its workspace's folder on this Mac.
 @MainActor @Test func aRemoteSessionsFilesOpenFromTheFolderHere() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
+    let rig = BareApp()
     rig.app.sessions = [
         Session(id: "s1", worktreeId: rig.workspace.id, cwd: "/home/me/proj", command: "claude", agent: "claude")
     ]
@@ -396,8 +392,7 @@ private func sampleWork() -> AgentWork {
 /// Show Diff for the last turn names the agent whose turn it is, as git.diff needs; an earlier turn's names its mark
 /// too; a file of a worktree Kelp doesn't know has no diff to show.
 @MainActor @Test func aFilesDiffNamesWhoseTurnItIs() async throws {
-    let rig = try await AppRig()
-    defer { rig.done() }
+    let rig = BareApp()
     rig.app.sessions = [
         Session(id: "s1", worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude")
     ]

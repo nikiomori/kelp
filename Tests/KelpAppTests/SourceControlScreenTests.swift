@@ -342,6 +342,7 @@ extension OneAtATime {
         stays.priority = .windowSizeStayPut
         stays.isActive = true
         for name in names.dropFirst(2) { try rig.write(name, "a\n") }   // back as committed: two changes are left
+        vc.reloadAll()   // what the folder's watch would do a moment later
         #expect(try await waitFor(5) { outline.numberOfRows == 3 })
         vc.view.layoutSubtreeIfNeeded()
         let changes = try #require(outline.enclosingScrollView), rows = outline.rect(ofRow: 2).maxY

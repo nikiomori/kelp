@@ -38,7 +38,8 @@ private let env = ProcessInfo.processInfo.environment
         kill(child, SIGKILL)
     }
     #expect(r.status == 0 && String(decoding: r.stdout, as: UTF8.self) == "hi\n")
-    #expect(Date().timeIntervalSince(start) < 10)
+    // The pipes' one 2 s, not 2 s for each of the two the child holds.
+    #expect(Date().timeIntervalSince(start) < 3 * testSlowness)
 }
 
 /// Once the result is back, the pipes a lingering child holds are let go: no reader thread and pipe stay for the life of

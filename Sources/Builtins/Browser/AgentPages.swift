@@ -40,14 +40,24 @@ final class AgentPages {
         var errors = 0
         var lastError: String?
         var holder: Holder = .agent
+        /// The site where the agent drives the page with the user's login (`BrowserTab.loginSite`).
+        var login: String?
     }
 
     /// The pages by id. There is one id for each web view an agent drives.
     private(set) var pages: [String: Page] = [:]
     /// The pages that acted in the last `litFor` seconds.
     private(set) var lit: Set<String> = []
-    /// The tab id of the page that `kelp browser` last drove in each workspace, so its next command goes to that page.
-    @ObservationIgnored var browsed: [String: String] = [:]
+    static let remotePrefix = "remote:"
+
+    struct Scope: Hashable {
+        let workspace: String, owner: String, subagent: String?
+    }
+    struct Visit {
+        let tab: String, sharedSite: String?
+    }
+    /// The last tab for each caller. A shared grant names both the tab and the site and lasts only in this app.
+    @ObservationIgnored var browsed: [Scope: Visit] = [:]
     @ObservationIgnored private var handles: [String: WeakPage] = [:]
     @ObservationIgnored private var dimming: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private unowned let app: AppModel
@@ -134,8 +144,7 @@ final class AgentPages {
     func show(_ id: String) {
         guard let page = pages[id] else { return }
         app.workbench.show(workspace: page.workspace)
-        guard let tab = app.workbench.loadedTabs(page.workspace)?.first(where: { $0.id == page.tab }) else { return }
-        app.workbench.open(tab.uri, workspace: page.workspace, focus: false)
+        app.workbench.selectTab(page.tab, in: page.workspace)
         handle(id)?.bringForward()
     }
 }

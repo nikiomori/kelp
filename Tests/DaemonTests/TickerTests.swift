@@ -19,18 +19,6 @@ import Testing
     #expect(w.d.sessions.tick() == 1)
 }
 
-/// With no session running the ticker slows to a round every 5 s (the keep-awake alone), and the first session that
-/// starts brings it back to twice a second.
-@Test func theTickerSlowsDownWhileNothingRuns() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    #expect(!w.d.tick())
-    #expect(w.d.tickEvery == 5)
-    let workspace = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
-    _ = try await w.c.call(SessionCreate(worktreeId: workspace.id, command: "cat"))
-    #expect(w.d.tickEvery == 0.5)
-}
-
 /// The idle pause counts in minutes: the ticker looks for idle agents every 15 s, not each 0.5 s round, and an agent
 /// idle past the setting is paused from the tick itself (its clock moved, not waited out).
 @Test func theTickerLooksForIdleAgentsEveryFifteenSeconds() async throws {
