@@ -164,7 +164,6 @@ package final class ThemeManager {
     static func warmTerminals() { _ = GhosttyRuntime.shared }
 
     func apply() {
-        let settings = app.settings
         // One choice, as in VS Code. A theme with its own appearance (Kelp Light, Dracula…) sets the whole window's
         // appearance, and Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =

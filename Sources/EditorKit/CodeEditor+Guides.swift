@@ -62,7 +62,7 @@ extension EditorTextView {
 
     /// The cursor's line and the lines around it indented as far, within what's on screen, the only part that shows.
     private func activeGuide(in text: NSString) -> (level: Int, block: NSRange)? {
-        guard let lm = layoutManager, let tc = textContainer, selectedRange().location <= text.length else {
+        guard layoutManager != nil, textContainer != nil, selectedRange().location <= text.length else {
             return nil
         }
         let here = text.lineRange(for: NSRange(location: selectedRange().location, length: 0))
@@ -86,7 +86,7 @@ extension EditorTextView {
     /// Draws whitespace marks, scanning only what's drawn. Characters nobody means to have (no-break and zero-width
     /// spaces) are always marked.
     func drawWhitespace(in rect: NSRect) {
-        guard let lm = layoutManager, let tc = textContainer else { return }
+        guard let lm = layoutManager, textContainer != nil else { return }
         let text = string as NSString, origin = textContainerOrigin
         let shown = characters(in: rect)
         guard shown.length > 0 else { return }

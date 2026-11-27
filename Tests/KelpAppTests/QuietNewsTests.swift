@@ -110,7 +110,8 @@ extension OneAtATime {
             Worktree(id: "w2", repoId: "r1", branch: "two", path: "/tmp/kelp-screen-atlas/w2")
         ]
         try withSidebar(repos: [project], worktrees: worktrees, sessions: [a, b]) { vc, o in
-            let rowA = o.row(forItem: try #require(vc.node("a:a"))), rowB = o.row(forItem: try #require(vc.node("a:b")))
+            let nodeA = try #require(vc.node("a:a")), nodeB = try #require(vc.node("a:b"))
+            let rowA = o.row(forItem: nodeA), rowB = o.row(forItem: nodeB)
             #expect(rowA >= 0 && rowB >= 0 && vc.rowHeights.count == o.numberOfRows)
             vc.rowHeights[rowA] = 999
             vc.rowHeights[rowB] = 999   // a probe: asked again, it would be the row's real height

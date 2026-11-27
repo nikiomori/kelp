@@ -171,7 +171,7 @@ final class HostBrowser: Sendable {
         guard let connection = remote.connection else { return nil }
         if let made = state.withLock({ $0.socks[remote.host] }), made.connection == connection { return made.port }
         guard let port = Self.freePort() else { return nil }
-        let made = Log.session.attempt("a SOCKS proxy through \(remote.host)") {
+        let made: Void? = Log.session.attempt("a SOCKS proxy through \(remote.host)") {
             try Self.control(remote, "forward", "-D", "127.0.0.1:\(port)")
         }
         guard made != nil else { return nil }

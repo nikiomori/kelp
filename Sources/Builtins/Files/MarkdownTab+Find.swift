@@ -25,7 +25,7 @@ extension MarkdownTab {
             self?.step(forward: true)
         }
         card.onStep = { [weak self] in self?.step(forward: $0) }
-        card.onClose = { [weak self] in self.map { $0.view.window?.makeFirstResponder($0.web) } }
+        card.onClose = { [weak self] in if let self { self.view.window?.makeFirstResponder(self.web) } }
         card.float(in: view, top: web, trailing: view)
         Self.cards.setObject(card, forKey: self)
         return card

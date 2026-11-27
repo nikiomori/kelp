@@ -60,7 +60,7 @@ final class NotebookTab: NSViewController {
     /// tab's file), then renders it. A read that failed says why, with Try Again; a file that isn't a notebook says so.
     func reload() {
         loading.wait(String(localized: "Reading the notebook…"))
-        Task {
+        Task { [self] in
             let read = await app.tryCall(FilesRead(path: path))
             await loading.settled()
             loading.show(nil)

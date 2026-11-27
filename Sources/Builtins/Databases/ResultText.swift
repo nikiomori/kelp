@@ -92,7 +92,7 @@ enum ResultText {
     private static func exactNumber(_ value: String) -> NSDecimalNumber? {
         let trimmed = value.trimmingCharacters(in: .whitespaces)
         guard trimmed.wholeMatch(of: jsonNumber) != nil,
-            trimmed.prefix { $0 != "e" && $0 != "E" }.filter(\.isNumber).drop { $0 == "0" }.count <= 38,
+            trimmed.prefix(while: { $0 != "e" && $0 != "E" }).filter(\.isNumber).drop(while: { $0 == "0" }).count <= 38,
             let decimal = Decimal(string: trimmed), decimal.isFinite
         else { return nil }
         return NSDecimalNumber(decimal: decimal)

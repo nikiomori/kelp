@@ -77,7 +77,7 @@ extension ArtifactBar {
 
     /// Brings version `version` back as the page, then keeps it as a new version that says so.
     func restore(_ version: ArtifactVersion) async {
-        weak var tab = markdown   // it may close while it reads
+        weak let tab = markdown   // it may close while it reads
         guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))), let tab
         else { return }
         show(nil)

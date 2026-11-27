@@ -236,9 +236,12 @@ extension OneAtATime {
         app.extensions.reload()
         func numbered() throws -> [String] {
             delegate.buildMenu()
-            return try #require(NSApp.mainMenu).leaves().map(\.0)
-                .filter { $0.keyEquivalentModifierMask == [.command, .option] && (Int($0.keyEquivalent) ?? 0) > 0 }
-                .sorted { $0.keyEquivalent < $1.keyEquivalent }.map { $0.title.trimmingCharacters(in: .whitespaces) }
+            let items: [NSMenuItem] = try #require(NSApp.mainMenu).leaves().map(\.item).filter { item in
+                item.keyEquivalentModifierMask == [.command, .option] && (Int(item.keyEquivalent) ?? 0) > 0
+            }
+            return items.sorted { $0.keyEquivalent < $1.keyEquivalent }.map {
+                $0.title.trimmingCharacters(in: .whitespaces)
+            }
         }
         let registered = app.extensions.all.panels
         #expect(try numbered() == registered.prefix(9).map { loc($0.title) })

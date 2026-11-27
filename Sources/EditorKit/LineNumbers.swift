@@ -173,7 +173,7 @@ final class LineNumbers: NSRulerView {
     override func drawHashMarksAndLabels(in rect: NSRect) {
         background.setFill()
         rect.fill()
-        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
+        guard let editor, let lm = editor.textView.layoutManager, editor.textView.textContainer != nil else { return }
         let tv = editor.textView, string = tv.string as NSString
         let visible = tv.characters(in: tv.visibleRect)
         let caretLine = editor.lineIndex.line(at: tv.selectedRange().location, in: string)

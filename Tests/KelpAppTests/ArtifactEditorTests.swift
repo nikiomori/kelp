@@ -227,7 +227,9 @@ extension OneAtATime {
 @MainActor @Test func aColourSaysHowItReads() throws {
     let black = try #require(NSColor(css: "#000")), white = try #require(NSColor(css: "#ffffff"))
     #expect(abs(MarkdownTab.contrast(black, white) - 21) < 0.01 && MarkdownTab.contrast(white, white) == 1)
-    #expect(MarkdownTab.faint(21) == nil && MarkdownTab.faint(4.5) == nil && MarkdownTab.faint(3)?.hasPrefix("3.0:1: ") == true)
+    #expect(
+        MarkdownTab.faint(21) == nil && MarkdownTab.faint(4.5) == nil
+            && MarkdownTab.faint(3)?.hasPrefix("3.0:1: ") == true)
     #expect(MarkdownTab.hex(try #require(NSColor(css: "#0a84ff"))) == "#0a84ff")
     let warned = MarkdownTab.warned("Muted", column: 40)
     let sign = warned.attribute(.attachment, at: warned.length - 1, effectiveRange: nil) as? NSTextAttachment
@@ -321,7 +323,7 @@ extension AppOfItsOwn {
         let url = URL(fileURLWithPath: rig.workspace.path + "/.kelp/artifacts/home/page.md")
         var tab: MarkdownTab? = MarkdownTab(editor: CodeEditor(text: "# Home", url: url), url: url, app: rig.app)
         var bar: ArtifactBar? = ArtifactBar(app: rig.app, path: url.path, markdown: try #require(tab))
-        weak var closed = tab, gone = bar
+        weak let closed = tab, gone = bar
         bar?.followBaseline(versions: [.init(n: 1, at: 0, label: "a"), .init(n: 2, at: 1, label: "b")], live: false)
         (tab, bar) = (nil, nil)
         #expect(closed == nil)

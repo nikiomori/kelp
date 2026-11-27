@@ -39,7 +39,7 @@ extension BrowserRelay {
             guard answer != PermissionWaits.askerGone else {
                 throw RPCError.refused("Your command ended before the user answered about \(site): ask again.")
             }
-            asks.permissions.deniedLogins.withLock { $0[session, default: []].insert(site) }
+            _ = asks.permissions.deniedLogins.withLock { $0[session, default: []].insert(site) }
             guard answer == "deny" else {
                 throw RPCError.refused("Nobody answered whether you may use the user's login on \(site).")
             }

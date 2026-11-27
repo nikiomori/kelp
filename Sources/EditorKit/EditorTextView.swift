@@ -366,7 +366,7 @@ public final class EditorTextView: NSTextView {
         drawCapsules(in: dirtyRect)
         drawProblems(in: dirtyRect)
         drawWhitespace(in: dirtyRect)
-        guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
+        guard !extraCarets.isEmpty, layoutManager != nil, textContainer != nil else { return }
         // Only the carets in what's drawn are drawn, because ⇧⌘L on a common word in a big file makes thousands.
         let shown = characters(in: dirtyRect.insetBy(dx: 0, dy: -20))
         insertionPointColor.setFill()

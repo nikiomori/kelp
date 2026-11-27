@@ -166,16 +166,17 @@ private func folder(_ files: [String: String]) throws -> URL {
 
 /// With no call id (Claude Code), a `kelp browser` command is the one running with its words, by its hook's agent;
 /// the same words run by two owners at once are refused.
-@Test(arguments: [
-    ("click e12", ["t1", "t2", "t3"], "mobile"),
-    ("type e4", ["t1", "t2", "t3"], "desktop"),
-    ("info", ["t1", "t3"], "desktop"),   // only one runs `kelp browser`
-    ("info", ["t4"], nil),   // the main thread's
-    ("snapshot", ["t5", "t1"], nil),   // the main thread browses while a subagent runs tests
-    ("open http://localhost:3000", ["t6", "t7"], nil),   // its address as typed, beside a subagent's ask
-    ("click e12", ["t6", "t8"], "desktop"),   // quoted
-    ("info", ["t6", "t7"], nil)   // two run it, neither with these words: the main thread's
-])
+@Test(
+    arguments: [
+        ("click e12", ["t1", "t2", "t3"], "mobile"),
+        ("type e4", ["t1", "t2", "t3"], "desktop"),
+        ("info", ["t1", "t3"], "desktop"),   // only one runs `kelp browser`
+        ("info", ["t4"], nil),   // the main thread's
+        ("snapshot", ["t5", "t1"], nil),   // the main thread browses while a subagent runs tests
+        ("open http://localhost:3000", ["t6", "t7"], nil),   // its address as typed, beside a subagent's ask
+        ("click e12", ["t6", "t8"], "desktop"),   // quoted
+        ("info", ["t6", "t7"], nil)   // two run it, neither with these words: the main thread's
+    ] as [(String, [String], String?)])
 func aBrowserCommandIsTheOneRunningWithItsWords(words: String, running: [String], owner: String?) throws {
     let commands = [
         AgentCommand(id: "t1", command: "npm test"), AgentCommand(id: "t2", command: "kelp browser click e12"),

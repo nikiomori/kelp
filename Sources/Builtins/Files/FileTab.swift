@@ -139,7 +139,7 @@ final class FileTab: SavableTab {
             wait.wait(String(localized: "Reading the file…"))
         }
         let copied = remote && Preview.canPreview(url)
-        return Task { [weak self] in
+        return Task { [weak self, box] in
             let result: Result<FilesRead.Result, Error>
             do {
                 if copied {

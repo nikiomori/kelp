@@ -4,7 +4,7 @@ import Testing
 @testable import DesignKit
 @testable import KelpKit
 
-private func digits(in view: NSView) -> [NSTextField] {
+@MainActor private func digits(in view: NSView) -> [NSTextField] {
     view.subviews.flatMap { ($0 as? NSTextField).map { [$0] } ?? digits(in: $0) }
 }
 

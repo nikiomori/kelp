@@ -324,7 +324,7 @@ public final class CodeEditor: NSObject {
     /// Colors what's on screen and a screen around it, unless that's colored already, because a query runs on the
     /// main thread and every step of a scroll or of a panel sliding in comes through here.
     func colorVisible() {
-        guard let highlighter, let lm = textView.layoutManager, let tc = textView.textContainer else { return }
+        guard let highlighter, textView.layoutManager != nil, textView.textContainer != nil else { return }
         let screen = textView.visibleRect
         let shown = textView.characters(in: screen)
         if let colored, NSIntersectionRange(colored, shown).length == shown.length { return }

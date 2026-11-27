@@ -24,6 +24,7 @@ import os
         })
     #expect(try await waitFor(10) { heardSub.withLock { $0.contains(sub + "/b.txt") } })
     #expect(!heardSub.withLock { $0.contains(root + "/a.txt") })
+    withExtendedLifetime(top) {}   // held till here
     top = nil
     #expect(streams.count == 1)
     #expect(
@@ -32,6 +33,7 @@ import os
             return heardSub.withLock { $0.contains(sub + "/c.txt") }
         })
     #expect(!heardRoot.withLock { $0.contains(sub + "/c.txt") })
+    withExtendedLifetime(inner) {}
     inner = nil
     #expect(streams.count == 0)
     #expect(FileStreams.covers("/r", "/r/src") && FileStreams.covers("/r", "/r") && !FileStreams.covers("/r", "/rx"))

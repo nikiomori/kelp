@@ -369,7 +369,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             let ip = guestAddress()
             return Thread.detachNewThread {
                 let ok = ip.map(MacGuest.banner) ?? false
-                DispatchQueue.main.async { MainActor.assumeIsolated { self.answered(ok, restored, since) } }
+                DispatchQueue.main.async { _ = MainActor.assumeIsolated { self.answered(ok, restored, since) } }
             }
         }
         sshd { fd, id in

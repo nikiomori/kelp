@@ -269,8 +269,9 @@ final class OverviewController: NSViewController {
             let open = NSMenuItem(title: String(localized: "Open in Tasks"), action: nil, keyEquivalent: "")
             menu.insertItem(open, at: 1)
             let app = model.app
-            open.target = ClosureTarget { app.extensions.run("tasks.show", [:]) }
-            open.representedObject = open.target
+            let target = ClosureTarget { app.extensions.run("tasks.show", [:]) }
+            open.target = target
+            open.representedObject = target   // what keeps it: target is weak
             open.action = #selector(ClosureTarget.fire)
         }
     }
