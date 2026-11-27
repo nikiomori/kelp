@@ -35,7 +35,6 @@ import WebKit
     #expect(try await waitFor { await js("document.readyState") == "complete" })
     // The refresh is tried, and refused, rather than waited out.
     #expect(try await waitFor(10) { decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) })
-    #expect(decided.refused.contains { $0.hasPrefix("https://example.com") })
     #expect(await js("document.title") == "t")
     #expect(await js("document.body.dataset.kelp") == "yes")
     #expect(web.url?.absoluteString == base.absoluteString)

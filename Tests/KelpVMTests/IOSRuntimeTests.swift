@@ -30,13 +30,14 @@ import Testing
     /// A stop (or SIGTERM) while the simulator boots: the start is told, the shutdown comes after the boot's simctl
     /// (shut down before it ends, the simulator would come up after the stop), and no runner starts.
     @Test(.timeLimit(minutes: 1)) func aStopWhileItBootsShutsDownAfterTheBootAndStartsNoRunner() async throws {
-        let (vm, folder) = try iOS(simctl: #"[ "$2" = bootstatus ] && sleep 1"#)
+        let (vm, folder) = try iOS(simctl: #"[ "$2" = bootstatus ] && { \#(untilTheGateOpens); }"#)
         defer { putAway(folder) }
         let start = Task { await ask(vm, .start) }
         #expect(try await waitFor(5) { (try? asked(folder))?.contains("bootstatus") == true })
         var ended = false
         vm.exitProcess = { ended = true }
         vm.quit()   // as SIGTERM does
+        openGate(folder)
         #expect(await start.value?.contains("shut down while it started") == true)
         #expect(try await waitFor(5) { ended })
         let calls = try asked(folder).split(separator: "\n")
@@ -145,6 +146,16 @@ import Testing
         machine: VMMachine(name: "phone", os: "ios", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u"))
     vm.xcrun = folder.appendingPathComponent("xcrun").path
     return (vm, folder)
+}
+
+/// A stand-in's step that waits for the test to open its gate (`openGate`), so what the test asks meanwhile finds that
+/// step under way however busy the machine is. 10 s at most, times `testSlowness`.
+let untilTheGateOpens =
+    #"for i in $(seq \#(scaled(10) * 20)); do [ -e "$(dirname "$0")/gate" ] && break; sleep 0.05; done"#
+
+/// Lets a stand-in's gated step (`untilTheGateOpens`) go on, and every one after it at once.
+func openGate(_ folder: URL) {
+    FileManager.default.createFile(atPath: folder.appendingPathComponent("gate").path, contents: nil)
 }
 
 /// Its runner ended, whatever the test left, and its folder removed.

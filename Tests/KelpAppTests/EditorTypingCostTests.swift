@@ -28,7 +28,9 @@ extension OneAtATime {
     /// In a long file the parse comes in a moment after the key: the colors already there stay (they move with the edit),
     /// and the screen is colored once, from the new tree, instead of from the old one first.
     @Test func aLongFilesKeyWaitsForItsParseToColor() async throws {
-        let e = shown(String(repeating: "let value = 1 // one\n", count: 10_000), "long.swift")
+        // A fifth longer than the longest text parsed on the main thread.
+        let line = "let value = 1 // one\n", lines = SyntaxHighlighter.syncLimit * 6 / 5 / line.utf16.count
+        let e = shown(String(repeating: line, count: lines), "long.swift")
         #expect(try await waitFor(10) { e.highlighter?.waiting == false && e.colored != nil })
         e.textView.setSelectedRange(NSRange(location: 4, length: 0))
         e.textView.insertText("x", replacementRange: NSRange(location: NSNotFound, length: 0))

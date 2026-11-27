@@ -108,7 +108,7 @@ let package = Package(
         .testTarget(name: "WorkbenchKitTests", dependencies: ["WorkbenchKit", "Core", "TestSupport"]),
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "TestSupport"]),
         .testTarget(name: "KelpCLITests", dependencies: ["kelp", "Core"]),   // the CLI's parsing and what it prints
-        .testTarget(name: "ArchitectureTests"),   // reads the sources: the rules in docs/architecture.md
+        .testTarget(name: "ArchitectureTests", swiftSettings: [.unsafeFlags(["-O"])]),   // reads the sources: the rules in docs/architecture.md
         .testTarget(name: "KelpAppTests", dependencies: ["KelpApp", "KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues",
                                                   "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "BuiltinMachines", "BuiltinServers", "BuiltinDatabases", "BuiltinWork", "BuiltinTasks", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
         .binaryTarget(name: "GhosttyKit", path: "Vendor/GhosttyKit.xcframework"),

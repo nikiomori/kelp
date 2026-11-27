@@ -18,9 +18,9 @@ import os
     defer { w.d.stop() }
     let wt = try await workspace(w, "wake-fails")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "gone"))
-    try await hibernate(after: 0.03, w.c)   // ~2 s
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
-    try await hibernate(after: 0, w.c)
+    _ = try await w.c.call(WorktreeArchive(id: wt.id))   // pauses its agents
+    _ = try await w.c.call(WorktreeUnarchive(id: wt.id))
+    #expect(try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused)
     try FileManager.default.removeItem(at: w.root.appendingPathComponent("agents/gone.json"))   // nothing to wake it with
     await #expect(throws: RPCError.self) { _ = try await w.c.call(SessionSend(id: s.id, text: "hello")) }
 }
@@ -377,9 +377,9 @@ import os
     defer { w.d.stop() }
     let wt = try await workspace(w, "attach-fails")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "gone2"))
-    try await hibernate(after: 0.03, w.c)
-    #expect(try await waitFor(15) { try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused })
-    try await hibernate(after: 0, w.c)
+    _ = try await w.c.call(WorktreeArchive(id: wt.id))   // pauses its agents
+    _ = try await w.c.call(WorktreeUnarchive(id: wt.id))
+    #expect(try await w.c.call(SessionList()).first { $0.id == s.id }?.status == .paused)
     try FileManager.default.removeItem(at: w.root.appendingPathComponent("agents/gone2.json"))
     let before = w.d.sessions.wakeTries.withLock { $0 }
     await #expect(throws: RPCError.self) { _ = try await w.c.call(SessionAttach(id: s.id)) }

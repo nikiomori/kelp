@@ -22,36 +22,62 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Build and test
+          # The app's tests run one at a time (they share one main thread, and side by side their waits ran out on a busy
+          # one), split by name over two runners as DaemonTests are: a… took 124 s, the rest 94 s. The first also runs the
+          # UI smoke, the second every other bundle, side by side (none shares the app's main thread).
+          - name: App tests (a…) and UI smoke
             cache: tests
-            # Built by the test run itself: each `swift` start loads the package again, and each build copies the Swift
-            # libraries into every test bundle and signs them, nothing compiled or not: 40 s for a second one.
-            build: "true"
-            # One at a time: the app's tests share one main thread, and side by side their waits ran out on a busy one
-            test: swift test --manifest-cache local --no-parallel --skip DaemonTests   # those: the job below
+            # Built once (`swift test --skip-build` then only runs): each build copies the Swift libraries into every test
+            # bundle and signs them, nothing compiled or not, 40 s for a second one.
+            build: &tests-build swift build --manifest-cache local --build-tests
+            test: swift test --manifest-cache local --skip-build --no-parallel --filter 'KelpAppTests\.(\w+/)?a'
+            smoke: true
+          - name: App tests (the rest) and other tests
+            cache: tests
+            build: *tests-build
+            # The other bundles run even when an app test failed, and the step fails if either did.
+            test: |
+              swift test --manifest-cache local --skip-build --no-parallel --filter KelpAppTests --skip 'KelpAppTests\.(\w+/)?a' || app=$?
+              swift test --manifest-cache local --skip-build --skip 'KelpAppTests|DaemonTests'   # DaemonTests: the jobs below
+              exit ${app:-0}
           - name: Release build
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
             # No dSYMs, as bundle.sh: dsymutil warns of every CodeEditLanguages object (its debug map is its maker's Mac).
-            build: swift build --manifest-cache local -c release -debug-info-format none
+            # Not optimized: what this checks is that the code compiles. Still whole-module, as -c release builds: with
+            # -no-whole-module-optimization a module compiled afresh (not in the cache) has no `<module>-primary.d` for
+            # the build system to read, and the build stops there.
+            # Limit: a fault only the optimizer meets (a crash in it) shows in `make release`, not here.
+            build: >-
+              swift build --manifest-cache local -c release -debug-info-format none -Xswiftc -Onone
             test: "true"
-          - name: Daemon under Thread Sanitizer
+          # DaemonTests sanitized take longer than all the rest: two runners share them, those named a… (aSendIsTyped)
+          # and the others, about half each.
+          - name: Daemon under Thread Sanitizer (a…)
             cache: tsan
+            pick: filter
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
             # tmux (Kelp's tmux terminals, a pane's caller: those tests skip without it) installs while the build runs.
-            build: |
+            build: &tsan-build |
               (command -v tmux || brew install tmux) & tmux=$!
               for p in DaemonTests kelp kelpd; do swift build --manifest-cache local --sanitize=thread --product $p; done
               wait $tmux
             # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
             # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
-            test: |
+            test: &tsan-test |
               X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
               B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
               env KELP_TEST_SLOW=4 DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
                 DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
-                $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
+                $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing \
+                --$PICK 'DaemonTests\.(\w+/)?a'
+          - name: Daemon under Thread Sanitizer (the rest)
+            cache: tsan
+            pick: skip
+            build: *tsan-build
+            test: *tsan-test
     runs-on: xcode-27
+    permissions: { contents: read, actions: write }   # write: to delete the caches a newer one replaces
     steps:
       - uses: actions/checkout@v7
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
@@ -80,35 +106,59 @@ jobs:
       - if: steps.ghostty.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
+      # The runner's image is in the key: GitHub rolls a new one out over days, and a build cached on the other rebuilt
+      # most of the package (13 s on the same image, 199 s on the other, from one cache). The other image's is a fallback.
+      - id: image
+        run: echo "kind=build-$XCODE-${{ matrix.cache }}-$ImageVersion-" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
         with:
           path: .build
-          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
-          restore-keys: build-${{ env.XCODE }}-${{ matrix.cache }}-
+          key: ${{ steps.image.outputs.kind }}${{ github.sha }}
+          restore-keys: |
+            ${{ steps.image.outputs.kind }}
+            build-${{ env.XCODE }}-${{ matrix.cache }}-
       - name: Date sources by their contents   # a checkout dates them all now, and .build would rebuild everything
         run: git ls-files -sz | perl -0ne 'chomp; ($m,$b,$s,$f)=/^(\S+) (\S+) (\S+)\t(.*)$/s; next if $m eq "120000"; $t=1e9+hex(substr($b,0,7)); utime($t,$t,$f)'
       - id: build
         name: Build
-        run: ${{ matrix.build }}
+        run: |
+          start=$SECONDS
+          ${{ matrix.build }}
+          echo "seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
       - name: Test
         run: ${{ matrix.test }}
+        env: { PICK: "${{ matrix.pick }}" }
       # The app itself, on a few scenes (start page, Settings, a file, a terminal that ran a command), as pictures.
       - name: UI smoke
-        if: matrix.cache == 'tests'
+        if: matrix.smoke
         run: scripts/ui-smoke.sh ui-smoke
-      - if: always() && matrix.cache == 'tests'
+      - if: always() && matrix.smoke
         uses: actions/upload-artifact@v7
         with: { name: ui-smoke, path: ui-smoke, if-no-files-found: ignore }
-      # Saved even when a test failed, for the next push to build on. repositories is 3.5 GB of clones nothing reads again.
-      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+      # Saved even when a test failed: on main for every pull request to build on, and on a pull request for its next push,
+      # when this build took long enough that the next one would gain. Two jobs that share a kind on one image make one
+      # key: the second's save is refused, harmlessly. A branch keeps only its newest of each kind and image (the store
+      # holds 10 GB). repositories is 3.5 GB of clones nothing reads again.
+      - id: save
+        if: >-
+          always() && steps.build.outcome == 'success'
+          && (github.event_name == 'push' || fromJSON(steps.build.outputs.seconds) > 60)
         run: rm -rf .build/repositories
-      - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
+      - if: always() && steps.save.outcome == 'success'
         uses: actions/cache/save@v6
         with:
           path: .build
-          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
+          key: ${{ steps.image.outputs.kind }}${{ github.sha }}
+      # A fork's pull request can't delete: its old caches go as the store fills.
+      - if: always() && steps.save.outcome == 'success'
+        env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}", KIND: "${{ steps.image.outputs.kind }}" }
+        run: |
+          gh cache list --ref "$GITHUB_REF" --key "$KIND" --limit 100 --json id,key \
+            --jq ".[] | select(.key != \"$KIND$GITHUB_SHA\") | .id" | xargs -n1 gh cache delete || true
+  # On Linux: a public repository gets five macOS runners at once, and the jobs above take them all.
   lint:
-    runs-on: macos-26
+    runs-on: ubuntu-latest
+    container: ghcr.io/realm/swiftlint:0.65.1
     steps:
       - uses: actions/checkout@v7
-      - run: brew install swiftlint && swiftlint --quiet
+      - run: swiftlint --quiet

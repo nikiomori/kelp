@@ -130,7 +130,9 @@ public enum Subprocess {
         // Whatever is still in the pipes arrives at once, so only a child holding them open makes this wait run out.
         // The readers are then let go, or a reader thread and a pipe would stay as long as that child (an ssh master,
         // a daemon).
-        for reader in [out, err] where reader.done.wait(timeout: .now() + 2) == .timedOut { reader.abandon() }
+        // One deadline for both: a child holding stdout and stderr costs 2 s, not 2 s each.
+        let pipesDeadline = DispatchTime.now() + 2
+        for reader in [out, err] where reader.done.wait(timeout: pipesDeadline) == .timedOut { reader.abandon() }
         // The status is read only once the program has exited. Asking a Process that still runs raises an exception,
         // which would take the daemon down.
         return Output(

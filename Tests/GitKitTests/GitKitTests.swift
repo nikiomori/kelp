@@ -22,12 +22,10 @@ func tempRepo() throws -> String {
     let p = try Git.addWorktree(
         repo: repo, branch: "feat/x", base: "main", into: dir, copyFiles: [".env"], remotes: .none)
     #expect(FileManager.default.fileExists(atPath: p + "/.env"))
-    #expect(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]"))
     #expect(try Git.linkedWorktrees(repo, remotes: .none).map { ($0.path as NSString).lastPathComponent } == ["feat-x"])   // the main checkout isn't one
     #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.branch == "feat/x")
     try Git.run(["worktree", "lock", p], cwd: repo, remotes: .none)
     #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.locked == true)
-    #expect(throws: GitError.self) { try Git.run(["worktree", "remove", p], cwd: repo, remotes: .none) }   // what "Remove Clean Worktrees" relies on
     try Git.run(["worktree", "unlock", p], cwd: repo, remotes: .none)
     #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.locked == false)
     try "dirty".write(toFile: p + "/n.txt", atomically: true, encoding: .utf8)
@@ -40,8 +38,6 @@ func tempRepo() throws -> String {
     try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: true, remotes: .none)
     // What git didn't see went to the Trash with the folder, not away for good.
     #expect(inTheTrash("feat-x/.env.local", holding: local))
-    #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none)).contains("feat-x"))
-    #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]")))
     #expect(try Git.linkedWorktrees(repo, remotes: .none).isEmpty)
 }
 

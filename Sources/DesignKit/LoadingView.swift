@@ -11,8 +11,9 @@ public final class LoadingView: NSView {
     private let line = NSTextField(labelWithString: "")
     private let detail = NSTextField(wrappingLabelWithString: "")
     private let skeleton: SkeletonRows?
-    /// What a wait shows stays up at least this long, so an answer right behind it doesn't make it blink.
-    public static let held: TimeInterval = 0.4
+    /// What a wait shows stays up at least this long, so an answer right behind it doesn't make it blink. A test
+    /// shortens it.
+    nonisolated(unsafe) public static var held: TimeInterval = 0.4
     private var shownAt: Date?
     /// Counts the leaves while the view fades away. A show meanwhile keeps it, and only the last leave hides it.
     private var leaving: Int?

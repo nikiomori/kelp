@@ -28,6 +28,13 @@ private struct Family {
             }
         }
     }
+    /// `id`'s turn ends through its Stop hook, which carries the reply: none here, so what it printed is reported. A stop
+    /// without one looks for the reply in the transcript for seconds first (aStopThatDidntLastReportsNothing).
+    func stop(_ id: String) async throws {
+        var hook = SessionHook(id: id, event: "done")
+        hook.reply = ""
+        _ = try await w.c.call(hook)
+    }
     /// The reports `id` holds, and what was typed into it.
     func held(_ id: String) -> (reports: Int, typed: Int)? {
         w.d.sessions.existing(id)?.state.withLock { ($0.reports.count, $0.inputs) }
@@ -69,7 +76,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let f = try await family()
     defer { f.w.d.stop() }
     #expect(f.child.parent == f.parent.id)
-    _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
+    try await f.stop(f.child.id)
     // `cat` takes no pastes, and each newline would have been a line submitted.
     #expect(
         try await waitFor(10) {
@@ -96,12 +103,12 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
             worktreeId: try #require(f.parent.worktreeId) as String, agent: "fake", title: "tester", parent: f.parent.id
         ))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))   // the first waits for its turn to end
-    _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
+    try await f.stop(f.child.id)
     #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id)?.state.withLock { $0.reports.count } == 1 })
     let running = try #require(f.w.d.sessions.live.remove(f.parent.id))
     _ = f.w.d.sessions.pause(running, AgentManifest.load(dir: f.w.root.appendingPathComponent("agents")))
     #expect(try await f.status(f.parent.id) == .paused)
-    _ = try await f.w.c.call(SessionReport(id: second.id, state: "done"))
+    try await f.stop(second.id)
     #expect(try await waitFor(10) { try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 2 })
     _ = try f.w.d.sessions.liveSession(f.parent.id)
     #expect(
@@ -181,7 +188,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let f = try await family()
     defer { f.w.d.stop() }
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))
-    _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
+    try await f.stop(f.child.id)
     #expect(try await f.tickKeeps(f.parent.id))
     #expect(try await !f.read(f.parent.id).contains("<kelp from"))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "done"))
@@ -197,7 +204,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
         _ = try await f.w.c.call(SessionWrite(id: f.parent.id, base64: Data(keys.utf8).base64EncodedString()))
     }
     try await press("\u{1B}[A")
-    _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
+    try await f.stop(f.child.id)
     #expect(try await f.tickKeeps(f.parent.id))
     #expect(try await !f.read(f.parent.id).contains("<kelp from"))
     try await press("\r")

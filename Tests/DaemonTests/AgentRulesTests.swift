@@ -377,12 +377,12 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(Callers.tmuxDecision([.user], shown: true) == .user)
     #expect(Callers.tmuxDecision([.user], shown: false) == nil)
     #expect(Callers.tmuxDecision([], shown: true) == nil)
-    #expect(Callers.tmuxSocket(["tmux", "-L", "work", "new", "-s", "x"]) == ["-L", "work"])
-    #expect(Callers.tmuxSocket(["tmux", "new"]) == [])
 }
 
 /// The socket a tmux server was started on is read from tmux's own options only: not from its command's.
 @Test func aTmuxServersSocketIsReadFromItsOwnOptions() {
+    #expect(Callers.tmuxSocket(["tmux", "-L", "work", "new", "-s", "x"]) == ["-L", "work"])
+    #expect(Callers.tmuxSocket(["tmux", "new"]) == [])
     #expect(Callers.tmuxSocket(["tmux", "-Lwork", "new"]) == ["-L", "work"])
     #expect(Callers.tmuxSocket(["tmux", "-u", "-S", "/tmp/s", "new"]) == ["-S", "/tmp/s"])
     #expect(Callers.tmuxSocket(["tmux", "-f", "/x.conf", "-L", "a", "new"]) == ["-L", "a"])

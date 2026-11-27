@@ -181,17 +181,22 @@ import Testing
     #expect(grid.table.tableColumns[1].width != 211 && !grid.table.tableColumns[2].isHidden)
 }
 
-/// A statement that gave more rows than the grid holds says so; leaving a slow read stops its wheel and its words.
-@MainActor @Test func theFootSaysWhatItShows() async throws {
-    #expect(DatabaseTab.shown(2, of: 5) == "2 of 5 rows shown" && DatabaseTab.shown(5, of: 5) == "5 rows")
-    let (tab, window) = editableTab([["a"]])
-    defer { withExtendedLifetime(window) {} }
-    // The tab's own first read is over: no kelpd here, so it failed under the rows.
-    #expect(try await waitFor { !tab.failureBar.isHidden })
-    tab.startReading("orders")
-    await tab.leave(to: .query)
-    try await Task.sleep(for: .seconds(1.3))   // the wheel and its words come only past a second
-    #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
+extension OneAtATime {
+    /// A statement that gave more rows than the grid holds says so; leaving a slow read stops its wheel and its words.
+    @Test func theFootSaysWhatItShows() async throws {
+        LoadingView.patience = 0.05
+        defer { LoadingView.patience = 1 }
+        #expect(DatabaseTab.shown(2, of: 5) == "2 of 5 rows shown" && DatabaseTab.shown(5, of: 5) == "5 rows")
+        let (tab, window) = editableTab([["a"]])
+        defer { withExtendedLifetime(window) {} }
+        // The tab's own first read is over: no kelpd here, so it failed under the rows.
+        #expect(try await waitFor { !tab.failureBar.isHidden })
+        tab.startReading("orders")
+        await tab.leave(to: .query)
+        // The wheel and its words come only past `patience`: three times that, and they haven't.
+        try await Task.sleep(for: .seconds(3 * LoadingView.patience * testSlowness))
+        #expect(!tab.status.stringValue.contains("Reading"), "\(tab.status.stringValue)")
+    }
 }
 
 /// What is wrong with a database takes a second line in a narrow panel rather than being cut ("Its compose

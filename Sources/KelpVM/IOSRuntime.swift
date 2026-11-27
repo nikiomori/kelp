@@ -195,7 +195,7 @@ final class IOSRuntime: MachineRuntime {
                 guard runner != nil else {
                     throw VMError("Kelp's runner quit: see runner.log in \(machine.name)'s folder.")
                 }
-                try await Task.sleep(nanoseconds: 500_000_000)
+                try await Task.sleep(nanoseconds: 50_000_000)   // a refused loopback connect costs nothing
             }
             throw VMError("Kelp's runner didn't answer in 3 minutes.")
         } catch { if boots == number { started(error) } }

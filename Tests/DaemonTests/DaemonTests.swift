@@ -134,6 +134,18 @@ func hibernate(after minutes: Double, _ c: RPCClient) async throws {
     _ = try await c.call("settings.set", .obj(["key": "sessions.hibernateMinutes", "value": .double(minutes)]))
 }
 
+/// Whether `id` is paused for being idle once the ticker's clock is an hour on (sessions pausing after a minute): the
+/// pause the ticker makes, without waiting for it on the real clock.
+func pausedWhenIdle(_ w: World, _ id: String) async throws -> Bool {
+    _ = try w.d.sessions.settings.set(SettingKeys.hibernateMinutes.key, .double(1))
+    defer { _ = try? w.d.sessions.settings.set(SettingKeys.hibernateMinutes.key, .double(0)) }
+    return try await waitFor(15) {
+        w.d.sessions.pausingIdle.withLock { $0.lookedAt = .distantPast }   // each try a round that looks
+        w.d.sessions.tick(now: Date() + 3600)
+        return try w.d.store.session(id)?.status == .paused
+    }
+}
+
 /// A new workspace on `branch`, its setup not run.
 func workspace(_ w: World, _ branch: String) async throws -> Worktree {
     try await w.c.call(

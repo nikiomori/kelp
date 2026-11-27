@@ -106,8 +106,7 @@ struct StripsPutAway: SuiteTrait, TestScoping {
     }
 
     @Test func aDroppedStripGoesToItsCornerAndStaysThere() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
@@ -130,8 +129,7 @@ struct StripsPutAway: SuiteTrait, TestScoping {
     }
 
     @Test func aStripDroppedPastTheRightSideHidesThere() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
@@ -156,8 +154,7 @@ struct StripsPutAway: SuiteTrait, TestScoping {
 
     /// A call takes the strip behind the nearer side and back where it stood after, without keeping that place.
     @Test func aCallTakesTheStripBehindTheEdgeAndBack() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         StripPlace.save(nil)
         let strip = AgentStrip(app: rig.app)
@@ -185,8 +182,7 @@ struct StripsPutAway: SuiteTrait, TestScoping {
 
     /// Two fingers swept over the strip send it off as far as it goes that way, before they lift.
     @Test func aSwipeOverTheStripMovesIt() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         StripPlace.save(nil)
         let strip = AgentStrip(app: rig.app)
@@ -217,8 +213,7 @@ struct StripsPutAway: SuiteTrait, TestScoping {
 
     /// Let go half past a side with the pointer still on it, it doesn't stay there: it springs back whole.
     @Test func aStripLetGoHalfPastASideSpringsBackWhole() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         StripPlace.save(StripPlace(corner: .bottomLeft, display: nil))
         let strip = AgentStrip(app: rig.app)
