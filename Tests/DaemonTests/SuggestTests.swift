@@ -271,7 +271,7 @@ import os
         let ask = EditorNextEdit(path: "a.swift", changes: [], original: "", current: "")
         #expect(try await server.ask(ask, Slots(1)) == SuggestAnswer())   // not running yet: nothing, and it starts
         #expect(await server.start(Slots(1)).problem == .noServer)
-        #expect((NextEditServer.freePort() ?? 0) > 0)
+        #expect((Unix.freePort() ?? 0) > 0)
         let (d, c, _) = try daemon()
         defer { d.stop() }
         _ = try await c.call(EditorNextEditStop())   // none running: nothing to stop

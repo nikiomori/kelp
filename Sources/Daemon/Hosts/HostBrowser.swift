@@ -170,30 +170,13 @@ final class HostBrowser: Sendable {
     func socks(_ remote: RemoteHost) -> Int? {
         guard let connection = remote.connection else { return nil }
         if let made = state.withLock({ $0.socks[remote.host] }), made.connection == connection { return made.port }
-        guard let port = Self.freePort() else { return nil }
+        guard let port = Unix.freePort() else { return nil }
         let made: Void? = Log.session.attempt("a SOCKS proxy through \(remote.host)") {
             try Self.control(remote, "forward", "-D", "127.0.0.1:\(port)")
         }
         guard made != nil else { return nil }
         state.withLock { $0.socks[remote.host] = (port, connection) }
         return port
-    }
-
-    /// A port nothing on this Mac's loopback listens on now.
-    static func freePort() -> Int? {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        guard fd >= 0 else { return nil }
-        defer { close(fd) }
-        var address = sockaddr_in()
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_addr.s_addr = inet_addr("127.0.0.1")
-        var size = socklen_t(MemoryLayout<sockaddr_in>.size)
-        let bound = withUnsafeMutablePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(fd, $0, size) == 0 && getsockname(fd, $0, &size) == 0
-            }
-        }
-        return bound ? Int(UInt16(bigEndian: address.sin_port)) : nil
     }
 
     /// Where a recording under way for the session goes, here and on the host.
