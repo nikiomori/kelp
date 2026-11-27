@@ -377,13 +377,9 @@ func trustQuestionStandIn() -> String {
     #expect(try await shows(s.id))
     let r: Session = try await w.c.call("session.restart", .obj(["id": .string(s.id)]), as: Session.self)
     #expect(try await shows(r.id))   // restart: same account
-    _ = try await w.c.call("session.hook", .obj(["id": .string(r.id), "event": "done"]))   // finished: it may be paused
-    try await hibernate(after: 0.03, w.c)
-    #expect(
-        try await waitFor(15) {
-            try await w.c.call("session.list", as: [Session].self).first { $0.id == r.id }?.status == .paused
-        })
-    try await hibernate(after: 0, w.c)
+    _ = try await w.c.call(WorktreeArchive(id: wt.id))   // pauses its agents
+    _ = try await w.c.call(WorktreeUnarchive(id: wt.id))
+    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == r.id }?.status == .paused)
     _ = try await w.c.call("session.attach", .obj(["id": .string(r.id)]))   // wake: same account
     let log = w.root.appendingPathComponent("history/\(r.id).log")   // both runs of this session: before the pause and after
     #expect(
