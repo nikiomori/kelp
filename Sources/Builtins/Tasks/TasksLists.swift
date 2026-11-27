@@ -155,8 +155,8 @@ final class TaskRows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMe
         table.target = self
         // Return shows the line, ⌘Return ticks it, ⇧Return hands it to the last agent.
         table.onReturn = { [weak self] in
-            guard let row = self?.chosen else { return }
-            let flags = NSApp.currentEvent?.modifierFlags.intersection([.command, .shift, .option, .control]) ?? []
+            guard let self, let row = chosen else { return }
+            let flags = table.returnModifiers
             if flags == .command {
                 TaskActions.toggle(model.app, row)
             } else if flags == .shift {

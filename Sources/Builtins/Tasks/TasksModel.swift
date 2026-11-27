@@ -11,7 +11,23 @@ final class TasksModel {
     static let sourceKey = "tasks.source", boardKey = "tasks.board"
 
     @ObservationIgnored let app: AppModel
-    var source: TaskSource { didSet { if source != oldValue { keepSource() } } }
+    var source: TaskSource {
+        didSet {
+            guard source != oldValue, !restoring else { return }
+            chosen = true
+            keepSource()
+        }
+    }
+    /// True once the person picked a list here; until then the tab follows the one kept in the window's state, which
+    /// may come after the tab (a tab restored at launch opens before the state is read).
+    @ObservationIgnored private var chosen = false
+    @ObservationIgnored private var restoring = false
+    func restore(_ name: String?) {
+        guard !chosen, let kept = Self.source(name), kept != source else { return }
+        restoring = true
+        source = kept
+        restoring = false
+    }
     var find = ""
     /// True when the rows show as the board. Kept as the list is, in the window's state.
     var board: Bool {

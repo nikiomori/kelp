@@ -121,6 +121,12 @@ final class TasksController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // The lines, the chats' states (a mark turns), the list chosen and the words searched.
+        // The list kept in the window's state, once it is read.
+        track(owner: self) { [model] in
+            model.app.uiState[TasksModel.sourceKey]?.string
+        } changed: { [model] in
+            model.restore($0)
+        }
         track(owner: self) { [model] in
             Values(model.rows, model.source, model.find, model.failures, model.waiting, model.board)
         } changed: { [weak self] _ in

@@ -1,7 +1,10 @@
+import AppKit
 import Core
+import DesignKit
 import Foundation
 import Testing
 
+@testable import BuiltinTasks
 @testable import KelpKit
 
 private func chat(_ status: AgentStatus) -> Session {
@@ -109,4 +112,31 @@ func eachListHoldsItsTasks(source: TaskSource, ids: [String]) {
     let slash = TaskActions.brief(task, list, goal: "finds in 200 ms", slash: true)
     #expect(slash.hasPrefix("/goal finds in 200 ms — Search ") && !slash.contains("\n"))
     #expect(TaskActions.brief(task, list, goal: "finds in 200 ms").hasSuffix("Done when: finds in 200 ms"))
+}
+
+/// The list kept in the window's state is the tab's until the person picks another, even when the state comes after
+/// the tab; one the person picked is kept.
+@MainActor @Test func theTabFollowsTheKeptListUntilOneIsPicked() {
+    let model = TasksModel(app: AppModel(builtins: []))
+    #expect(model.source == .now)
+    model.restore("inbox")
+    #expect(model.source == .inbox)
+    model.source = .all
+    model.restore("journal")
+    #expect(model.source == .all)
+}
+
+/// A list's Return says which modifiers came with it, so ⌘Return and ⇧Return can do their own thing.
+@MainActor @Test func aListsReturnKnowsItsModifiers() throws {
+    let table = KeyTable()
+    var seen: [NSEvent.ModifierFlags] = []
+    table.onReturn = { seen.append(table.returnModifiers) }
+    for flags in [NSEvent.ModifierFlags(), .shift, .command] {
+        let key = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0, context: nil,
+                characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        table.keyDown(with: key)
+    }
+    #expect(seen == [[], .shift, .command])
 }

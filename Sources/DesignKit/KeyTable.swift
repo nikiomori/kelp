@@ -11,10 +11,13 @@ extension NSTableView {
 @MainActor
 public final class KeyTable: NSTableView {
     public var onReturn: (() -> Void)?, onSpace: (() -> Void)?, onDelete: (() -> Void)?
+    /// The modifiers held with the Return `onReturn` answers (⌘ or ⇧ may mean another action).
+    public private(set) var returnModifiers: NSEvent.ModifierFlags = []
 
     override public func keyDown(with event: NSEvent) {
         let plain = event.modifierFlags.isDisjoint(with: [.command, .option, .control])
         if [36, 76].contains(event.keyCode), let onReturn {
+            returnModifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
             onReturn()
         } else if event.keyCode == 49, plain, let onSpace {
             onSpace()
