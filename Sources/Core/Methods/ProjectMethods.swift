@@ -239,6 +239,18 @@ public struct SettingsSet: InternalMethod {
     }
 }
 
+/// Takes `site` out of the sites where agents use the user's login (`SettingKeys.agentSites`), or with `entry` puts
+/// that entry back, as one change on the daemon's copy, so a site kelpd allows meanwhile isn't lost.
+public struct SettingsAgentSite: InternalMethod {
+    public static let name = "settings.agentSite"
+    public typealias Result = Done
+    public var site: String, entry: JSONValue?
+    public init(site: String, entry: JSONValue? = nil) {
+        self.site = site
+        self.entry = entry
+    }
+}
+
 /// Lists past conversations, newest first, filtered by `query` (searched in `fullText` too) and `cwd`, at most
 /// `limit`.
 public struct HistoryList: RPCMethod {

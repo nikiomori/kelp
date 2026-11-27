@@ -15292,6 +15292,34 @@
       }
     },
     {
+      "description" : "Takes `site` out of the sites where agents use the user's login (`SettingKeys.agentSites`), or with `entry` puts that entry back, as one change on the daemon's copy, so a site kelpd allows meanwhile isn't lost.",
+      "name" : "settings.agentSite",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "entry",
+          "required" : false,
+          "schema" : {
+
+          }
+        },
+        {
+          "name" : "site",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Returns all settings (the keys of settings.json, flat and dotted).",
       "name" : "settings.get",
       "paramStructure" : "by-name",

@@ -151,3 +151,22 @@ private func home() throws -> URL {
     #expect(read.wait(timeout: .now() + 2 * testSlowness) == .success)
     s.file.unlock()
 }
+
+/// The sites where agents use the user's login change one at a time on the daemon's list: sites put back at once all
+/// stay. Before, each change wrote back a list read before the others had landed, and one lost the rest.
+@Test func sitesChangedAtOnceAllStay() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let sites = (0..<12).map { "site\($0).com" }
+    try await withThrowingTaskGroup(of: Void.self) { group in
+        for site in sites {
+            let entry = AgentSites.adding(site, chat: "c", to: [])[0]
+            group.addTask { _ = try await w.c.call(SettingsAgentSite(site: site, entry: entry)) }
+        }
+        try await group.waitForAll()
+    }
+    let kept = AgentSites.entries(w.d.settings[SettingKeys.agentSites]).map(\.site)
+    #expect(Set(kept) == Set(sites) && kept.count == sites.count)
+    _ = try await w.c.call(SettingsAgentSite(site: "site3.com"))
+    #expect(!AgentSites.entries(w.d.settings[SettingKeys.agentSites]).contains { $0.site == "site3.com" })
+}

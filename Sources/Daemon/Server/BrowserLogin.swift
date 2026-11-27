@@ -45,9 +45,10 @@ extension BrowserRelay {
             }
             throw denied
         }
-        let now = settings.store[SettingKeys.agentSites]   // read again: the user may have changed it meanwhile
-        let added = AgentSites.adding(site, chat: ls.snapshot.displayTitle, to: now)
-        _ = try settings.store.set(SettingKeys.agentSites.key, .array(added))
+        let chat = ls.snapshot.displayTitle   // added to the list on disk: the user may have changed it meanwhile
+        _ = try settings.store.update(SettingKeys.agentSites.key) {
+            .array(AgentSites.adding(site, chat: chat, to: SettingKeys.agentSites.read($0)))
+        }
         settings.changedBeforeReply()   // the app hears the site is allowed before it opens the page
         return .string(site)
     }

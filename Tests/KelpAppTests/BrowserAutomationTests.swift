@@ -384,18 +384,32 @@ extension OneAtATime {
 
 /// A page with the user's login says so on its strip. Stop takes the site out of the list, so the agent's next command
 /// there is refused, and Undo puts the same entry back. While the user holds the page, the button hands it back instead.
-@MainActor @Test func aPageWithTheUsersLoginStopsAndUndoes() {
-    let app = AppModel(), entry = AgentSites.adding("example.com", chat: "read posts", to: [])
-    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+/// Each is one change on the daemon's list, so a site kelpd allowed meanwhile stays: before, the app wrote back its own
+/// copy of the list, which didn't have it yet.
+@MainActor @Test func aPageWithTheUsersLoginStopsAndUndoes() async throws {
+    let rig = try await AppRig(files: [:])
+    defer { rig.done() }
+    let app = rig.app, key = SettingKeys.agentSites.key
+    let entry = AgentSites.adding("example.com", chat: "read posts", to: [])
+    _ = try await rig.client.call(SettingsSet(key: key, value: .array(entry)))
+    #expect(try await waitFor(5) { app.settings[SettingKeys.agentSites] == entry })
     let tab = BrowserTab(uri: "https://www.example.com/", app: app)
     tab.loginSite = "example.com"
     let drive = tab.watch()
     drive.drivenAt = Date()
     #expect(tab.stripLook().button == "Stop" && tab.stripLook().text.hasSuffix("your login on example.com"))
+    let other = AgentSites.adding("other.com", chat: "c", to: [])
+    let file = rig.root.appendingPathComponent("settings.json")   // another site allowed, not heard of yet
+    try JSONEncoder().encode(JSONValue.object([key: .array(entry + other)])).write(to: file)
+    let onDisk = {
+        SettingKeys.agentSites.read(try JSONDecoder().decode(JSONValue.self, from: Data(contentsOf: file))[key])
+    }
     #expect(tab.stopOrUndoLogin())
-    #expect(app.settings[SettingKeys.agentSites].isEmpty && tab.stripLook().button == "Undo")
+    #expect(try await waitFor(5) { tab.stripLook().button == "Undo" })
+    #expect(try onDisk() == other)
     #expect(tab.stopOrUndoLogin())
-    #expect(app.settings[SettingKeys.agentSites] == entry && tab.stripLook().button == "Stop")
+    #expect(try await waitFor(5) { tab.stripLook().button == "Stop" })
+    #expect(try onDisk() == other + entry)
     drive.takenOver = true
     #expect(!tab.stopOrUndoLogin())
 }
