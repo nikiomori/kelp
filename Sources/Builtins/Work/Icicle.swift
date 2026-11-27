@@ -31,13 +31,13 @@ enum Icicle {
             let total = CGFloat(max(node.weight, 1))
             var cursor = x, small = (count: 0, width: CGFloat(0))
             for child in node.children where child.weight > 0 {
-                let w = width * CGFloat(child.weight) / total
-                if w < narrowest {
-                    small = (small.count + 1, small.width + w)
+                let share = width * CGFloat(child.weight) / total
+                if share < narrowest {
+                    small = (small.count + 1, small.width + share)
                     continue
                 }
-                lay(child, x: cursor, width: w, depth: depth + 1)
-                cursor += w
+                lay(child, x: cursor, width: share, depth: depth + 1)
+                cursor += share
             }
             if small.count > 0 {
                 let rect = CGRect(
@@ -132,11 +132,12 @@ final class IcicleView: NSView, NSViewToolTipOwner {
             if block.path == selected, block.path != nil { ring(rect, .keyboardFocusIndicatorColor) }
             // Where the agent is now: a dot at the end of the deepest block it is in, not a second ring.
             if block == nowBlock {
-                let r = Metrics.dotRadius
+                let radius = Metrics.dotRadius
                 NSColor.labelColor.setFill()
                 NSBezierPath(
                     ovalIn: NSRect(
-                        x: rect.maxX - Metrics.gapTight - 2 * r, y: rect.midY - r, width: 2 * r, height: 2 * r)
+                        x: rect.maxX - Metrics.gapTight - 2 * radius, y: rect.midY - radius, width: 2 * radius,
+                        height: 2 * radius)
                 ).fill()
             }
             if let path = block.path, flash.lit.contains(path) { ring(rect, .agentEdited) }

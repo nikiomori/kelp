@@ -10,7 +10,7 @@ extension MotionTimeline {
     struct Keys: Equatable {
         var name: String, delay: Double, duration: Double, at: [Double], easing: [String]
         /// Second `t` as a place in the animation, 0–100.
-        func place(_ t: Double) -> Double { duration > 0 ? (t - delay) / duration * 100 : 0 }
+        func place(_ time: Double) -> Double { duration > 0 ? (time - delay) / duration * 100 : 0 }
         func time(_ place: Double) -> Double { delay + duration * place / 100 }
     }
 
@@ -32,12 +32,12 @@ extension MotionTimeline {
     }
 
     /// Where two scenes meet under `p` on the scene lane (or overlap, with a transition), within a few points.
-    func seam(at p: NSPoint) -> (out: Clip, in: Clip)? {
-        guard laneRect(0).contains(p) else { return nil }
+    func seam(at point: NSPoint) -> (out: Clip, in: Clip)? {
+        guard laneRect(0).contains(point) else { return nil }
         let sorted = scenes.filter { !$0.id.isEmpty }.sorted { $0.start < $1.start }
-        for (a, b) in zip(sorted, sorted.dropFirst())
-        where p.x >= x(b.start) - 6 && p.x <= x(max(a.end, b.start)) + 6 {
-            return (a, b)
+        for (earlier, later) in zip(sorted, sorted.dropFirst())
+        where point.x >= x(later.start) - 6 && point.x <= x(max(earlier.end, later.start)) + 6 {
+            return (earlier, later)
         }
         return nil
     }
@@ -48,15 +48,15 @@ extension MotionTimeline {
         let sign = NSImage.symbol("arrow.left.arrow.right", size: Metrics.iconTiny)
             .withSymbolConfiguration(.init(paletteColors: [.secondaryLabelColor]))
         for scene in scenes where scene.transition != nil {
-            let r = NSRect(x: x(scene.start) - 1, y: row.midY - side / 2, width: side, height: side)
+            let rect = NSRect(x: x(scene.start) - 1, y: row.midY - side / 2, width: side, height: side)
             NSColor.controlBackgroundColor.setFill()
-            let chip = NSBezierPath(roundedRect: r, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
+            let chip = NSBezierPath(roundedRect: rect, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
             chip.fill()
             NSColor.separatorColor.setStroke()
             chip.stroke()
             guard let sign else { continue }
             let at = NSRect(
-                x: r.midX - sign.size.width / 2, y: r.midY - sign.size.height / 2, width: sign.size.width,
+                x: rect.midX - sign.size.width / 2, y: rect.midY - sign.size.height / 2, width: sign.size.width,
                 height: sign.size.height)
             sign.draw(in: at, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
         }
@@ -72,10 +72,11 @@ extension MotionTimeline {
     }
 
     /// The keyframe under `p`: its element and place.
-    func keyframe(at p: NSPoint) -> (id: String, at: Double)? {
+    func keyframe(at point: NSPoint) -> (id: String, at: Double)? {
         for (id, keys, lane) in keyframes() {
-            if let at = keys.at.first(where: { diamondRect(keys, $0, lane: lane).insetBy(dx: -3, dy: -3).contains(p) })
-            {
+            if let at = keys.at.first(where: {
+                diamondRect(keys, $0, lane: lane).insetBy(dx: -3, dy: -3).contains(point)
+            }) {
                 return (id, at)
             }
         }
@@ -88,12 +89,12 @@ extension MotionTimeline {
                 let dragged = keyframing.drag.map { $0.id == id && $0.from == place } ?? false
                 let shown = dragged ? keyframing.drag?.to ?? place : place
                 let chosen = keyframing.chosen.map { $0.id == id && $0.at == place } ?? false
-                let r = diamondRect(keys, shown, lane: lane).insetBy(dx: 1, dy: 1)
+                let rect = diamondRect(keys, shown, lane: lane).insetBy(dx: 1, dy: 1)
                 let shape = NSBezierPath()
-                shape.move(to: NSPoint(x: r.midX, y: r.minY))
-                shape.line(to: NSPoint(x: r.maxX, y: r.midY))
-                shape.line(to: NSPoint(x: r.midX, y: r.maxY))
-                shape.line(to: NSPoint(x: r.minX, y: r.midY))
+                shape.move(to: NSPoint(x: rect.midX, y: rect.minY))
+                shape.line(to: NSPoint(x: rect.maxX, y: rect.midY))
+                shape.line(to: NSPoint(x: rect.midX, y: rect.maxY))
+                shape.line(to: NSPoint(x: rect.minX, y: rect.midY))
                 shape.close()
                 (chosen || dragged ? NSColor.controlAccentColor : NSColor.labelColor).setFill()
                 shape.fill()
@@ -101,8 +102,10 @@ extension MotionTimeline {
         }
     }
 
-    func keyDown(at p: NSPoint) -> Bool {
-        guard let hit = keyframe(at: p), let keys = tracks.first(where: { $0.id == hit.id })?.keys else { return false }
+    func keyDown(at point: NSPoint) -> Bool {
+        guard let hit = keyframe(at: point), let keys = tracks.first(where: { $0.id == hit.id })?.keys else {
+            return false
+        }
         keyframing.chosen = hit
         keyframing.onChoose?(hit.id, hit.at)
         seek(x(keys.time(hit.at)))
@@ -111,13 +114,13 @@ extension MotionTimeline {
         return true
     }
 
-    func keyDragged(to p: NSPoint) -> Bool {
+    func keyDragged(to point: NSPoint) -> Bool {
         guard let drag = keyframing.drag, let keys = tracks.first(where: { $0.id == drag.id })?.keys else {
             return false
         }
         let before = keys.at.filter { $0 < drag.from }.max() ?? 0,
             after = keys.at.filter { $0 > drag.from }.min() ?? 100
-        keyframing.drag?.to = min(max((keys.place(seconds(p.x)) * 10).rounded() / 10, before + 0.5), after - 0.5)
+        keyframing.drag?.to = min(max((keys.place(seconds(point.x)) * 10).rounded() / 10, before + 0.5), after - 0.5)
         needsDisplay = true
         return true
     }

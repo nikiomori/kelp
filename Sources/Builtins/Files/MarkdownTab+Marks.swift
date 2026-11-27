@@ -109,10 +109,10 @@ extension MarkdownTab {
             let sent = await changed(
                 .send(ids: sending.map(\.id), to: to, before: nil), pictures: pictures.isEmpty ? nil : pictures)
         else { return }
-        let named = sending.map { m in
-            var m = m
-            m.picture = sent.marks.first { $0.id == m.id }?.picture
-            return m
+        let named = sending.map { mark in
+            var mark = mark
+            mark.picture = sent.marks.first { $0.id == mark.id }?.picture
+            return mark
         }
         let version = sent.marks.first { sending.map(\.id).contains($0.id) }?.rounds.last?.before
         let text = ArtifactMarks.message(

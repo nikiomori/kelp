@@ -159,35 +159,36 @@ enum DeclarativeExtension {
     private static func contributions(_ extManifest: ExtManifest, _ folder: URL, _ app: AppModel) -> Contributions {
         var result = Contributions()
         let contributes = extManifest.contributes
-        for v in contributes?.panels ?? [] {
-            app.extensions.views["\(extManifest.id)/\(v.id)"] = (extManifest, v, folder)
+        for panel in contributes?.panels ?? [] {
+            app.extensions.views["\(extManifest.id)/\(panel.id)"] = (extManifest, panel, folder)
             let badge = ExtBadge()
             var poll: (@MainActor () async -> Void)?
-            if let def = v.badge { poll = { await badge.poll(def, folder: folder, app: app) } }
+            if let def = panel.badge { poll = { await badge.poll(def, folder: folder, app: app) } }
             result.panels.append(
                 PanelSpec(
-                    id: "\(extManifest.id).\(v.id)", title: v.title,
-                    icon: v.icon ?? extManifest.icon ?? "puzzlepiece.extension",
+                    id: "\(extManifest.id).\(panel.id)", title: panel.title,
+                    icon: panel.icon ?? extManifest.icon ?? "puzzlepiece.extension",
                     extensionId: extManifest.id,
                     badge: { badge.value }, poll: poll
                 ) {
-                    viewController(extManifest, v, folder, app, badge: badge)
+                    viewController(extManifest, panel, folder, app, badge: badge)
                 })
         }
-        for v in contributes?.editors ?? [] {
-            app.extensions.views["\(extManifest.id)/\(v.id)"] = (extManifest, v, folder)
+        for editor in contributes?.editors ?? [] {
+            app.extensions.views["\(extManifest.id)/\(editor.id)"] = (extManifest, editor, folder)
             result.editors.append(
                 EditorSpec(
-                    id: "\(extManifest.id).\(v.id)", title: v.title,
-                    icon: v.icon ?? extManifest.icon ?? "puzzlepiece.extension",
-                    uri: { _ in "ext:\(extManifest.id)/\(v.id)" }))
+                    id: "\(extManifest.id).\(editor.id)", title: editor.title,
+                    icon: editor.icon ?? extManifest.icon ?? "puzzlepiece.extension",
+                    uri: { _ in "ext:\(extManifest.id)/\(editor.id)" }))
         }
-        for a in contributes?.commands ?? [] {
+        for command in contributes?.commands ?? [] {
             result.commands.append(
                 CommandSpec(
-                    id: a.id ?? "\(extManifest.id).\(a.title)", title: a.shownTitle, key: a.key, menu: a.menu
+                    id: command.id ?? "\(extManifest.id).\(command.title)", title: command.shownTitle, key: command.key,
+                    menu: command.menu
                 ) { _ in
-                    ExtActions(app).perform(a, item: nil, folder: folder)
+                    ExtActions(app).perform(command, item: nil, folder: folder)
                 })
         }
         if let specs = contributes?.settings, !specs.isEmpty {

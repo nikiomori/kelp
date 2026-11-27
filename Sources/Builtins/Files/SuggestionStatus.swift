@@ -23,21 +23,23 @@ struct SuggestionStatus: Equatable {
     }
 
     /// Nil to say nothing: suggestions are off and there's no model to turn on.
-    static func of(_ s: Inputs) -> SuggestionStatus? {
-        guard let status = plain(s), s.editOffered, !status.needsYou else { return plain(s) }
+    static func of(_ inputs: Inputs) -> SuggestionStatus? {
+        guard let status = plain(inputs), inputs.editOffered, !status.needsYou else { return plain(inputs) }
         return SuggestionStatus(text: String(localized: "\(status.text) · Edit Below"))
     }
 
-    private static func plain(_ s: Inputs) -> SuggestionStatus? {
-        if s.mode == .off {
-            if s.everywhere != .off { return SuggestionStatus(text: String(localized: "Off in This File")) }
-            return s.model == nil ? nil : SuggestionStatus(text: String(localized: "Suggestions Off"))
+    private static func plain(_ inputs: Inputs) -> SuggestionStatus? {
+        if inputs.mode == .off {
+            if inputs.everywhere != .off { return SuggestionStatus(text: String(localized: "Off in This File")) }
+            return inputs.model == nil ? nil : SuggestionStatus(text: String(localized: "Suggestions Off"))
         }
-        if s.secret { return SuggestionStatus(text: String(localized: "Off in This File")) }
-        if s.mode == .cloud, let cloud = s.cloud { return cloudStatus(cloud.name, hasKey: cloud.hasKey, s) }
-        if let pause = s.pause { return SuggestionStatus(text: pause.title) }
-        let server = s.model?.server ?? "Ollama"
-        switch s.problem {
+        if inputs.secret { return SuggestionStatus(text: String(localized: "Off in This File")) }
+        if inputs.mode == .cloud, let cloud = inputs.cloud {
+            return cloudStatus(cloud.name, hasKey: cloud.hasKey, inputs)
+        }
+        if let pause = inputs.pause { return SuggestionStatus(text: pause.title) }
+        let server = inputs.model?.server ?? "Ollama"
+        switch inputs.problem {
         case .noServer: return warning(String(localized: "\(server) Isn’t Running"))
         case .noModel: return warning(String(localized: "No Code Model"))
         case .modelMissing: return warning(String(localized: "Model Not Found"))
@@ -45,17 +47,17 @@ struct SuggestionStatus: Equatable {
         case .failed, .keyMissing, .keyRejected: return warning(String(localized: "\(server) Failed"))
         case nil: break
         }
-        guard let model = s.model else { return s.known ? warning(String(localized: "No Code Model")) : nil }
-        return named(Suggestions.shortName(model.id), loading: s.loading)
+        guard let model = inputs.model else { return inputs.known ? warning(String(localized: "No Code Model")) : nil }
+        return named(Suggestions.shortName(model.id), loading: inputs.loading)
     }
 
-    private static func cloudStatus(_ name: String, hasKey: Bool?, _ s: Inputs) -> SuggestionStatus {
-        if hasKey == false || s.problem == .keyMissing { return warning(String(localized: "Cloud: No Key")) }
-        switch s.problem {
+    private static func cloudStatus(_ name: String, hasKey: Bool?, _ inputs: Inputs) -> SuggestionStatus {
+        if hasKey == false || inputs.problem == .keyMissing { return warning(String(localized: "Cloud: No Key")) }
+        switch inputs.problem {
         case .keyRejected: return warning(String(localized: "\(name): Key Rejected"))
         case .notAnswering, .noServer: return warning(String(localized: "\(name) Isn’t Answering"))
         case .failed, .noModel, .modelMissing: return warning(String(localized: "\(name) Failed"))
-        case .keyMissing, nil: return named(String(localized: "Cloud · \(name)"), loading: s.loading)
+        case .keyMissing, nil: return named(String(localized: "Cloud · \(name)"), loading: inputs.loading)
         }
     }
 

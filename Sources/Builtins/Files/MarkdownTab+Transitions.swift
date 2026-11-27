@@ -16,10 +16,10 @@ extension MarkdownTab {
         let menu = NSMenu()
         menu.addItem(.sectionHeader(title: String(localized: "Transition \(MotionVerify.number(length)) s")))
         let now = motionStudio.scenes.first { $0.id == into }?.transition
-        for t in Self.transitions {
-            menu.add(String(localized: String.LocalizationValue(t.title))) { [weak self] in
-                self?.setTransition(out, into, t, length: length)
-            }.state = now == t.in ? .on : .off
+        for transition in Self.transitions {
+            menu.add(String(localized: String.LocalizationValue(transition.title))) { [weak self] in
+                self?.setTransition(out, into, transition, length: length)
+            }.state = now == transition.in ? .on : .off
         }
         if now != nil {
             menu.addItem(.separator())
@@ -33,15 +33,15 @@ extension MarkdownTab {
     private func setTransition(
         _ out: String, _ into: String, _ kind: (title: String, in: String, out: String?)?, length: Double
     ) {
-        guard let a = motionStudio.scenes.first(where: { $0.id == out }),
-            let b = motionStudio.scenes.first(where: { $0.id == into })
+        guard let outgoing = motionStudio.scenes.first(where: { $0.id == out }),
+            let incoming = motionStudio.scenes.first(where: { $0.id == into })
         else { return }
-        let edit = HandEdit(board: pageFile, id: into, what: "transition", from: b.transition, to: kind?.in)
+        let edit = HandEdit(board: pageFile, id: into, what: "transition", from: incoming.transition, to: kind?.in)
         rewritePage(edit) { page in
             // Where the scene began before a transition moved it, kept on it.
             let element = BoardEdit.element(page, id: into) ?? ""
             let had = element.firstMatch(of: /data-kelp-overlap="([0-9.]+)"/).flatMap { Double($0.output.1) } ?? 0
-            let begins = b.start + had, lasts = b.length - had
+            let begins = incoming.start + had, lasts = incoming.length - had
             let overlap = kind == nil ? 0 : length
             let ease = "ease-in-out"
             var text: String? = page
@@ -61,7 +61,7 @@ extension MarkdownTab {
             }
             return text.flatMap {
                 MotionPresets.set(
-                    $0, id: out, .exit, .init(kind?.out, length: length, easing: ease, start: a.end - length))
+                    $0, id: out, .exit, .init(kind?.out, length: length, easing: ease, start: outgoing.end - length))
             }
         }
     }

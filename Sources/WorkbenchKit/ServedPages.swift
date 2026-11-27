@@ -23,16 +23,16 @@ public struct ServedPage: Equatable, Sendable {
         return "\(host):\(remotePort)" + (forwarded && port != remotePort ? " → :\(port)" : "")
     }
 
-    public init(_ p: PortsList.Port) {
-        port = p.here ?? p.port
+    public init(_ source: PortsList.Port) {
+        port = source.here ?? source.port
         url = "http://localhost:\(port)"
-        pid = p.pid > 0 ? p.pid : nil
-        command = p.command
-        isWeb = !ServedPages.notWebPrograms.contains(p.command) && !ServedPages.notWebPorts.contains(p.port)
-        host = p.host
-        remotePort = p.port
-        forwarded = p.host == nil || p.here != nil
-        offline = p.offline == true
+        pid = source.pid > 0 ? source.pid : nil
+        command = source.command
+        isWeb = !ServedPages.notWebPrograms.contains(source.command) && !ServedPages.notWebPorts.contains(source.port)
+        host = source.host
+        remotePort = source.port
+        forwarded = source.host == nil || source.here != nil
+        offline = source.offline == true
     }
     init(url: String, port: Int) {
         self.url = url
@@ -90,8 +90,8 @@ public enum ServedPages {
             page.isWeb = true
             return page
         }
-        for p in ports where listed(p) && !all.contains(where: { $0.port == (p.here ?? p.port) }) {
-            all.append(ServedPage(p))
+        for port in ports where listed(port) && !all.contains(where: { $0.port == (port.here ?? port.port) }) {
+            all.append(ServedPage(port))
         }
         return all.filter(\.isWeb) + all.filter { !$0.isWeb }
     }

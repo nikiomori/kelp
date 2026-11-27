@@ -16,30 +16,31 @@ enum ReviewPage {
         var html = "<h1>\(esc(review.title))</h1>\n"
         if !review.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(review.intro))</div>\n" }
         let sent = review.sent != nil
-        for p in review.points {
-            let done = p.done ? "<span class=\"k-done\">\(check)\(esc(String(localized: "Done")))</span>" : ""
+        for point in review.points {
+            let done = point.done ? "<span class=\"k-done\">\(check)\(esc(String(localized: "Done")))</span>" : ""
             html +=
-                "<section class=\"k-point\" id=\"p\(esc(p.number))\"><div class=\"k-q\">"
-                + "<span class=\"k-n\">\(esc(p.number))</span><h2>\(inline(p.question))</h2>\(done)</div>"
+                "<section class=\"k-point\" id=\"p\(esc(point.number))\"><div class=\"k-q\">"
+                + "<span class=\"k-n\">\(esc(point.number))</span><h2>\(inline(point.question))</h2>\(done)</div>"
             html += "<div class=\"k-opts\">"
-            for o in p.options {
-                let rec = o.recommended ? "<span class=\"k-rec\">\(esc(String(localized: "Recommended")))</span>" : ""
-                let detail = o.detail.isEmpty ? "" : "<span class=\"k-d\">\(inline(o.detail))</span>"
-                let look = o.picked ? " on" : sent && p.pick != nil ? " dim" : ""
+            for option in point.options {
+                let rec =
+                    option.recommended ? "<span class=\"k-rec\">\(esc(String(localized: "Recommended")))</span>" : ""
+                let detail = option.detail.isEmpty ? "" : "<span class=\"k-d\">\(inline(option.detail))</span>"
+                let look = option.picked ? " on" : sent && point.pick != nil ? " dim" : ""
                 html +=
-                    "<button type=\"button\" class=\"k-opt\(look)\" aria-pressed=\"\(o.picked)\" "
-                    + "data-p=\"\(esc(p.number))\" data-k=\"\(esc(o.key))\"\(sent ? " disabled" : "")>"
-                    + "<span class=\"k-dot\"></span><span class=\"k-key\">\(esc(o.key))</span>"
-                    + "<span class=\"k-t\"><span class=\"k-line\">\(inline(o.text))\(rec)</span>\(detail)</span></button>"
+                    "<button type=\"button\" class=\"k-opt\(look)\" aria-pressed=\"\(option.picked)\" "
+                    + "data-p=\"\(esc(point.number))\" data-k=\"\(esc(option.key))\"\(sent ? " disabled" : "")>"
+                    + "<span class=\"k-dot\"></span><span class=\"k-key\">\(esc(option.key))</span>"
+                    + "<span class=\"k-t\"><span class=\"k-line\">\(inline(option.text))\(rec)</span>\(detail)</span></button>"
             }
             html += "</div>"
             let field =
-                "<input class=\"k-note\" data-p=\"\(esc(p.number))\" value=\"\(esc(p.note))\" "
+                "<input class=\"k-note\" data-p=\"\(esc(point.number))\" value=\"\(esc(point.note))\" "
                 + "placeholder=\"\(esc(String(localized: "Add a note…")))\" "
-                + "aria-label=\"\(esc(String(localized: "Note on point \(p.number)")))\"\(sent ? " disabled" : "")>"
-            if !p.note.isEmpty {
+                + "aria-label=\"\(esc(String(localized: "Note on point \(point.number)")))\"\(sent ? " disabled" : "")>"
+            if !point.note.isEmpty {
                 html += field
-            } else if p.pick != nil, !sent {
+            } else if point.pick != nil, !sent {
                 html +=
                     "<button type=\"button\" class=\"k-pill k-addnote\">\(esc(String(localized: "Add Note")))</button>"
                     + field.replacingOccurrences(of: "class=\"k-note\"", with: "class=\"k-note\" hidden")
@@ -61,9 +62,9 @@ enum ReviewPage {
                 + "class=\"k-pill k-unsend\">\(esc(String(localized: "Change Answers")))</button></div>"
         }
         let answered = review.points.filter { $0.pick != nil }.count
-        let dots = review.points.map { p in
-            "<button type=\"button\" class=\"k-pd\(p.pick != nil ? " on" : "")\" data-go=\"\(esc(p.number))\" "
-                + "title=\"\(esc(p.number + ". " + p.question))\"></button>"
+        let dots = review.points.map { point in
+            "<button type=\"button\" class=\"k-pd\(point.pick != nil ? " on" : "")\" data-go=\"\(esc(point.number))\" "
+                + "title=\"\(esc(point.number + ". " + point.question))\"></button>"
         }.joined()
         let rest = review.points.contains { $0.pick == nil && $0.options.contains(where: \.recommended) }
         let sum =

@@ -24,10 +24,10 @@ extension MarkdownTab {
         made.onGroup = { [weak self] moves in self?.retimeAll(moves) }
         made.onKeyframe = { [weak self] in self?.keyframe() }
         made.marking = marking
-        made.keyframes { k in
-            k.onMove = { [weak self] id, from, to in self?.moveKeyframe(id, from: from, to: to) }
-            k.menu = { [weak self] id, place in self?.keyframeMenu(id, place) }
-            k.seamMenu = { [weak self] out, into in self?.seamMenu(out, into) }
+        made.keyframes { keyframe in
+            keyframe.onMove = { [weak self] id, from, to in self?.moveKeyframe(id, from: from, to: to) }
+            keyframe.menu = { [weak self] id, place in self?.keyframeMenu(id, place) }
+            keyframe.seamMenu = { [weak self] out, into in self?.seamMenu(out, into) }
         }
         made.onMany = { [weak self] kind, ids in
             kind == "remove" ? self?.removeElements(ids) : self?.copyClips(ids, cut: kind == "cut")
@@ -74,28 +74,28 @@ extension MarkdownTab {
         followSound(playing: body["playing"] as? Bool ?? false, at: (body["t"] as? NSNumber)?.doubleValue ?? 0)
         let number = { (key: String) in (body[key] as? NSNumber)?.doubleValue ?? 0 }
         let clips = { (key: String, start: String, length: String) in
-            (body[key] as? [[String: Any]] ?? []).map { c in
-                let begins = (c[start] as? NSNumber)?.doubleValue ?? 0
-                let takes = (c[length] as? NSNumber)?.doubleValue ?? 0
+            (body[key] as? [[String: Any]] ?? []).map { item in
+                let begins = (item[start] as? NSNumber)?.doubleValue ?? 0
+                let takes = (item[length] as? NSNumber)?.doubleValue ?? 0
                 var clip = MotionTimeline.Clip(
-                    id: c["id"] as? String ?? "", title: c["title"] as? String ?? "", start: begins,
+                    id: item["id"] as? String ?? "", title: item["title"] as? String ?? "", start: begins,
                     length: length == "end" ? takes - begins : takes,
-                    delays: (c["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
-                    lengths: (c["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [],
-                    hidden: c["hidden"] as? Bool ?? false,
-                    keys: (c["keys"] as? [String: Any]).flatMap { k in
-                        guard let name = k["name"] as? String else { return nil }
+                    delays: (item["delays"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                    lengths: (item["lengths"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                    hidden: item["hidden"] as? Bool ?? false,
+                    keys: (item["keys"] as? [String: Any]).flatMap { entries in
+                        guard let name = entries["name"] as? String else { return nil }
                         return MotionTimeline.Keys(
-                            name: name, delay: (k["delay"] as? NSNumber)?.doubleValue ?? 0,
-                            duration: (k["duration"] as? NSNumber)?.doubleValue ?? 0,
-                            at: (k["at"] as? [NSNumber])?.map(\.doubleValue) ?? [],
-                            easing: k["easing"] as? [String] ?? [])
+                            name: name, delay: (entries["delay"] as? NSNumber)?.doubleValue ?? 0,
+                            duration: (entries["duration"] as? NSNumber)?.doubleValue ?? 0,
+                            at: (entries["at"] as? [NSNumber])?.map(\.doubleValue) ?? [],
+                            easing: entries["easing"] as? [String] ?? [])
                     })
-                clip.transition = (c["trans"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                clip.locked = c["locked"] as? Bool ?? false
-                if let sound = c["sound"] as? String {
+                clip.transition = (item["trans"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                clip.locked = item["locked"] as? Bool ?? false
+                if let sound = item["sound"] as? String {
                     clip.wave = self.wave(
-                        of: sound, from: (c["from"] as? NSNumber)?.doubleValue ?? 0, length: clip.length)
+                        of: sound, from: (item["from"] as? NSNumber)?.doubleValue ?? 0, length: clip.length)
                 }
                 return clip
             }
@@ -105,14 +105,16 @@ extension MarkdownTab {
                 at: number("t"), length: number("duration"), playing: body["playing"] as? Bool ?? false,
                 width: Int(number("width")), height: Int(number("height")),
                 scenes: clips("scenes", "start", "duration"), tracks: clips("tracks", "start", "end"),
-                marks: (body["marks"] as? [[String: Any]] ?? []).compactMap { m in
-                    guard let id = (m["id"] as? NSNumber)?.intValue, let time = (m["time"] as? NSNumber)?.doubleValue
+                marks: (body["marks"] as? [[String: Any]] ?? []).compactMap { mark in
+                    guard let id = (mark["id"] as? NSNumber)?.intValue,
+                        let time = (mark["time"] as? NSNumber)?.doubleValue
                     else { return nil }
                     return MotionTimeline.Mark(
-                        id: id, time: time, yours: ["draft", "check"].contains(m["state"] as? String ?? ""))
+                        id: id, time: time, yours: ["draft", "check"].contains(mark["state"] as? String ?? ""))
                 },
-                range: (body["range"] as? [NSNumber]).flatMap { r in
-                    r.count == 2 && r[1].doubleValue > r[0].doubleValue ? r[0].doubleValue...r[1].doubleValue : nil
+                range: (body["range"] as? [NSNumber]).flatMap { bounds in
+                    bounds.count == 2 && bounds[1].doubleValue > bounds[0].doubleValue
+                        ? bounds[0].doubleValue...bounds[1].doubleValue : nil
                 }, captions: clips("captions", "start", "duration"), beats: pageBeats()))
     }
 

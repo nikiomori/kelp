@@ -347,10 +347,10 @@ struct UsageReportView: View {
         value.formatted(.currency(code: "USD").precision(.fractionLength(value < 10 ? 2 : 0)))
     }
     /// Formats dollars, or "—" for tokens with no price (a model without a list price).
-    func money(_ v: Double, _ tokens: Int) -> String { v == 0 && tokens > 0 ? "—" : Self.dollars(v) }
+    func money(_ value: Double, _ tokens: Int) -> String { value == 0 && tokens > 0 ? "—" : Self.dollars(value) }
     /// Formats a chart's figure in dollars or tokens, whichever the chart shows.
-    func amount(_ v: Double) -> String { byCost ? Self.dollars(v) : count(Int(v)) }
-    func count(_ n: Int) -> String { n.formatted(.number.notation(.compactName)) }
+    func amount(_ value: Double) -> String { byCost ? Self.dollars(value) : count(Int(value)) }
+    func count(_ number: Int) -> String { number.formatted(.number.notation(.compactName)) }
     func percent(_ part: Int, of whole: Int) -> String {
         UsageView.percent(Double(part) / Double(max(1, whole)))
     }

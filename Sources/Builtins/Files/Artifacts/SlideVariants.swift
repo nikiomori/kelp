@@ -11,12 +11,12 @@ enum SlideVariants {
         let lines = source.components(separatedBy: "\n")
         let blank = { (i: Int) in i < 0 || lines[i].trimmingCharacters(in: .whitespaces).isEmpty }
         let rule = { (i: Int) in
-            let t = lines[i].trimmingCharacters(in: .whitespaces)
-            return t.count >= 3 && Set(t).count == 1 && "-*_".contains(t.first ?? " ") && blank(i - 1)
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            return trimmed.count >= 3 && Set(trimmed).count == 1 && "-*_".contains(trimmed.first ?? " ") && blank(i - 1)
         }
         var out: [Slide] = [], start = 0
-        for i in 0...lines.count where i == lines.count || rule(i) {
-            let body = start..<i
+        for cut in 0...lines.count where cut == lines.count || rule(cut) {
+            let body = start..<cut
             let written = body.filter { !blank($0) }
             let variant =
                 written.first.map { lines[$0].trimmingCharacters(in: .whitespaces) == "<!-- variant -->" } ?? false
@@ -24,7 +24,7 @@ enum SlideVariants {
                 !variant || lines[$0].trimmingCharacters(in: .whitespaces) != "<!-- variant -->"
             }
             if let first { out.append(Slide(lines: body, first: first + 1, variant: variant)) }
-            start = i + 1
+            start = cut + 1
         }
         return out
     }

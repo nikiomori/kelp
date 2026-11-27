@@ -141,9 +141,10 @@ public final class CapsuleSegments: NSControl {
     private var height: CGFloat { TextSize.of(small ? Metrics.segment.height : Metrics.row) }
     /// A word's own width with room on both sides, measured in the weight it has when chosen, so choosing doesn't move it.
     private var wants: [CGFloat] {
-        words.indices.map { i in
-            ceil((words[i] as NSString).size(withAttributes: [.font: chosenFont]).width) + 2 * Metrics.gapWide + 2
-                + (counts.indices.contains(i) && counts[i] != nil ? countSize(i).width + Metrics.gapTight : 0)
+        words.indices.map { index in
+            ceil((words[index] as NSString).size(withAttributes: [.font: chosenFont]).width) + 2 * Metrics.gapWide + 2
+                + (counts.indices.contains(index) && counts[index] != nil
+                    ? countSize(index).width + Metrics.gapTight : 0)
         }
     }
     /// The size of segment `index`'s count capsule.
@@ -160,10 +161,10 @@ public final class CapsuleSegments: NSControl {
         let wants = self.wants, total = wants.reduce(0, +)
         guard total > 0 else { return [] }
         let share = (bounds.width - 2 * Metrics.lineGap) / total
-        var x = Metrics.lineGap
+        var left = Metrics.lineGap
         return wants.map { want in
-            defer { x += want * share }
-            return NSRect(x: x, y: Metrics.lineGap, width: want * share, height: bounds.height - 2 * Metrics.lineGap)
+            defer { left += want * share }
+            return NSRect(x: left, y: Metrics.lineGap, width: want * share, height: bounds.height - 2 * Metrics.lineGap)
         }
     }
     override public func layout() {

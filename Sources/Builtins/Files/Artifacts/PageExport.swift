@@ -154,8 +154,8 @@ extension MarkdownTab {
                 }
                 html = DataRows.fill(read.text, row: row, tables: tables)
             }
-            let w = Double(min(max(board.w ?? 1280, 40), 8000))
-            let png = try await Self.picture(of: file, html: html, width: w, height: board.h.map(Double.init))
+            let boardWidth = Double(min(max(board.w ?? 1280, 40), 8000))
+            let png = try await Self.picture(of: file, html: html, width: boardWidth, height: board.h.map(Double.init))
             let name = (board.file as NSString).lastPathComponent
             try png.write(to: folder.appendingPathComponent((name as NSString).deletingPathExtension + ".png"))
         }
@@ -199,8 +199,8 @@ extension MarkdownTab {
         let shot = WKSnapshotConfiguration()
         shot.snapshotWidth = NSNumber(value: size.width)
         let image = try await web.takeSnapshot(configuration: shot)
-        let w = Int((size.width * scale).rounded()), h = Int((size.height * scale).rounded())
-        guard let png = Self.png(image, width: w, height: h) else {
+        let pixelWidth = Int((size.width * scale).rounded()), h = Int((size.height * scale).rounded())
+        guard let png = Self.png(image, width: pixelWidth, height: h) else {
             throw CocoaError(.fileWriteUnknown)
         }
         return png
@@ -228,14 +228,14 @@ extension MarkdownTab {
                 + "return window.kelpSlides?.length ?? 0", contentWorld: Self.world)
         let was = try await web.evaluateJavaScript("window.kelpAt ?? 0", contentWorld: Self.world) as? Int ?? 0
         defer { runJS("kelpGo(\(was))") }
-        for i in 0..<((count as? Int) ?? 0) {
+        for index in 0..<((count as? Int) ?? 0) {
             let box = try await web.callAsyncJavaScript(
                 """
                 kelpGo(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
                 const b = kelpSlides[i].getBoundingClientRect(); return [b.x, b.y, b.width, b.height]
-                """, arguments: ["i": i], contentWorld: Self.world)
+                """, arguments: ["i": index], contentWorld: Self.world)
             guard let b = box as? [Double], b.count == 4 else { continue }
-            try await run(i, CGRect(x: b[0], y: b[1], width: b[2], height: b[3]))
+            try await run(index, CGRect(x: b[0], y: b[1], width: b[2], height: b[3]))
         }
     }
 

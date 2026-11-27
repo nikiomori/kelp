@@ -64,9 +64,9 @@ final class InspectorController: NSViewController {
         let sep = NSBox()
         sep.boxType = .separator
         rowSep.boxType = .separator
-        for x in [bar, sep, rowSep, panelTitle, host] as [NSView] {
-            x.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview(x)
+        for part in [bar, sep, rowSep, panelTitle, host] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(part)
         }
         // Like the sidebar, the inspector runs the window's full height. Its top band, as tall as the title bar, holds
         // the panel's name and, in the corner, the window's inspector toggle. The inspector's rows start under the
@@ -275,21 +275,21 @@ final class InspectorController: NSViewController {
     func showCounts() {
         let onScreen = view.window != nil && !view.isHiddenOrHasHiddenAncestor
         var folds: [PanelBadge] = []
-        for (i, p) in panels.enumerated() where counts.indices.contains(i) {
-            var badge = p.badge?()
+        for (index, panel) in panels.enumerated() where counts.indices.contains(index) {
+            var badge = panel.badge?()
             if let dot = badge, dot.count == 0 {
-                if onScreen, p.id == app.workbench.inspectorPanel { seen[p.id] = dot.key }
-                if seen[p.id] == dot.key { badge = nil }
+                if onScreen, panel.id == app.workbench.inspectorPanel { seen[panel.id] = dot.key }
+                if seen[panel.id] == dot.key { badge = nil }
             }
-            counts[i].badge = badge
-            if let badge, folded.contains(i) { folds.append(badge) }
+            counts[index].badge = badge
+            if let badge, folded.contains(index) { folds.append(badge) }
             // The tooltip and VoiceOver say the badge with the name: its number, or in words that the panel has
             // something new.
             let said = badge.map { $0.count > 0 ? "\($0.count)" : String(localized: "Has changes") }
-            buttons[i].toolTip =
-                badge.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) — \(said ?? "")" }
-                ?? loc(p.title)
-            buttons[i].setAccessibilityLabel([loc(p.title), said].compactMap(\.self).joined(separator: ", "))
+            buttons[index].toolTip =
+                badge.map { $0.count > 0 ? "\(loc(panel.title)) (\($0.count))" : "\(loc(panel.title)) — \(said ?? "")" }
+                ?? loc(panel.title)
+            buttons[index].setAccessibilityLabel([loc(panel.title), said].compactMap(\.self).joined(separator: ", "))
         }
         // The » shows a dot when a folded panel has a badge, and the dot is red if any of those badges is an alert.
         moreBadge.badge = folds.isEmpty ? nil : PanelBadge(alert: folds.contains(where: \.alert))
@@ -305,12 +305,14 @@ final class InspectorController: NSViewController {
 
     /// Moves a dragged icon into the slot under the pointer (`p`, in the row's or column's coordinates); the other
     /// icons slide aside.
-    private func move(_ button: NSButton, to p: NSPoint) {
+    private func move(_ button: NSButton, to point: NSPoint) {
         var views = selector.arrangedSubviews
         views.removeAll { $0 === button || $0 === more }   // the » stays last
         let down = selector.isFlipped ? 1.0 : -1.0   // a column's next slot is further down
-        let next = views.first { v in
-            !v.isHidden && (selector.orientation == .vertical ? (v.frame.midY - p.y) * down > 0 : v.frame.midX > p.x)
+        let next = views.first { candidate in
+            !candidate.isHidden
+                && (selector.orientation == .vertical
+                    ? (candidate.frame.midY - point.y) * down > 0 : candidate.frame.midX > point.x)
         }
         let index = next.flatMap { slot in views.firstIndex { $0 === slot } } ?? views.count
         guard selector.arrangedSubviews.firstIndex(of: button) != index else { return }

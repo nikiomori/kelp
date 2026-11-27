@@ -201,20 +201,20 @@ public enum ShellTouches {
             words = []
         }
         var chars = Array(command)[...]
-        while let c = chars.popFirst() {
+        while let char = chars.popFirst() {
             if let open = quote {
-                if c == open {
+                if char == open {
                     quote = nil
-                } else if c == "\\", open == "\"", let next = chars.popFirst() {
+                } else if char == "\\", open == "\"", let next = chars.popFirst() {
                     word.append(next)
                 } else {
-                    word.append(c)
+                    word.append(char)
                 }
                 continue
             }
-            switch c {
+            switch char {
             case "'", "\"":
-                quote = c
+                quote = char
                 any = true
             case "\\":
                 if let next = chars.popFirst(), next != "\n" {
@@ -250,7 +250,7 @@ public enum ShellTouches {
                     word = ""
                     any = false
                 }
-                var op = fd + String(c)
+                var op = fd + String(char)
                 while let next = chars.first,
                     next == ">" || next == "<" || next == "&" || op.hasSuffix("&") && next.isNumber
                 {
@@ -258,7 +258,7 @@ public enum ShellTouches {
                 }
                 words.append(op)
             default:
-                word.append(c)
+                word.append(char)
                 any = true
             }
         }
@@ -279,13 +279,13 @@ public enum ShellTouches {
             // A here-string (`<<< word`) is no heredoc: nothing after it is its body.
             // A `<<` inside quotes is text, not a heredoc: a quoted `<` is blanked (the quotes stay: `<<'EOF'`).
             var outside = "", quote: Character?
-            for c in line {
+            for char in line {
                 if let open = quote {
-                    if c == open { quote = nil }
-                    outside.append(c == "<" ? " " : c)
+                    if char == open { quote = nil }
+                    outside.append(char == "<" ? " " : char)
                 } else {
-                    if c == "'" || c == "\"" { quote = c }
-                    outside.append(c)
+                    if char == "'" || char == "\"" { quote = char }
+                    outside.append(char)
                 }
             }
             let heads = outside.replacing("<<<", with: " ")

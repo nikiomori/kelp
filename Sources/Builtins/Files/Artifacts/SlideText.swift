@@ -24,24 +24,25 @@ extension MarkdownTab {
     }
 
     /// Slide `i`'s blocks of text, hidden after they are read (`showWords` puts them back).
-    func slideTexts(_ i: Int) async throws -> [PowerPoint.Text] {
+    func slideTexts(_ slide: Int) async throws -> [PowerPoint.Text] {
         let found = try await web.callAsyncJavaScript(
-            Self.takeWords(of: "kelpSlides[i]", box: "slide.getBoundingClientRect()"), arguments: ["i": i],
+            Self.takeWords(of: "kelpSlides[i]", box: "slide.getBoundingClientRect()"), arguments: ["i": slide],
             contentWorld: Self.world)
         return Self.texts(found)
     }
 
     /// The blocks of text `takeWords` found.
     static func texts(_ found: Any?) -> [PowerPoint.Text] {
-        (found as? [[String: Any]] ?? []).compactMap { t in
-            let number = { (key: String) in (t[key] as? NSNumber)?.doubleValue ?? 0 }
-            let words = t["words"] as? String ?? "", fill = t["fill"] as? String, cells = t["cells"] as? [[String]]
+        (found as? [[String: Any]] ?? []).compactMap { text in
+            let number = { (key: String) in (text[key] as? NSNumber)?.doubleValue ?? 0 }
+            let words = text["words"] as? String ?? "", fill = text["fill"] as? String,
+                cells = text["cells"] as? [[String]]
             guard !words.isEmpty || fill != nil || cells != nil else { return nil }
             return PowerPoint.Text(
                 x: number("x"), y: number("y"), w: number("w"), h: number("h"), words: words, size: number("size"),
-                bold: t["bold"] as? Bool ?? false, italic: t["italic"] as? Bool ?? false,
-                colour: t["colour"] as? String ?? "000000", align: t["align"] as? String ?? "l",
-                font: t["font"] as? String ?? "Helvetica Neue", fill: fill, radius: number("radius"), cells: cells)
+                bold: text["bold"] as? Bool ?? false, italic: text["italic"] as? Bool ?? false,
+                colour: text["colour"] as? String ?? "000000", align: text["align"] as? String ?? "l",
+                font: text["font"] as? String ?? "Helvetica Neue", fill: fill, radius: number("radius"), cells: cells)
         }
     }
 

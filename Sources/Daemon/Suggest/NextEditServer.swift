@@ -54,17 +54,17 @@ final class NextEditServer: Sendable {
 
     /// Starts llama-server unless it runs, and waits until its model is in (minutes, the first time).
     func start(_ offloads: Slots) async -> SuggestAnswer {
-        let task = state.withLock { s in
-            if let starting = s.starting, s.process?.isRunning != false { return starting }
+        let task = state.withLock { current in
+            if let starting = current.starting, current.process?.isRunning != false { return starting }
             let made = Task { await self.launch(offloads) }
-            s.starting = made
+            current.starting = made
             return made
         }
         let answer = await task.value
         if answer.problem != nil {
-            state.withLock { s in
-                s.starting = nil   // the next start tries again
-                s.failedAt = Date()
+            state.withLock { current in
+                current.starting = nil   // the next start tries again
+                current.failedAt = Date()
             }
         }
         return answer
@@ -91,16 +91,16 @@ final class NextEditServer: Sendable {
 
     /// Stops llama-server, waiting for it when `now` (the daemon is about to exit).
     func stop(now: Bool = false) {
-        let process = state.withLock { s in
+        let process = state.withLock { current in
             defer {
-                s.process = nil
-                s.base = nil
-                s.starting = nil
-                s.idle = nil
+                current.process = nil
+                current.base = nil
+                current.starting = nil
+                current.idle = nil
             }
-            s.idle?.cancel()
-            s.starting?.cancel()
-            return s.process
+            current.idle?.cancel()
+            current.starting?.cancel()
+            return current.process
         }
         if let notes { FileManager.default.removeIfAny(VMFolder(notes).child(Self.note)) }
         guard let process, process.isRunning else { return }
@@ -130,9 +130,9 @@ final class NextEditServer: Sendable {
         guard let process = spawned else { return SuggestAnswer(problem: .noServer) }
         // Kept and checked under one lock, as `stop` cancels under it: a stop either comes first and is seen here, or
         // comes after and finds the process to end.
-        let kept = state.withLock { s in
+        let kept = state.withLock { current in
             guard !Task.isCancelled else { return false }
-            s.process = process
+            current.process = process
             return true
         }
         guard kept else {   // switched off while it was being started
@@ -144,9 +144,9 @@ final class NextEditServer: Sendable {
         let deadline = ContinuousClock.now + startLimit
         while process.isRunning, !Task.isCancelled {
             if await healthy(base) {
-                let ready = state.withLock { s in
+                let ready = state.withLock { current in
                     guard !Task.isCancelled else { return false }
-                    s.base = base
+                    current.base = base
                     return true
                 }
                 guard ready else { break }
@@ -221,9 +221,9 @@ final class NextEditServer: Sendable {
     /// Stops it once it's gone unasked for `idleDelay`.
     private func stayAwhile() {
         let delay = idleDelay
-        state.withLock { s in
-            s.idle?.cancel()
-            s.idle = Task { [weak self] in
+        state.withLock { current in
+            current.idle?.cancel()
+            current.idle = Task { [weak self] in
                 do { try await Task.sleep(for: delay) } catch { return }
                 self?.stop()
             }
@@ -233,8 +233,8 @@ final class NextEditServer: Sendable {
     /// A memory warning stops it, and no ask starts it again till memory is back to normal: agents and builds need the
     /// memory more.
     private func watchMemory() {
-        state.withLock { s in
-            guard s.pressure == nil else { return }
+        state.withLock { current in
+            guard current.pressure == nil else { return }
             let source = DispatchSource.makeMemoryPressureSource(
                 eventMask: [.normal, .warning, .critical], queue: .global())
             source.setEventHandler { [weak self, weak source] in
@@ -242,7 +242,7 @@ final class NextEditServer: Sendable {
                 self?.memory(event)
             }
             source.resume()
-            s.pressure = source
+            current.pressure = source
         }
     }
 
@@ -255,14 +255,15 @@ final class NextEditServer: Sendable {
 
     /// Sweep Next-Edit's prompt, as it was trained: the edits made as diffs, then the cursor's lines before the latest
     /// and now, then where the model writes them as they'll be.
-    static func prompt(_ r: EditorNextEdit) -> String {
+    static func prompt(_ request: EditorNextEdit) -> String {
         var parts: [String] = []
-        for change in r.changes {
-            parts += ["<|file_sep|>\(r.path).diff", "original:", change.old, "updated:", change.new]
+        for change in request.changes {
+            parts += ["<|file_sep|>\(request.path).diff", "original:", change.old, "updated:", change.new]
         }
         parts += [
-            "<|file_sep|>original/\(r.path)", r.original, "<|file_sep|>current/\(r.path)", r.current,
-            "<|file_sep|>updated/\(r.path)", ""
+            "<|file_sep|>original/\(request.path)", request.original, "<|file_sep|>current/\(request.path)",
+            request.current,
+            "<|file_sep|>updated/\(request.path)", ""
         ]
         return parts.joined(separator: "\n")
     }

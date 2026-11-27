@@ -54,11 +54,11 @@ extension UsageReportView {
 
     /// The models or projects by the column the table's header names; equal ones keep the order they came in.
     nonisolated static func sorted(_ rows: [UsageAgents.Group], by order: AgentOrder) -> [UsageAgents.Group] {
-        func before(_ a: UsageAgents.Group, _ b: UsageAgents.Group) -> Bool {
+        func before(_ first: UsageAgents.Group, _ second: UsageAgents.Group) -> Bool {
             switch order.by {
-            case .agent: a.name.localizedStandardCompare(b.name) == .orderedAscending
-            case .tokens: a.tokens < b.tokens
-            case .cost: a.cost < b.cost
+            case .agent: first.name.localizedStandardCompare(second.name) == .orderedAscending
+            case .tokens: first.tokens < second.tokens
+            case .cost: first.cost < second.cost
             }
         }
         return rows.enumerated().sorted { left, right in

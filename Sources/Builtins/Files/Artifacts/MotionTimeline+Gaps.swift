@@ -28,10 +28,10 @@ extension MotionTimeline {
     }
 
     /// The menu of an empty stretch of the scenes' lane at `p`: Close Gap, Close All Gaps.
-    func gapMenu(at p: NSPoint) -> NSMenu? {
-        guard laneRect(0).contains(p) else { return nil }
-        let t = seconds(p.x), all = Self.gaps(in: scenes)
-        guard let gap = all.first(where: { $0.contains(t) }) else { return nil }
+    func gapMenu(at point: NSPoint) -> NSMenu? {
+        guard laneRect(0).contains(point) else { return nil }
+        let time = seconds(point.x), all = Self.gaps(in: scenes)
+        guard let gap = all.first(where: { $0.contains(time) }) else { return nil }
         let menu = NSMenu(), clips = scenes + tracks.filter { !$0.id.isEmpty }
         menu.add(String(localized: "Close Gap")) { [weak self] in self?.onGroup?(Self.closing([gap], clips)) }
         menu.add(String(localized: "Close All Gaps")) { [weak self] in self?.onGroup?(Self.closing(all, clips)) }

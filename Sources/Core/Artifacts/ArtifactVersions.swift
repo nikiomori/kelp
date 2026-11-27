@@ -62,10 +62,10 @@ extension Artifacts {
     /// Returns the line numbers (from 1) of `new` that aren't in `old`, plus the lines where lines of `old` were taken
     /// out. This is what a turn changed, for the page to mark.
     public static func changedLines(from old: String, to new: String) -> [Int] {
-        let a = old.split(separator: "\n", omittingEmptySubsequences: false)
-        let b = new.split(separator: "\n", omittingEmptySubsequences: false)
+        let before = old.split(separator: "\n", omittingEmptySubsequences: false)
+        let after = new.split(separator: "\n", omittingEmptySubsequences: false)
         var removed = Set<Int>(), inserted = Set<Int>()
-        for change in b.difference(from: a) {
+        for change in after.difference(from: before) {
             switch change {
             case .insert(let offset, _, _): inserted.insert(offset)
             case .remove(let offset, _, _): removed.insert(offset)
@@ -73,9 +73,9 @@ extension Artifacts {
         }
         // Walk both texts side by side. A line taken out of `old` is marked at the line `new` has reached then.
         var out = Set<Int>(), i = 0, j = 0
-        while i < a.count || j < b.count {
+        while i < before.count || j < after.count {
             if removed.contains(i) {
-                out.insert(min(j, b.count - 1) + 1)
+                out.insert(min(j, after.count - 1) + 1)
                 i += 1
             } else if inserted.contains(j) {
                 out.insert(j + 1)

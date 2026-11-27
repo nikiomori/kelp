@@ -177,10 +177,10 @@ private struct Trend: View {
             RuleMark(y: .value("Half", 0.5)).foregroundStyle(Color(nsColor: .separatorColor))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
             ForEach(Array(runs(points).enumerated()), id: \.offset) { run, part in
-                ForEach(part, id: \.at) { p in
-                    AreaMark(x: x(p), y: y(p), series: .value("Run", run))
+                ForEach(part, id: \.at) { point in
+                    AreaMark(x: x(point), y: y(point), series: .value("Run", run))
                         .foregroundStyle(Color.primary.opacity(0.06))
-                    LineMark(x: x(p), y: y(p), series: .value("Run", run))
+                    LineMark(x: x(point), y: y(point), series: .value("Run", run))
                         .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth: 1.3))
                 }
             }

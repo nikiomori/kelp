@@ -165,16 +165,16 @@ final class AgentIcons {
     /// Average lightness of the opaque pixels — nil for colorful or fully opaque artwork, which needs no tile.
     private static func luminance(_ img: NSImage) -> CGFloat? {
         var sum: CGFloat = 0, count: CGFloat = 0, transparent = 0, saturated: CGFloat = 0
-        for c in pixels(img) {
-            if c.alphaComponent < 0.3 {
+        for pixel in pixels(img) {
+            if pixel.alphaComponent < 0.3 {
                 transparent += 1
                 continue
             }
-            sum += (c.redComponent + c.greenComponent + c.blueComponent) / 3
+            sum += (pixel.redComponent + pixel.greenComponent + pixel.blueComponent) / 3
             count += 1
             saturated +=
-                max(c.redComponent, c.greenComponent, c.blueComponent)
-                - min(c.redComponent, c.greenComponent, c.blueComponent)
+                max(pixel.redComponent, pixel.greenComponent, pixel.blueComponent)
+                - min(pixel.redComponent, pixel.greenComponent, pixel.blueComponent)
         }
         // A logo on transparency without much color is monochrome, so it needs contrast behind it.
         guard count > 0, transparent > 16 * 16 / 5, saturated / count < 0.25 else { return nil }

@@ -18,8 +18,8 @@ public enum CSSKeyframes {
 
         /// Sets `property` to `value` (taking it away when nil), keeping the order.
         public mutating func set(_ property: String, _ value: String?) {
-            if let i = declarations.firstIndex(where: { $0.property == property }) {
-                if let value { declarations[i].value = value } else { declarations.remove(at: i) }
+            if let index = declarations.firstIndex(where: { $0.property == property }) {
+                if let value { declarations[index].value = value } else { declarations.remove(at: index) }
             } else if let value {
                 declarations.append(Declaration(property: property, value: value))
             }
@@ -91,11 +91,11 @@ public enum CSSKeyframes {
     public static func percent(_ at: Double) -> String { String(format: "%g%%", (at * 10).rounded() / 10) }
 
     private static func place(_ text: String) -> Double? {
-        let t = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if t == "from" { return 0 }
-        if t == "to" { return 100 }
-        guard t.hasSuffix("%"), let n = Double(t.dropLast()) else { return nil }
-        return n
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmed == "from" { return 0 }
+        if trimmed == "to" { return 100 }
+        guard trimmed.hasSuffix("%"), let percent = Double(trimmed.dropLast()) else { return nil }
+        return percent
     }
 
     /// Where rule `name` is, and its body between its braces.

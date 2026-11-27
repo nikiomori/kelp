@@ -14,20 +14,22 @@ public enum TextEdits {
         let spans = edits.map {
             (from: offset($0.line, $0.column), to: offset($0.endLine, $0.endColumn), text: $0.text)
         }
-        for e in spans.sorted(by: { $0.from > $1.from }) {
-            buffer.replaceCharacters(in: NSRange(location: e.from, length: max(e.to - e.from, 0)), with: e.text)
+        for edit in spans.sorted(by: { $0.from > $1.from }) {
+            buffer.replaceCharacters(
+                in: NSRange(location: edit.from, length: max(edit.to - edit.from, 0)), with: edit.text)
         }
         return buffer as String
     }
 
     /// Returns `text` with 1-based line `n` replaced by `new`, or nil when that line isn't `expected` any more (an
     /// agent changed the file since it was shown). The line's ending stays as it was.
-    public static func replacing(line n: Int, expected: String, with new: String, in text: String) -> String? {
+    public static func replacing(line number: Int, expected: String, with new: String, in text: String) -> String? {
         var lines = text.components(separatedBy: "\n")
-        guard lines.indices.contains(n - 1) else { return nil }
-        let carriage = lines[n - 1].hasSuffix("\r"), old = carriage ? String(lines[n - 1].dropLast()) : lines[n - 1]
+        guard lines.indices.contains(number - 1) else { return nil }
+        let carriage = lines[number - 1].hasSuffix("\r"),
+            old = carriage ? String(lines[number - 1].dropLast()) : lines[number - 1]
         guard old == expected else { return nil }
-        lines[n - 1] = new + (carriage ? "\r" : "")
+        lines[number - 1] = new + (carriage ? "\r" : "")
         return lines.joined(separator: "\n")
     }
 }

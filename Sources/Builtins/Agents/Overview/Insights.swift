@@ -89,9 +89,11 @@ struct Insight: Equatable, Identifiable {
     /// The first file two chats of one folder both changed and haven't committed.
     static func sharedFile(_ chats: [Chat]) -> (file: String, a: Chat, b: Chat)? {
         let live = chats.filter { $0.stage != .done && !$0.uncommitted.isEmpty }
-        for (i, a) in live.enumerated() {
-            for b in live[(i + 1)...] where b.folder == a.folder {
-                if let file = a.uncommitted.intersection(b.uncommitted).sorted().first { return (file, a, b) }
+        for (index, first) in live.enumerated() {
+            for second in live[(index + 1)...] where second.folder == first.folder {
+                if let file = first.uncommitted.intersection(second.uncommitted).sorted().first {
+                    return (file, first, second)
+                }
             }
         }
         return nil

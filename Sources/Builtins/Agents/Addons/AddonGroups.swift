@@ -102,7 +102,7 @@ enum AddonGroups {
     static func parent(of row: Int, in lines: [AddonLine]) -> AddonGroup? {
         guard lines.indices.contains(row), case .item(_, let depth) = lines[row], depth > 0 else { return nil }
         for line in lines[..<row].reversed() {
-            if case .group(let g, _, _, _) = line, depth == 1 || g.plugin != nil { return g }
+            if case .group(let group, _, _, _) = line, depth == 1 || group.plugin != nil { return group }
         }
         return nil
     }
@@ -235,9 +235,9 @@ private struct Lister {
         guard open else { return [head] }
         return [head]
             + ordered.flatMap { plugin -> [AddonLine] in
-                let g = AddonGroup(kind: .skill, source: .plugin, plugin: plugin.name)
+                let made = AddonGroup(kind: .skill, source: .plugin, plugin: plugin.name)
                 return plugin.skills.isEmpty
-                    ? [.group(g, count: 0, tokens: nil, open: false)] : group(g, plugin.skills, depth: 2)
+                    ? [.group(made, count: 0, tokens: nil, open: false)] : group(made, plugin.skills, depth: 2)
             }
     }
 

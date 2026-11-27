@@ -22,12 +22,12 @@ enum FileBatch {
         -> Result<[Done], Refused>
     {
         var done: [Done] = []
-        for f in files {
-            guard let stamp = await write(f.path, f.new, over: f.base, app: app) else {
+        for file in files {
+            guard let stamp = await write(file.path, file.new, over: file.base, app: app) else {
                 let stuck = await undo(done, app: app)
-                return .failure(Refused(path: f.path, stuck: stuck))
+                return .failure(Refused(path: file.path, stuck: stuck))
             }
-            done.append(Done(path: f.path, old: f.old, stamp: stamp))
+            done.append(Done(path: file.path, old: file.old, stamp: stamp))
         }
         return .success(done)
     }
@@ -36,8 +36,8 @@ enum FileBatch {
     /// keep what they hold now.
     static func undo(_ done: [Done], app: AppModel) async -> [String] {
         var stuck: [String] = []
-        for d in done.reversed() where await write(d.path, d.old, over: d.stamp, app: app) == nil {
-            stuck.append(d.path)
+        for change in done.reversed() where await write(change.path, change.old, over: change.stamp, app: app) == nil {
+            stuck.append(change.path)
         }
         return stuck
     }

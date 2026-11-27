@@ -11,24 +11,24 @@ extension Sessions {
     /// start and then daily (`start`).
     func pruneEnded(now: Date = Date()) {
         do {
-            for s in try store.sessions()
-            where s.status == .exited && (s.statusAt ?? s.createdAt) < now - Self.keepEnded {
+            for session in try store.sessions()
+            where session.status == .exited && (session.statusAt ?? session.createdAt) < now - Self.keepEnded {
                 // A remote session's host is asked only when its agent may still run there in the background
                 // (endOwnTmux).
-                discard(s, keepTmux: !s.connectionLost)
+                discard(session, keepTmux: !session.connectionLost)
             }
             let left = try store.sessions(), known = Set(left.map(\.id)), fm = FileManager.default
             ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)), now: now)
             let logs = fm.items(in: root.appendingPathComponent("history"))
-            for f in logs
-            where ["log", "trail"].contains(f.pathExtension)
-                && !known.contains(f.deletingPathExtension().lastPathComponent)
+            for log in logs
+            where ["log", "trail"].contains(log.pathExtension)
+                && !known.contains(log.deletingPathExtension().lastPathComponent)
             {
                 // Only files a day old or more go, because a new session opens its log just before its record is saved.
-                guard let at = try f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                guard let at = try log.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
                     at < now - 86400
                 else { continue }
-                try fm.removeItem(at: f)
+                try fm.removeItem(at: log)
             }
         } catch { Log.store.error("couldn't prune ended sessions: \(error)") }
     }

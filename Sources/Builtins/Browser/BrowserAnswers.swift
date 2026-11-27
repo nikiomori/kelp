@@ -93,18 +93,18 @@ extension BrowserTab {
         _ body: Lines, children: Int = 0, matching: (Substring) -> Bool
     ) -> [Bool] where Lines.Index == Int, Lines.Element == Substring {
         var keep = [Bool](repeating: false, count: body.count), seeking = 0
-        for i in body.indices.reversed() {
-            let line = body[i], depth = line.utf8.prefix { $0 == 32 }.count
+        for index in body.indices.reversed() {
+            let line = body[index], depth = line.utf8.prefix { $0 == 32 }.count
             let match = matching(line)
             if match || depth < seeking {
-                keep[i - body.startIndex] = true
+                keep[index - body.startIndex] = true
                 seeking = depth
             }
             if match && children > 0 {
                 // Cap the window before inspecting indentation, even in a deeply nested tree.
-                for j in (i + 1)..<min(body.endIndex, i + 1 + children) {
-                    guard body[j].utf8.prefix(while: { $0 == 32 }).count > depth else { break }
-                    keep[j - body.startIndex] = true
+                for child in (index + 1)..<min(body.endIndex, index + 1 + children) {
+                    guard body[child].utf8.prefix(while: { $0 == 32 }).count > depth else { break }
+                    keep[child - body.startIndex] = true
                 }
             }
         }

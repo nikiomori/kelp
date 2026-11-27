@@ -14,12 +14,12 @@ enum MotionSound {
 
         /// Its volume at second `t` of the page: as set, faded in and out, lower under another sound, with 0.3 s
         /// slopes either side of it.
-        func level(at t: Double) -> Float {
+        func level(at time: Double) -> Float {
             let fade = min(
-                fadeIn > 0 ? (t - start) / fadeIn : 1, fadeOut > 0 ? (start + length - t) / fadeOut : 1, 1)
+                fadeIn > 0 ? (time - start) / fadeIn : 1, fadeOut > 0 ? (start + length - time) / fadeOut : 1, 1)
             var under = 0.0
-            for r in ducks {
-                let edge = min(t - (r.lowerBound - 0.3), (r.upperBound + 0.3) - t) / 0.3
+            for duck in ducks {
+                let edge = min(time - (duck.lowerBound - 0.3), (duck.upperBound + 0.3) - time) / 0.3
                 under = max(under, min(1, max(0, edge)))
             }
             let duckGain = pow(10, -duck * under / 20)
@@ -49,12 +49,12 @@ enum MotionSound {
             return sound
         }
         // A sound that goes quieter does so under the others (those that don't).
-        return sounds.map { s in
-            var s = s
-            if s.duck > 0 {
-                s.ducks = sounds.filter { $0.duck == 0 }.map { $0.start...($0.start + min($0.length, 36000)) }
+        return sounds.map { sound in
+            var sound = sound
+            if sound.duck > 0 {
+                sound.ducks = sounds.filter { $0.duck == 0 }.map { $0.start...($0.start + min($0.length, 36000)) }
             }
-            return s
+            return sound
         }
     }
 

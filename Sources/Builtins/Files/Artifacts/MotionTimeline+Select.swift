@@ -26,20 +26,20 @@ extension MotionTimeline {
 
     /// A press: ⇧ on a clip adds or takes it away; on a clip of a group, the group's drag; on empty room, a box.
     /// Returns whether it took the press.
-    func selectDown(at p: NSPoint, shift: Bool) -> Bool {
-        let hit = allClips.first { box($0.clip, lane: $0.lane).insetBy(dx: -3, dy: 0).contains(p) }?.clip
+    func selectDown(at point: NSPoint, shift: Bool) -> Bool {
+        let hit = allClips.first { box($0.clip, lane: $0.lane).insetBy(dx: -3, dy: 0).contains(point) }?.clip
         if let hit, shift {
             if selecting.ids.remove(hit.id) == nil { selecting.ids.insert(hit.id) }
             needsDisplay = true
             return true
         }
         if let hit, selecting.ids.contains(hit.id), selecting.ids.count > 1 {
-            selecting.group = (seconds(p.x), 0)
+            selecting.group = (seconds(point.x), 0)
             window?.makeFirstResponder(self)
             return true
         }
-        if hit == nil, p.x >= track.minX, p.y > Self.ruler + marksLane {
-            selecting.box = (p, p)
+        if hit == nil, point.x >= track.minX, point.y > Self.ruler + marksLane {
+            selecting.box = (point, point)
             window?.makeFirstResponder(self)
             return true
         }
@@ -47,11 +47,11 @@ extension MotionTimeline {
         return false
     }
 
-    func selectDragged(to p: NSPoint) -> Bool {
+    func selectDragged(to point: NSPoint) -> Bool {
         if selecting.box != nil {
-            selecting.box?.to = p
+            selecting.box?.to = point
         } else if let group = selecting.group {
-            selecting.group?.by = ((seconds(p.x) - group.from) * 10).rounded() / 10
+            selecting.group?.by = ((seconds(point.x) - group.from) * 10).rounded() / 10
         } else {
             return false
         }

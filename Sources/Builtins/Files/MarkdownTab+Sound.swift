@@ -117,27 +117,27 @@ final class SoundPlayer {
     private var stoodAt: Double?, blip: Task<Void, any Error>?
 
     /// Plays an eighth of a second of `sounds` at `t` when the time moved while the page stands; none the first time.
-    func scrub(_ sounds: [MotionSound.Sound], at t: Double) {
-        defer { stoodAt = t }
-        guard let was = stoodAt, abs(was - t) > 0.01 else { return follow([], at: t, rate: 1) }
+    func scrub(_ sounds: [MotionSound.Sound], at time: Double) {
+        defer { stoodAt = time }
+        guard let was = stoodAt, abs(was - time) > 0.01 else { return follow([], at: time, rate: 1) }
         blip?.cancel()
-        follow(sounds, at: t, rate: 1)
+        follow(sounds, at: time, rate: 1)
         blip = Task { [weak self] () throws in
             try await Task.sleep(for: .milliseconds(120))   // throws once a newer scrub cancels it
-            self?.follow([], at: t, rate: 1)
+            self?.follow([], at: time, rate: 1)
         }
     }
 
     /// Plays each of `sounds` that is in its time at `at`, from the right place; stops the rest (all, with none).
-    func follow(_ sounds: [MotionSound.Sound], at t: Double, rate: Double) {
+    func follow(_ sounds: [MotionSound.Sound], at time: Double, rate: Double) {
         var heard = Set<URL>()
-        for sound in sounds where t >= sound.start && t < sound.start + sound.length {
+        for sound in sounds where time >= sound.start && time < sound.start + sound.length {
             heard.insert(sound.file)
             let player: AVAudioPlayer
             do { player = try self.player(sound.file) } catch { continue }   // a file it can't play stays silent
-            player.volume = sound.level(at: t)
+            player.volume = sound.level(at: time)
             player.rate = Float(rate)
-            let want = sound.from + (t - sound.start)
+            let want = sound.from + (time - sound.start)
             if !player.isPlaying {
                 player.currentTime = want
                 player.play()

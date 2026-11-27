@@ -12,21 +12,23 @@ extension Notifier {
         session.asksPermission ? "permission" : QuickReply.fits(session) ? "reply" : nil
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive r: UNNotificationResponse)
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    )
         async
     {
-        if let uri = r.notification.request.content.userInfo["uri"] as? String {
+        if let uri = response.notification.request.content.userInfo["uri"] as? String {
             await MainActor.run {
                 NSApp.activate()
                 app.workbench.open(uri)
             }
             return
         }
-        guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
-        let action = r.actionIdentifier
-        let reply = action == "goOn" ? QuickReply.goOn.text : (r as? UNTextInputNotificationResponse)?.userText
-        let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
-        let question = r.notification.request.content.userInfo["question"] as? String
+        guard let id = response.notification.request.content.userInfo["session"] as? String else { return }
+        let action = response.actionIdentifier
+        let reply = action == "goOn" ? QuickReply.goOn.text : (response as? UNTextInputNotificationResponse)?.userText
+        let all = response.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
+        let question = response.notification.request.content.userInfo["question"] as? String
         await MainActor.run {
             if action == "continue" {
                 Notifications.goOn(app, all)
@@ -65,7 +67,9 @@ extension Notifier {
             }
         }
     }
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter, willPresent notification: UNNotification
+    ) async
         -> UNNotificationPresentationOptions
     {
         [.banner, .sound]

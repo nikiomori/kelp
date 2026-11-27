@@ -26,7 +26,7 @@ enum PowerPoint {
 
     /// Writes the parts of a deck of `pictures` (PNG, 16:9) into `folder`.
     static func write(_ pictures: [Data], texts: [[Text]] = [], into folder: URL) throws {
-        let n = pictures.indices.map { $0 + 1 }
+        let numbers = pictures.indices.map { $0 + 1 }
         var parts: [String: String] = [
             "[Content_Types].xml": head
                 + #"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#
@@ -37,17 +37,17 @@ enum PowerPoint {
                 + over("/ppt/slideMasters/slideMaster1.xml", type + "slideMaster+xml")
                 + over("/ppt/slideLayouts/slideLayout1.xml", type + "slideLayout+xml")
                 + over("/ppt/theme/theme1.xml", "application/vnd.openxmlformats-officedocument.theme+xml")
-                + n.map { over("/ppt/slides/slide\($0).xml", type + "slide+xml") }.joined() + "</Types>",
+                + numbers.map { over("/ppt/slides/slide\($0).xml", type + "slide+xml") }.joined() + "</Types>",
             "_rels/.rels": rels([("rId1", "officeDocument", "ppt/presentation.xml")]),
             "ppt/presentation.xml": head + "<p:presentation \(ns)>"
                 + #"<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>"#
-                + n.map { #"<p:sldId id="\#(255 + $0)" r:id="rId\#($0 + 1)"/>"# }.joined()
+                + numbers.map { #"<p:sldId id="\#(255 + $0)" r:id="rId\#($0 + 1)"/>"# }.joined()
                 + #"</p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>"#
                 + "</p:presentation>",
             "ppt/_rels/presentation.xml.rels": rels(
                 [("rId1", "slideMaster", "slideMasters/slideMaster1.xml")]
-                    + n.map { ("rId\($0 + 1)", "slide", "slides/slide\($0).xml") }
-                    + [("rId\(n.count + 2)", "theme", "theme/theme1.xml")]),
+                    + numbers.map { ("rId\($0 + 1)", "slide", "slides/slide\($0).xml") }
+                    + [("rId\(numbers.count + 2)", "theme", "theme/theme1.xml")]),
             "ppt/slideMasters/slideMaster1.xml": head
                 + "<p:sldMaster \(ns)><p:cSld><p:spTree>\(tree)</p:spTree></p:cSld>"
                 + #"<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" "#
@@ -64,72 +64,75 @@ enum PowerPoint {
                 [("rId1", "slideMaster", "../slideMasters/slideMaster1.xml")]),
             "ppt/theme/theme1.xml": theme
         ]
-        for i in n {
-            parts["ppt/slides/slide\(i).xml"] =
+        for number in numbers {
+            parts["ppt/slides/slide\(number).xml"] =
                 head + "<p:sld \(ns)><p:cSld><p:spTree>\(tree)"
-                + #"<p:pic><p:nvPicPr><p:cNvPr id="2" name="Slide \#(i)"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>"#
+                + #"<p:pic><p:nvPicPr><p:cNvPr id="2" name="Slide \#(number)"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>"#
                 + #"<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>"#
                 + #"<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm>"#
                 + #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>"#
-                + (texts.indices.contains(i - 1) ? texts[i - 1].enumerated().map { box($1, id: $0 + 3) }.joined() : "")
+                + (texts.indices.contains(number - 1)
+                    ? texts[number - 1].enumerated().map { box($1, id: $0 + 3) }.joined() : "")
                 + "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
-            parts["ppt/slides/_rels/slide\(i).xml.rels"] = rels(
+            parts["ppt/slides/_rels/slide\(number).xml.rels"] = rels(
                 [
                     ("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml"),
-                    ("rId2", "image", "../media/image\(i).png")
+                    ("rId2", "image", "../media/image\(number).png")
                 ])
         }
         for (path, text) in parts { try write(Data(text.utf8), folder.appendingPathComponent(path)) }
-        for (i, picture) in zip(n, pictures) {
+        for (i, picture) in zip(numbers, pictures) {
             try write(picture, folder.appendingPathComponent("ppt/media/image\(i).png"))
         }
     }
 
-    private static func escape(_ s: String) -> String {
-        s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+    private static func escape(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
     }
-    private static func emu(_ v: Double, _ of: Double) -> String { String(Int((v * of).rounded())) }
-    private static func place(_ t: Text) -> String {
-        #"<a:off x="\#(emu(t.x, 12_192_000))" y="\#(emu(t.y, 6_858_000))"/>"#
-            + #"<a:ext cx="\#(emu(t.w, 12_192_000))" cy="\#(emu(t.h, 6_858_000))"/>"#
+    private static func emu(_ value: Double, _ of: Double) -> String { String(Int((value * of).rounded())) }
+    private static func place(_ text: Text) -> String {
+        #"<a:off x="\#(emu(text.x, 12_192_000))" y="\#(emu(text.y, 6_858_000))"/>"#
+            + #"<a:ext cx="\#(emu(text.w, 12_192_000))" cy="\#(emu(text.h, 6_858_000))"/>"#
     }
 
     /// A text box's shape: placed in EMUs of the 16:9 slide, no insets, a paragraph a line; filled and rounded when
     /// it is a shape, a table when it has cells.
-    static func box(_ t: Text, id: Int) -> String {
-        if let cells = t.cells { return table(t, cells, id: id) }
+    static func box(_ text: Text, id: Int) -> String {
+        if let cells = text.cells { return table(text, cells, id: id) }
         let look =
-            #"<a:rPr lang="en-US" sz="\#(Int((t.size * 100).rounded()))" b="\#(t.bold ? 1 : 0)" "#
-            + #"i="\#(t.italic ? 1 : 0)"><a:solidFill><a:srgbClr val="\#(t.colour)"/></a:solidFill>"#
-            + #"<a:latin typeface="\#(escape(t.font))"/></a:rPr>"#
-        let paragraphs = t.words.split(separator: "\n", omittingEmptySubsequences: false).map {
-            #"<a:p><a:pPr algn="\#(t.align)"/><a:r>\#(look)<a:t>\#(escape(String($0)))</a:t></a:r></a:p>"#
+            #"<a:rPr lang="en-US" sz="\#(Int((text.size * 100).rounded()))" b="\#(text.bold ? 1 : 0)" "#
+            + #"i="\#(text.italic ? 1 : 0)"><a:solidFill><a:srgbClr val="\#(text.colour)"/></a:solidFill>"#
+            + #"<a:latin typeface="\#(escape(text.font))"/></a:rPr>"#
+        let paragraphs = text.words.split(separator: "\n", omittingEmptySubsequences: false).map {
+            #"<a:p><a:pPr algn="\#(text.align)"/><a:r>\#(look)<a:t>\#(escape(String($0)))</a:t></a:r></a:p>"#
         }
-        let fill = t.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill><a:ln><a:noFill/></a:ln>"# }
-        let corner = Int((min(max(t.radius, 0), 0.5) * 100_000).rounded())
+        let fill = text.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill><a:ln><a:noFill/></a:ln>"# }
+        let corner = Int((min(max(text.radius, 0), 0.5) * 100_000).rounded())
         let shape =
             corner > 0
             ? #"<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val \#(corner)"/></a:avLst></a:prstGeom>"#
             : #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>"#
         let kind = fill == nil ? #"<p:cNvSpPr txBox="1"/>"# : "<p:cNvSpPr/>"
         return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/>\#(kind)<p:nvPr/></p:nvSpPr>"#
-            + "<p:spPr><a:xfrm>\(place(t))</a:xfrm>\(shape)\(fill ?? "<a:noFill/>")</p:spPr><p:txBody>"
+            + "<p:spPr><a:xfrm>\(place(text))</a:xfrm>\(shape)\(fill ?? "<a:noFill/>")</p:spPr><p:txBody>"
             + #"<a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0"><a:noAutofit/></a:bodyPr><a:lstStyle/>"#
-            + (paragraphs.isEmpty || t.words.isEmpty ? "<a:p/>" : paragraphs.joined()) + "</p:txBody></p:sp>"
+            + (paragraphs.isEmpty || text.words.isEmpty ? "<a:p/>" : paragraphs.joined()) + "</p:txBody></p:sp>"
     }
 
     /// A table: as many columns as its widest row, each as wide, each row as tall; its first row filled.
-    private static func table(_ t: Text, _ rows: [[String]], id: Int) -> String {
-        let columns = max(rows.map(\.count).max() ?? 1, 1), height = Int(t.h * 6_858_000) / max(rows.count, 1)
-        let width = Int(t.w * 12_192_000) / columns
+    private static func table(_ text: Text, _ rows: [[String]], id: Int) -> String {
+        let columns = max(rows.map(\.count).max() ?? 1, 1), height = Int(text.h * 6_858_000) / max(rows.count, 1)
+        let width = Int(text.w * 12_192_000) / columns
         let look =
-            #"<a:rPr lang="en-US" sz="\#(Int((t.size * 100).rounded()))"><a:solidFill><a:srgbClr val="\#(t.colour)"/>"#
-            + #"</a:solidFill><a:latin typeface="\#(escape(t.font))"/></a:rPr>"#
+            #"<a:rPr lang="en-US" sz="\#(Int((text.size * 100).rounded()))"><a:solidFill>"#
+            + #"<a:srgbClr val="\#(text.colour)"/>"#
+            + #"</a:solidFill><a:latin typeface="\#(escape(text.font))"/></a:rPr>"#
         let body = rows.enumerated().map { r, row in
-            let cells = (0..<columns).map { c in
-                let words = c < row.count ? escape(row[c]) : ""
-                let ground = r == 0 ? t.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill>"# } ?? "" : ""
+            let cells = (0..<columns).map { column in
+                let words = column < row.count ? escape(row[column]) : ""
+                let ground =
+                    r == 0 ? text.fill.map { #"<a:solidFill><a:srgbClr val="\#($0)"/></a:solidFill>"# } ?? "" : ""
                 return #"<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r>\#(look)<a:t>\#(words)</a:t></a:r></a:p>"#
                     + "</a:txBody><a:tcPr>\(ground)</a:tcPr></a:tc>"
             }
@@ -137,7 +140,7 @@ enum PowerPoint {
         }
         return #"<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="\#(id)" name="Table \#(id)"/>"#
             + #"<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/>"#
-            + "</p:nvGraphicFramePr><p:xfrm>\(place(t))</p:xfrm><a:graphic>"
+            + "</p:nvGraphicFramePr><p:xfrm>\(place(text))</p:xfrm><a:graphic>"
             + #"<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>"#
             + #"<a:tblPr firstRow="1"/><a:tblGrid>"# + String(repeating: #"<a:gridCol w="\#(width)"/>"#, count: columns)
             + "</a:tblGrid>" + body.joined() + "</a:tbl></a:graphicData></a:graphic></p:graphicFrame>"

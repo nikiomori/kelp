@@ -81,14 +81,15 @@ enum MotionExports {
         guard let b = pixels(black), let w = pixels(white), let bd = b.data, let wd = w.data else { return nil }
         let on = bd.bindMemory(to: UInt8.self, capacity: width * height * 4)
         let off = wd.bindMemory(to: UInt8.self, capacity: width * height * 4)
-        for i in stride(from: 0, to: width * height * 4, by: 4) {
+        for offset in stride(from: 0, to: width * height * 4, by: 4) {
             let through =
-                (Int(off[i]) - Int(on[i]) + Int(off[i + 1]) - Int(on[i + 1]) + Int(off[i + 2]) - Int(on[i + 2])) / 3
+                (Int(off[offset]) - Int(on[offset]) + Int(off[offset + 1]) - Int(on[offset + 1]) + Int(off[offset + 2])
+                    - Int(on[offset + 2])) / 3
             let alpha = max(0, min(255, 255 - through))
-            on[i] = min(on[i], UInt8(alpha))
-            on[i + 1] = min(on[i + 1], UInt8(alpha))
-            on[i + 2] = min(on[i + 2], UInt8(alpha))
-            on[i + 3] = UInt8(alpha)
+            on[offset] = min(on[offset], UInt8(alpha))
+            on[offset + 1] = min(on[offset + 1], UInt8(alpha))
+            on[offset + 2] = min(on[offset + 2], UInt8(alpha))
+            on[offset + 3] = UInt8(alpha)
         }
         return b.makeImage()
     }

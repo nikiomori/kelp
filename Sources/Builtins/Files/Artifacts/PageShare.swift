@@ -62,16 +62,17 @@ extension MarkdownTab {
         }
     }
 
-    /// Slide `i` as the page shows it, copied as a picture.
-    func copySlide(_ i: Int) {
+    /// Slide `slide` as the page shows it, copied as a picture.
+    func copySlide(_ slide: Int) {
         Task {
             do {
                 let box = try await web.callAsyncJavaScript(
                     "const b = kelpSlides[i]?.getBoundingClientRect(); return b ? [b.x, b.y, b.width, b.height] : null",
-                    arguments: ["i": i], contentWorld: Self.world)
-                guard let b = box as? [Double], b.count == 4,
+                    arguments: ["i": slide], contentWorld: Self.world)
+                guard let bounds = box as? [Double], bounds.count == 4,
                     let png = try await slidePNG(
-                        CGRect(x: b[0], y: b[1], width: b[2], height: b[3]), height: Int(1920 * b[3] / max(b[2], 1)))
+                        CGRect(x: bounds[0], y: bounds[1], width: bounds[2], height: bounds[3]),
+                        height: Int(1920 * bounds[3] / max(bounds[2], 1)))
                 else { return }
                 Self.copy(png)
             } catch {

@@ -95,10 +95,10 @@ extension NSBezierPath {
         func place(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
             NSPoint(x: cosPhi * rx * x - sinPhi * ry * y + cx, y: sinPhi * rx * x + cosPhi * ry * y + cy)
         }
-        for i in 0..<pieces {
-            let a = start + CGFloat(i) * step, b = a + step
+        for piece in 0..<pieces {
+            let a = start + CGFloat(piece) * step, b = a + step
             curve(
-                to: i == pieces - 1 ? p1 : place(cos(b), sin(b)),
+                to: piece == pieces - 1 ? p1 : place(cos(b), sin(b)),
                 controlPoint1: place(cos(a) - handle * sin(a), sin(a) + handle * cos(a)),
                 controlPoint2: place(cos(b) + handle * sin(b), sin(b) - handle * cos(b)))
         }
@@ -108,22 +108,22 @@ extension NSBezierPath {
 /// Reads path data: command letters, and numbers that run together as SVG lets them ("1.5-1.5", ".5.5").
 private struct PathScanner {
     let bytes: [UInt8]
-    var i = 0
+    var index = 0
     init(_ bytes: [UInt8]) { self.bytes = bytes }
 
     private mutating func skip() {
-        while i < bytes.count, [0x20, 0x2C, 0x09, 0x0A, 0x0D].contains(bytes[i]) { i += 1 }
+        while index < bytes.count, [0x20, 0x2C, 0x09, 0x0A, 0x0D].contains(bytes[index]) { index += 1 }
     }
 
     /// The next command: a letter, or the last one again when numbers follow it. nil at the end.
     mutating func command(after last: UInt8) -> UInt8? {
         skip()
-        guard i < bytes.count else { return nil }
-        let byte = bytes[i]
+        guard index < bytes.count else { return nil }
+        let byte = bytes[index]
         if (byte | 0x20) >= UInt8(ascii: "a"), (byte | 0x20) <= UInt8(ascii: "z"),
             byte | 0x20 != UInt8(ascii: "e")
         {
-            i += 1
+            index += 1
             return byte
         }
         return last | 0x20 == UInt8(ascii: "z") ? nil : last
@@ -131,35 +131,37 @@ private struct PathScanner {
 
     mutating func number() -> CGFloat {
         skip()
-        let begin = i
-        if i < bytes.count, bytes[i] == UInt8(ascii: "-") || bytes[i] == UInt8(ascii: "+") { i += 1 }
+        let begin = index
+        if index < bytes.count, bytes[index] == UInt8(ascii: "-") || bytes[index] == UInt8(ascii: "+") { index += 1 }
         var dot = false
-        while i < bytes.count {
-            let byte = bytes[i]
+        while index < bytes.count {
+            let byte = bytes[index]
             if byte >= UInt8(ascii: "0"), byte <= UInt8(ascii: "9") {
-                i += 1
+                index += 1
             } else if byte == UInt8(ascii: "."), !dot {
                 dot = true
-                i += 1
+                index += 1
             } else if byte | 0x20 == UInt8(ascii: "e") {
-                i += 1
-                if i < bytes.count, bytes[i] == UInt8(ascii: "-") || bytes[i] == UInt8(ascii: "+") { i += 1 }
+                index += 1
+                if index < bytes.count, bytes[index] == UInt8(ascii: "-") || bytes[index] == UInt8(ascii: "+") {
+                    index += 1
+                }
             } else {
                 break
             }
         }
-        guard i > begin else {   // not a number: step past it so a bad path ends rather than loops
-            i += 1
+        guard index > begin else {   // not a number: step past it so a bad path ends rather than loops
+            index += 1
             return 0
         }
-        return CGFloat(Double(String(decoding: bytes[begin..<i], as: UTF8.self)) ?? 0)
+        return CGFloat(Double(String(decoding: bytes[begin..<index], as: UTF8.self)) ?? 0)
     }
 
     /// An arc's flag, which SVG lets stand against what follows ("0 012-2").
     mutating func flag() -> Bool {
         skip()
-        guard i < bytes.count else { return false }
-        i += 1
-        return bytes[i - 1] == UInt8(ascii: "1")
+        guard index < bytes.count else { return false }
+        index += 1
+        return bytes[index - 1] == UInt8(ascii: "1")
     }
 }

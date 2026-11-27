@@ -128,17 +128,17 @@ enum NodeTree {
         var children: [String: [String]] = [:], depth: [String: Int] = [:]
         let byId = Dictionary(nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for node in nodes { if let parent = node.parent { children[parent, default: []].append(node.id) } }
-        func setDepth(_ id: String, _ d: Int) {
+        func setDepth(_ id: String, _ level: Int) {
             guard depth[id] == nil else { return }   // a cycle can't be, but must not overflow the stack if it were
-            depth[id] = d
-            for child in children[id] ?? [] { setDepth(child, d + 1) }
+            depth[id] = level
+            for child in children[id] ?? [] { setDepth(child, level + 1) }
         }
         setDepth(agentId, 0)
         var columns: [CGFloat] = []
         for node in nodes {
-            let d = depth[node.id] ?? 0
-            while columns.count <= d { columns.append(0) }
-            if [.agent, .group, .folder].contains(node.kind) { columns[d] = max(columns[d], width(node)) }
+            let level = depth[node.id] ?? 0
+            while columns.count <= level { columns.append(0) }
+            if [.agent, .group, .folder].contains(node.kind) { columns[level] = max(columns[level], width(node)) }
         }
         var x: [CGFloat] = [0]
         for w in columns { x.append((x.last ?? 0) + w + gap) }

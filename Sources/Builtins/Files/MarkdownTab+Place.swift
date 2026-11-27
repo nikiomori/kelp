@@ -13,8 +13,8 @@ extension MarkdownTab {
         let kept = placeKey.flatMap { app.uiState[$0] }
         let number = { (v: JSONValue?) -> Double? in
             switch v {
-            case .double(let d)?: d
-            case .int(let i)?: Double(i)
+            case .double(let number)?: number
+            case .int(let whole)?: Double(whole)
             default: nil
             }
         }

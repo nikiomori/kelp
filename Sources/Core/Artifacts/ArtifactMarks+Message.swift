@@ -23,51 +23,53 @@ extension ArtifactMarks {
                 // A chat that didn't make the page, or lost its rules to compaction, finds them again.
                 + (kind.map { " Rules: `kelp artifact guide \($0)`." } ?? "")
         ]
-        for m in marks {
-            var what = [m.board]
-            switch m.kind {
-            case .element where m.like != nil: what += ["\(m.like ?? "") (every element like it, on every board)"]
-            case .element: what += [m.target, m.text.isEmpty ? "" : "«\(m.text)»"]
-            case .quote: what += ["«\(m.text)»"]
-            case .area where m.area == nil && m.path == nil: what.append("the whole page")
+        for mark in marks {
+            var what = [mark.board]
+            switch mark.kind {
+            case .element where mark.like != nil: what += ["\(mark.like ?? "") (every element like it, on every board)"]
+            case .element: what += [mark.target, mark.text.isEmpty ? "" : "«\(mark.text)»"]
+            case .quote: what += ["«\(mark.text)»"]
+            case .area where mark.area == nil && mark.path == nil: what.append("the whole page")
             case .area, .pen:
-                let near = m.target.isEmpty ? "" : " near \(m.target)"
-                let box = m.area.map { a in " " + a.map { String(Int($0.rounded())) }.joined(separator: ",") } ?? ""
-                what.append((m.kind == .area ? "area" : "pen") + (m.kind == .area ? box : near))
-                if !m.text.isEmpty { what.append("labelled «\(m.text)»") }
+                let near = mark.target.isEmpty ? "" : " near \(mark.target)"
+                let box = mark.area.map { a in " " + a.map { String(Int($0.rounded())) }.joined(separator: ",") } ?? ""
+                what.append((mark.kind == .area ? "area" : "pen") + (mark.kind == .area ? box : near))
+                if !mark.text.isEmpty { what.append("labelled «\(mark.text)»") }
             }
-            if let time = m.time { what.append(String(format: "at %.2f s", time)) }
-            if let state = m.inState { what.append("in state «\(state)»") }
-            if let width = m.width { what.append("at \(width)px wide") }
-            if let language = m.language {
+            if let time = mark.time { what.append(String(format: "at %.2f s", time)) }
+            if let state = mark.inState { what.append("in state «\(state)»") }
+            if let width = mark.width { what.append("at \(width)px wide") }
+            if let language = mark.language {
                 what.append(language == "rtl" ? "laid out right to left" : "with its text 40% longer")
             }
-            if let asked = m.asked { what.append("(you asked: «\(asked)»)") }
-            if let reference = m.reference { what.append("(example: \(folder)/\(reference))") }
-            if let picture = m.picture { what.append("(picture: \(folder)/\(picture))") }
-            let head = "#\(m.id)" + (m.rounds.isEmpty ? "" : " again")
+            if let asked = mark.asked { what.append("(you asked: «\(asked)»)") }
+            if let reference = mark.reference { what.append("(example: \(folder)/\(reference))") }
+            if let picture = mark.picture { what.append("(picture: \(folder)/\(picture))") }
+            let head = "#\(mark.id)" + (mark.rounds.isEmpty ? "" : " again")
             // A note that starts with "?" asks rather than asks for a change: the answer is a reply, the page stays.
-            let question = m.note.hasPrefix("?")
-            let asked = question ? String(m.note.dropFirst()).trimmingCharacters(in: .whitespaces) : m.note
+            let question = mark.note.hasPrefix("?")
+            let asked = question ? String(mark.note.dropFirst()).trimmingCharacters(in: .whitespaces) : mark.note
             let note =
                 (asked.isEmpty ? "look at this" : asked)
                 + (question
-                    ? " (a question: answer it with `kelp artifact reply \(name) \(m.id) \"…\"`, change nothing for it)"
+                    ? " (a question: answer it with `kelp artifact reply \(name) \(mark.id) \"…\"`, "
+                        + "change nothing for it)"
                     : "")
             lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)
-            if let more = details[m.id] { lines.append("  (\(more))") }
-            if let last = m.rounds.last {
+            if let more = details[mark.id] { lines.append("  (\(more))") }
+            if let last = mark.rounds.last {
                 let said = last.reply.map { "; you said «\($0)»" } ?? ""
                 lines.append("  (before: «\(last.note)»\(said))")
             }
         }
         if !edits.isEmpty {
             lines.append("Edited by the user since\(version.map { " version \($0)" } ?? " then"), keep these:")
-            for e in edits {
+            for edit in edits {
                 let change =
-                    e.what == "text"
-                    ? "text «\(e.from ?? "")» → «\(e.to ?? "")»" : "\(e.what) \(e.from ?? "none") → \(e.to ?? "none")"
-                lines.append("  \(e.board) [data-id=\(e.id)] \(change)")
+                    edit.what == "text"
+                    ? "text «\(edit.from ?? "")» → «\(edit.to ?? "")»"
+                    : "\(edit.what) \(edit.from ?? "none") → \(edit.to ?? "none")"
+                lines.append("  \(edit.board) [data-id=\(edit.id)] \(change)")
             }
         }
         return lines.joined(separator: "\n")

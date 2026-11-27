@@ -21,14 +21,14 @@ enum OutputRows {
             return []
         }
         return found.compactMap { hit in
-            guard let s = open.first(where: { $0.id == hit.id }) else { return nil }
-            let worktree = app.worktree(s.worktreeId)
+            guard let session = open.first(where: { $0.id == hit.id }) else { return nil }
+            let worktree = app.worktree(session.worktreeId)
             let place = app.groupName(worktree) ?? app.projectName(worktree?.repoId)
             return QuickItem(
-                hit.line, detail: [app.catalog.displayName(s), place].compactMap { $0 }.joined(separator: " · "),
-                icon: "terminal", image: app.catalog.icon(s.agent, size: Metrics.iconMenu),
+                hit.line, detail: [app.catalog.displayName(session), place].compactMap { $0 }.joined(separator: " · "),
+                icon: "terminal", image: app.catalog.icon(session.agent, size: Metrics.iconMenu),
                 note: hit.count > 1 ? String(localized: "\(hit.count - 1) more matches") : "", mono: true,
-                open: { land(app, s, query, split: false) }, split: { land(app, s, query, split: true) })
+                open: { land(app, session, query, split: false) }, split: { land(app, session, query, split: true) })
         }
     }
 
