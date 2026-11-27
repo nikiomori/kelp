@@ -34,4 +34,7 @@ public enum AgentHome {
 
     /// The variable that points `agent` at a folder of its own. An account profile sets it.
     public static func variable(_ agent: String) -> String? { known[agent]?.variable }
+
+    /// Every variable that points an agent at a folder of its own: what picks the account it runs under.
+    public static let variables = Set(known.values.compactMap(\.variable))
 }

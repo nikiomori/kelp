@@ -67,6 +67,11 @@ import Testing
             "inside its own, it stages"
         ),
         (.session(mine.id), GitRemoteOp(id: RepoKey.of(wt.id, "fe"), op: .fetch), true, "and fetches"),
+        (
+            .session(mine.id), GitHunk(id: theirs.branchKey, file: "a", hunk: 0), false,
+            "a chat's own branch folder is that chat's"
+        ),
+        (.session(mine.id), GitHunk(id: child.branchKey, file: "a", hunk: 0), true, "a chat it started, it stages in"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .push), false, "but never pushes"),
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
         (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set"),
