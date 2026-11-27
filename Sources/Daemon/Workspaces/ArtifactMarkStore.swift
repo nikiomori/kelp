@@ -8,7 +8,7 @@ extension Artifacts {
     static func markCounts(in folder: URL) -> ArtifactMarkCounts? {
         let path = folder.appendingPathComponent(ArtifactMarks.file).path
         guard fileStat(path) != nil else { return nil }
-        let marks = ArtifactMarks.read(small(path)), counts = marks.counts
+        let marks = ArtifactMarks.read(in: folder), counts = marks.counts
         let sent = counts[.sent] ?? 0, check = counts[.check] ?? 0
         let replies = marks.marks.filter { [.sent, .check].contains($0.state) && $0.rounds.last?.reply != nil }.count
         let asked = marks.marks.filter { $0.state == .draft && $0.asked != nil }.count
@@ -21,7 +21,7 @@ extension Artifacts {
 
     /// Whether the page in `folder` has marks with chat `session`, waiting for its turn to end.
     static func hasMarks(sentTo session: String, in folder: URL) -> Bool {
-        ArtifactMarks.read(small(folder.appendingPathComponent(ArtifactMarks.file).path)).marks.contains {
+        ArtifactMarks.read(in: folder).marks.contains {
             $0.state == .sent && ($0.rounds.last?.to == nil || $0.rounds.last?.to == session)
         }
     }
@@ -91,8 +91,7 @@ extension ArtifactMarksChange: Handled {
         }
         var change = change
         if change.kind == .send {
-            let edits = ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
-                .edits
+            let edits = ArtifactMarks.read(in: folder).edits
             let label = Array(Set(edits.map(\.id))).sorted().joined(separator: ", ")
             change.before = try Artifacts.versionForMarks(page: path, label: label)
         }
@@ -115,7 +114,7 @@ extension ArtifactMarksChange: Handled {
             }
             return marks.apply(change) || !(pictures ?? [:]).isEmpty
         }
-        return written ?? ArtifactMarks.read(Artifacts.small(folder.appendingPathComponent(ArtifactMarks.file).path))
+        return written ?? ArtifactMarks.read(in: folder)
     }
 }
 
