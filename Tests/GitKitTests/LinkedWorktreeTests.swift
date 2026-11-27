@@ -29,3 +29,11 @@ import Testing
     #expect(Git.originHost(tree) == "github.com")
     #expect(Git.commonDir(tree)?.resolvingSymlinksInPath() == Git.commonDir(repo)?.resolvingSymlinksInPath())
 }
+
+@Test(arguments: [
+    ("git@github.com:o/r.git", "github.com"), ("https://gitlab.example.org/o/r", "gitlab.example.org"),
+    ("ssh://git@host.lan:22/r", "host.lan"), ("git@host.lan:r.git", "host.lan"), ("/srv/git/r.git", nil)
+])
+func aRemotesHostIsReadOffItsURL(url: String, host: String?) {
+    #expect(Git.host(ofRemote: url) == host)
+}

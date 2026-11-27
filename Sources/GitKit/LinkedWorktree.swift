@@ -103,9 +103,16 @@ extension Git {
         for line in config.split(separator: "\n").map({ $0.trimmingCharacters(in: .whitespaces) }) {
             if line.hasPrefix("[") { inOrigin = line == "[remote \"origin\"]" }
             if inOrigin, line.hasPrefix("url"), let eq = line.firstIndex(of: "=") {
-                return webRepo(line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces))?.0
+                return host(ofRemote: line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces))
             }
         }
         return nil
+    }
+
+    /// The host in a remote's URL: `git@github.com:o/r.git`, `https://github.com/o/r`, `ssh://git@host:22/r`.
+    static func host(ofRemote url: String) -> String? {
+        if let parsed = URL(string: url), let host = parsed.host, !host.isEmpty { return host }
+        guard let colon = url.firstIndex(of: ":"), !url.hasPrefix("/") else { return nil }
+        return url[..<colon].split(separator: "@").last.map(String.init)
     }
 }
