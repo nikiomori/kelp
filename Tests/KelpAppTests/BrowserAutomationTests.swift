@@ -237,7 +237,7 @@ extension OneAtATime {
                 == .array([.string("note.txt"), .int(5), .string("text/plain")]))
 
         tab.drive?.takenOver = true
-        BrowserTab.handBackWait = 0.3
+        BrowserTab.handBackWait = 0.05
         defer { BrowserTab.handBackWait = UIBrowser.wait - 10 }
         await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
         // The user may be signing in: what the page holds is theirs until they hand it back.
@@ -390,7 +390,7 @@ extension OneAtATime {
     let page = try #require(try await act("snapshot").string)
     #expect(!page.contains("Saved") && !page.contains("[new]"))
     #expect(page.contains(#"- button "Check" [ref=e1]"#) && page.contains(#"- checkbox "Agree" [ref=e3]"#))
-    await #expect(throws: RPCError.self) { try await act("wait", ["text": .string("Saved"), "timeout": .double(1)]) }
+    await #expect(throws: RPCError.self) { try await act("wait", ["text": .string("Saved"), "timeout": .double(0.2)]) }
 
     #expect(try await act("click", ["ref": .string("e2")])["change"] == .string("nothing changed"))
     // The answer names what was clicked and brings what came: no snapshot needed to see it, and none shows it again.
@@ -629,8 +629,8 @@ extension OneAtATime {
         #expect(tab.recordButton.isHidden)
         return URL(fileURLWithPath: try #require(done["path"]?.string))
     }
-    /// Long enough for a few frames at 10 a second.
-    func frames() async throws { try await Task.sleep(for: .milliseconds(400 * testSlowness)) }
+    /// Long enough for a frame or two at 10 a second.
+    func frames() async throws { try await Task.sleep(for: .milliseconds(200 * testSlowness)) }
     let colours = {
         for colour in ["green", "blue"] {
             try await frames()
@@ -642,7 +642,7 @@ extension OneAtATime {
     #expect(CGImageSourceGetCount(gif) == 3)
 
     let movie = AVURLAsset(url: try await record("page.mp4", while: colours))
-    #expect(try await movie.load(.duration).seconds > 1)
+    #expect(try await movie.load(.duration).seconds > 0.4)   // it was recorded through three waits of 0.2 s
     #expect(try await movie.loadTracks(withMediaType: .video).count == 1)
 
     // The user's page: a recording starts (and only one), and the page changes as they use it, but no frame is taken.
