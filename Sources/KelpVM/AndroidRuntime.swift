@@ -221,7 +221,7 @@ final class AndroidRuntime: MachineRuntime {
             return started(error)
         }
         emulator = process
-        Lifecycle.remember(process, in: folder, as: "emulator")
+        Lifecycle.remember(process.processIdentifier, in: folder, as: "emulator")
         shown = nextBootShown
         nextBootShown = false
         Task { await awaitBoot(since: now()) }
