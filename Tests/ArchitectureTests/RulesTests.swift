@@ -61,14 +61,11 @@ import Testing
 /// Every method is called by a test, by its type or its name: one no test calls can break unseen. The ones no test calls
 /// yet are listed; the list only shrinks (a new method comes with its test, and one that gets a test comes off it). A
 /// call is made in code: `Name(…)` or `Name.name` handed to a function (`c.call(Name(…))`, `vms.create(Name(…))`, a
-/// `let` of one handed on), `Name(…).handle(`, or its wire name as a string. One only made (`_ = Name()`), built only
-/// for the agent rules' tables (AgentRules*Tests.swift) or to read its `.fence` runs no handler.
+/// `let` of one handed on), `Name(…).handle(`, or its wire name as a call sends it. One only made
+/// (`_ = Name()`), built only for the agent rules' tables (AgentRules*Tests.swift) or to read its `.fence` runs no
+/// handler.
 @Test func everyMethodIsCalledByATest() throws {
-    let untested: Set<String> = [
-        "DaemonBackgroundAllowed", "ProcessRefreshPath",   // their answer in a test is the harness's (no app, PATH given)
-        "RepoCloneCancel",   // a clone that runs isn't cancelled in any test yet
-        "EditorNextEditStart"   // it starts the real llama-server: the app's Turn On, not a test's
-    ]
+    let untested: Set<String> = []
     let declaration = try NSRegularExpression(
         pattern: #"(?:struct|enum) (\w+): [^{\n]*\b(?:RPCMethod|InternalMethod)\b[^{]*\{"#)
     var methods: [String: String] = [:]   // type → wire name
@@ -105,9 +102,11 @@ import Testing
     let comment = #"(?m)(^|\s)//.*$"#
     let text = tests.map { $0.text.replacingOccurrences(of: comment, with: "", options: .regularExpression) }
         .joined(separator: "\n")
-    // Every quoted wire name, gathered once (a search of all the tests for each method took seconds).
+    // Every wire name a call sends: a call's first argument (`c.call("repo.clone", …)`), a request's `method:` or the
+    // `"method":` of a line written by hand. Gathered once (a search of all the tests for each method took seconds).
+    // One only quoted elsewhere (a list, a message) calls nothing.
     let quoted = Set(
-        try NSRegularExpression(pattern: #""([\w./-]+)(?=")"#).matches(
+        try NSRegularExpression(pattern: #"(?:\(\s*|method:\s*|"method":\s*)"([\w./-]+)(?=")"#).matches(
             in: text, range: NSRange(text.startIndex..., in: text)
         )
         .compactMap { Range($0.range(at: 1), in: text).map { String(text[$0]) } })
