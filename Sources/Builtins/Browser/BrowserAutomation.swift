@@ -52,7 +52,8 @@ extension BrowserTab {
             }
         }
         told(action, args)
-        return try await looked(action, ref: args["ref"]?.string, try await perform(action, args, drive, need))
+        let element = args["ref"]?.string.flatMap { drive.names[$0]?.name }
+        return try await looked(action, element: element, try await perform(action, args, drive, need))
     }
 
     private func perform(
@@ -76,8 +77,8 @@ extension BrowserTab {
         case .viewport: return try await resize(try need("size"))
         case .snapshot:
             let find = args["find"]?.string ?? ""
-            let text = try await snapshot(args["ref"]?.string ?? "", max: find.isEmpty ? 1500 : 20000)
-            return .string(find.isEmpty ? text : Self.found(find, in: text))
+            let reply = try await snapshot(args["ref"]?.string ?? "", max: find.isEmpty ? 1500 : 20000, .find(find))
+            return .string(reply ?? "")
         case .dialog:
             let accept = try need("answer") == "accept", text = accept ? args["text"]?.string : nil
             drive.dialogAnswer = (accept, text)
@@ -226,41 +227,6 @@ extension BrowserTab {
 
     /// The actions an agent may still run on a page the user took over. None of them acts on the page.
     static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record, .ask]   // a recording pauses meanwhile
-
-    /// Returns the snapshot lines that mention `text`, in any case. Each match is shown under the lines that contain
-    /// it, so its ref keeps its place, and over up to 20 lines of what is inside it (a heading's list, a form's
-    /// fields).
-    nonisolated static func found(_ text: String, in snapshot: String) -> String {
-        let lines = snapshot.components(separatedBy: "\n")
-        guard let head = lines.first else { return "" }
-        var keep = kept(lines) { $0.localizedCaseInsensitiveContains(text) }
-        let indent = { (line: String) in line.prefix { $0 == " " }.count }
-        for match in keep where lines[match].localizedCaseInsensitiveContains(text) {
-            let inside = lines[(match + 1)...].prefix { indent($0) > indent(lines[match]) }.prefix(20)
-            keep.insert(integersIn: (match + 1)..<(match + 1 + inside.count))
-        }
-        return keep.isEmpty
-            ? head + "\nNothing on the page mentions \"\(text)\"."
-            : ([head] + keep.map { lines[$0] }).joined(separator: "\n")
-    }
-
-    /// Returns the indexes of the lines that match, skipping the first line (the page's own), and of the lines that
-    /// contain each match.
-    nonisolated static func kept(_ lines: [String], matching: (String) -> Bool) -> IndexSet {
-        var keep = IndexSet()
-        for (index, line) in lines.enumerated().dropFirst() where matching(line) {
-            keep.insert(index)
-            var depth = line.prefix { $0 == " " }.count
-            for above in stride(from: index - 1, to: 0, by: -1) where depth > 0 {
-                let indent = lines[above].prefix { $0 == " " }.count
-                if indent < depth {
-                    keep.insert(above)
-                    depth = indent
-                }
-            }
-        }
-        return keep
-    }
 
     /// Whether two strings spell one address, such as `http://localhost:3000` and `http://localhost:3000/`.
     static func same(_ first: String, _ second: String) -> Bool {

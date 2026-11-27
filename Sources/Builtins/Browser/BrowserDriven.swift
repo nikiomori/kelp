@@ -31,7 +31,7 @@ extension BrowserTab {
             drive?.subagent = subagent
             showAgentBar()   // the bar says which agent drives
         }
-        let step = Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0] })
+        let step = Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0]?.name })
         drive?.lastStep = step
         pages.acted(pageId, step)
     }

@@ -154,7 +154,8 @@ final class AgentDrive {
 
     /// The element each ref named in the snapshot it came from (`button "Save"`), so the answer to an action on the ref
     /// can name it.
-    var names: [String: String] = [:]
+    var names: [String: (number: Int, name: String)] = [:]
+    var snapshotNumber = 0, nameDocument = 0
     /// The page's fetch and XHR calls still out, by id, with when each started.
     var inflight: [String: Date] = [:]
     /// Whether a call started in the last 1.5 s is still out, which means what an action set off is still loading.

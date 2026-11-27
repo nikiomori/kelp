@@ -117,3 +117,45 @@ import Testing
     rows.show([ServerProcesses.Line(id: "nginx", members: [process(1), process(2)])])
     #expect(outline.isExpandable(outline.item(atRow: 0)))
 }
+
+@Test func aServersMembershipUsesEachMarkerOnceAndKeepsTheModelOrder() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let remotes = Remotes(home: home)
+    func repo(_ id: String, _ host: String, local: Bool = false) throws -> Repo {
+        let folder = home.appendingPathComponent(local ? id : "remote/\(id)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try JSONEncoder().encode(RemoteHost(host: host, path: "/srv/\(id)"))
+            .write(to: folder.appendingPathComponent(RemoteHost.marker))
+        return Repo(id: id, name: id, path: folder.path)
+    }
+    let repos = try [
+        repo("z", "blue"), repo("b", "green"), repo("a", "blue"), repo("local", "blue", local: true),
+        repo("bad", "-invalid")
+    ]
+    var reads: [String] = []
+    let projects = ServerProjects(repos) { path in
+        reads.append(path)
+        return remotes.of(path)
+    }
+    #expect(projects.on["blue"]?.map(\.repo.id) == ["z", "a"])
+    #expect(projects.on["blue"]?.map(\.path) == ["/srv/z", "/srv/a"])
+    #expect(Set(projects.on.keys) == ["blue", "green"])
+    var trees = repos.map { Worktree(id: "w-" + $0.id, repoId: $0.id, branch: "main", path: $0.path) }
+    func chat(_ id: String, _ workspace: String?, agent: String = "codex", status: AgentStatus = .idle) -> Session {
+        Session(id: id, worktreeId: workspace, cwd: "/", command: agent, agent: agent, status: status)
+    }
+    let sessions = [
+        chat("first", "w-a"), chat("terminal", "w-z", agent: "shell"), chat("second", "w-z"),
+        chat("finished", "w-a", status: .exited), chat("third", "w-b"), chat("orphan", nil)
+    ]
+    func agents(_ host: String) -> [String] {
+        let screens = projects.screens(in: trees)
+        return ServerProjects.agents(in: screens[host] ?? [], among: sessions).map(\.id)
+    }
+    #expect(agents("blue") == ["first", "second"])
+    #expect(agents("green") == ["third"])
+    trees[0].repoId = "b"
+    #expect(agents("green") == ["second", "third"])
+    #expect(reads == repos.map(\.path))   // switching host and reassigning a workspace never checked the disk
+}

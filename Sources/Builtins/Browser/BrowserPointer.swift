@@ -12,7 +12,7 @@ extension BrowserTab {
     func pointerLook(_ action: BrowserAction, ref: String, _ request: JSONValue) -> [String: Any] {
         let agent = request["session"]?.string.flatMap { app.session($0) }?.agent
         let who = agent == nil ? String(localized: "Agent") : app.catalog.name(agent)
-        let what = drive?.names[ref].flatMap(Self.shownName).map { " “\($0)”" } ?? ""
+        let what = (drive?.names[ref]?.name).flatMap(Self.shownName).map { " “\($0)”" } ?? ""
         return [
             "accent": Self.vivid(app.catalog.color(agent)).hexString, "label": "\(who) · \(Self.verb(action))\(what)",
             "font": TextSize.of(TextSize.row), "padX": Metrics.gap, "padY": Metrics.lineGap
