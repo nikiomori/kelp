@@ -70,14 +70,14 @@ private func line(_ kind: String, _ used: Double) -> UsageView.Line {
 }
 
 /// The pointer leaves the row for the card to click an eye: the card stays while it is on it, and goes after it leaves.
-@MainActor @Test func theLimitCardStaysWhileThePointerIsOnIt() async throws {
+@MainActor @Test func theLimitCardStaysWhileThePointerIsOnIt() {
     let card = LimitCardHover()
     card.show("claude")
     card.hover("claude", false)   // off the row…
     card.card(true)   // …and onto the card, within the close's wait
-    // Time is the subject: the close the row's leaving asked for has had three times its wait.
-    try await Task.sleep(for: .seconds(Motion.hoverClose * 3))
+    card.pending.flush()   // the close the row's leaving asked for: its wait is over
     #expect(card.shown == "claude")
     card.card(false)
-    try await waitFor { card.shown == nil }
+    card.pending.flush()
+    #expect(card.shown == nil)
 }

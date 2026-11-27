@@ -543,8 +543,12 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
 /// or a static object other than a logger), which every daemon in one process (tests) would share.
 @Test func theDaemonKeepsItsStateInItsServices() throws {
     let daemon = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Daemon.swift" })
-    let stored = try NSRegularExpression(pattern: #"^    (?:public |private )?let "#, options: [.anchorsMatchLines])
-        .numberOfMatches(in: daemon.text, range: NSRange(daemon.text.startIndex..., in: daemon.text))
+    // A stored `let`, or a `var` that isn't computed (no `{` on its line).
+    let property = try NSRegularExpression(
+        pattern:
+            #"^    (?:(?:public|private|package|fileprivate|nonisolated\(unsafe\)|private\(set\)) )*(?:let |var [^{\n]*$)"#,
+        options: [.anchorsMatchLines])
+    let stored = property.numberOfMatches(in: daemon.text, range: NSRange(daemon.text.startIndex..., in: daemon.text))
     let extensions = try matches(#"^extension Daemon\b"#, in: ["Sources/Daemon"])
     let shared = try matches(
         #"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^\n]*>)?\("#,
@@ -556,10 +560,8 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // its own (`ChildReports`, `SessionSetup`, `SessionProcesses`, `Turns`, `KeepAwake`…), which `Sessions` holds as one.
     let sessions = try #require(
         sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions/Sessions.swift" })
-    let held = try NSRegularExpression(
-        pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines]
-    )
-    .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
+    let held = property.numberOfMatches(
+        in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
     #expect(held <= 22, "Sessions' stored properties: \(held)")
     #expect(held >= 22, "fewer now: lower the ceiling")
     // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.

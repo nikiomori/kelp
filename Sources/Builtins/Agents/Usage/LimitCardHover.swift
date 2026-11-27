@@ -11,7 +11,8 @@ import Observation
 final class LimitCardHover {
     /// The row whose card is up.
     private(set) var shown: String?
-    @ObservationIgnored private let pending = Debounce()   // the open or close to come; a later one replaces it
+    /// The open or close to come; a later one replaces it. A test flushes it.
+    @ObservationIgnored let pending = Debounce()
     @ObservationIgnored private var warmUntil = Date.distantPast
     @ObservationIgnored private var keys: Any?
     /// Whether the pointer is on the card.

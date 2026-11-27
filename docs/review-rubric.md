@@ -38,7 +38,7 @@ Run `scripts/metrics.py` first: the items marked **(m)** are read off its output
 8. A typical change touches few files: adding a setting, a panel, an RPC method each take at most three files (1),
    five (0.5).
 9. docs/architecture.md and docs/extensions.md describe the code as it is (sample ten claims).
-10. **(m)** Changes land designed, not patched: `fix_commits_14d` under 35 % (1), under 50 % (0.5).
+10. **(m)** Changes land designed, not patched: `fix_commits_14d` (merges left out) under 35 % (1), under 50 % (0.5).
 
 ## Tests
 1. Every module has tests, built-ins included (`builtins_without_tests` empty **(m)**).

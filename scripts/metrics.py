@@ -122,8 +122,11 @@ def tested_builtins():
 
 
 def fix_share(days=14):
-    out = subprocess.run(["git", "log", f"--since={days}.days", "--format=%s"], capture_output=True, text=True).stdout.splitlines()
-    fixes = [s for s in out if re.match(r"fix(\(|:)", s)]
+    # Merges are no change of their own, and a fix is one whether it says `fix(…):`, `fix:` or "Fix …".
+    out = subprocess.run(
+        ["git", "log", "--no-merges", f"--since={days}.days", "--format=%s"], capture_output=True, text=True
+    ).stdout.splitlines()
+    fixes = [s for s in out if re.match(r"fix\b", s, re.I)]
     return len(fixes), len(out)
 
 
@@ -184,7 +187,7 @@ def main():
     # A wait written out by hand (`for _ in 0..<50 where`, `while … Date() < end`) runs out silently, and the test
     # fails later at a check that reads like another bug: `waitFor` / `waitBlocking` (TestSupport) are the waits.
     waits = [p for p in swift_files("Tests") if p.parts[1] != "TestSupport"]
-    loops = grep_count(r"for _ in 0\.\.<\d+ where|while [^{\n]*Date\(\) <", waits)
+    loops = grep_count(r"for _ in 0\.\.<[\d_]+ where|while [^{\n]*Date\(\) <", waits)
     tests = grep_count(r"@Test\b", swift_files("Tests"))
     vm_tests = grep_count(r"@Test\b", swift_files("Tests/KelpVMTests"))
     vm_loc = count_loc("Sources/KelpVM")
