@@ -252,14 +252,15 @@ private func submitted(_ screen: String) -> String {
 /// An agent's own auto-answer (a manifest's "press Enter to continue") is pressed a moment after the question draws; if
 /// the user typed meanwhile, it isn't pressed at all (it would land in their text, or answer whatever came next).
 @Test func anAutoAnswerIsntPressedOnceTheUserTyped() async throws {
-    // Asks, then reports every key that comes: the user's, and a late Enter if there is one. It listens for 8 s after
-    // each key, past the 5 s the answer waits.
+    // Asks, then reports every key that comes: the user's, and a late Enter if there is one. It listens a second
+    // longer after each key than the answer waits.
+    let wait = scaled(1.5)
     let script =
         #"stty -icanon -echo; echo 'Press Enter to continue'; "#
-        + #"while IFS= read -rsn1 -t 8 k; do if [[ -z "$k" ]]; then echo KEY-ENTER; else echo "KEY-$k"; fi; done; echo QUIET; sleep 30"#
+        + #"while IFS= read -rsn1 -t \#(wait + 1) k; do if [[ -z "$k" ]]; then echo KEY-ENTER; else echo "KEY-$k"; fi; done; echo QUIET; sleep 30"#
     let m = AgentManifest(
         id: "asks2", name: "Asks", command: "/bin/bash", args: ["-c", script, "x"],
-        autoAnswers: [AgentManifest.AutoAnswer(pattern: "Press Enter to continue", input: "\r", after: 5)])
+        autoAnswers: [AgentManifest.AutoAnswer(pattern: "Press Enter to continue", input: "\r", after: Double(wait))])
     let w = try await world(agents: [m])
     defer { w.d.stop() }
     let wt = try await workspace(w, "typed")
@@ -268,7 +269,7 @@ private func submitted(_ screen: String) -> String {
     func screen() async throws -> String {
         (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
     }
-    // The user comes well within the 5 s the answer waits (not a race with a busy machine).
+    // The user comes well within the time the answer waits (not a race with a busy machine).
     #expect(try await waitFor(10) { try await screen().contains("Press Enter") })
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("x".utf8).base64EncodedString())]))   // the user, at once
     #expect(try await waitFor(20) { try await screen().contains("QUIET") })

@@ -47,7 +47,7 @@ func theLaunchPromptWaitsForAStartupQuestion(question: String, inputBox: String?
     let wt = try await workspace(w, "startup")
     let fake =
         #"printf '\#(question)'; "#
-        + #"if IFS= read -rsn1 -t \#(scaled(6)) k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; "#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; "#
         + #"printf '\#(inputBox ?? "")'; exec cat -v"#
     let s: Session = try await w.c.call(
         "session.create",

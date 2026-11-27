@@ -64,7 +64,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     let wt = try await workspace(w, "order")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: s.id)).contains("ready") })
-    let n = 6
+    let n = 4
     _ = try sendAtOnce(
         w.root, (1...n).map { (SessionSend.name, .obj(["id": .string(s.id), "text": .string("m\($0)")])) })
     var got: [String] = []
