@@ -139,17 +139,7 @@ final class WorkFileList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 
     /// "+18 −5" in the diff's colours.
     static func lines(_ place: AgentWork.Place) -> NSTextField {
-        let text = NSMutableAttributedString()
-        let font = NSFont.uiDigits(TextSize.caption)
-        if place.added > 0 {
-            text.append(
-                .init(string: "+\(place.added)", attributes: [.font: font, .foregroundColor: NSColor.textGreen]))
-        }
-        if place.removed > 0 {
-            if place.added > 0 { text.append(.init(string: " ")) }
-            text.append(
-                .init(string: "−\(place.removed)", attributes: [.font: font, .foregroundColor: NSColor.textRed]))
-        }
+        let text = GitFolders.changes(added: place.added, removed: place.removed)
         let field = NSTextField(labelWithAttributedString: text)
         field.setContentCompressionResistancePriority(.required, for: .horizontal)
         field.setContentHuggingPriority(.required, for: .horizontal)
