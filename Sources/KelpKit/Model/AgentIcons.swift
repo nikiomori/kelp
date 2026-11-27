@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Observation
+import os
 
 /// Finds agents' icons. Each is the logo Kelp ships (`logo`), else the vendor's Mac app when it's installed, else the
 /// icon the agent's website serves, fetched once and kept in ~/.kelp/icons. Fetched monochrome logos sit on a small
@@ -58,8 +59,11 @@ final class AgentIcons {
         let dir = folder
         Task.detached(priority: .utility) {
             guard let data = await Self.fetchIcon(site) else { return }
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? data.write(to: cached)
+            // The icon shows either way; a cache that can't be written is fetched again next launch, and says why.
+            Logger.kelp("icons").attempt("caching \(id)'s icon") {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                try data.write(to: cached)
+            }
             await MainActor.run { self.images[id] = Self.tile(data) }
         }
     }

@@ -57,14 +57,14 @@ public struct SidebarTree {
     }
 
     public func build() -> [SidebarItem] {
+        // Only agents get rows, because terminals are tabs, not something to keep an eye on. An agent on another
+        // screen keeps a row there, because it's what that screen holds. Grouped by workspace once, not per workspace.
+        let agentsAt = Dictionary(
+            grouping: sessions.filter { $0.status != .exited && !$0.isTerminal && !parked.contains($0.id) },
+            by: \.worktreeId)
         func workspace(_ worktree: Worktree) -> SidebarItem {
-            // Only agents get rows, because terminals are tabs, not something to keep an eye on. An agent on another
-            // screen keeps a row there, because it's what that screen holds.
-            let agents = sessions.filter {
-                $0.worktreeId == worktree.id && $0.status != .exited && !$0.isTerminal
-                    && !parked.contains($0.id)
-            }
-            let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
+            let agents = agentsAt[worktree.id] ?? [], ids = Set(agents.map(\.id))
+            let rows = agents.filter { agent in agent.parent.map { !ids.contains($0) } ?? true }
             return SidebarItem(
                 kind: .workspace(worktree.id),
                 children: rows.map { chat in

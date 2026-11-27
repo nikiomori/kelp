@@ -160,19 +160,25 @@ extension SidebarController {
 extension SidebarController {
     /// Returns the row for a workspace: its own row, or the project's row when the project stands for it (a project
     /// with one screen, or a folded one).
-    func workspaceNode(_ id: String) -> Node? { find { $0.kind == .workspace(id) } ?? find { $0.workspace == id } }
+    func workspaceNode(_ id: String) -> Node? { index.byKey["w:" + id] ?? index.standingFor[id] }
 
-    func node(_ key: String) -> Node? { find { $0.key == key } }
+    func node(_ key: String) -> Node? { index.byKey[key] }
 
-    func find(_ test: (Node) -> Bool) -> Node? {
-        func look(_ ns: [Node]) -> Node? {
-            for node in ns {
-                if test(node) { return node }
-                if let found = look(node.children) { return found }
+    /// Each row by its key, the first row (top to bottom) that stands for a project's own screen, and the folded row
+    /// that holds a chat as a logo. The first one seen wins, as a walk from the top would find it.
+    struct NodeIndex {
+        var byKey: [String: Node] = [:], standingFor: [String: Node] = [:], holding: [String: Node] = [:]
+        init(_ roots: [Node]) {
+            func add(_ nodes: [Node]) {
+                for node in nodes {
+                    if byKey[node.key] == nil { byKey[node.key] = node }
+                    if let own = node.workspace, standingFor[own] == nil { standingFor[own] = node }
+                    for chat in node.hidden where holding[chat] == nil { holding[chat] = node }
+                    add(node.children)
+                }
             }
-            return nil
+            add(roots)
         }
-        return look(roots)
     }
 }
 
