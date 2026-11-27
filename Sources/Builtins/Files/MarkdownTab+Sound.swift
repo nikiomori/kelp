@@ -98,7 +98,7 @@ extension MarkdownTab {
     /// While it stands, a moved time (the playhead dragged, a click on the timeline) plays an eighth of a second of
     /// what sounds there, as an editor scrubs, so a cut is found by ear.
     func followSound(playing: Bool, at time: Double) {
-        let player = SoundPlayer.of(self)
+        let player = soundPlayer
         let sounds = MotionSound.sounds(in: editor.text, folder: url.deletingLastPathComponent())
         guard playing else { return player.scrub(sounds, at: time) }
         player.follow(sounds, at: time, rate: motionStudio.playbackRate)
@@ -108,15 +108,7 @@ extension MarkdownTab {
 /// The sounds of one tab, as AVAudioPlayers that follow the page's time.
 @MainActor
 final class SoundPlayer {
-    private static let byTab = NSMapTable<MarkdownTab, SoundPlayer>.weakToStrongObjects()
     private var players: [URL: AVAudioPlayer] = [:]
-
-    static func of(_ tab: MarkdownTab) -> SoundPlayer {
-        if let made = byTab.object(forKey: tab) { return made }
-        let made = SoundPlayer()
-        byTab.setObject(made, forKey: tab)
-        return made
-    }
 
     /// Whether any of the tab's sounds is playing now.
     var sounding: Bool { players.values.contains(where: \.isPlaying) }

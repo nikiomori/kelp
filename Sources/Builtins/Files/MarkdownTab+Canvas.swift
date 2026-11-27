@@ -33,7 +33,7 @@ extension MarkdownTab {
     func canvasChecked(_ issues: [String], narrow: Bool = false) {
         checkIssues = issues
         onCheck?(issues)
-        let new = TurnCheck.of(self).checked(Self.told(issues, narrow: narrow))
+        let new = turnCheck.checked(Self.told(issues, narrow: narrow))
         if !new.isEmpty, let author = pageAuthor {
             let text = TurnCheck.message(new, page: Artifacts.projectPath(url.path))
             Task { await app.call(SessionSend(id: author.id, text: text, enter: true)) }
@@ -334,6 +334,18 @@ extension MarkdownTab {
         guard editing else { return zoom }
         let select = chosen.map { "kelpSelect(\(Self.js($0.board)), \(Self.js($0.id)))" }
         return zoom + ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
+    }
+
+    /// Restores an older version: the file's text becomes `text`, and the file is saved.
+    @discardableResult func restore(_ text: String) async -> Bool {
+        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return await restoreCanvas(snapshot) }
+        return await save(text).value
+    }
+
+    /// The file's text becomes `text` now, the caret at its start, and the file is saved (await the value to know).
+    @discardableResult func save(_ text: String) -> Task<Bool, Never> {
+        editor.apply(text: text, selection: NSRange(location: 0, length: 0))
+        return Task { await saveFile?() ?? false }
     }
 
     /// Restores an older version of the canvas by writing its files again: each of its boards, then the canvas.

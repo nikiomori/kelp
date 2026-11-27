@@ -8,17 +8,9 @@ import KelpKit
 /// is new this turn, once; the user sees all of it in Check as before.
 @MainActor
 final class TurnCheck {
-    private static let byTab = NSMapTable<MarkdownTab, TurnCheck>.weakToStrongObjects()
     /// The issues there before the turn, and those already told.
     private var before: Set<String> = [], told: Set<String> = []
     private var working = false, ended = false, ours = false, oursRunning = false
-
-    static func of(_ tab: MarkdownTab) -> TurnCheck {
-        if let made = byTab.object(forKey: tab) { return made }
-        let made = TurnCheck()
-        byTab.setObject(made, forKey: tab)
-        return made
-    }
 
     /// The page's agent started or ended a turn.
     func agent(working now: Bool, issues: [String]?) {

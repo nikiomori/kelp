@@ -97,6 +97,16 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var onPageTitle: ((String?, Artifacts.Kind?) -> Void)?
     /// Gets what the canvas's check found each time the canvas is drawn, for the bar to show.
     var onCheck: (([String]) -> Void)?
+    /// Made when first needed: ⌘F on the page (`MarkdownTab+Find`), a motion page's sounds, the check after each turn.
+    lazy var finding = WebFind(web: web, world: Self.world, over: view) { [weak self] in
+        if let self { self.view.window?.makeFirstResponder(self.web) }
+    }
+    lazy var soundPlayer = SoundPlayer()
+    lazy var turnCheck = TurnCheck()
+    /// The colour panel's target (`pickColour`), the slides' presenter, a dashboard's updates (`followSources`).
+    var colourPick: ColourPick?, presenter: Presenter?, schedule: Schedule?
+    /// What the agent's last round changed besides what was marked, and what it cost (`MarkdownTab+Elsewhere`).
+    var changedElsewhere: [String] = [], roundCost: String?
 
     /// Returns the view over the tab. A page an agent made gets its own bar (its kind, versions and chat) where the
     /// path would be. Any other file gets `crumbs`.
@@ -118,18 +128,6 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         if text != nil, modeSegment != 2 { modeSegment = 2 }
         mode.isEnabled = text == nil
         rerender()
-    }
-
-    /// Restores an older version: the file's text becomes `text`, and the file is saved.
-    @discardableResult func restore(_ text: String) async -> Bool {
-        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return await restoreCanvas(snapshot) }
-        return await save(text).value
-    }
-
-    /// The file's text becomes `text` now, the caret at its start, and the file is saved (await the value to know).
-    @discardableResult func save(_ text: String) -> Task<Bool, Never> {
-        editor.apply(text: text, selection: NSRange(location: 0, length: 0))
-        return Task { await saveFile?() ?? false }
     }
 
     /// Prints the page as the preview shows it, through the system's print panel (which can also save a PDF).

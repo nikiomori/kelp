@@ -7,8 +7,6 @@ import DesignKit
 extension MarkdownTab {
     /// The last six colours picked by hand, newest first, kept while Kelp runs.
     private static var recent: [String] = []
-    /// The colour panel's target for each tab that opened it.
-    private static let picks = NSMapTable<MarkdownTab, ColourPick>.weakToStrongObjects()
 
     func recentColours(_ menu: NSMenu, _ key: String) {
         guard !Self.recent.isEmpty else { return }
@@ -31,7 +29,7 @@ extension MarkdownTab {
         panel.isContinuous = false   // one hand edit when the pick is made, not one each step of a drag
         let pick = ColourPick()   // held by the tab, as the panel holds its target weakly
         pick.picked = { [weak self] colour in self?.setColour(key, colour.hexString) }
-        Self.picks.setObject(pick, forKey: self)
+        colourPick = pick
         panel.setTarget(pick)
         panel.setAction(#selector(ColourPick.picked(_:)))
         panel.orderFront(nil)
