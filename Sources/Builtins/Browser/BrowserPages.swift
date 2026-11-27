@@ -190,3 +190,11 @@ extension NSView {
         }
     }
 }
+
+extension BrowserTab {
+    /// The page's title, and how many subagents' pages its tab holds besides.
+    var title: String {
+        let pages = agent && !pageSet.pages.isEmpty ? " +\(pageSet.pages.count)" : ""
+        return ownTitle + pages
+    }
+}

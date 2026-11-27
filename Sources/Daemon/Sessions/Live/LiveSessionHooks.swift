@@ -187,43 +187,64 @@ extension LiveSession {
         case unknown, root, child(String)
     }
 
-    /// The native subagent calling from this session, or nil for the main thread.
-    func browsing(toolCall: String?, thread: BrowserThread) throws -> String? {
+    /// The subagent whose `kelp browser` command this is, or nil for the main thread. `words` is what the command line
+    /// says after `kelp browser` (`UIBrowser.words`).
+    func browsing(toolCall: String?, thread: BrowserThread, words: String) throws -> String? {
         try state.withLock { st in
             try Self.browsing(
-                toolCall: toolCall, thread: thread, commands: st.commands, agents: st.commandAgents,
+                toolCall: toolCall, thread: thread, words: words, commands: st.commands, agents: st.commandAgents,
                 hasSubagents: !st.record.runningSubagents.isEmpty)
         }
     }
 
+    /// Codex names the thread and the tool call (`CODEX_THREAD_ID`, `CODEX_TOOL_CALL_ID`), so its answer is exact.
+    /// Claude Code names neither: then the running `kelp browser` command with these words is the caller's.
     static func browsing(
-        toolCall: String?, thread: BrowserThread, commands: [AgentCommand], agents: [String: String], hasSubagents: Bool
+        toolCall: String?, thread: BrowserThread, words: String, commands: [AgentCommand], agents: [String: String],
+        hasSubagents: Bool
     ) throws -> String? {
-        let ambiguous = RPCError.refused(
-            "Kelp can't tell which native agent sent this browser command. Use a separate Kelp session for its page.")
         let match = toolCall.flatMap { id in commands.first { $0.id == id } }
         let hooked = match.flatMap { agents[$0.id] }
         // Codex code mode may have no shell hook for the nested execution.
         switch thread {
         case .root:
-            guard hooked == nil else { throw ambiguous }
+            guard hooked == nil else { throw ambiguousBrowser }
             return nil
         case .child(let id):
-            guard hooked == nil || hooked == id else { throw ambiguous }
+            guard hooked == nil || hooked == id else { throw ambiguousBrowser }
             return id
         case .unknown:
             if let match {
-                guard match.outcome == nil else { throw ambiguous }
+                guard match.outcome == nil else { throw ambiguousBrowser }
                 return hooked
             }
         }
-        // shortcut: Legacy shells have no call identifier. Refuse competing owners until the executor supplies one.
-        // Consider scripts too: command text alone cannot tell which running script invoked Kelp.
-        let owners = Set(commands.lazy.filter { $0.outcome == nil }.map { agents[$0.id] })
-        let owner = owners.first ?? nil
-        guard owners.count <= 1, !hasSubagents || (toolCall == nil && owner != nil) else { throw ambiguous }
-        return owner
+        // A call id that no hook told of is a nested execution's: it can't be matched by its words.
+        if toolCall != nil {
+            guard !hasSubagents else { throw ambiguousBrowser }
+            return nil
+        }
+        return try browsing(words, commands, agents)
     }
+
+    /// Among the running commands that run `kelp browser`, the ones whose text has `words` (`click e12`), ignoring
+    /// quotes and matching an address as typed (`open localhost:3000` for `open http://localhost:3000`); failing that,
+    /// the only such command running. It returns their subagent; none found is the main thread's.
+    /// Limit: two owners running the very same words at once can't be told apart, so that is refused.
+    static func browsing(_ words: String, _ commands: [AgentCommand], _ agents: [String: String]) throws -> String? {
+        let running = commands.filter { $0.outcome == nil && $0.command.contains("kelp browser") }
+        let bare = words.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
+        let matching = running.filter { command in
+            let said = command.command.filter { $0 != "\"" && $0 != "'" }
+            return [words, bare].contains { said.contains("browser " + $0) }
+        }
+        let owners = Set((matching.isEmpty && running.count == 1 ? running : matching).map { agents[$0.id] })
+        guard owners.count <= 1 else { throw ambiguousBrowser }
+        return owners.first ?? nil
+    }
+
+    static let ambiguousBrowser = RPCError.refused(
+        "Kelp can't tell which agent sent this browser command: run it again.")
 
     /// The time to `release` by, if a Stop is held. The wait starts over, because an update ended the old one.
     func heldAgain() -> Date? {

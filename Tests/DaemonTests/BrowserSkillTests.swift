@@ -140,13 +140,16 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(vm())
 }
 
+/// Codex names the caller's thread and tool call, so its answer is exact: a call or thread at odds with the hooks is
+/// refused.
 @Test func browserRoutingUsesCodexCallAndThreadMetadata() throws {
     let main = AgentCommand(id: "call_root", command: "kelp browser snapshot")
     let mobile = AgentCommand(id: "call_mobile", command: main.command)
     let desktop = AgentCommand(id: "call_desktop", command: main.command)
     let agents = [mobile.id: "mobile", desktop.id: "desktop"]
     func driver(_ call: String?, _ thread: LiveSession.BrowserThread, _ running: [AgentCommand]) throws -> String? {
-        try LiveSession.browsing(toolCall: call, thread: thread, commands: running, agents: agents, hasSubagents: true)
+        try LiveSession.browsing(
+            toolCall: call, thread: thread, words: "snapshot", commands: running, agents: agents, hasSubagents: true)
     }
     #expect(try driver(mobile.id, .unknown, [main, desktop, mobile]) == "mobile")
     #expect(try driver(desktop.id, .child("desktop"), [main, mobile, desktop]) == "desktop")
@@ -156,12 +159,45 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(throws: RPCError.self) { try driver(mobile.id, .root, [mobile]) }
     #expect(throws: RPCError.self) { try driver(mobile.id, .child("desktop"), [mobile]) }
     #expect(throws: RPCError.self) { try driver("call_without_hook", .unknown, [mobile]) }
-    #expect(throws: RPCError.self) { try driver(nil, .unknown, [mobile, desktop]) }
-    #expect(throws: RPCError.self) { try driver(nil, .unknown, [main, mobile]) }
-    #expect(try driver(nil, .unknown, [mobile]) == "mobile")
     var ended = mobile
     ended.outcome = .ok
     #expect(throws: RPCError.self) { try driver(mobile.id, .unknown, [ended]) }
+}
+
+/// With no call id (Claude Code), a `kelp browser` command is the one running with its words, by its hook's agent;
+/// the same words run by two owners at once are refused.
+@Test(arguments: [
+    ("click e12", ["t1", "t2", "t3"], "mobile"),
+    ("type e4", ["t1", "t2", "t3"], "desktop"),
+    ("info", ["t1", "t3"], "desktop"),   // only one runs `kelp browser`
+    ("info", ["t4"], nil),   // the main thread's
+    ("snapshot", ["t5", "t1"], nil),   // the main thread browses while a subagent runs tests
+    ("open http://localhost:3000", ["t6", "t7"], nil),   // its address as typed, beside a subagent's ask
+    ("click e12", ["t6", "t8"], "desktop"),   // quoted
+    ("info", ["t6", "t7"], nil)   // two run it, neither with these words: the main thread's
+])
+func aBrowserCommandIsTheOneRunningWithItsWords(words: String, running: [String], owner: String?) throws {
+    let commands = [
+        AgentCommand(id: "t1", command: "npm test"), AgentCommand(id: "t2", command: "kelp browser click e12"),
+        AgentCommand(id: "t3", command: "cd web && kelp browser type e4 'hi'"),
+        AgentCommand(id: "t4", command: "kelp browser info"), AgentCommand(id: "t5", command: "kelp browser snapshot"),
+        AgentCommand(id: "t6", command: "kelp browser open localhost:3000"),
+        AgentCommand(id: "t7", command: "kelp browser ask 'Log in please'"),
+        AgentCommand(id: "t8", command: #"kelp browser click "e12""#)
+    ]
+    let agents = ["t1": "tests", "t2": "mobile", "t3": "desktop", "t7": "mobile", "t8": "desktop"]
+    let mine = commands.filter { running.contains($0.id) }
+    #expect(try LiveSession.browsing(words, mine, agents) == owner)
+}
+
+/// Two owners running the very same words can't be told apart: refused, not guessed. An ended command isn't the caller.
+@Test func theSameBrowserWordsFromTwoOwnersAreRefused() throws {
+    let main = AgentCommand(id: "t1", command: "kelp browser snapshot")
+    var mobile = AgentCommand(id: "t2", command: "kelp browser snapshot")
+    #expect(throws: RPCError.self) { try LiveSession.browsing("snapshot", [main, mobile], ["t2": "mobile"]) }
+    mobile.outcome = .ok
+    #expect(try LiveSession.browsing("snapshot", [main, mobile], ["t2": "mobile"]) == nil)
+    #expect(UIBrowser.words(.click, .object(["ref": "e12", "session": "s"])) == "click e12")
 }
 
 @Test func browserRoutingRefusesAgentOwnerURIsInUIOpen() async throws {
