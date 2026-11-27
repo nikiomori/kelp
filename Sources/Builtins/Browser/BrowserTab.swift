@@ -54,8 +54,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.
     var failed: URL?
     @ObservationIgnored private var watches: [NSKeyValueObservation] = []
-    /// The find card for ⌘F (BrowserFind.swift), made the first time it is needed.
-    @ObservationIgnored var finding: FindCard?
+    /// ⌘F on the page, made the first time it is needed.
+    @ObservationIgnored lazy var finding = WebFind(web: web, world: Self.world, over: view) { [weak self] in
+        self?.focus()
+    }
     /// The workspace's servers, watched while a local address failed, so the page loads again once its port is served.
     @ObservationIgnored lazy var serving = Watched(.ports, in: app)
     /// How far the page has loaded, as a line under the bar while it loads, its fill read when its layer updates.
@@ -168,7 +170,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         view = box
         super.init()
         box.reload = { [weak self] in self?.shownPage.reloadPage() }
-        box.find = { [weak self] in self?.shownPage.find($0) }
+        box.find = { [weak self] in self?.shownPage.finding.perform($0) }
         agentSlotHeight.isActive = true
         switchHeight.isActive = true
         webFill = [
