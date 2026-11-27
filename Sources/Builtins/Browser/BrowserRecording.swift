@@ -166,68 +166,30 @@ private let nothingRecorded = RPCError.internalError(
     "Nothing was recorded: the page’s tab wasn’t on screen. Show it and record again.")
 
 private actor MovieSink: FrameSink {
-    private let writer: AVAssetWriter
-    private var input: AVAssetWriterInput?, adaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private let file: FrameWriter
     private var first: TimeInterval?
 
-    init(_ url: URL, _ type: AVFileType) throws {
-        // AVAssetWriter won't write over a file.
-        do { try FileManager.default.removeItem(at: url) } catch CocoaError.fileNoSuchFile {}
-        writer = try AVAssetWriter(outputURL: url, fileType: type)
-    }
+    init(_ url: URL, _ type: AVFileType) throws { file = try FrameWriter(url, type: type) }
 
     func add(_ image: CGImage, at time: TimeInterval) {
-        if input == nil { open(PageRecording.size(of: image, most: 1920)) }
-        guard writer.status == .writing, let input, input.isReadyForMoreMediaData, let adaptor,
-            let pool = adaptor.pixelBufferPool
+        if !file.opened {
+            let size = PageRecording.size(of: image, most: 1920)
+            file.open(
+                width: size.width, height: size.height, settings: [AVVideoCodecKey: AVVideoCodecType.h264],
+                realtime: true)
+        }
+        guard file.writer.status == .writing, file.ready,
+            file.add(at: time - (first ?? time), { PageRecording.draw(image, in: $0) })
         else { return }
-        var made: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &made) == kCVReturnSuccess, let buffer = made else {
-            return
-        }
-        CVPixelBufferLockBaseAddress(buffer, [])
-        if let ctx = CGContext(
-            data: CVPixelBufferGetBaseAddress(buffer), width: CVPixelBufferGetWidth(buffer),
-            height: CVPixelBufferGetHeight(buffer), bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: PageRecording.sRGB,
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
-        {
-            PageRecording.draw(image, in: ctx)
-        }
-        CVPixelBufferUnlockBaseAddress(buffer, [])
-        let at = time - (first ?? time)
         first = first ?? time
-        adaptor.append(buffer, withPresentationTime: CMTime(seconds: at, preferredTimescale: 600))
-    }
-
-    private func open(_ size: (width: Int, height: Int)) {
-        let input = AVAssetWriterInput(
-            mediaType: .video,
-            outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: size.width, AVVideoHeightKey: size.height
-            ])
-        input.expectsMediaDataInRealTime = true
-        adaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: input,
-            sourcePixelBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                kCVPixelBufferWidthKey as String: size.width, kCVPixelBufferHeightKey as String: size.height
-            ])
-        writer.add(input)
-        self.input = input
-        writer.startWriting()
-        writer.startSession(atSourceTime: .zero)
     }
 
     func finish(at time: TimeInterval) async throws {
-        guard let first, writer.status == .writing else {
-            writer.cancelWriting()
+        guard let first, file.writer.status == .writing else {
+            file.writer.cancelWriting()
             throw nothingRecorded
         }
-        input?.markAsFinished()
-        // The last frame lasts until the stop.
-        writer.endSession(atSourceTime: CMTime(seconds: time - first, preferredTimescale: 600))
-        let writer = writer
+        let writer = file.end(at: time - first)   // the last frame lasts until the stop
         await withCheckedContinuation { done in writer.finishWriting { done.resume() } }
         guard writer.status == .completed else {
             throw RPCError.internalError("Couldn’t write the video: \(writer.error?.localizedDescription ?? "")")

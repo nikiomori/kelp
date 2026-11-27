@@ -736,9 +736,9 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
         "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),
         "KelpKit/Shell/WorkspaceActions+OpenIn.swift": (1, "whether Open In was handed a file or a folder"),
         "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
+        "KelpKit/Shared/FrameWriter.swift": (1, "a recording or a video written over the file it was asked to go to"),
         "Builtins/Agents/Session/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (1, "a local page, shown: it reloads as its folder changes"),
-        "Builtins/Browser/BrowserRecording.swift": (1, "a recording written over the file it was asked to go to"),
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
