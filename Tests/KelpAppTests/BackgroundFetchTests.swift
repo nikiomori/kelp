@@ -26,10 +26,13 @@ extension AppOfItsOwn {
         return (bare, other)
     }
 
+    /// A fetch brings the chip's counts without a click. One that fails says so quietly: a word in the popover's line
+    /// and in the branch chip's tooltip, and after an hour a grey mark at the chip's end.
     @Test func aBackgroundFetchBringsTheCountsAndFailsQuietly() async throws {
         let rig = try await AppRig()
         defer { rig.done() }
         _ = try remote(rig)
+        rig.app.extensions.reload()
         let fetch = BackgroundFetch.of(rig.app), wid = rig.workspace.id
         var now = Date()
         fetch.clock = { now }
@@ -50,10 +53,32 @@ extension AppOfItsOwn {
         rig.show(popover, 320, 400)
         popover.update()
         #expect(popover.state.stringValue.hasSuffix(" · offline"), "\(popover.state.stringValue)")
+        let info = BranchInfo(
+            current: "main", head: "abc1234", local: ["main"], remote: ["origin/main"], upstream: "origin/main",
+            ahead: 2, behind: 0, merging: false)
+        rig.app.land(GitEvent(worktree: rig.app.gitKey(wid), branches: info))
+        rig.app.workbench.mainWorkspaceId = wid   // as the editor area on screen sets it
+        let bar = WindowBar(app: rig.app)
+        @MainActor func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+        @MainActor func branchChip() throws -> NSButton {
+            try #require(all(bar).compactMap { $0 as? NSButton }.first { $0.toolTip?.hasPrefix("main") == true })
+        }
+        @MainActor func marks() throws -> Int {
+            let title = try branchChip().attributedTitle
+            var count = 0
+            title.enumerateAttribute(.attachment, in: NSRange(location: 0, length: title.length)) { v, _, _ in
+                if v != nil { count += 1 }
+            }
+            return count
+        }
+        let tip = try branchChip().toolTip ?? ""
+        #expect(tip.contains(" · fetched") && tip.hasSuffix("— offline"), "\(tip)")
+        let before = try marks()
         // After an hour of failures, the grey mark at the chip's end.
         now += BackgroundFetch.markAfter
         await fetch.pass()
         #expect(fetch.chip(wid)?.mark == "wifi.slash")
+        #expect(try await waitFor { (try? marks()) == before + 1 })
         // Off in Settings: nothing of it shows, and nothing runs.
         rig.app.settings.set(SettingKeys.fetchInBackground, false)
         now += BackgroundFetch.every
@@ -100,52 +125,13 @@ extension AppOfItsOwn {
 
         try rig.git(
             "config", "core.sshCommand",
-            "sh -c 'sleep 1; echo \"ssh: Could not resolve hostname example.com\" >&2; exit 255' --")
+            "sh -c 'sleep \(0.3 * testSlowness); echo \"ssh: Could not resolve hostname example.com\" >&2; exit 255' --"
+        )
         try rig.git("remote", "set-url", "origin", "git@example.com:o/r.git")
         let background = Task { await fetch.pass() }
         #expect(try await waitFor { !fetch.running.isEmpty })
         await fetch.settle(wid)
         #expect(fetch.trouble(wid)?.kind == .offline)   // it ended before settle returned
         await background.value
-    }
-
-    /// The branch chip says it too: the reason in its tooltip, and the mark after an hour.
-    @Test func theBranchChipShowsAFetchThatFails() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
-        _ = try remote(rig)
-        rig.app.extensions.reload()
-        let fetch = BackgroundFetch.of(rig.app), wid = rig.workspace.id
-        var now = Date()
-        fetch.clock = { now }
-        await fetch.pass()   // one that works, for the tooltip's "fetched … ago"
-        try rig.git("remote", "set-url", "origin", "https://nonexistent.invalid/r.git")
-        now += BackgroundFetch.every
-        await fetch.pass()
-        let info = BranchInfo(
-            current: "main", head: "abc1234", local: ["main"], remote: ["origin/main"], upstream: "origin/main",
-            ahead: 2, behind: 0, merging: false)
-        rig.app.land(GitEvent(worktree: rig.app.gitKey(wid), branches: info))
-        rig.app.workbench.mainWorkspaceId = wid   // as the editor area on screen sets it
-        let bar = WindowBar(app: rig.app)
-        @MainActor func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
-        @MainActor func chip() throws -> NSButton {
-            try #require(all(bar).compactMap { $0 as? NSButton }.first { $0.toolTip?.hasPrefix("main") == true })
-        }
-        @MainActor func marks() throws -> Int {
-            let title = try chip().attributedTitle
-            var count = 0
-            title.enumerateAttribute(.attachment, in: NSRange(location: 0, length: title.length)) { v, _, _ in
-                if v != nil { count += 1 }
-            }
-            return count
-        }
-        #expect(try chip().toolTip?.contains(" · fetched") == true)
-        let tip = try chip().toolTip ?? ""
-        #expect(tip.hasSuffix("— offline"), "\(tip)")
-        let before = try marks()
-        now += BackgroundFetch.markAfter + BackgroundFetch.every
-        await fetch.pass()
-        #expect(try await waitFor { (try? marks()) == before + 1 })
     }
 }
