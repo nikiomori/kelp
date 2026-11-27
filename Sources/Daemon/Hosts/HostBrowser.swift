@@ -78,7 +78,7 @@ final class HostBrowser: Sendable {
         // A forwarding that the connection still holds from before was left without its file just now, so it is
         // dropped first (when there is none, ssh says so, and that is all) and made again.
         let spec = made.dir + "/" + HostKelp.socketName(session) + ":" + macSocket(session)
-        _ = Self.cancel(remote, spec)
+        try? Self.control(remote, "cancel", "-R", spec)
         Log.session.attempt("bringing kelp browser's socket from \(remote.host)") {
             try Self.control(remote, "forward", "-R", spec)
         }
@@ -132,7 +132,8 @@ final class HostBrowser: Sendable {
         }
         source?.cancel()
         guard let channel, !channel.dir.isEmpty else { return }
-        _ = Self.cancel(channel.remote, channel.dir + "/" + HostKelp.socketName(session) + ":" + macSocket(session))
+        try? Self.control(
+            channel.remote, "cancel", "-R", channel.dir + "/" + HostKelp.socketName(session) + ":" + macSocket(session))
     }
 
     /// Ends the channels of sessions that ended since, as a new one is set up.
@@ -146,14 +147,6 @@ final class HostBrowser: Sendable {
     /// The workspace a session works in, which its page opens in.
     func worktree(_ session: String) -> String? {
         store.look("session \(session)", { try $0.session(session) })??.worktreeId
-    }
-
-    /// Drops a forwarding of the host's connection. Returns whether there was one to drop.
-    static func cancel(_ remote: RemoteHost, _ spec: String) -> Bool {
-        let args = [
-            remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "cancel", "-R", spec, "--", remote.host
-        ]
-        return Subprocess.printed(args, path: "/usr/bin:/bin", timeout: 10) != nil
     }
 
     func channel(_ session: String) -> Channel? { state.withLock { $0.channels[session] } }
