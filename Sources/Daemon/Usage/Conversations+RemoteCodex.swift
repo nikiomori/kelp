@@ -111,6 +111,7 @@ extension Conversations {
         let id = thread?.uuidString.lowercased() ?? "[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}"
         let day = "[0-9]{4}/[0-9]{2}/[0-9]{2}"
         return openAgentFile(
-            pid: panePID(pane), executable: "^codex(-.*)?$", filename: "^/.*/sessions/\(day)/rollout-[0-9T:-]+-\(id)[.]jsonl$")
+            pid: panePID(pane), executable: "^codex(-.*)?$",
+            filename: "^/.*/sessions/\(day)/rollout-[0-9T:-]+-\(id)[.]jsonl$")
     }
 }

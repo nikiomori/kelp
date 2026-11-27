@@ -161,8 +161,13 @@ private typealias Turn = ConversationTurns.Turn
     let exact = Turn(role: .user, text: "🙂🙂"), over = Turn(role: .agent, text: "🙂🙂🙂")
     let small = [Turn(role: .user, text: "AB🙂"), Turn(role: .agent, text: "🙂CD")]
     let rows: [(turns: [Turn], limit: Int, kept: [Turn])] = [
-        (wide, 44, [Turn(role: .user, text: edge + "…", at: "now"), Turn(role: .did, text: "…" + edge),
-                    Turn(role: .agent, text: "…" + edge)]),
+        (
+            wide, 44,
+            [
+                Turn(role: .user, text: edge + "…", at: "now"), Turn(role: .did, text: "…" + edge),
+                Turn(role: .agent, text: "…" + edge)
+            ]
+        ),
         ([exact, over], 32, [exact, Turn(role: .agent, text: "…🙂")]),
         (small, Int.min, []), (small, 0, []), (small, 1, []), (small, 3, []),
         (small, 4, [Turn(role: .user, text: "A"), Turn(role: .agent, text: "D")]),

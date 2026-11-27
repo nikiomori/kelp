@@ -10,10 +10,14 @@ extension Conversations {
         let read = #"if [ -f "$f" ] && [ ! -L "$f" ]; then tail -c \#(remoteTailBytes) < "$f"; exit; fi"#
         var parts: [String] = []
         if agent == "omp" {
-            let pid = session.tmux.flatMap { Tmux.isOwn($0) ? panePID($0) : nil } ?? localPID.flatMap { $0 > 0 ? String($0) : nil }
+            let pid =
+                session.tmux.flatMap { Tmux.isOwn($0) ? panePID($0) : nil }
+                ?? localPID.flatMap { $0 > 0 ? String($0) : nil }
             if let pid {
                 let uuid = "[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}"
-                parts += [openAgentFile(pid: pid, executable: "^omp$", filename: "^/.*/[0-9T:.-]+Z_\(uuid)[.]jsonl$"), read]
+                parts += [
+                    openAgentFile(pid: pid, executable: "^omp$", filename: "^/.*/[0-9T:.-]+Z_\(uuid)[.]jsonl$"), read
+                ]
             }
         }
         let argv = session.argv.prefix { $0 != "--" }
@@ -25,7 +29,10 @@ extension Conversations {
                 parts += ["f=" + ShellQuote.word(value), read]
             } else if let uuid = UUID(uuidString: value) {
                 let root = #""${PI_CODING_AGENT_DIR:-$HOME/.\#(agent)/agent}/sessions""#
-                parts += [#"set -- \#(root)/*/*_\#(uuid.uuidString.lowercased()).jsonl"#, #"[ "$#" -eq 1 ] || exit 0"#, "f=$1", read]
+                parts += [
+                    #"set -- \#(root)/*/*_\#(uuid.uuidString.lowercased()).jsonl"#, #"[ "$#" -eq 1 ] || exit 0"#,
+                    "f=$1", read
+                ]
             }
         }
         return parts.isEmpty ? nil : (parts + ["exit 0"]).joined(separator: "\n")

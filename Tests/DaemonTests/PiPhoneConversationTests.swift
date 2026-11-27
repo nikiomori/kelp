@@ -21,7 +21,10 @@ import Testing
     p.arguments = ["60"]
     p.standardInput = input
     try p.run()
-    defer { p.terminate(); p.waitUntilExit() }
+    defer {
+        p.terminate()
+        p.waitUntilExit()
+    }
     let session = Session(cwd: folder.path, command: "omp", agent: "omp", argv: ["omp"])
     let script = try #require(Conversations.piTailScript(session, localPID: p.processIdentifier))
     #expect(try Subprocess.output(["/bin/sh", "-c", script], cwd: folder.path) == Data("mine".utf8))
@@ -32,7 +35,8 @@ import Testing
     let (d, c, _) = try daemon()
     defer { d.stop() }
     let folder = tmp(), file = folder.appendingPathComponent("hand-off ' example.jsonl")
-    try Data(#"{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"The answer"}]}}"#.utf8).write(to: file)
+    try Data(#"{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"The answer"}]}}"#.utf8)
+        .write(to: file)
     for (agent, flag) in [("pi", "--session"), ("omp", "--resume")] {
         let session = Session(cwd: folder.path, command: agent, agent: agent, argv: [agent, flag, file.path])
         let fields = await d.sessions.phone.conversationFields(of: session)
@@ -41,7 +45,8 @@ import Testing
     }
     let hostname = "omp-" + UUID().uuidString
     let remote = try await remoteProject(c, host: hostname)
-    let remoteSession = Session(cwd: remote.repo.path, command: "omp", agent: "omp", argv: ["omp", "--resume", file.path])
+    let remoteSession = Session(
+        cwd: remote.repo.path, command: "omp", agent: "omp", argv: ["omp", "--resume", file.path])
     let fields = await d.sessions.phone.conversationFields(of: remoteSession)
     #expect(fields["turns"]?.array?.first?["text"]?.string == "The answer")
     let down = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("down-" + hostname)
@@ -54,5 +59,7 @@ import Testing
     try Data("expected".utf8).write(to: dir.appendingPathComponent("time_\(id).jsonl"))
     let session = Session(cwd: "/project", command: "pi", agent: "pi", argv: ["pi", "--session-id", id])
     let script = try #require(Conversations.piTailScript(session, localPID: nil))
-    #expect(try Subprocess.output(["/bin/sh", "-c", script], cwd: "/", env: ["PI_CODING_AGENT_DIR": root.path]) == Data("expected".utf8))
+    #expect(
+        try Subprocess.output(["/bin/sh", "-c", script], cwd: "/", env: ["PI_CODING_AGENT_DIR": root.path])
+            == Data("expected".utf8))
 }
