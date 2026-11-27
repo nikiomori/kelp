@@ -236,7 +236,7 @@ final class WindowBar: NSView {
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
         if let symbol {
-            button.image = Glyph.image(symbol, size: 13) ?? .symbol(symbol, "")
+            button.image = .symbol(symbol, "", size: 10)   // a glyph 13 points tall
             button.symbolConfiguration = .chrome(Metrics.iconSmall)
         }
         return button
@@ -344,7 +344,7 @@ final class WindowBar: NSView {
             ? .symbol("arrow.up.arrow.down", running ?? "")   // Pull's and Push's arrows, the git family's
             : inPlace
                 ? CIMarkSlot.room(13)
-                : Glyph.image("arrow.triangle.branch", size: 13) ?? .symbol("arrow.triangle.branch", "")
+                : .symbol("arrow.triangle.branch", "", size: 10)
         // VoiceOver hears the counts the tooltip shows, so a zero isn't said either.
         let branchWords = [String(localized: "Branch \(info.current ?? "HEAD")")] + parts.dropFirst()
         branch.setAccessibilityLabel(running ?? (branchWords + [said].compactMap { $0 }).joined(separator: ", "))
