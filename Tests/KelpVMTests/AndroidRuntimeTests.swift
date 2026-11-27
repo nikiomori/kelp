@@ -181,6 +181,7 @@ extension AndroidRuntimeOnAStandIn {
     @Test(.timeLimit(minutes: 1)) func leavingAfterAFailedBootEndsTheEmulator() async throws {
         let (vm, sdk, putAway) = try androidStandIn(booting: "trap '' TERM", adb: "*getprop*) ;;")
         defer { putAway() }
+        vm.endGrace = 0.2   // SIGTERM is ignored, so only SIGKILL ends it
         var later: TimeInterval = 0
         vm.now = { Date() + later }
         vm.handle(.init(op: .start)) { _ in }

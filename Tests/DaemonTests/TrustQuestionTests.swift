@@ -8,8 +8,9 @@ import Testing
 /// The user moving through "trust this folder?" with the arrows hasn't answered it: text waiting to go in still waits,
 /// instead of its Enter picking the option the cursor reached (Claude Code's "No, exit" with pre-approved permissions).
 @Test func anArrowInAQuestionDoesntAnswerIt() async throws {
+    let gate = tmp().path + "-up"   // made once the session has started up: then it asks
     let script =
-        "echo starting; sleep 5; stty -icanon -echo; "   // Claude Code's, with no numbers to read a menu by
+        "echo starting; until [ -e '\(gate)' ]; do sleep 0.1; done; stty -icanon -echo; "   // Claude Code's, with no numbers to read a menu by
         + #"printf 'Is this a project you created or one you trust?\n\xe2\x9d\xaf No, exit\n  Yes, I trust this folder\n'; "#
         + #"r=NOT-ANSWERED; while IFS= read -rsn1 -t 4 k; do if [[ -z "$k" ]]; then r=ANSWERED-BY-ENTER; break; fi; done; "#
         + #"echo $r; sleep 30"#
@@ -22,6 +23,8 @@ import Testing
     func screen() async throws -> String {
         (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
     }
+    #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
+    FileManager.default.createFile(atPath: gate, contents: nil)
     #expect(try await waitFor(15) { try await screen().contains("one you trust") })
     _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": "hello"]))
     w.c.notify(

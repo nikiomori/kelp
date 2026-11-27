@@ -217,6 +217,10 @@ extension BrowserTab {
     /// How long a command waits for the user to hand the page back: as long as the daemon waits for its answer.
     static var handBackWait = UIBrowser.wait - 10
 
+    /// How long an action's answer waits before it first looks at the page, so that a navigation the action started (a
+    /// click on a link) has begun. A test whose actions start none shortens it.
+    static var navigationStarts: Duration = .milliseconds(150)
+
     /// The actions that only read the page. They still run once the page is handed back, because they change nothing.
     static let looks: Set<BrowserAction> = [.snapshot, .screenshot, .console, .network, .info, .wait]
 
@@ -272,7 +276,7 @@ extension BrowserTab {
         _ extra: [String: JSONValue] = [:], within: TimeInterval = 30, after before: Probe? = nil, typing: Bool = false
     ) async throws -> JSONValue {
         let acted = Date()
-        try await Task.sleep(for: .milliseconds(150))   // so a navigation the action started has begun
+        try await Task.sleep(for: Self.navigationStarts)
         let end = Date().addingTimeInterval(within)
         // A download the action started is waited for too, so its answer says where the file is.
         while web.isLoading || !downloading.isEmpty || downloadComing, Date() < end {

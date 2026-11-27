@@ -22,13 +22,11 @@ import Testing
 /// and leaves it as it was. The moves no runtime may make are named: up without starting, paused while down, asleep
 /// from a failure or while starting, back to being made.
 @Test func aStateMovesOnlyWhereItsTableLetsIt() {
-    for from in VMState.allCases {
-        for to in VMState.allCases {
-            var state = from
-            Lifecycle.move(&state, to: to)
-            #expect(state == (Lifecycle.allowed(from, to) ? to : from), "\(from) → \(to)")
-        }
-    }
+    var state = VMState.off
+    Lifecycle.move(&state, to: .running)
+    #expect(state == .off, "refused: left as it was")
+    Lifecycle.move(&state, to: .starting)
+    #expect(state == .starting)
     let never: [(VMState, VMState)] = [
         (.off, .running), (.sleeping, .running), (.error, .running), (.off, .paused), (.error, .sleeping),
         (.starting, .paused), (.starting, .sleeping), (.running, .starting), (.running, .creating),

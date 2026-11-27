@@ -101,8 +101,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// Stops the server and what it started (tsserver's workers…), with SIGKILL for what's left after 2 s.
     public func terminate() { if proc.isRunning { Subprocess.stopTree(proc.processIdentifier) } }
     /// Does what `terminate` does, but finishes before it returns (whatever ignores SIGTERM gets SIGKILL), for a daemon
-    /// about to exit or exec.
-    public func terminateNow() { if proc.isRunning { Subprocess.stopTreeNow(proc.processIdentifier) } }
+    /// about to exit or exec. What's left after `grace` gets SIGKILL.
+    public func terminateNow(grace: TimeInterval = 2) { if let pid { Subprocess.stopTreeNow(pid, grace: grace) } }
     /// The server's process id, while it runs.
     public var pid: pid_t? { proc.isRunning ? proc.processIdentifier : nil }
     /// After this many requests in a row go unanswered the server counts as exited (the manager starts a new one).

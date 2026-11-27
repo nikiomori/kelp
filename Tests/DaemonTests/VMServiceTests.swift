@@ -339,9 +339,11 @@ import os
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
         #expect(!vms.alive("deb"))
-        let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
+        let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)
         #expect(vms.alive("deb"))
+        var vms = vms
+        vms.quitPatience = 0.3
         await expectRefusal(says: "didn't stop") { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
         #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/machine.json").path))
         close(lock)
@@ -362,7 +364,9 @@ import os
         let start = try #require(Subprocess.started(stuck.processIdentifier))
         try "\(stuck.processIdentifier) \(start)".write(
             to: vms.folder("deb").child(VMFolder.helperNote), atomically: true, encoding: .utf8)
-        vms.quit("deb", patience: 0.3)
+        var vms = vms
+        vms.quitPatience = 0.3
+        vms.quit("deb")
         #expect(!vms.alive("deb"))
         #expect(try await waitFor(3) { !stuck.isRunning })
     }

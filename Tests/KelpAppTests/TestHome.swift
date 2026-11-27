@@ -87,6 +87,22 @@ final class AppRig {
     }
 }
 
+/// An app of the test's own that knows one project and its workspace at `repo`, and no daemon: for a test of what only
+/// reads what the app holds. `AppRig` is for one that asks the daemon or reads the folder.
+@MainActor
+struct BareApp {
+    let app = AppModel(builtins: Builtins.all)
+    let repo = "/tmp/kelp-bare/project", project: Repo, workspace: Worktree
+
+    init() {
+        _ = testHome
+        project = Repo(name: "project", path: repo)
+        workspace = Worktree(repoId: project.id, branch: "main", path: repo)
+        app.repos = [project]
+        app.worktrees = [workspace]
+    }
+}
+
 /// Until what the main actor was given before now has run (a task, and the one that task began): what a check that
 /// nothing happened there reads after.
 @MainActor func mainActorTurns() async { for _ in 0..<2 { await Task {}.value } }

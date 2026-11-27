@@ -14,6 +14,8 @@ struct VMService: Sendable {
     let helper: String
     /// Where the Android SDK is: found (`AndroidSDK.root`) by default; a test gives its stand-in's.
     var androidSDK: @Sendable () -> URL? = { AndroidSDK.root }
+    /// How long `quit` waits for a kelp-vm to go before it kills it; a test shortens it.
+    var quitPatience: TimeInterval = 10
 
     init(home: URL, helper: String) {
         root = home.appendingPathComponent("vms")
@@ -358,13 +360,13 @@ struct VMService: Sendable {
     }
 
     /// Quits the machine's kelp-vm, which turns the machine off at once, before the machine's folder goes (deleted, or
-    /// made again). A kelp-vm still there after `patience` (stuck in Virtualization) is killed by the pid it noted as
-    /// it took its lock.
-    func quit(_ name: String, patience: TimeInterval = 10) {
+    /// made again). A kelp-vm still there after `quitPatience` (stuck in Virtualization) is killed by the pid it noted
+    /// as it took its lock.
+    func quit(_ name: String) {
         guard alive(name) else { return }
         // kelp-vm may hang up as it quits, which is only logged.
-        do { _ = try ask(name, .init(op: .quit), wait: patience) } catch { Log.vm.info("\(name) quit: \(error)") }
-        let end = Date().addingTimeInterval(patience)
+        do { _ = try ask(name, .init(op: .quit), wait: quitPatience) } catch { Log.vm.info("\(name) quit: \(error)") }
+        let end = Date().addingTimeInterval(quitPatience)
         while alive(name), Date() < end { usleep(100_000) }
         guard alive(name), let pid = folder(name).endChild(VMFolder.helperNote) else { return }
         Log.vm.error("\(name)'s kelp-vm \(pid) didn't quit: killed")

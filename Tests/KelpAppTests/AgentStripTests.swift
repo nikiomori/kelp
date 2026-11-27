@@ -102,8 +102,7 @@ private func session(
 
 extension StripPlaceTests {
     @Test func theStripSitsAtTheFootOfTheScreenAndGoesWithTheQuestion() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
@@ -123,14 +122,12 @@ extension StripPlaceTests {
         #expect(try await waitFor { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
         strip.later(asked.id)   // put off: it stops calling
         #expect(try await waitFor { !strip.isShowing })
-        #expect(!strip.isShowing)
         var again = asked
         again.statusAt = Date()   // the agent asks something else
         rig.app.sessions = [again]
         #expect(try await waitFor { strip.isShowing })
         rig.app.sessions = []
         #expect(try await waitFor { !strip.isShowing })
-        #expect(!strip.isShowing)
     }
 }
 
@@ -223,8 +220,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 extension StripPlaceTests {
     /// News under the pointer doesn't move the tiles: the pill stays where it was until the pointer leaves.
     @Test func theStripStandsStillUnderThePointer() async throws {
-        let rig = try await AppRig()
-        defer { rig.done() }
+        let rig = BareApp()
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
