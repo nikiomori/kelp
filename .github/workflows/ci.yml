@@ -23,8 +23,8 @@ jobs:
       matrix:
         include:
           # The app's tests run one at a time (they share one main thread, and side by side their waits ran out on a busy
-          # one), split by name over two runners as DaemonTests are: about 90 s each. One also runs the UI smoke, the
-          # other every other bundle, side by side (none shares the app's main thread).
+          # one), split by name over two runners as DaemonTests are: a… took 124 s, the rest 94 s. The first also runs the
+          # UI smoke, the second every other bundle, side by side (none shares the app's main thread).
           - name: App tests (a…) and UI smoke
             cache: tests
             save: true
