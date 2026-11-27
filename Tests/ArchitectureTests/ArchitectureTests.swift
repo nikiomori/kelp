@@ -216,8 +216,10 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // page a task shows on), the row both draw (`TaskCell`), the days a logbook groups by (`DaySections`, with
     // Artifacts), and `TasksEvent`'s key.
     // +3: a hot key from any app is one type for No Project's ⌃⌥⌘K and Quick Entry's ⌃⌥⌘T (`GlobalHotKey`, its `init`
-    // and `register`).
-    #expect(declared == 439, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // and `register`). +18 for what built-ins each wrote their own way: ⌘F on a web view (`WebFind`: the browser, a
+    // Markdown tab's page), Quick Look for a list's selection (`QuickLookList`: Files, Tasks), and a movie written
+    // frame by frame (`FrameWriter`: the browser's recording, a motion page's video).
+    #expect(declared == 457, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

@@ -7,6 +7,7 @@ import CoreGraphics
 /// waits until it's `ready` instead. Kept inside the actor that writes, which owns it.
 package final class FrameWriter {
     package let writer: AVAssetWriter
+    /// The movie's size, 0 until `open`.
     package private(set) var width = 0, height = 0
     private var input: AVAssetWriterInput?, adaptor: AVAssetWriterInputPixelBufferAdaptor?
     private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
@@ -16,7 +17,6 @@ package final class FrameWriter {
         writer = try AVAssetWriter(outputURL: url, fileType: type)
     }
 
-    package var opened: Bool { input != nil }
     /// Whether the encoder takes a frame now.
     package var ready: Bool { input?.isReadyForMoreMediaData == true }
 

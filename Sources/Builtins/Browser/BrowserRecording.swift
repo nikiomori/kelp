@@ -172,7 +172,7 @@ private actor MovieSink: FrameSink {
     init(_ url: URL, _ type: AVFileType) throws { file = try FrameWriter(url, type: type) }
 
     func add(_ image: CGImage, at time: TimeInterval) {
-        if !file.opened {
+        if file.width == 0 {
             let size = PageRecording.size(of: image, most: 1920)
             file.open(
                 width: size.width, height: size.height, settings: [AVVideoCodecKey: AVVideoCodecType.h264],
