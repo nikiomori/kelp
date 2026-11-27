@@ -25,17 +25,27 @@ extension Git {
 
     /// The repositories directly inside `folder`, by folder name and in name order, when `folder` itself isn't in one:
     /// a project made of several repositories side by side (`RepoKey`). A folder that links to a repository counts.
-    /// Hidden folders don't. Read off the files alone, no git run, because each read of the folder's git asks it.
-    /// Limit: a remote project's folder here holds only its marker, so it holds no repositories.
+    /// Hidden folders don't. A branch's folder of them (`addWorktrees`) holds a worktree of each and links to the rest
+    /// of the project, so there a link counts not: a linked folder that became a repository since is the project's own
+    /// checkout, not one on the branch. Read off the files alone, no git run, because each read of the folder's git
+    /// asks it. Limit: a remote project's folder here holds only its marker, so it holds no repositories.
     public static func nestedRepos(_ folder: String) -> [String] {
         guard checkout(folder) == nil,
             let top = FileManager.default.enumerator(
                 at: URL(fileURLWithPath: folder), includingPropertiesForKeys: nil,
                 options: [.skipsSubdirectoryDescendants, .skipsHiddenFiles])
         else { return [] }
-        return top.compactMap { ($0 as? URL)?.lastPathComponent }.filter { name in
+        let repos = top.compactMap { ($0 as? URL)?.lastPathComponent }.filter { name in
             FileManager.default.fileExists(atPath: folder + "/" + name + "/.git")
-        }.sorted()
+        }
+        let branchFolder = repos.contains { isLinkedWorktree(folder + "/" + $0) }
+        return (branchFolder ? repos.filter { !isLink(folder + "/" + $0) } : repos).sorted()
+    }
+
+    /// Whether `path` is a linked worktree: its `.git` is a file, as `git worktree add` writes it.
+    static func isLinkedWorktree(_ path: String) -> Bool {
+        var dir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path + "/.git", isDirectory: &dir) && !dir.boolValue
     }
 
     /// A main checkout's default branch read off its files, as `defaultBranch` asks git: origin's HEAD, else main or
