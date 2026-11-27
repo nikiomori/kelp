@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.themes.follow()
         main = MainWindowController(app: app)
         showWhenSettingsArrive()
-        app.noProject.registerHotKey()
+        app.noProject.hotKey.register()
         app.notifier = notifier
         notifier.start()
         dockIcon.start()

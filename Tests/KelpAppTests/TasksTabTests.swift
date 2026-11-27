@@ -120,8 +120,8 @@ extension OneAtATime {
         let app = AppModel(builtins: [])
         let entry = QuickEntry.shared(app)
         // The system's answer is noErr on a Mac with a person at it; CI's runners have no session to grant hot keys in.
-        entry.registerHotKey()
-        defer { entry.unregisterHotKey() }
+        entry.hotKey.register()
+        defer { entry.hotKey.unregister() }
         var event: EventRef?
         CreateEvent(
             nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, EventAttributes(kEventAttributeNone),

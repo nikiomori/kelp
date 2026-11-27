@@ -11,7 +11,7 @@ extension Builtins {
     ) { app in
         let entry = app.part {
             let made = QuickEntry.shared(app)
-            made.registerHotKey()
+            made.hotKey.register()
             return made
         }
         return Contributions(
