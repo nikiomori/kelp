@@ -17,6 +17,13 @@ extension PhoneBridge {
         static func failed(_ status: Int, _ error: String) -> Reply {
             Reply(status: status, body: .object(["error": .string(error)]))
         }
+        /// A call that failed: 403 when the Mac refused it, 400 when it was asked wrong, 500 when something on the Mac
+        /// went wrong. The phone shows the Mac's message either way.
+        static func failed(_ error: Error) -> Reply {
+            let rpc = error as? RPCError
+            let status = rpc?.isRefusal == true ? 403 : rpc?.code == RPCError.invalidParams("").code ? 400 : 500
+            return failed(status, error.rpcMessage)
+        }
     }
     enum Admitted {
         /// The call is refused unopened, with 401 for a phone that is not paired or a box that doesn't open, and 409

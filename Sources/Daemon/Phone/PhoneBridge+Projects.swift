@@ -136,7 +136,7 @@ extension PhoneBridge {
             do {
                 let started = try await call(SessionCreate(worktreeId: workspace.id, agent: kind, prompt: prompt))
                 return Reply(status: 200, body: .object(["id": .string(started.id)]))
-            } catch { return .failed(403, error.rpcMessage) }
+            } catch { return .failed(error) }
         case ("GET", "tasks"): return Reply(status: 200, body: .object(["tasks": .array(await openTasks(of: repo))]))
         case ("POST", "tasks"):
             let text = sent?["text"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -144,7 +144,7 @@ extension PhoneBridge {
             do {
                 let made = try await call(TaskAdd(repoId: repo.id, text: text))
                 return Reply(status: 200, body: .object(["id": .string(made.task.id ?? "")]))
-            } catch { return .failed(403, error.rpcMessage) }
+            } catch { return .failed(error) }
         case ("POST", "taskrun"): return await runTask(in: repo, sent)
         default: return .failed(404, "No such path.")
         }
@@ -171,13 +171,14 @@ extension PhoneBridge {
     }
 
     /// Starts an agent on a task (`path`, `id` or `line`), as ▶ does in Kelp: in the project's first workspace, told
-    /// the task, with KELP_TASK set, its chat linked to the line.
+    /// the task, with KELP_TASK set, its chat linked to the line. A task an agent proposed is the person's to take in
+    /// Kelp first. Once the agent has started the reply says so, even when linking its chat fails.
     private func runTask(in repo: Repo, _ sent: JSONValue?) async -> Reply {
         guard settings[SettingKeys.phoneStartAgents] else {
             return .failed(403, "Starting agents from a phone is turned off in Kelp's Settings.")
         }
         guard let path = sent?["path"]?.string, let kind = sent?["agent"]?.string,
-            await kinds().contains(where: { $0.id == kind }), path.hasPrefix(Artifacts.dir(root: repo.path).path + "/")
+            await kinds().contains(where: { $0.id == kind }), Paths.inside(path, Artifacts.dir(root: repo.path).path)
         else { return .failed(400, "Send {\"path\", \"id\", \"agent\"}.") }
         guard let workspace = firstWorkspace(of: repo) else { return .failed(409, "This project has no workspace.") }
         let ref = TaskRef(id: sent?["id"]?.string, line: sent?["line"]?.int)
@@ -185,12 +186,18 @@ extension PhoneBridge {
             guard let task = try await call(TaskChange(path: path, task: ref)), let id = task.id else {
                 return .failed(404, "No such task.")
             }
+            guard task.proposed != true else {
+                return .failed(403, "An agent proposed this task: take it in Kelp's Tasks first.")
+            }
             var create = SessionCreate(worktreeId: workspace.id, agent: kind, prompt: TaskLines.brief(task, page: path))
             create.env = ["KELP_TASK": id]
             let started = try await call(create)
-            _ = try await call(TaskChange(path: path, task: TaskRef(id: id), chat: started.id))
+            // The agent runs now: a line that can't take its chat is logged, and the phone isn't told to try again.
+            do {
+                _ = try await call(TaskChange(path: path, task: TaskRef(id: id), chat: started.id))
+            } catch { Log.session.error("linking a phone's chat to its task: \(error)") }
             return Reply(status: 200, body: .object(["id": .string(started.id)]))
-        } catch { return .failed(403, error.rpcMessage) }
+        } catch { return .failed(error) }
     }
 
     /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte. They carry a fingerprint,
