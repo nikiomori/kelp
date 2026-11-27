@@ -94,7 +94,7 @@ extension MarkdownTab {
         guard let row = rows.first(where: { $0.task.page != nil && TaskActions.pageFile($0) == path }) else {
             return ""
         }
-        var items = [String(localized: "On \(row.page.title) › \(row.place)")]
+        var items = [MarkdownHTML.esc(String(localized: "On \(row.page.title) › \(row.place)"))]
         if let issue = row.task.issue {
             items.append("<a href=\"\(MarkdownHTML.esc(issue))\">\(MarkdownHTML.esc(row.task.issueRef ?? issue))</a>")
         }
