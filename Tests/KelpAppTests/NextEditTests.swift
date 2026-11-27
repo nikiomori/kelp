@@ -182,10 +182,12 @@ extension OneAtATime {
         #expect(try await waitFor(2) { asked != nil })
         let whole = { NextEdit.ask(base: text, now: tv.string, line: 25_000, earlier: []) }
         #expect(asked == whole())
-        let clock = ContinuousClock()
-        print(
-            "next edit, 50 000 lines: the whole file split", clock.measure { _ = whole() },
-            "; the lines around the edit", clock.measure { e.askNextEdit() })
+        if ProcessInfo.processInfo.environment["KELP_BENCH"] != nil {
+            let clock = ContinuousClock()
+            print(
+                "next edit, 50 000 lines: the whole file split", clock.measure { _ = whole() },
+                "; the lines around the edit", clock.measure { e.askNextEdit() })
+        }
     }
 
     /// An editor in a window, with no gray text, so edits ask for the next edit.
