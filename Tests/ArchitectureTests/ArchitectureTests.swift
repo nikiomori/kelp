@@ -622,7 +622,7 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 37, "KelpKit": 41, "Core": 27, "GitKit": 13, "AgentData": 4, "Agents": 13, "kelp": 10,
+        "Daemon": 37, "KelpKit": 39, "Core": 27, "GitKit": 13, "AgentData": 4, "Agents": 13, "kelp": 10,
         "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 9, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0
