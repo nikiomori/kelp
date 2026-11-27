@@ -9,6 +9,11 @@ enum TaskStore {
     /// The folder of the project's list in `.kelp/artifacts`.
     static let listSlug = "tasks"
 
+    /// Whether `path` is a project's list (`tasks/doc.md`), not a page a task grew into.
+    static func isList(_ path: String) -> Bool {
+        URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent == listSlug
+    }
+
     /// The project `repoId` names, or the one whose workspace holds `cwd`.
     static func repo(_ store: Store, repoId: String?, cwd: String?) throws -> Repo {
         if let repoId, let repo = try store.repo(repoId) { return repo }
@@ -63,7 +68,8 @@ enum TaskStore {
 
     /// The text of a task page, refusing a file that isn't a Markdown page in `.kelp/artifacts`.
     static func read(_ path: String) throws -> String {
-        let url = URL(fileURLWithPath: path).standardizedFileURL
+        // As it really is: a link out of the folder isn't in it.
+        let url = URL(fileURLWithPath: Paths.realNearest(path))
         guard url.pathExtension == "md", url.path.contains("/\(Artifacts.folder)/"),
             let data = FileManager.default.contents(atPath: url.path)
         else { throw RPCError.invalidParams("not a page in .kelp/artifacts: \(path)") }
@@ -73,10 +79,22 @@ enum TaskStore {
     /// Refuses `agent` a page outside the tasks of the project it works in. The list sits in the project's own folder,
     /// so a chat on a branch of its own reaches it, though the folder isn't its workspace's.
     static func ensureOwn(_ store: Store, agent: String, path: String) throws {
-        let own = try store.session(agent)?.worktreeId.flatMap { try store.worktree($0) }
-        guard let own, let repo = try store.repo(own.repoId),
-            URL(fileURLWithPath: path).standardizedFileURL.path.hasPrefix(Artifacts.dir(root: repo.path).path + "/")
+        guard let repo = try ownRepo(store, agent: agent), Paths.inside(path, Artifacts.dir(root: repo.path).path)
         else { throw RPCError.refused("an agent changes only the tasks of the project it works in") }
+    }
+
+    /// The project `agent` (`TaskStore.agent`) works in: its session's, or, for an agent the user typed into a terminal
+    /// (`typed:<terminal>`), that terminal's.
+    static func ownRepo(_ store: Store, agent: String) throws -> Repo? {
+        guard let worktree = try session(store, agent)?.worktreeId.flatMap({ try store.worktree($0) }) else {
+            return nil
+        }
+        return try store.repo(worktree.repoId)
+    }
+
+    /// The session behind `agent`: its own, or the terminal's an agent was typed into.
+    static func session(_ store: Store, _ agent: String) throws -> Session? {
+        try store.session(Caller.session(of: agent) ?? agent)
     }
 
     /// The watch of a project's tasks (`WatchTopic.tasks`): read when the `.kelp/artifacts` of the project's own folder
@@ -113,9 +131,15 @@ extension TaskAdd: Handled {
     var fence: Fence { Fence(writesInFolder: cwd ?? path.map { ($0 as NSString).deletingLastPathComponent }) }
 
     func handle(_ store: Store) throws -> Result {
+        TaskLines.lock.lock()
+        defer { TaskLines.lock.unlock() }
         let words = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: " ")
         guard !words.isEmpty else { throw RPCError.invalidParams("a task needs words") }
         let repo = try TaskStore.repo(store, repoId: repoId, cwd: cwd)
+        let agent = try TaskStore.agent(store)
+        if let agent, try TaskStore.ownRepo(store, agent: agent)?.id != repo.id {
+            throw RPCError.refused("an agent adds tasks only to the project it works in: leave out repoId and path")
+        }
         let pages = TaskStore.pages(root: repo.path)
         // A line for this issue already: the chat joins it.
         if let issue, let page = pages.first(where: { $0.tasks.contains { $0.issue == issue } }),
@@ -131,9 +155,9 @@ extension TaskAdd: Handled {
         var task = TaskLine(text: words, issue: issue)
         task.id = TaskLines.newId(taken: Set(pages.flatMap { $0.tasks.compactMap(\.id) }))
         if let chat { task.chats = [chat] }
-        if let agent = try TaskStore.agent(store) {
+        if let agent {
             // The turn began when the chat last changed state; a line keeps whole seconds.
-            let since = (try store.session(agent)?.statusAt?.timeIntervalSince1970 ?? 0).rounded(.down)
+            let since = (try TaskStore.session(store, agent)?.statusAt?.timeIntervalSince1970 ?? 0).rounded(.down)
             let made = pages.flatMap(\.tasks).count { $0.by == agent && ($0.at ?? 0) >= since }
             guard made < Self.proposalsPerTurn else {
                 throw RPCError.refused(
@@ -144,7 +168,7 @@ extension TaskAdd: Handled {
             task.at = now.timeIntervalSince1970
         }
         let names = names ?? .english
-        if let path, let agent = try TaskStore.agent(store) { try TaskStore.ensureOwn(store, agent: agent, path: path) }
+        if let path, let agent { try TaskStore.ensureOwn(store, agent: agent, path: path) }
         let page = try path ?? TaskStore.list(root: repo.path, names: names, project: repo.name, now: now)
         let (text, line) = TaskLines.add(task, under: under, to: try TaskStore.read(page), newSection: names.inbox)
         try text.write(toFile: page, atomically: true, encoding: .utf8)
@@ -159,6 +183,8 @@ extension TaskChange: Handled {
     static let agents = AgentAccess.acts
 
     func handle(_ store: Store) throws -> TaskLine? {
+        TaskLines.lock.lock()
+        defer { TaskLines.lock.unlock() }
         let text = try TaskStore.read(path)
         let lines = text.components(separatedBy: "\n")
         let index = try TaskLines.index(of: task, in: lines)
@@ -171,7 +197,8 @@ extension TaskChange: Handled {
             if move != nil { throw RPCError.refused("only the person moves a task") }
             if accept == true { throw RPCError.refused("only the person takes a proposed task") }
             if remove == true, !own { throw RPCError.refused("an agent removes only the tasks it proposed") }
-            if let state, current.depth == 0, !(own && state == .cancelled) {
+            // On the list a task's own line is the person's; the steps on a page it grew into are the agent's to tick.
+            if let state, current.depth == 0, TaskStore.isList(path), !(own && state == .cancelled) {
                 throw RPCError.refused("a task line is closed by the person; mark the steps under it")
             }
         }
@@ -179,11 +206,13 @@ extension TaskChange: Handled {
             // Out of this page, into the other (or into another heading of this one), as written, set in no further.
             var line = current
             line.depth = 0
+            // The target is read and written before the line leaves the source: a target that is gone or no page
+            // refuses the move with the task still where it was.
             let source = try TaskLines.remove(text, task)
-            try source.write(toFile: path, atomically: true, encoding: .utf8)
             let target = move == path ? source : try TaskStore.read(move)
             let (moved, at) = TaskLines.add(line, under: under, to: target, newSection: under ?? "Inbox")
             try moved.write(toFile: move, atomically: true, encoding: .utf8)
+            if move != path { try source.write(toFile: path, atomically: true, encoding: .utf8) }
             line.line = at
             line.section = under ?? TaskLines.sections(moved).first
             return line

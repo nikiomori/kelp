@@ -82,6 +82,10 @@ public struct TaskRef: Codable, Equatable, Sendable {
 /// Reading and writing task lines in a page's Markdown. Pure: the daemon, the Tasks tab and the CLI all go through
 /// these, so a line reads and is written the same way everywhere.
 public enum TaskLines {
+    /// One change to the task pages at a time (`task.add`, `task.change`). Each reads a page whole, changes a line and
+    /// writes it back, so two at once (the person's tick and an agent's `kelp task add`) would lose one.
+    public static let lock = NSLock()
+
     /// Every task line of `text`, in order.
     public static func parse(_ text: String) -> [TaskLine] {
         var out: [TaskLine] = [], section: String?
