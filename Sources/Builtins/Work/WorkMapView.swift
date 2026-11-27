@@ -93,14 +93,15 @@ final class WorkMapView: NSView {
             attributes: [.font: NSFont.ui(TextSize.micro), .foregroundColor: NSColor.secondaryLabelColor])
     }
 
-    private func hitRect(_ node: MapNode, _ p: CGPoint) -> NSRect {
-        let r = Metrics.iconSmall
+    private func hitRect(_ node: MapNode, _ point: CGPoint) -> NSRect {
+        let icon = Metrics.iconSmall
         if [.group, .folder].contains(node.kind) {
             let size = text(node).size()
             return NSRect(
-                x: p.x - r, y: p.y - size.height - r, width: max(size.width + r, 2 * r), height: size.height + 2 * r)
+                x: point.x - icon, y: point.y - size.height - icon, width: max(size.width + icon, 2 * icon),
+                height: size.height + 2 * icon)
         }
-        return NSRect(x: p.x - r, y: p.y - r, width: labelWidth(node) + r, height: 2 * r)
+        return NSRect(x: point.x - icon, y: point.y - icon, width: labelWidth(node) + icon, height: 2 * icon)
     }
 
     // MARK: Drawing
@@ -113,9 +114,9 @@ final class WorkMapView: NSView {
                 point($0.id)?.y
             }
         if let first = outsideRows.min(), let last = projectRows.max(), let left = point(NodeTree.outsideId)?.x {
-            let y = (first + last) / 2, line = NSBezierPath()
-            line.move(to: NSPoint(x: left - Metrics.inset, y: y))
-            line.line(to: NSPoint(x: bounds.maxX - pad, y: y))
+            let middle = (first + last) / 2, line = NSBezierPath()
+            line.move(to: NSPoint(x: left - Metrics.inset, y: middle))
+            line.line(to: NSPoint(x: bounds.maxX - pad, y: middle))
             line.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0)
             NSColor.separatorColor.setStroke()
             line.stroke()
@@ -145,11 +146,11 @@ final class WorkMapView: NSView {
         }
     }
 
-    private func mark(_ node: MapNode, at p: CGPoint) {
-        let r = Metrics.gapTight
+    private func mark(_ node: MapNode, at point: CGPoint) {
+        let inset = Metrics.gapTight
         func ring(_ radius: CGFloat, dashed: Bool = false) -> NSBezierPath {
             let path = NSBezierPath(
-                ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
+                ovalIn: NSRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius))
             path.lineWidth = Metrics.stroke
             if dashed { path.setLineDash(Metrics.dash, count: Metrics.dash.count, phase: 0) }
             NSColor.textBackgroundColor.setFill()
@@ -161,103 +162,106 @@ final class WorkMapView: NSView {
         if flash.lit.contains(node.id) {
             NSColor.agentEditedFolder.setFill()
             let halo = Metrics.iconSmall / 2 + Metrics.lineGap
-            NSBezierPath(ovalIn: NSRect(x: p.x - halo, y: p.y - halo, width: 2 * halo, height: 2 * halo)).fill()
+            NSBezierPath(ovalIn: NSRect(x: point.x - halo, y: point.y - halo, width: 2 * halo, height: 2 * halo)).fill()
         }
         switch node.kind {
         case .agent:
             let s = Metrics.iconMenu
-            draw(agentIcon, in: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s))
+            draw(agentIcon, in: NSRect(x: point.x - s / 2, y: point.y - s / 2, width: s, height: s))
         case .group, .folder:
             NSColor.secondaryLabelColor.setFill()
-            let dot = r - Metrics.lineGap / 4
-            NSBezierPath(ovalIn: NSRect(x: p.x - dot, y: p.y - dot, width: 2 * dot, height: 2 * dot)).fill()
+            let dot = inset - Metrics.lineGap / 4
+            NSBezierPath(ovalIn: NSRect(x: point.x - dot, y: point.y - dot, width: 2 * dot, height: 2 * dot)).fill()
         case .file:
             if node.edited {
-                let s = Metrics.iconSmall
+                let icon = Metrics.iconSmall
                 NSColor.agentEditMark.setFill()
                 NSBezierPath(
-                    roundedRect: NSRect(x: p.x - s / 2, y: p.y - s / 2, width: s, height: s),
+                    roundedRect: NSRect(x: point.x - icon / 2, y: point.y - icon / 2, width: icon, height: icon),
                     xRadius: Metrics.markRadius, yRadius: Metrics.markRadius
                 ).fill()
             } else {
-                _ = ring(r)
+                _ = ring(inset)
             }
         case .folded:
-            _ = ring(r + Metrics.lineGap / 2)
+            _ = ring(inset + Metrics.lineGap / 2)
             let plus = NSBezierPath()
-            plus.move(to: NSPoint(x: p.x - r / 2 - Metrics.lineGap / 4, y: p.y))
-            plus.line(to: NSPoint(x: p.x + r / 2 + Metrics.lineGap / 4, y: p.y))
-            plus.move(to: NSPoint(x: p.x, y: p.y - r / 2 - Metrics.lineGap / 4))
-            plus.line(to: NSPoint(x: p.x, y: p.y + r / 2 + Metrics.lineGap / 4))
+            plus.move(to: NSPoint(x: point.x - inset / 2 - Metrics.lineGap / 4, y: point.y))
+            plus.line(to: NSPoint(x: point.x + inset / 2 + Metrics.lineGap / 4, y: point.y))
+            plus.move(to: NSPoint(x: point.x, y: point.y - inset / 2 - Metrics.lineGap / 4))
+            plus.line(to: NSPoint(x: point.x, y: point.y + inset / 2 + Metrics.lineGap / 4))
             plus.lineWidth = Metrics.stroke
             plus.stroke()
         case .more:
             NSColor.fillSelected.setFill()
             NSBezierPath(
-                roundedRect: NSRect(x: p.x - 2 * r, y: p.y - r, width: 4 * r, height: 2 * r), xRadius: r, yRadius: r
+                roundedRect: NSRect(x: point.x - 2 * inset, y: point.y - inset, width: 4 * inset, height: 2 * inset),
+                xRadius: inset, yRadius: inset
             ).fill()
         case .outside:
-            _ = ring(r + Metrics.lineGap / 4, dashed: true)
+            _ = ring(inset + Metrics.lineGap / 4, dashed: true)
         }
         // The selection is the system's focus ring; where the agent is now, a dot beneath the mark.
         if node.id == selected {
             let radius = Metrics.iconSmall - Metrics.lineGap / 2
             let ring = NSBezierPath(
-                ovalIn: NSRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius))
+                ovalIn: NSRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius))
             ring.lineWidth = Metrics.strokeBold
             NSColor.keyboardFocusIndicatorColor.setStroke()
             ring.stroke()
         }
         if node.id == now {
-            let y = p.y + Metrics.iconSmall / 2 + Metrics.lineGap
+            let top = point.y + Metrics.iconSmall / 2 + Metrics.lineGap
             NSColor.labelColor.setFill()
             NSBezierPath(
-                ovalIn: NSRect(x: p.x - Metrics.lineGap, y: y, width: 2 * Metrics.lineGap, height: 2 * Metrics.lineGap)
+                ovalIn: NSRect(
+                    x: point.x - Metrics.lineGap, y: top, width: 2 * Metrics.lineGap, height: 2 * Metrics.lineGap)
             )
             .fill()
         }
     }
 
-    private func label(_ node: MapNode, at p: CGPoint) {
+    private func label(_ node: MapNode, at point: CGPoint) {
         guard node.kind != .agent else { return }
         let words = text(node), size = words.size()
-        var origin = NSPoint(x: p.x + Metrics.inset - Metrics.gapTight, y: p.y - size.height / 2)
+        var origin = NSPoint(x: point.x + Metrics.inset - Metrics.gapTight, y: point.y - size.height / 2)
         if [.group, .folder].contains(node.kind) {
-            origin = NSPoint(x: p.x - Metrics.gapTight, y: p.y - size.height - Metrics.gapTight)
+            origin = NSPoint(x: point.x - Metrics.gapTight, y: point.y - size.height - Metrics.gapTight)
         }
         NSColor.textBackgroundColor.setFill()
         NSRect(x: origin.x - Metrics.lineGap, y: origin.y, width: size.width + 2 * Metrics.lineGap, height: size.height)
             .fill()
         words.draw(at: origin)
         guard ![.group, .folder].contains(node.kind) else { return }
-        var x = origin.x + size.width + Metrics.gap
+        var left = origin.x + size.width + Metrics.gap
         if let worktree = WorkWords.badged(node.place?.worktree) {
             let badge = badgeText(worktree), bs = badge.size()
             let box = NSRect(
-                x: x, y: p.y - bs.height / 2 - Metrics.lineGap / 2, width: bs.width + 2 * Metrics.gapTight,
+                x: left, y: point.y - bs.height / 2 - Metrics.lineGap / 2, width: bs.width + 2 * Metrics.gapTight,
                 height: bs.height + Metrics.lineGap)
             NSColor.fillSelected.setFill()
             NSBezierPath(roundedRect: box, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
             badge.draw(at: NSPoint(x: box.minX + Metrics.gapTight, y: box.minY + Metrics.lineGap / 2))
-            x = box.maxX + Metrics.gap
+            left = box.maxX + Metrics.gap
         }
-        let s = Metrics.iconSmall
+        let icon = Metrics.iconSmall
         for mark in AgentMarks.of(node.agents, agents: agents) {
             switch mark {
             case .agent(let index):
                 draw(
                     icons.indices.contains(index) ? icons[index] : nil,
-                    in: NSRect(x: x, y: p.y - s / 2, width: s, height: s))
-                x += s + Metrics.lineGap
+                    in: NSRect(x: left, y: point.y - icon / 2, width: icon, height: icon))
+                left += icon + Metrics.lineGap
             case .subagents(let list):
-                draw(WorkModel.subagentMark(s), in: NSRect(x: x, y: p.y - s / 2, width: s, height: s))
-                x += s + Metrics.lineGap
+                draw(
+                    WorkModel.subagentMark(icon), in: NSRect(x: left, y: point.y - icon / 2, width: icon, height: icon))
+                left += icon + Metrics.lineGap
                 if list.count > 1 {
                     let count = NSAttributedString(
                         string: "×\(list.count)",
                         attributes: [.font: caption, .foregroundColor: NSColor.secondaryLabelColor])
-                    count.draw(at: NSPoint(x: x, y: p.y - count.size().height / 2))
-                    x += count.size().width + Metrics.lineGap
+                    count.draw(at: NSPoint(x: left, y: point.y - count.size().height / 2))
+                    left += count.size().width + Metrics.lineGap
                 }
             }
         }

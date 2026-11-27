@@ -56,10 +56,11 @@ final class OverviewModel {
     /// The chats a day covers: one at work or asking now, or one whose status changed since `start`. Terminals, plain
     /// commands and the agents another agent started (their parent's card stands for them) are left out.
     func chats(since start: Date) -> [Session] {
-        app.sessions.filter { s in
-            s.isChat && s.isAgent && s.parent == nil
-                && ([.working, .waiting, .error].contains(s.status) || (s.statusAt ?? s.createdAt) >= start
-                    || history[s.id]?.contains { $0.at >= start } == true)
+        app.sessions.filter { session in
+            session.isChat && session.isAgent && session.parent == nil
+                && ([.working, .waiting, .error].contains(session.status)
+                    || (session.statusAt ?? session.createdAt) >= start
+                    || history[session.id]?.contains { $0.at >= start } == true)
         }
     }
 
@@ -96,8 +97,8 @@ final class OverviewModel {
 
     /// The project of a session, for the week's table.
     func project(of id: String) -> String? {
-        guard let s = app.session(id), s.isChat, s.isAgent else { return nil }
-        return app.repo(app.worktree(s.worktreeId)?.repoId)?.name ?? String(localized: "Chats")
+        guard let session = app.session(id), session.isChat, session.isAgent else { return nil }
+        return app.repo(app.worktree(session.worktreeId)?.repoId)?.name ?? String(localized: "Chats")
     }
 
     /// The Needs Attention lines for `cards`.
@@ -105,12 +106,13 @@ final class OverviewModel {
 
     /// What the attention rules read of each card.
     func insightChats(_ cards: [OverviewCard]) -> [Insight.Chat] {
-        cards.map { c in
+        cards.map { card in
             Insight.Chat(
-                id: c.id, title: c.session.displayTitle, status: c.session.status, stage: c.stage,
-                since: c.session.statusAt ?? c.session.createdAt, folder: c.folder, uncommitted: c.uncommitted,
-                added: c.added, removed: c.removed, context: c.context,
-                failedPR: c.pr.flatMap { $0.state == "OPEN" && $0.checks.failed > 0 ? $0.number : nil })
+                id: card.id, title: card.session.displayTitle, status: card.session.status, stage: card.stage,
+                since: card.session.statusAt ?? card.session.createdAt, folder: card.folder,
+                uncommitted: card.uncommitted,
+                added: card.added, removed: card.removed, context: card.context,
+                failedPR: card.pr.flatMap { $0.state == "OPEN" && $0.checks.failed > 0 ? $0.number : nil })
         }
     }
 
@@ -139,8 +141,10 @@ final class OverviewModel {
     /// Reads the last turn of each chat that has run today (only a running session keeps one).
     func loadTurns() async {
         var read: [String: SessionTurn.Turn] = [:]
-        for s in chats(since: today) where s.status != .exited {
-            if let info = await app.quiet(SessionTurn(id: s.id)), let turn = info?.turn { read[s.id] = turn }
+        for session in chats(since: today) where session.status != .exited {
+            if let info = await app.quiet(SessionTurn(id: session.id)), let turn = info?.turn {
+                read[session.id] = turn
+            }
         }
         turns = read
     }

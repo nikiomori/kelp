@@ -41,17 +41,17 @@ extension MarkdownTab {
     }
 
     /// How two colours read against each other (WCAG): 1 to 21.
-    nonisolated static func contrast(_ a: NSColor, _ b: NSColor) -> Double {
+    nonisolated static func contrast(_ one: NSColor, _ other: NSColor) -> Double {
         let lum = { (c: NSColor) -> Double in
-            let s = c.usingColorSpace(.sRGB) ?? c
+            let rgb = c.usingColorSpace(.sRGB) ?? c
             // Typed: left to inference, this took 2 s to type-check
-            let v = [s.redComponent, s.greenComponent, s.blueComponent].map { (c: CGFloat) -> Double in
-                let x = Double(c)
-                return x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4)
+            let channels = [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map { (c: CGFloat) -> Double in
+                let value = Double(c)
+                return value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
             }
-            return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
         }
-        let (x, y) = (lum(a), lum(b))
+        let (x, y) = (lum(one), lum(other))
         return (max(x, y) + 0.05) / (min(x, y) + 0.05)
     }
 

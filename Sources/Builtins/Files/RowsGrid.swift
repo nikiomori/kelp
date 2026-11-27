@@ -55,8 +55,8 @@ final class RowsGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTe
         }
         self.rows = rows
         numeric = Set(
-            names.indices.filter { c in
-                let cells = rows.dropFirst().compactMap { c < $0.count && !$0[c].isEmpty ? $0[c] : nil }
+            names.indices.filter { column in
+                let cells = rows.dropFirst().compactMap { column < $0.count && !$0[column].isEmpty ? $0[column] : nil }
                 return !cells.isEmpty && cells.allSatisfy { Double($0) != nil }
             })
         for (i, column) in table.tableColumns.enumerated() {
@@ -95,8 +95,8 @@ final class RowsGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTe
     func commit() { table.window?.makeFirstResponder(table) }
 
     private func sort() {
-        if let by = table.sortDescriptors.first, let c = by.key.flatMap(Int.init) {
-            let cell = { (r: Int) in c < self.rows[r].count ? self.rows[r][c] : "" }
+        if let by = table.sortDescriptors.first, let column = by.key.flatMap(Int.init) {
+            let cell = { (r: Int) in column < self.rows[r].count ? self.rows[r][column] : "" }
             order.sort { a, b in
                 let (x, y) = (cell(a), cell(b))
                 let less =

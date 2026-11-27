@@ -23,31 +23,32 @@ extension MotionTimeline {
         draw(locked ? "lock.fill" : "lock.open", in: lockRect(lane: lane), quiet: !locked)
     }
 
-    private func draw(_ symbol: String, in r: NSRect, quiet: Bool) {
+    private func draw(_ symbol: String, in rect: NSRect, quiet: Bool) {
         let image = NSImage.symbol(symbol)
         let color = NSImage.SymbolConfiguration(hierarchicalColor: quiet ? .tertiaryLabelColor : .secondaryLabelColor)
         let tinted = image.withSymbolConfiguration(color) ?? image
-        let k = min(r.width / max(image.size.width, 1), 1)
-        let size = NSSize(width: image.size.width * k, height: image.size.height * k)
+        let scale = min(rect.width / max(image.size.width, 1), 1)
+        let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
         tinted.draw(
-            in: NSRect(x: r.midX - size.width / 2, y: r.midY - size.height / 2, width: size.width, height: size.height),
+            in: NSRect(
+                x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height),
             from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
     }
 
     /// The lane under the pointer shows its eye, whose tooltip says what a click does.
-    func pointerMoved(to p: NSPoint) {
-        let lane = lanesArea.contains(p) ? layer(at: NSPoint(x: 0, y: p.y)) : nil
+    func pointerMoved(to point: NSPoint) {
+        let lane = lanesArea.contains(point) ? layer(at: NSPoint(x: 0, y: point.y)) : nil
         if lane != hoveredLane {
             hoveredLane = lane
             needsDisplay = true
         }
         guard let lane else { return toolTip = nil }
-        if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
+        if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(point) {
             return toolTip =
                 tracks[lane - 1].locked
                 ? String(localized: "Unlock") : String(localized: "Lock")
         }
-        guard eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) else { return toolTip = nil }
+        guard eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(point) else { return toolTip = nil }
         toolTip =
             tracks[lane - 1].hidden ? String(localized: "Show in the Video") : String(localized: "Hide in the Video")
     }
@@ -55,26 +56,26 @@ extension MotionTimeline {
     /// While a lane is dragged, a line where it would go.
     func drawLaneDrag() {
         guard let laneDrag, laneDrag.to != laneDrag.from else { return }
-        let y = laneRect(laneDrag.to + (laneDrag.to > laneDrag.from ? 1 : 0)).minY
+        let top = laneRect(laneDrag.to + (laneDrag.to > laneDrag.from ? 1 : 0)).minY
         NSColor.controlAccentColor.setFill()
-        NSRect(x: 0, y: y - 1, width: bounds.width, height: 2).fill()
+        NSRect(x: 0, y: top - 1, width: bounds.width, height: 2).fill()
     }
 
     /// The element lane (1 and on) under `p`, in the names' column.
-    private func layer(at p: NSPoint) -> Int? {
-        guard p.x < track.minX, lanesArea.contains(p) else { return nil }
-        let lane = Int(((p.y - lanesArea.minY + laneOffset) / Self.lane).rounded(.down))
+    private func layer(at point: NSPoint) -> Int? {
+        guard point.x < track.minX, lanesArea.contains(point) else { return nil }
+        let lane = Int(((point.y - lanesArea.minY + laneOffset) / Self.lane).rounded(.down))
         return (1...max(tracks.count, 1)).contains(lane) && lane <= tracks.count ? lane : nil
     }
 
     /// A press in the names' column: the eye hides or shows the element, the name starts dragging its lane.
-    func layerDown(at p: NSPoint) -> Bool {
-        guard let lane = layer(at: p) else { return false }
+    func layerDown(at point: NSPoint) -> Bool {
+        guard let lane = layer(at: point) else { return false }
         let clip = tracks[lane - 1]
         guard !clip.id.isEmpty else { return true }
-        if eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
+        if eyeRect(lane: lane).insetBy(dx: -3, dy: -3).contains(point) {
             onHide?(clip.id, !clip.hidden)
-        } else if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(p) {
+        } else if lockRect(lane: lane).insetBy(dx: -3, dy: -3).contains(point) {
             onLock?(clip.id, !clip.locked)
         } else {
             laneDrag = (lane - 1, lane - 1)
@@ -82,9 +83,9 @@ extension MotionTimeline {
         return true
     }
 
-    func layerDragged(to p: NSPoint) -> Bool {
+    func layerDragged(to point: NSPoint) -> Bool {
         guard var drag = laneDrag else { return false }
-        let lane = Int(((p.y - lanesArea.minY + laneOffset) / Self.lane).rounded(.down)) - 1
+        let lane = Int(((point.y - lanesArea.minY + laneOffset) / Self.lane).rounded(.down)) - 1
         drag.to = min(max(lane, 0), tracks.count - 1)
         laneDrag = drag
         needsDisplay = true

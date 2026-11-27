@@ -132,7 +132,7 @@ final class MotionTimeline: NSView {
         NSRect(x: names, y: 0, width: max(bounds.width - names - Metrics.inset, 1), height: bounds.height)
     }
     func x(_ seconds: Double) -> CGFloat { track.minX + track.width * CGFloat((seconds - from) / span) }
-    func seconds(_ x: CGFloat) -> Double { from + Double((x - track.minX) / track.width) * span }
+    func seconds(_ position: CGFloat) -> Double { from + Double((position - track.minX) / track.width) * span }
 
     /// Zooms to `zoom` (1 to 40), keeping second `around` (the time, when nil) where it is.
     func setZoom(_ zoom: Double, around: Double? = nil) {
@@ -167,8 +167,8 @@ final class MotionTimeline: NSView {
             height: Self.lane)
     }
     /// Where mark `m`'s diamond is.
-    func diamond(_ m: Mark) -> NSRect {
-        NSRect(x: x(m.time) - 6, y: Self.ruler + Self.lane / 2 - 6, width: 12, height: 12)
+    func diamond(_ mark: Mark) -> NSRect {
+        NSRect(x: x(mark.time) - 6, y: Self.ruler + Self.lane / 2 - 6, width: 12, height: 12)
     }
     func box(_ clip: Clip, lane: Int) -> NSRect {
         let row = laneRect(lane).insetBy(dx: 0, dy: 3)
@@ -251,15 +251,15 @@ final class MotionTimeline: NSView {
     }
 
     private func drawClips(_ font: NSFont) {
-        for m in marks {
+        for mark in marks {
             let shape = NSBezierPath()
-            let r = diamond(m).insetBy(dx: 1, dy: 1)
-            shape.move(to: NSPoint(x: r.midX, y: r.minY))
-            shape.line(to: NSPoint(x: r.maxX, y: r.midY))
-            shape.line(to: NSPoint(x: r.midX, y: r.maxY))
-            shape.line(to: NSPoint(x: r.minX, y: r.midY))
+            let rect = diamond(mark).insetBy(dx: 1, dy: 1)
+            shape.move(to: NSPoint(x: rect.midX, y: rect.minY))
+            shape.line(to: NSPoint(x: rect.maxX, y: rect.midY))
+            shape.line(to: NSPoint(x: rect.midX, y: rect.maxY))
+            shape.line(to: NSPoint(x: rect.minX, y: rect.midY))
             shape.close()
-            (m.yours ? NSColor.systemOrange : NSColor.tertiaryLabelColor).setFill()
+            (mark.yours ? NSColor.systemOrange : NSColor.tertiaryLabelColor).setFill()
             shape.fill()
         }
         NSGraphicsContext.saveGraphicsState()
@@ -285,20 +285,22 @@ final class MotionTimeline: NSView {
     // MARK: The pointer
 
     override func mouseDown(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        if let m = marks.first(where: { diamond($0).insetBy(dx: -3, dy: -3).contains(p) }) {
-            at = m.time
+        let point = convert(event.locationInWindow, from: nil)
+        if let mark = marks.first(where: { diamond($0).insetBy(dx: -3, dy: -3).contains(point) }) {
+            at = mark.time
             needsDisplay = true
-            onSeek?(m.time)
-            onMark?(m.id)
+            onSeek?(mark.time)
+            onMark?(mark.id)
             return
         }
-        if layerDown(at: p) || keyDown(at: p) || selectDown(at: p, shift: event.modifierFlags.contains(.shift)) {
+        if layerDown(at: point) || keyDown(at: point)
+            || selectDown(at: point, shift: event.modifierFlags.contains(.shift))
+        {
             return
         }
         let lanes = rows
         for (lane, clips) in lanes.enumerated() {
-            guard let clip = clips.first(where: { box($0, lane: lane).insetBy(dx: -3, dy: 0).contains(p) }) else {
+            guard let clip = clips.first(where: { box($0, lane: lane).insetBy(dx: -3, dy: 0).contains(point) }) else {
                 continue
             }
             if lane > 0 { onChoose?(clip.id) }
@@ -308,19 +310,20 @@ final class MotionTimeline: NSView {
             let rect = box(clip, lane: lane)
             let edge = clip.trims ? 6.0 : 0
             drag =
-                p.x < rect.minX + edge ? .start(clip) : p.x > rect.maxX - edge ? .end(clip) : .move(clip, seconds(p.x))
+                point.x < rect.minX + edge
+                ? .start(clip) : point.x > rect.maxX - edge ? .end(clip) : .move(clip, seconds(point.x))
             (dragged, draggedLane) = (clip, lane)
             return
         }
-        if p.x >= track.minX {
+        if point.x >= track.minX {
             drag = .time
-            seek(p.x)
+            seek(point.x)
         }
     }
 
     override func mouseDragged(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        if layerDragged(to: p) || keyDragged(to: p) || selectDragged(to: p) { return }
+        let point = convert(event.locationInWindow, from: nil)
+        if layerDragged(to: point) || keyDragged(to: point) || selectDragged(to: point) { return }
         let now = seconds(convert(event.locationInWindow, from: nil).x)
         switch drag {
         case .time: seek(convert(event.locationInWindow, from: nil).x)
@@ -346,7 +349,7 @@ final class MotionTimeline: NSView {
         if let dragged, let before = lanes[draggedLane].first(where: { $0.id == dragged.id }), dragged != before {
             if draggedLane == 0, let i = scenes.firstIndex(where: { $0.id == dragged.id }) { scenes[i] = dragged }
             if draggedLane > 0, draggedLane <= tracks.count { tracks[draggedLane - 1] = dragged }
-            if let i = captions.firstIndex(where: { $0.id == dragged.id }) { captions[i] = dragged }
+            if let index = captions.firstIndex(where: { $0.id == dragged.id }) { captions[index] = dragged }
             onClip?(before, dragged, draggedLane)
         }
         drag = nil
@@ -355,8 +358,8 @@ final class MotionTimeline: NSView {
         needsDisplay = true
     }
 
-    func seek(_ x: CGFloat) {
-        at = min(max(seconds(x), 0), length)
+    func seek(_ position: CGFloat) {
+        at = min(max(seconds(position), 0), length)
         needsDisplay = true
         onSeek?(at)
     }

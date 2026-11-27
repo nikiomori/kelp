@@ -228,14 +228,14 @@ extension MarkdownTab {
                 + "return window.kelpSlides?.length ?? 0", contentWorld: Self.world)
         let was = try await web.evaluateJavaScript("window.kelpAt ?? 0", contentWorld: Self.world) as? Int ?? 0
         defer { runJS("kelpGo(\(was))") }
-        for i in 0..<((count as? Int) ?? 0) {
+        for index in 0..<((count as? Int) ?? 0) {
             let box = try await web.callAsyncJavaScript(
                 """
                 kelpGo(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
                 const b = kelpSlides[i].getBoundingClientRect(); return [b.x, b.y, b.width, b.height]
-                """, arguments: ["i": i], contentWorld: Self.world)
+                """, arguments: ["i": index], contentWorld: Self.world)
             guard let b = box as? [Double], b.count == 4 else { continue }
-            try await run(i, CGRect(x: b[0], y: b[1], width: b[2], height: b[3]))
+            try await run(index, CGRect(x: b[0], y: b[1], width: b[2], height: b[3]))
         }
     }
 

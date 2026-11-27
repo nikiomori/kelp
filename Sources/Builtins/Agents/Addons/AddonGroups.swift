@@ -102,7 +102,7 @@ enum AddonGroups {
     static func parent(of row: Int, in lines: [AddonLine]) -> AddonGroup? {
         guard lines.indices.contains(row), case .item(_, let depth) = lines[row], depth > 0 else { return nil }
         for line in lines[..<row].reversed() {
-            if case .group(let g, _, _, _) = line, depth == 1 || g.plugin != nil { return g }
+            if case .group(let group, _, _, _) = line, depth == 1 || group.plugin != nil { return group }
         }
         return nil
     }
