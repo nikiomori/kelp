@@ -35,7 +35,9 @@ extension ExtListView {
         cell.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         cell.setViews([icon(item), texts].compactMap { $0 }, in: .leading)
         if slow.keys.contains(where: { $0.first == key }) {
-            cell.setViews([Self.spinner()], in: .trailing)
+            let spinner = NSProgressIndicator.small()   // as the interface waits: the turning ring is an agent's
+            spinner.startAnimation(nil)
+            cell.setViews([spinner], in: .trailing)
         } else if let status = status(item) {
             cell.setViews([mark(status)], in: .trailing)
         }
@@ -49,15 +51,6 @@ extension ExtListView {
         let mark = StatusMark(size: 12)
         mark.status = status
         return mark
-    }
-
-    /// The system's small spinner, as the interface waits (the turning ring is an agent's mark for working).
-    private static func spinner() -> NSView {
-        let spinner = NSProgressIndicator()
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.startAnimation(nil)
-        return spinner
     }
 
     /// An icon that's the same on every row is the panel's own icon, which its tab already shows. Only an icon that

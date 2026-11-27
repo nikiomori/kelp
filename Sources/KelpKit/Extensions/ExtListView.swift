@@ -118,9 +118,7 @@ final class ExtListView: NSViewController, NSTableViewDataSource, NSTableViewDel
         if let icon = button as? IconButton { return icon.busy = on }
         let spinner = button.subviews.first { $0 is NSProgressIndicator } as? NSProgressIndicator
         if on, spinner == nil {
-            let made = NSProgressIndicator()
-            made.style = .spinning
-            made.controlSize = .small
+            let made = NSProgressIndicator.small()
             made.translatesAutoresizingMaskIntoConstraints = false
             button.addSubview(made)
             NSLayoutConstraint.activate([

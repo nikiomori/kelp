@@ -53,9 +53,7 @@ public final class IconButton: PointerButton {
     }
     private var idle: NSImage?
     private lazy var spinner: NSProgressIndicator = {
-        let spinner = NSProgressIndicator()
-        spinner.style = .spinning
-        spinner.controlSize = .small
+        let spinner = NSProgressIndicator.small()
         spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(spinner)
         NSLayoutConstraint.activate([

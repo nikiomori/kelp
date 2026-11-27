@@ -24,7 +24,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private let path = NSTextField()
     private let table = NSTableView(), scroll = NSScrollView()
     private let grid: NSGridView
-    private let spinner = NSProgressIndicator()
+    private let spinner = NSProgressIndicator.small()
     private lazy var go = NSButton(title: "", target: self, action: #selector(goPressed))
     /// Once connected, the button is as wide as "Initialize Git and Open", so Cancel holds still as the selection
     /// moves between repositories and plain folders.
@@ -86,8 +86,6 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                 + String(localized: "The agents you use must be installed on that machine."))
         note.textColor = .secondaryLabelColor
         note.font = .ui(TextSize.caption)
-        spinner.style = .spinning
-        spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
         go.keyEquivalent = "\r"
         cancel.keyEquivalent = "\u{1b}"
