@@ -11,10 +11,11 @@ extension Main {
                 let known = GitDiff.Source.allCases.map(\.rawValue).joined(separator: ", ")
                 throw RPCError.invalidParams("no diff source “\(named)”: one of \(known)")
             }
-            for f in try await client.call(GitDiff(id: try await currentWorktreeID(client), source: source)) {
+            for file in try await client.call(GitDiff(id: try await currentWorktreeID(client), source: source)) {
                 print(
-                    "\(f.path)  "
-                        + (f.tooLarge == true ? "(too large to count here)" : "+\(f.additions) -\(f.deletions)"))
+                    "\(file.path)  "
+                        + (file.tooLarge == true
+                            ? "(too large to count here)" : "+\(file.additions) -\(file.deletions)"))
             }
         // Asking how a command works never runs it. "kelp commit --help" once committed everything with the message
         // "--help".
@@ -85,20 +86,20 @@ extension Main {
                 }
                 return filter
             }
-            for x in try await client.call(GitHubPRs(repoId: try await currentRepoID(client), filter: filter)) {
-                print("#\(x.number)  \(x.title)  \(x.url)")
+            for pr in try await client.call(GitHubPRs(repoId: try await currentRepoID(client), filter: filter)) {
+                print("#\(pr.number)  \(pr.title)  \(pr.url)")
             }
         case ("github", "issues"):
-            for x in try await client.call(
+            for item in try await client.call(
                 GitHubIssues(repoId: try await currentRepoID(client), filter: flag("--filter")))
             {
-                print("#\(x.number)  \(x.title)  \(x.url)")
+                print("#\(item.number)  \(item.title)  \(item.url)")
             }
         case ("github", "checks"):
             let worktree = try await currentWorktree(client)
             let pr = args.first.flatMap(Int.init) ?? worktree.prNumber ?? 0
-            for x in try await client.call(GitHubChecks(worktreeId: worktree.id, pr: pr)) {
-                print("\(x.bucket)\t\(x.name)\t\(x.link)")
+            for check in try await client.call(GitHubChecks(worktreeId: worktree.id, pr: pr)) {
+                print("\(check.bucket)\t\(check.name)\t\(check.link)")
             }
         case ("github", "pr-create"):
             let wid = try await currentWorktreeID(client)

@@ -5,11 +5,11 @@ extension Main {
     static func ext(_ sub: String?, _ c: RPCClient) async throws {
         switch sub {
         case "list":
-            for e in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions) {
+            for ext in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions) {
                 let tags = [
-                    e.builtin ? "(built-in)" : nil, e.enabled ? nil : "(disabled)", e.error.map { "error: \($0)" }
+                    ext.builtin ? "(built-in)" : nil, ext.enabled ? nil : "(disabled)", ext.error.map { "error: \($0)" }
                 ].compactMap { $0 }
-                print(([e.id, e.name] + tags).joined(separator: "\t"))
+                print(([ext.id, ext.name] + tags).joined(separator: "\t"))
             }
         case "new":
             let name = flag("--name"), description = flag("--description")
@@ -25,8 +25,8 @@ extension Main {
         case "reload": show(try .from(try await c.call(UICommand(id: "extensions.reload"))))
         case "path": print(Paths.extensions.path)
         case "search":
-            for e in try await c.call(ExtensionLibrary()) where e.matches(args.joined(separator: " ")) {
-                print([e.id, e.version, e.name, e.description ?? ""].joined(separator: "\t"))
+            for ext in try await c.call(ExtensionLibrary()) where ext.matches(args.joined(separator: " ")) {
+                print([ext.id, ext.version, ext.name, ext.description ?? ""].joined(separator: "\t"))
             }
         case "install":
             guard let what = args.first else { fail("ext install <id | github-url | ./folder>") }
@@ -50,8 +50,8 @@ extension Main {
         case "update":
             let library = try await c.call(ExtensionLibrary())
             var found = false
-            for f in FileManager.default.items(in: Paths.extensions) {
-                guard let source = ExtensionFiles.extensionSource(f), let id = manifest(f)["id"]?.string,
+            for folder in FileManager.default.items(in: Paths.extensions) {
+                guard let source = ExtensionFiles.extensionSource(folder), let id = manifest(folder)["id"]?.string,
                     args.first.map({ $0 == id }) ?? true
                 else { continue }
                 found = true
@@ -67,9 +67,10 @@ extension Main {
                 // since. Either way, the user is asked about commands the extension didn't run before.
                 installed(
                     try await fetch(
-                        latest ?? source, as: f.lastPathComponent, c,
+                        latest ?? source, as: folder.lastPathComponent, c,
                         review: (latest == nil || entry?.reviewed == false)
-                            && !args.contains("--yes"), files: entry?.files, before: args.contains("--yes") ? nil : f))
+                            && !args.contains("--yes"), files: entry?.files,
+                        before: args.contains("--yes") ? nil : folder))
             }
             if !found {
                 print(

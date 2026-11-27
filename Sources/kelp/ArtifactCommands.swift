@@ -130,7 +130,7 @@ extension Main {
     /// Returns the file of the page named `name` in the project at `root`, or ends with `usage`.
     /// `artifact ask <name> <data-id> <question>` puts the agent's question on an element, for the user to answer;
     /// `artifact suggest <name> <request>…` offers up to three things the user may ask for next.
-    static func talk(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
+    static func talk(_ sub: String, _ cwd: String, _ client: RPCClient) async throws {
         let ask = sub == "ask"
         let usage =
             ask
@@ -138,32 +138,32 @@ extension Main {
             : "artifact suggest <name> \"<request>\" [\"<request>\" …]"
         let choices = ask ? all("--choice") : []   // the user answers with a click, sent at once
         guard args.count >= (ask ? 3 : 2) else { fail(usage) }
-        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, client), usage: usage)
         if ask {
             let question = args.dropFirst(2).joined(separator: " ") + choices.map { "\n• " + $0 }.joined()
-            let n = try await c.call(ArtifactAsk(path: target, id: args[1], text: question))
+            let n = try await client.call(ArtifactAsk(path: target, id: args[1], text: question))
             print(
                 choices.isEmpty
                     ? "Asked as #\(n) on \(args[1]). The answer comes with the user's next marks."
                     : "Asked as #\(n) on \(args[1]). A click on a choice sends it to you at once.")
         } else {
-            _ = try await c.call(ArtifactSuggest(path: target, lines: Array(args.dropFirst().prefix(3))))
+            _ = try await client.call(ArtifactSuggest(path: target, lines: Array(args.dropFirst().prefix(3))))
             print("Suggested. The user sees them under the marks until the next send.")
         }
     }
 
     /// `artifact export <name> <format> [to]`: the app draws and writes it (PNG, PDF and PowerPoint need its pages), as
     /// `kelp shot` does.
-    static func exportPage(_ cwd: String, _ c: RPCClient) async throws {
+    static func exportPage(_ cwd: String, _ client: RPCClient) async throws {
         let formats = ["png", "pdf", "pptx", "html", "zip", "docx", "md", "mp4", "gif", "mov"]
         let usage = "artifact export <name> <\(formats.joined(separator: "|"))> [to]"
         guard args.count >= 2, formats.contains(args[1]) else { fail(usage) }
-        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, c), usage: usage)
+        let (target, _) = try await page(args.first, root: try await projectRoot(cwd, client), usage: usage)
         let to = URL(
             fileURLWithPath: args.count > 2 ? args[2] : args[0] + (args[1] == "png" ? "-boards" : "." + args[1]),
             relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)
         ).standardizedFileURL.path
-        _ = try await c.call(
+        _ = try await client.call(
             UICommand(
                 id: "artifacts.export",
                 args: .object(["path": .string(target), "format": .string(args[1]), "to": .string(to)])))
@@ -192,19 +192,19 @@ extension Main {
 
     /// A mark as `kelp artifact marks` lists it: number, state, what it points at, the note it went with, and the
     /// agent's reply.
-    static func line(_ m: ArtifactMark, folder: String) -> String {
-        let note = m.rounds.last?.note ?? m.note
-        var what = [m.board]
-        switch m.kind {
-        case .element: what.append(m.target)
-        case .quote: what.append("«\(m.text)»")
-        case .area: what.append("area " + (m.area ?? []).map { String(Int($0.rounded())) }.joined(separator: ","))
-        case .pen: what.append("pen" + (m.target.isEmpty ? "" : " near \(m.target)"))
+    static func line(_ mark: ArtifactMark, folder: String) -> String {
+        let note = mark.rounds.last?.note ?? mark.note
+        var what = [mark.board]
+        switch mark.kind {
+        case .element: what.append(mark.target)
+        case .quote: what.append("«\(mark.text)»")
+        case .area: what.append("area " + (mark.area ?? []).map { String(Int($0.rounded())) }.joined(separator: ","))
+        case .pen: what.append("pen" + (mark.target.isEmpty ? "" : " near \(mark.target)"))
         }
-        if let picture = m.picture { what.append(folder + "/" + picture) }
-        let reply = m.rounds.last?.reply.map { "  (you said: \($0))" } ?? ""
-        let state = m.state == .check ? "to check" : m.state.rawValue
-        return "#\(m.id)\t\(state)\t\(what.filter { !$0.isEmpty }.joined(separator: " "))\t\(note)\(reply)"
+        if let picture = mark.picture { what.append(folder + "/" + picture) }
+        let reply = mark.rounds.last?.reply.map { "  (you said: \($0))" } ?? ""
+        let state = mark.state == .check ? "to check" : mark.state.rawValue
+        return "#\(mark.id)\t\(state)\t\(what.filter { !$0.isEmpty }.joined(separator: " "))\t\(note)\(reply)"
     }
 
     /// Returns the folder of the workspace that holds `cwd`, because artifacts belong to the workspace. For a chat

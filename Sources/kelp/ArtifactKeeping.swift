@@ -16,10 +16,10 @@ extension Main {
 
     /// `kelp artifact list [--all] [--json] [--tag t] [--archived]`: the project's pages, or every project's with
     /// --all, newest first; archived ones only with --archived.
-    static func listPages(_ cwd: String, _ c: RPCClient) async throws {
+    static func listPages(_ cwd: String, _ client: RPCClient) async throws {
         let every = has("--all"), json = has("--json"), archived = has("--archived")
         let tag = flag("--tag").flatMap(Artifacts.tag)
-        let pages = try await pages(every: every, cwd, c).filter {
+        let pages = try await pages(every: every, cwd, client).filter {
             ($0.archived == archived) && (tag.map($0.tags.contains) ?? true)
         }
         if json {
@@ -29,26 +29,30 @@ extension Main {
             return
         }
         if pages.isEmpty { print(archived ? "No archived pages." : "No pages.") }
-        for p in pages {
-            let tags = p.tags.map { "#" + $0 }.joined(separator: " ")
-            let place = every ? p.folder : (p.url ?? p.file ?? "")
-            print([p.name, p.kind, p.title, tags, p.waits ? "waits for the user" : "", place].joined(separator: "\t"))
+        for page in pages {
+            let tags = page.tags.map { "#" + $0 }.joined(separator: " ")
+            let place = every ? page.folder : (page.url ?? page.file ?? "")
+            print(
+                [page.name, page.kind, page.title, tags, page.waits ? "waits for the user" : "", place].joined(
+                    separator: "\t"))
         }
     }
 
     /// `kelp artifact tags [--all]`: the tags in use and how many pages have each, most used first.
-    static func listTags(_ cwd: String, _ c: RPCClient) async throws {
+    static func listTags(_ cwd: String, _ client: RPCClient) async throws {
         var counts: [String: Int] = [:]
-        for page in try await pages(every: has("--all"), cwd, c) { for t in page.tags { counts[t, default: 0] += 1 } }
+        for page in try await pages(every: has("--all"), cwd, client) {
+            for t in page.tags { counts[t, default: 0] += 1 }
+        }
         if counts.isEmpty { print("No tags yet.") }
         for (t, n) in counts.sorted(by: { ($0.value, $1.key) > ($1.value, $0.key) }) { print("\(t)\t\(n)") }
     }
 
     /// `kelp artifact tag <name> +a -b`, `untag <name> a`, `archive <name>…`, `unarchive <name>…`, on this project's
     /// pages (an agent changes only its own workspace's). A name is one from `list`, or a page's folder.
-    static func keep(_ sub: String, _ cwd: String, _ c: RPCClient) async throws {
+    static func keep(_ sub: String, _ cwd: String, _ client: RPCClient) async throws {
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
-        let root = try await projectRoot(cwd, c)
+        let root = try await projectRoot(cwd, client)
         switch sub {
         case "tag", "untag":
             guard let name = args.first, args.count > 1 else {
@@ -59,14 +63,14 @@ extension Main {
             let remove =
                 sub == "untag" ? words : words.filter { $0.hasPrefix("-") }.map { String($0.dropFirst()) }
             let folder = try folder(name, root: root)
-            let tags = try await c.call(ArtifactChange(folder: folder, add: add, remove: remove, session: session))
+            let tags = try await client.call(ArtifactChange(folder: folder, add: add, remove: remove, session: session))
             print("Tags of \(name): " + (tags.isEmpty ? "none" : tags.joined(separator: ", ")))
         default:
             guard !args.isEmpty else { fail("artifact \(sub) <name>… (names: kelp artifact list)") }
             let archive = sub == "archive"
             for name in args {
                 let folder = try folder(name, root: root)
-                _ = try await c.call(ArtifactChange(folder: folder, archived: archive, session: session))
+                _ = try await client.call(ArtifactChange(folder: folder, archived: archive, session: session))
             }
             print(
                 archive
@@ -85,28 +89,29 @@ extension Main {
     }
 
     /// This project's folder, or every project's with `every`, with the project's name.
-    private static func roots(every: Bool, _ cwd: String, _ c: RPCClient) async throws -> [(
+    private static func roots(every: Bool, _ cwd: String, _ client: RPCClient) async throws -> [(
         path: String, project: String
     )] {
         guard every else {
-            let root = try await projectRoot(cwd, c)
+            let root = try await projectRoot(cwd, client)
             return [(root, (root as NSString).lastPathComponent)]
         }
         var roots: [(path: String, project: String)] = []
-        let repos = try await c.call(RepoList())
-        for w in try await c.call(WorktreeList()) where !w.archived && !roots.contains(where: { $0.path == w.path }) {
-            roots.append((w.path, repos.first { $0.id == w.repoId }?.name ?? w.path))
+        let repos = try await client.call(RepoList())
+        for worktree in try await client.call(WorktreeList())
+        where !worktree.archived && !roots.contains(where: { $0.path == worktree.path }) {
+            roots.append((worktree.path, repos.first { $0.id == worktree.repoId }?.name ?? worktree.path))
         }
         return roots
     }
 
     /// `kelp artifact sync [--all] [--check]`: the pages on claude.ai whose copy here isn't whole, and how an agent
     /// with claude.ai's artifact tools saves them to disk. --check counts again once that's done.
-    static func sync(_ cwd: String, _ c: RPCClient) async throws {
+    static func sync(_ cwd: String, _ client: RPCClient) async throws {
         let every = has("--all"), check = has("--check")
         var all = 0
         var short: [(url: String, folder: String, state: String)] = []
-        for root in try await roots(every: every, cwd, c) {
+        for root in try await roots(every: every, cwd, client) {
             for (slug, record) in Artifacts.list(root: root.path)
             where Artifacts.syncs(url: record.url, type: record.type) {
                 all += 1
@@ -131,8 +136,8 @@ extension Main {
     }
 
     /// The pages of this project, or of every project with `every`, newest first.
-    private static func pages(every: Bool, _ cwd: String, _ c: RPCClient) async throws -> [Listed] {
-        try await roots(every: every, cwd, c).flatMap { root in
+    private static func pages(every: Bool, _ cwd: String, _ client: RPCClient) async throws -> [Listed] {
+        try await roots(every: every, cwd, client).flatMap { root in
             Artifacts.list(root: root.path).map { slug, r in
                 let folder = Artifacts.dir(root: root.path).appendingPathComponent(slug)
                 return Listed(
