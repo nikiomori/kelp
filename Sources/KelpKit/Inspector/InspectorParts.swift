@@ -255,7 +255,7 @@ final class CountBadge: NSView {
             if let old, let new, old != new, !isHidden { digits.roll(up: new > old) }
             if oldValue == nil {
                 fadeIn()
-            } else if badge == nil {   // the old mark fades as it was, in about two thirds of the time a new one comes in
+            } else if badge == nil {   // the old mark fades as it was, in two thirds of the time a new one comes in
                 return fadeOut(Motion.fast * 2 / 3, timing: nil) { [weak self] in self?.alphaValue != 0 }
             }
             digits.stringValue = new.map { $0 > 99 ? "99+" : "\($0)" } ?? ""
