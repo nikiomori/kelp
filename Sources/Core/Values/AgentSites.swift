@@ -40,12 +40,15 @@ public enum AgentSites {
         return list + [.object(["site": .string(site), "chat": .string(chat), "at": when])]
     }
 
-    /// What an agent's row asks before the agent gets the user's login on `site` (kelpd's `BrowserRelay.login`); the
-    /// app answers it on a card over the agent's terminal (`asksLogin`).
-    public static func question(agent: String, site: String) -> String { "Let \(agent) use your login on \(site)?" }
+    /// What an agent's row asks before the agent gets the user's login on `site` (kelpd's `BrowserRelay.login`). It
+    /// starts with "Allow", so Kelp offers Allow and Deny wherever it shows (`Session.asksPermission`): the card over
+    /// the agent's terminal (`asksLogin`), the Dock's strip, a notification, the phone.
+    public static func question(agent: String, site: String) -> String {
+        "Allow \(agent) to use your login on \(site)?"
+    }
 
     public static func asksLogin(_ question: String) -> Bool {
-        question.hasPrefix("Let ") && question.hasSuffix("?") && question.contains(" use your login on ")
+        question.hasPrefix("Allow ") && question.hasSuffix("?") && question.contains(" to use your login on ")
     }
 
     public static func removing(_ site: String, from list: [JSONValue]) -> [JSONValue] {
