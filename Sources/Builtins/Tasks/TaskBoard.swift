@@ -10,36 +10,49 @@ import KelpKit
 final class TaskBoard {
     let scroll = NSScrollView()
     private let model: TasksModel
-    private let columns = NSStackView()
+    private let board = FlippedView()
     /// The narrowest a column gets before the board scrolls sideways.
     private static let narrowest: CGFloat = 160
 
     init(model: TasksModel) {
         self.model = model
-        columns.orientation = .horizontal
-        columns.alignment = .top
-        columns.distribution = .fillEqually
-        columns.spacing = Metrics.gapWide
-        columns.edgeInsets = NSEdgeInsets(
-            top: Metrics.pageTop, left: Metrics.pageInset, bottom: Metrics.pageTop, right: Metrics.pageInset)
-        let flip = FlippedView()
-        flip.translatesAutoresizingMaskIntoConstraints = false
-        flip.pin(columns)
-        scroll.documentView = flip
+        board.translatesAutoresizingMaskIntoConstraints = false
+        scroll.documentView = board
         scroll.hasHorizontalScroller = true
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
+        // The board is the tab's width (wider only when the columns need it: then it scrolls sideways), and as tall as
+        // its longest column or the tab.
         let wide = CGFloat(TaskColumn.allCases.count) * (Self.narrowest + Metrics.gapWide) + 2 * Metrics.pageInset
+        let fitsTab = board.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor)
+        fitsTab.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            flip.widthAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.widthAnchor),
-            flip.widthAnchor.constraint(greaterThanOrEqualToConstant: wide),
-            flip.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor)
+            fitsTab, board.widthAnchor.constraint(greaterThanOrEqualToConstant: wide),
+            board.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor)
         ])
         scroll.setAccessibilityLabel(String(localized: "Board"))
     }
 
-    func show(_ board: [(column: TaskColumn, rows: [TaskRow])]) {
-        columns.setViews(board.map { column($0.column, $0.rows) }, in: .leading)
+    /// Lays the columns side by side, of one width, each hanging from the top.
+    func show(_ columns: [(column: TaskColumn, rows: [TaskRow])]) {
+        board.subviews.forEach { $0.removeFromSuperview() }
+        var previous: NSView?
+        for (column, rows) in columns {
+            let view = self.column(column, rows)
+            view.translatesAutoresizingMaskIntoConstraints = false
+            board.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: board.topAnchor, constant: Metrics.pageTop),
+                previous.map { view.leadingAnchor.constraint(equalTo: $0.trailingAnchor, constant: Metrics.gapWide) }
+                    ?? view.leadingAnchor.constraint(equalTo: board.leadingAnchor, constant: Metrics.pageInset),
+                board.bottomAnchor.constraint(greaterThanOrEqualTo: view.bottomAnchor, constant: Metrics.pageTop)
+            ])
+            if let previous { view.widthAnchor.constraint(equalTo: previous.widthAnchor).isActive = true }
+            // As tall as its cards, so they hang from the top (a taller stack would keep them at its foot).
+            view.heightAnchor.constraint(equalToConstant: view.fittingSize.height).isActive = true
+            previous = view
+        }
+        previous?.trailingAnchor.constraint(equalTo: board.trailingAnchor, constant: -Metrics.pageInset).isActive = true
     }
 
     private func column(_ column: TaskColumn, _ rows: [TaskRow]) -> NSView {

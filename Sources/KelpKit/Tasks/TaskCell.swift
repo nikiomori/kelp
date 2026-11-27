@@ -27,8 +27,12 @@ package final class TaskCell: NSView {
         box.target = self
         box.action = #selector(boxed)
         box.allowsMixedState = true
-        name.lineBreakMode = .byTruncatingTail
-        line.lineBreakMode = .byTruncatingTail
+        // One line each, cut with an ellipsis: a narrow board card keeps its words over their place.
+        for label in [name, line] {
+            label.cell?.wraps = false
+            label.maximumNumberOfLines = 1
+            label.lineBreakMode = .byTruncatingTail
+        }
         for label in [name, line, word] { label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         word.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         face.imageScaling = .scaleProportionallyUpOrDown
@@ -67,7 +71,11 @@ package final class TaskCell: NSView {
             task.proposed == true
             ? String(localized: "Take the agent’s proposal") : String(localized: "Done (⌥: cancel)")
         let color: NSColor = task.state == .open ? .labelColor : .tertiaryLabelColor
-        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: color, .font: NSFont.ui(TextSize.row)]
+        let cut = NSMutableParagraphStyle()
+        cut.lineBreakMode = .byTruncatingTail   // the words' own style wins over the field's
+        var attributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: color, .font: NSFont.ui(TextSize.row), .paragraphStyle: cut
+        ]
         if task.state == .cancelled { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
         name.attributedStringValue = NSAttributedString(string: task.title, attributes: attributes)
         line.stringValue = place

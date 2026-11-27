@@ -87,6 +87,8 @@ final class TasksController: NSViewController {
         bars.orientation = .vertical
         bars.spacing = 0
         bars.detachesHiddenViews = true
+        // With both bars hidden it takes no height, so the rows start at the top.
+        bars.setHuggingPriority(.required, for: .vertical)
         for part in [failureBar, proposals] { part.widthAnchor.constraint(equalTo: bars.widthAnchor).isActive = true }
         for part in [bar, sourceScroll, rule, bars, content] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false
