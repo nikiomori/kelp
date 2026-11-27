@@ -37,9 +37,8 @@ public func shortTokens(_ tokens: Int) -> String {
     return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
 }
 
-/// Bytes as people read memory and disk: "870 MB", "3.1 GB".
-public func bytes(_ n: Int) -> String { bytes(n, file: false) }
-/// With `file`, a file's size as Finder shows it (by 1000, not 1024).
-public func bytes(_ count: Int, file: Bool) -> String {
+/// Bytes as people read memory and disk: "870 MB", "3.1 GB". With `file`, a file's size as Finder shows it (by 1000,
+/// not 1024).
+public func bytes(_ count: Int, file: Bool = false) -> String {
     ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: file ? .file : .memory)
 }

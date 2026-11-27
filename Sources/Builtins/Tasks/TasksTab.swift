@@ -67,7 +67,7 @@ final class TasksController: NSViewController {
         search.widthAnchor.constraint(equalToConstant: 190).isActive = true
         let write = TextButton(String(localized: "New Task…")) { [weak self] in
             guard let self else { return }
-            QuickEntry.shared(model.app).show(repo: model.currentProject)
+            model.app.part { QuickEntry(app: model.app) }.show(repo: model.currentProject)
         }
         write.toolTip = String(localized: "Write a task down (⌃⌥⌘T from anywhere)")
         views.controlSize = .small
@@ -202,7 +202,7 @@ final class TasksController: NSViewController {
     }
 
     @objc private func viewChosen() { model.board = views.selectedSegment == 1 }
-    @objc private func newTask() { QuickEntry.shared(model.app).show(repo: model.currentProject) }
+    @objc private func newTask() { model.app.part { QuickEntry(app: model.app) }.show(repo: model.currentProject) }
     @objc private func searched() { model.find = search.stringValue }
     private func readAgain() { for id in model.watching { model.app.watchAgain(.tasks, id) } }
 }

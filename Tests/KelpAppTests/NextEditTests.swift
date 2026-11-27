@@ -41,10 +41,16 @@ func anAnswerOffersTheLinesItChanged(current: String, answer: String, lines: Ran
     if let proposal { #expect(proposal.old == old && proposal.new == new) }
 }
 
-@Test func aLineWrittenAnotherWayShowsOnlyWhatGoesAndWhatComes() {
-    let (gone, put) = NextEdit.inline("folder.font = .systemFont(ofSize: 13)", "folder.font = .ui(13)")
-    #expect(gone == NSRange(location: 15, length: 19))   // "systemFont(ofSize: "
-    #expect(put == "ui(")
+@Test(
+    arguments: [
+        ("folder.font = .systemFont(ofSize: 13)", "folder.font = .ui(13)", NSRange(location: 15, length: 19), "ui("),
+        ("same", "same", NSRange(location: 4, length: 0), ""),   // nothing goes, at the end
+        ("aa", "aaa", NSRange(location: 2, length: 0), "a")   // the shared start and end don't overlap
+    ] as [(String, String, NSRange, String)])
+func aLineWrittenAnotherWayShowsOnlyWhatGoesAndWhatComes(old: String, new: String, gone: NSRange, put: String) {
+    let got = NextEdit.inline(old, new)
+    #expect(got.gone == gone)
+    #expect(got.put == put)
 }
 
 @Test(
@@ -111,7 +117,7 @@ extension OneAtATime {
         e.onNextEdit = { events.append($0) }
         tv.setSelectedRange(NSRange(location: 9, length: 23))   // ".systemFont(ofSize: 15)"
         tv.insertText(".ui(15)", replacementRange: NSRange(location: NSNotFound, length: 0))
-        #expect(try await waitFor(2) { e.isOfferingEdit })
+        #expect(try await waitFor(2) { e.nextEdit.shown != nil })
         #expect(asked?.latest == NextEdit.Change(old: "a.font = .systemFont(ofSize: 15)", new: "a.font = .ui(15)"))
         #expect(e.nextEdit.pill?.isHidden == false)   // "⇥ to line 3", the cursor being on line 1
         #expect(e.nextEdit.struck == NSRange(location: 38, length: 19))
@@ -124,14 +130,14 @@ extension OneAtATime {
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
         #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .ui(13)\n")
         #expect(tv.selectedRange().location == 44)   // after it
-        #expect(!e.isOfferingEdit && e.nextEdit.struck == nil)
+        #expect(e.nextEdit.shown == nil && e.nextEdit.struck == nil)
         #expect(events.prefix(2) == [true, false])
 
         e.nextEditProvider = { $0.current + "\nmore" }   // next, one that adds a line; Esc drops it
         tv.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0))
-        #expect(try await waitFor(2) { e.isOfferingEdit })
+        #expect(try await waitFor(2) { e.nextEdit.shown != nil })
         tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
-        #expect(!e.isOfferingEdit)
+        #expect(e.nextEdit.shown == nil)
         #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .ui(13) \n")
     }
 
@@ -148,7 +154,7 @@ extension OneAtATime {
         tv.setSelectedRange(NSRange(location: 0, length: 0))   // a click elsewhere while the model writes
         answer?.resume()
         await e.nextEdit.task?.value
-        #expect(!e.isOfferingEdit)
+        #expect(e.nextEdit.shown == nil)
     }
 
     @Test func aFileWrittenFromOutsideIsntTheUsersEdit() async throws {

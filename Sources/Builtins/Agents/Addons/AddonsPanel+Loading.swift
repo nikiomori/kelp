@@ -61,7 +61,7 @@ extension AddonsPanel {
 @MainActor
 final class AddonFace: NSView {
     private let logo = NSImageView()
-    private let spinner = NSProgressIndicator()
+    private let spinner = NSProgressIndicator.small()
 
     var image: NSImage? {
         get { logo.image }
@@ -82,8 +82,6 @@ final class AddonFace: NSView {
         super.init(frame: .zero)
         logo.imageScaling = .scaleProportionallyUpOrDown
         logo.translatesAutoresizingMaskIntoConstraints = false
-        spinner.style = .spinning
-        spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
         spinner.translatesAutoresizingMaskIntoConstraints = false
         addSubview(logo)

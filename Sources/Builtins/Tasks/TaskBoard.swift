@@ -70,19 +70,8 @@ final class TaskBoard {
     }
 
     private func card(_ row: TaskRow) -> NSView {
-        let app = model.app, cell = TaskCell()
-        cell.show(
-            row, chats: (row.task.chats ?? []).compactMap(app.session),
-            place: [model.projectName(row.repo), row.place].joined(separator: " › "),
-            agent: app.catalog.name(TaskActions.lastAgent(app)),
-            icon: { app.catalog.icon($0, size: Metrics.iconSmall) })
-        cell.onToggle = { cancel in cancel ? TaskActions.set(app, row, .cancelled) : TaskActions.toggle(app, row) }
-        cell.onRun = { TaskActions.run(app, row) }
-        cell.onMenu = { view in
-            let menu = NSMenu()
-            TaskActions.fill(menu, app, row)
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
-        }
+        let app = model.app
+        let cell = TaskCell(app, row, place: [model.projectName(row.repo), row.place].joined(separator: " › "))
         let card = TaskCard(asks: row.work == .asks)
         card.onOpen = { TaskActions.open(app, row) }
         card.menuFor = {

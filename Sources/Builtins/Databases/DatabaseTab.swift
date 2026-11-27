@@ -61,7 +61,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// Over rows that are kept when reading them again failed: why, and Try Again.
     lazy var failureBar = FailureBar { [weak self] in self?.refresh() }
     /// Spins in the foot while a page is read, once the read takes past a second.
-    let busy = NSProgressIndicator()
+    let busy = NSProgressIndicator.small()
     let whole = NSSplitView()
     let capsule = NSTextField(labelWithString: "")
     let capsuleBox = NSStackView()
@@ -299,8 +299,6 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         rowCount.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         changes.font = .uiDigits(TextSize.caption, weight: .medium)
         changes.textColor = .textOrange
-        busy.style = .spinning
-        busy.controlSize = .small
         busy.isDisplayedWhenStopped = false
         let bar = Bar.foot(
             [part, addRow, busy, rowCount, status],

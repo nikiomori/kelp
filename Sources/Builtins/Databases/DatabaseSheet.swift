@@ -118,9 +118,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     /// this Mac's own files and daemon, so the line that says it looks shows only past a second (`whileSlow`), and
     /// then stays at least `LoadingView.held`.
     private func fillFound() async {
-        let spinner = NSProgressIndicator()
-        spinner.style = .spinning
-        spinner.controlSize = .small
+        let spinner = NSProgressIndicator.small()
         spinner.startAnimation(nil)
         let words = Self.small(String(localized: "Looking for other apps’ connections…"))
         let looking = NSStackView(views: [spinner, words])

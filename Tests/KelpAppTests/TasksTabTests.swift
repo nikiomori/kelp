@@ -93,7 +93,7 @@ import Testing
     model.board = true
     try await shootTasks(controller.view, window, "tasks-board", dir)
     model.board = false
-    let entry = QuickEntry.shared(app)
+    let entry = app.part { QuickEntry(app: app) }
     entry.show(repo: repo)
     if let panel = NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible }), let view = panel.contentView {
         try await shootTasks(view, panel, "tasks-quick-entry", dir)
@@ -118,10 +118,10 @@ extension OneAtATime {
     /// Quick Entry's hot key (⌃⌥⌘T, which macOS leaves free, unlike ⌃⌥Space, its next input source) opens the panel.
     @Test func theHotKeyOpensQuickEntry() async throws {
         let app = AppModel(builtins: [])
-        let entry = QuickEntry.shared(app)
+        let entry = app.part { QuickEntry(app: app) }
         // The system's answer is noErr on a Mac with a person at it; CI's runners have no session to grant hot keys in.
-        entry.registerHotKey()
-        defer { entry.unregisterHotKey() }
+        entry.hotKey.register()
+        defer { entry.hotKey.unregister() }
         var event: EventRef?
         CreateEvent(
             nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, EventAttributes(kEventAttributeNone),

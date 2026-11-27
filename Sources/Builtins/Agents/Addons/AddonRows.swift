@@ -131,9 +131,7 @@ struct AddonRows {
         control.toolTip = on ? String(localized: "On in this project") : String(localized: "Off in this project")
         guard asked != nil else { return control }
         control.isEnabled = false
-        let spinner = NSProgressIndicator()
-        spinner.style = .spinning
-        spinner.controlSize = .small
+        let spinner = NSProgressIndicator.small()
         spinner.startAnimation(nil)
         let held = NSStackView(views: [spinner, control])
         held.spacing = Metrics.gap

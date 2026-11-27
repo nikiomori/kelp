@@ -215,7 +215,9 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // (`TaskActions`: tick, run, the menu, add, grow, move, group, remove, a chat's task for the Agents Overview, the
     // page a task shows on), the row both draw (`TaskCell`), the days a logbook groups by (`DaySections`, with
     // Artifacts), and `TasksEvent`'s key.
-    #expect(declared == 436, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: a hot key from any app is one type for No Project's ⌃⌥⌘K and Quick Entry's ⌃⌥⌘T (`GlobalHotKey`, its `init`
+    // and `register`).
+    #expect(declared == 439, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

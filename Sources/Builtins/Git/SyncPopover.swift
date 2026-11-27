@@ -33,7 +33,7 @@ final class SyncPopover: NSViewController {
     }()
     lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
-    let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
+    let busy = NSProgressIndicator.small(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView(), files = NSStackView()
     /// Says when the commits behind the counts couldn't be read, with Try Again, under the button.
     lazy var failure = FailureBar { [weak self] in
@@ -97,8 +97,6 @@ final class SyncPopover: NSViewController {
             primary.bezelColor = .controlAccentColor
         }
 
-        busy.style = .spinning
-        busy.controlSize = .small
         note.font = .ui(TextSize.row)
         note.maximumNumberOfLines = 4
         note.preferredMaxLayoutWidth = Self.width - 22

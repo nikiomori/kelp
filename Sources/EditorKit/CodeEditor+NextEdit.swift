@@ -23,9 +23,6 @@ extension CodeEditor {
         set { nextEdit.onEvent = newValue }
     }
 
-    /// Whether an edit is offered now.
-    public var isOfferingEdit: Bool { nextEdit.shown != nil }
-
     /// Before an edit, with the old text still there. One near the last (on their lines or next to them, within a
     /// minute) adds to the edit being made; one elsewhere starts a new edit, and the text as it is now is what the
     /// model is shown as before it. Edits in several places at once (cursors, Replace All) start none: the model is

@@ -61,9 +61,26 @@ package final class TaskCell: NSView {
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
+    /// A cell showing `row` with `place` under its words, wired as every list has it: the box, ▶ with the last agent,
+    /// and ⋯, whose menu `fill` fills (with the task's own actions when nil).
+    package convenience init(_ app: AppModel, _ row: TaskRow, place: String, fill: ((NSMenu) -> Void)? = nil) {
+        self.init()
+        show(
+            row, chats: (row.task.chats ?? []).compactMap(app.session), place: place,
+            agent: app.catalog.name(TaskActions.lastAgent(app)),
+            icon: { app.catalog.icon($0, size: Metrics.iconSmall) })
+        onToggle = { cancel in cancel ? TaskActions.set(app, row, .cancelled) : TaskActions.toggle(app, row) }
+        onRun = { TaskActions.run(app, row) }
+        onMenu = { view in
+            let menu = NSMenu()
+            if let fill { fill(menu) } else { TaskActions.fill(menu, app, row) }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
+        }
+    }
+
     /// Shows `row`, whose chats are `chats`, with `place` under the words (where the line is, its issue, its tags) and
     /// `agent`'s name on ▶.
-    package func show(_ row: TaskRow, chats: [Session], place: String, agent: String, icon: (String?) -> NSImage?) {
+    private func show(_ row: TaskRow, chats: [Session], place: String, agent: String, icon: (String?) -> NSImage?) {
         let task = row.task
         box.state = task.state == .done ? .on : task.state == .cancelled ? .mixed : .off
         box.alphaValue = task.proposed == true ? Metrics.unavailable : 1

@@ -13,7 +13,7 @@ final class NoProject: NSObject {
         self.app = app
         super.init()
     }
-    private var hotKey: EventHotKeyRef?
+    lazy var hotKey = GlobalHotKey(key: kVK_ANSI_K, signature: OSType(0x4B524C4C)) { [weak self] in self?.newChat() }
 
     /// The path of the No Project project, so lists of projects can tell it apart.
     static var path: String { resolved(Paths.scratch.path) }
@@ -58,26 +58,4 @@ final class NoProject: NSObject {
         }
     }
 
-    /// Registers ⌃⌥⌘K from anywhere (a Carbon hot key, so no Accessibility permission is needed).
-    func registerHotKey() {
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        // The handler is a C function, so it finds this object through the pointer it's handed (the app keeps the
-        // object alive).
-        InstallEventHandler(
-            GetApplicationEventTarget(),
-            { _, event, me in
-                // Other hot keys of Kelp's (Quick Entry's ⌃⌥⌘T) come to the same target: only ours is taken.
-                var id = EventHotKeyID()
-                GetEventParameter(
-                    event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
-                    MemoryLayout<EventHotKeyID>.size, nil, &id)
-                guard let me, id.signature == OSType(0x4B524C4C) else { return OSStatus(eventNotHandledErr) }
-                let np = Unmanaged<NoProject>.fromOpaque(me).takeUnretainedValue()
-                DispatchQueue.main.async { np.newChat() }
-                return noErr
-            }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
-        let id = EventHotKeyID(signature: OSType(0x4B524C4C), id: 1)   // 'KRLL'
-        RegisterEventHotKey(
-            UInt32(kVK_ANSI_K), UInt32(controlKey | optionKey | cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
-    }
 }

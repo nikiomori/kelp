@@ -64,20 +64,8 @@ extension TasksViewController {
 
     /// The task's row in the panel: the Tasks tab's row, with where the line is and its issue under the words.
     func taskCell(_ row: TaskRow) -> NSView {
-        let cell = TaskCell(), app = self.app
         let place = [row.place, row.task.issueRef].compactMap { $0 }.joined(separator: " · ")
-        cell.show(
-            row, chats: (row.task.chats ?? []).compactMap(app.session), place: place,
-            agent: app.catalog.name(TaskActions.lastAgent(app)),
-            icon: { app.catalog.icon($0, size: Metrics.iconSmall) })
-        cell.onToggle = { cancel in cancel ? TaskActions.set(app, row, .cancelled) : TaskActions.toggle(app, row) }
-        cell.onRun = { TaskActions.run(app, row) }
-        cell.onMenu = { [weak self] view in
-            let menu = NSMenu()
-            self?.fillTaskMenu(menu, row)
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
-        }
-        return cell
+        return TaskCell(app, row, place: place) { [weak self] in self?.fillTaskMenu($0, row) }
     }
 
     func fillTaskMenu(_ menu: NSMenu, _ row: TaskRow) {

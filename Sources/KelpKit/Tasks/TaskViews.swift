@@ -45,12 +45,6 @@ package struct TaskRow: Equatable, Sendable {
     }
     /// True while the person's turn is up: an agent asks, a proposal waits to be taken, or the work waits for a look.
     var waitsForYou: Bool { task.state == .open && (task.proposed == true || work == .asks || work == .review) }
-    init(task: TaskLine, page: TaskPage, repo: String, work: TaskWork) {
-        self.task = task
-        self.page = page
-        self.repo = repo
-        self.work = work
-    }
 }
 
 /// The lists of the Tasks tab and the panel's Tasks source: which rows each holds, in what groups.

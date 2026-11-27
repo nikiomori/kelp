@@ -10,8 +10,8 @@ extension Builtins {
         "kelp.tasks", "Tasks", "Your tasks on the projects’ pages, handed to agents.", icon: "checklist"
     ) { app in
         let entry = app.part {
-            let made = QuickEntry.shared(app)
-            made.registerHotKey()
+            let made = QuickEntry(app: app)
+            made.hotKey.register()
             return made
         }
         return Contributions(

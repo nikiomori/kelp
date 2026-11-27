@@ -7,7 +7,7 @@ import SwiftUI
 /// light passing over them. It fades in and out, so the list it gives way to seems to come out of it.
 @MainActor
 public final class LoadingView: NSView {
-    private let spinner = NSProgressIndicator()
+    private let spinner = NSProgressIndicator.small()
     private let line = NSTextField(labelWithString: "")
     private let detail = NSTextField(wrappingLabelWithString: "")
     private let skeleton: SkeletonRows?
@@ -40,8 +40,6 @@ public final class LoadingView: NSView {
             isHidden = true
             return
         }
-        spinner.style = .spinning
-        spinner.controlSize = .small
         line.font = .ui(TextSize.body)
         line.textColor = .secondaryLabelColor
         detail.font = .ui(TextSize.caption)
@@ -276,5 +274,15 @@ extension NSView {
             leadingAnchor.constraint(equalTo: area.leadingAnchor),
             trailingAnchor.constraint(equalTo: area.trailingAnchor)
         ])
+    }
+}
+
+extension NSProgressIndicator {
+    /// The system's small spinner, as the interface waits (the turning ring is an agent's mark for working).
+    @MainActor public static func small() -> NSProgressIndicator {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        return spinner
     }
 }

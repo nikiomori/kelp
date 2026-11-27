@@ -211,19 +211,7 @@ final class EditorStatusBar: NSView {
     }
 
     /// The line fades out in two thirds of the time it took to come.
-    private func leaveFinding() {
-        NSAnimationContext.runAnimationGroup(
-            { ctx in
-                ctx.duration = Motion.duration(Motion.fast * 2 / 3)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                finding.animator().alphaValue = 0
-            },
-            completionHandler: {
-                MainActor.assumeIsolated {   // AppKit ends the group on the main thread
-                    if self.findingSince == nil { self.finding.isHidden = true }
-                }
-            })
-    }
+    private func leaveFinding() { finding.fadeOut(Motion.fast * 2 / 3) { self.findingSince != nil } }
 
     func show(cursor: (line: Int, column: Int)?) {
         place.stringValue = cursor.map { String(localized: "Line \($0.line), Column \($0.column)") } ?? ""

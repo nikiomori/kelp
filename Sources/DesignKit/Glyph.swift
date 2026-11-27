@@ -7,7 +7,7 @@ import AppKit
 /// 1.3-point round lines and never filled, as templates, so they tint as symbols do. The same data draws them on the
 /// design canvas, so what was picked there is what Kelp draws.
 public enum Glyph {
-    public static func image(_ name: String, size: CGFloat = 17) -> NSImage? {   // as tall as a 14-point symbol
+    public static func image(_ name: String, size: CGFloat) -> NSImage? {
         guard let data = shapes[name] else { return nil }
         let img = NSImage(size: NSSize(width: size, height: size), flipped: true) { rect in
             let path = NSBezierPath(svg: data)
@@ -52,10 +52,6 @@ public enum Glyph {
         a2.5 2.5 0 0 1 2.5 -2.5zM6 2.5v11
         """,
         "sidebar.right": """
-        M4 2.5h8a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1 -2.5 2.5h-8a2.5 2.5 0 0 1 -2.5 -2.5v-6
-        a2.5 2.5 0 0 1 2.5 -2.5zM10 2.5v11
-        """,
-        "sidebar.trailing": """
         M4 2.5h8a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1 -2.5 2.5h-8a2.5 2.5 0 0 1 -2.5 -2.5v-6
         a2.5 2.5 0 0 1 2.5 -2.5zM10 2.5v11
         """,

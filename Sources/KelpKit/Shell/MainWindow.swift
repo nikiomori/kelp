@@ -48,7 +48,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let sidebarToggle = NSButton.titlebar(
         "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
     private let inspectorToggle = NSButton.titlebar(
-        "sidebar.trailing", String(localized: "Inspector"), tip: String(localized: "Show or hide the inspector"))
+        "sidebar.right", String(localized: "Inspector"), tip: String(localized: "Show or hide the inspector"))
 
     init(app: AppModel) {
         let created = NSWindow(

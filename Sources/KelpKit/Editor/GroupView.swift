@@ -226,18 +226,9 @@ package final class DropHint: NSView {
     package func hide() {
         guard !isHidden, !leaving else { return }
         leaving = true
-        NSAnimationContext.runAnimationGroup(
-            { ctx in
-                ctx.duration = Motion.duration(Motion.fast * 2 / 3)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                animator().alphaValue = 0
-            },
-            completionHandler: { [weak self] in
-                MainActor.assumeIsolated {   // AppKit runs the completion on the main thread
-                    guard let self, self.leaving else { return }
-                    self.isHidden = true
-                    self.leaving = false
-                }
-            })
+        fadeOut(Motion.fast * 2 / 3) { [weak self] in
+            defer { self?.leaving = false }
+            return self?.leaving != true
+        }
     }
 }
