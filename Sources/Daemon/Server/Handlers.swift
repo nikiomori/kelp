@@ -136,7 +136,7 @@ extension UIStore: DaemonService {
     static func of(_ daemon: Daemon) -> UIStore { UIStore(store: daemon.store, clients: daemon.clients) }
 }
 extension BrowserRelay: DaemonService {
-    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), asks: daemon.sessions.asks) }
+    static func of(_ d: Daemon) -> BrowserRelay { .init(ui: .of(d), asks: d.sessions.asks, settings: .of(d)) }
 }
 extension ForgeWork: DaemonService {
     static func of(_ daemon: Daemon) -> ForgeWork {

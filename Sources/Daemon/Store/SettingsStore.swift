@@ -219,7 +219,8 @@ extension SettingsSet: Handled {
         SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.holdBanners.key,
         // every project's language servers, with their own settings: some name a program they run (a check command)
         SettingKeys.languageServers.key,
-        "editor.suggestion", "editor.nextEdit"   // the Files built-in's keys, by prefix as `phone.`
+        "editor.suggestion", "editor.nextEdit",   // the Files built-in's keys, by prefix as `phone.`
+        SettingKeys.agentSites.key   // the sites where agents act as the user: an agent adding one would let itself in
     ]
     var fence: Fence {
         Fence(

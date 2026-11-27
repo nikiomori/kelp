@@ -96,8 +96,12 @@ final class PermissionWaits: Sendable {
         return waiting != nil
     }
 
+    /// The sites whose login the user denied an agent, by session, until its turn ends: it isn't asked again meanwhile.
+    let deniedLogins = OSAllocatedUnfairLock<[String: Set<String>]>(initialState: [:])
+
     /// Ends every question Kelp asks for `id`'s commands with no answer, because the turn and its commands are over.
     func endKelpQuestions(_ id: String) {
+        deniedLogins.withLock { $0[id] = nil }
         let all = kelpWaits.withLock { $0.removeValue(forKey: id) } ?? []
         for wait in all {
             wait.exit?.cancel()

@@ -107,12 +107,13 @@ extension UIBrowser: AsyncHandled {
     // With no workspace named, the page would open in the one on screen, which needn't be the agent's.
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        try await forward(relay, driver: relay.driver(conn, words: Self.words(action, args)))
+        let asker = relay.asks.clients.connection(conn)?.peerPID
+        return try await forward(relay, driver: relay.driver(conn, words: Self.words(action, args)), asker: asker)
     }
 
-    fileprivate func forward(_ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil) async throws
-        -> JSONValue
-    {
+    fileprivate func forward(
+        _ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil, asker: pid_t? = nil
+    ) async throws -> JSONValue {
         let ui = relay.ui
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
         let clients = ui.clients, apps = clients.apps
@@ -125,6 +126,8 @@ extension UIBrowser: AsyncHandled {
         fields["session"] = driver.session.map(JSONValue.string)
         fields["subagent"] = driver.subagent.map(JSONValue.string)
         fields["askingSession"] = asking.map(JSONValue.string)
+        fields["yourLogin"] = nil
+        if action == .open { fields["yourLogin"] = try await relay.login(fields, driver: driver, asker: asker) }
         var call = self
         call.args = .object(fields)
         let request = UUID().uuidString
@@ -170,10 +173,11 @@ extension UIBrowserAsk: AsyncHandled {
     }
 }
 
-/// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
+/// What answers `ui.browser`: the window it goes to, the sessions that say which subagent asks, and the settings that
+/// hold the sites where agents use the user's login.
 struct BrowserRelay {
-    let ui: UIStore, asks: AgentAsks
-    fileprivate typealias Driver = (session: String?, subagent: String?)
+    let ui: UIStore, asks: AgentAsks, settings: SettingsEvents
+    typealias Driver = (session: String?, subagent: String?)
 
     fileprivate func driver(_ conn: Int, words: String) throws -> Driver {
         guard let own = asks.store.agent(origin: Sessions.asker) else { return (nil, nil) }
