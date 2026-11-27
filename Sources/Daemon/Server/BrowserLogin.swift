@@ -29,11 +29,16 @@ extension BrowserRelay {
         }
         let denied = RPCError.refused("The user didn't let you use their login on \(site).")
         guard asks.permissions.deniedLogins.withLock({ $0[session]?.contains(site) != true }) else { throw denied }
-        let agent = AgentManifest.presets.first { $0.id == ls.snapshot.agent }?.name ?? "the agent"
+        let home = settings.store.url.deletingLastPathComponent()   // the agents of this home, the user's own too
+        let agent = AgentManifest.load(dir: Paths.agents(in: home)).first { $0.id == ls.snapshot.agent }?.name
+        let question = Self.question(agent: agent ?? "the agent", site: site)
         let answer = await asks.permissions.waitForKelp(
-            ls, question: Self.question(agent: agent, site: site), within: UIBrowserAsk.wait, asker: asker)
+            ls, question: question, within: UIBrowserAsk.wait, asker: asker)
         guard answer == "allow" else {
             asks.permissions.deniedLogins.withLock { $0[session, default: []].insert(site) }
+            guard answer == "deny" else {
+                throw RPCError.refused("Nobody answered whether you may use the user's login on \(site).")
+            }
             throw denied
         }
         let now = settings.store[SettingKeys.agentSites]   // read again: the user may have changed it meanwhile
