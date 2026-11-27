@@ -12,11 +12,7 @@ extension Git {
         project: String, branch: String, into dir: URL, copyFiles: [String], remotes: Remotes
     ) throws -> String {
         let repos = nestedRepos(project)
-        var path = dir.appendingPathComponent(slug(branch)).path, n = 2
-        while FileManager.default.fileExists(atPath: path) {
-            path = dir.appendingPathComponent("\(slug(branch))-\(n)").path
-            n += 1
-        }
+        let path = freeFolder(branch, in: dir)
         try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
         var made: [String] = []
         do {
