@@ -34,8 +34,8 @@ public struct ArtifactCanvas: Codable, Equatable, Sendable {
     public var rows: [(title: String?, boards: [Board])] {
         var rows: [(title: String?, boards: [Board])] = []
         for board in boards {
-            if let row = board.row, let i = rows.firstIndex(where: { $0.title == row }) {
-                rows[i].boards.append(board)
+            if let row = board.row, let index = rows.firstIndex(where: { $0.title == row }) {
+                rows[index].boards.append(board)
             } else {
                 rows.append((board.row, [board]))
             }
@@ -161,9 +161,11 @@ public struct Tweak: Equatable, Sendable, Encodable {
 
     /// Returns the tweaks in a board, in order, at most 8.
     public static func all(in html: String) -> [Tweak] {
-        html.matches(of: line).prefix(8).map { m in
-            let options = m.output.3.map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }
-            return Tweak(name: String(m.output.1), value: String(m.output.2), options: options ?? [])
+        html.matches(of: line).prefix(8).map { match in
+            let options = match.output.3.map {
+                $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            }
+            return Tweak(name: String(match.output.1), value: String(match.output.2), options: options ?? [])
         }
     }
 

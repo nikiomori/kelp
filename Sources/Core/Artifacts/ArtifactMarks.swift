@@ -148,11 +148,11 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        marks = try c.decode([ArtifactMark].self, forKey: .marks)
-        edits = try c.decodeIfPresent([HandEdit].self, forKey: .edits) ?? []
-        suggestions = try c.decodeIfPresent([String].self, forKey: .suggestions) ?? []
-        next = max(try c.decodeIfPresent(Int.self, forKey: .next) ?? 1, (marks.map(\.id).max() ?? 0) + 1)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        marks = try container.decode([ArtifactMark].self, forKey: .marks)
+        edits = try container.decodeIfPresent([HandEdit].self, forKey: .edits) ?? []
+        suggestions = try container.decodeIfPresent([String].self, forKey: .suggestions) ?? []
+        next = max(try container.decodeIfPresent(Int.self, forKey: .next) ?? 1, (marks.map(\.id).max() ?? 0) + 1)
     }
 
     /// Returns the marks in a `notes.json`. A file from before marks had numbers (a list of drafts) reads as those
@@ -169,10 +169,10 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         guard data.first(where: { !Character(UnicodeScalar($0)).isWhitespace }) == UInt8(ascii: "[") else {
             return try decoder.decode(ArtifactMarks.self, from: data)
         }
-        let marks = try decoder.decode([Old].self, from: data).enumerated().map { i, m in
+        let marks = try decoder.decode([Old].self, from: data).enumerated().map { index, mark in
             ArtifactMark(
-                id: i + 1, kind: m.board.isEmpty ? .quote : .element, board: m.board, target: m.target,
-                text: m.text, note: m.note)
+                id: index + 1, kind: mark.board.isEmpty ? .quote : .element, board: mark.board, target: mark.target,
+                text: mark.text, note: mark.note)
         }
         return ArtifactMarks(next: marks.count + 1, marks: marks)
     }
@@ -260,15 +260,15 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         switch change.kind {
         case .drafts:
             var kept = marks.filter { $0.state != .draft }
-            for var d in change.drafts ?? [] {
-                d.state = .draft
+            for var draft in change.drafts ?? [] {
+                draft.state = .draft
                 // A draft that was sent meanwhile is that sent mark now, not a new draft.
-                if marks.contains(where: { $0.id == d.id && $0.state != .draft }) { continue }
-                if d.id == 0 { d.id = next }
-                next = max(next, d.id + 1)
+                if marks.contains(where: { $0.id == draft.id && $0.state != .draft }) { continue }
+                if draft.id == 0 { draft.id = next }
+                next = max(next, draft.id + 1)
                 // A draft sent again keeps what was said before.
-                if let old = marks.first(where: { $0.id == d.id }) { d.rounds = old.rounds }
-                kept.append(d)
+                if let old = marks.first(where: { $0.id == draft.id }) { draft.rounds = old.rounds }
+                kept.append(draft)
             }
             if let seen = change.id {
                 kept += marks.filter { m in m.state == .draft && m.id > seen && !kept.contains { $0.id == m.id } }
@@ -279,10 +279,11 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
         case .send:
             let ids = change.ids ?? []
             var any = false
-            for i in marks.indices where ids.contains(marks[i].id) && marks[i].state == .draft {
-                marks[i].rounds.append(.init(note: marks[i].note, at: now, to: change.to, before: change.before))
-                marks[i].note = ""
-                marks[i].state = .sent
+            for index in marks.indices where ids.contains(marks[index].id) && marks[index].state == .draft {
+                marks[index].rounds.append(
+                    .init(note: marks[index].note, at: now, to: change.to, before: change.before))
+                marks[index].note = ""
+                marks[index].state = .sent
                 any = true
             }
             if any { edits = [] }   // they went with these marks
@@ -322,9 +323,9 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
             return true
         case .edit:
             guard let edit = change.edit else { return false }
-            if let i = edits.firstIndex(where: { ($0.board, $0.id, $0.what) == (edit.board, edit.id, edit.what) }) {
-                edits[i].to = edit.to   // the first `from` stays: it's what the agent last saw
-                if edits[i].to == edits[i].from { edits.remove(at: i) }
+            if let index = edits.firstIndex(where: { ($0.board, $0.id, $0.what) == (edit.board, edit.id, edit.what) }) {
+                edits[index].to = edit.to   // the first `from` stays: it's what the agent last saw
+                if edits[index].to == edits[index].from { edits.remove(at: index) }
             } else {
                 edits.append(edit)
             }
@@ -335,12 +336,12 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     private mutating func set(
         _ id: Int?, from states: Set<ArtifactMark.State>, _ body: (inout ArtifactMark) -> Void
     ) -> Bool {
-        guard let id, let i = marks.firstIndex(where: { $0.id == id }), states.contains(marks[i].state) else {
+        guard let id, let index = marks.firstIndex(where: { $0.id == id }), states.contains(marks[index].state) else {
             return false
         }
-        let was = marks[i]
-        body(&marks[i])
-        return marks[i] != was
+        let was = marks[index]
+        body(&marks[index])
+        return marks[index] != was
     }
 
     /// Called when chat `session`'s turn ends. If the turn was the one that got this page's marks (its prompt holds
@@ -354,12 +355,12 @@ public struct ArtifactMarks: Codable, Equatable, Sendable {
     ) -> Bool {
         guard prompt.contains("Marks on \(page)") else { return false }
         var any = false
-        for i in marks.indices where marks[i].state == .sent {
-            guard var round = marks[i].rounds.last, round.to == nil || round.to == session else { continue }
+        for index in marks.indices where marks[index].state == .sent {
+            guard var round = marks[index].rounds.last, round.to == nil || round.to == session else { continue }
             round.after = after
-            round.outcome = outcome(marks[i], round)
-            marks[i].rounds[marks[i].rounds.count - 1] = round
-            marks[i].state = .check
+            round.outcome = outcome(marks[index], round)
+            marks[index].rounds[marks[index].rounds.count - 1] = round
+            marks[index].state = .check
             any = true
         }
         return any

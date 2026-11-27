@@ -63,11 +63,11 @@ extension VMService {
     /// Drives an Android machine's screen through adb. Screenshots and taps both use the screen's pixels.
     private func androidScreen(_ name: String, _ words: inout ScreenWords) throws -> String {
         let adb = try connect(name, cwd: nil).ssh   // `adb -s <emulator>`, after connect boots or wakes the emulator
-        @discardableResult func run(_ a: [String]) throws -> Data {
-            let out = try Subprocess.run(adb + a, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 120)
+        @discardableResult func run(_ args: [String]) throws -> Data {
+            let out = try Subprocess.run(adb + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 120)
             guard out.status == 0 else {
                 throw RPCError.internalError(
-                    "adb \(a.prefix(2).joined(separator: " ")): " + (Self.said(out.stderr) ?? ""))
+                    "adb \(args.prefix(2).joined(separator: " ")): " + (Self.said(out.stderr) ?? ""))
             }
             return out.stdout
         }
@@ -136,8 +136,8 @@ extension VMService {
             throw RPCError.internalError("\(name)'s simulator isn't up")
         }
         let app = words.flag("--app"), right = words.has("--right"), double = words.has("--double")
-        func runner(_ op: String, _ a: [String] = []) throws -> [String: Any] {
-            var request: [String: Any] = ["op": op, "args": a]
+        func runner(_ op: String, _ args: [String] = []) throws -> [String: Any] {
+            var request: [String: Any] = ["op": op, "args": args]
             if let app { request["app"] = app }
             guard let reply = IOSRunnerClient.ask(port: port, request) else {
                 throw RPCError.internalError("Kelp's runner didn't answer: kelp vm stop and start the machine.")
@@ -145,7 +145,9 @@ extension VMService {
             if let message = reply["error"] as? String { throw RPCError.invalidParams(message) }
             return reply
         }
-        func text(_ op: String, _ a: [String] = []) throws -> String { try runner(op, a)["text"] as? String ?? "" }
+        func text(_ op: String, _ args: [String] = []) throws -> String {
+            try runner(op, args)["text"] as? String ?? ""
+        }
         let simctl = to.ssh
         switch words.action {
         case "install": return try run(simctl + ["install", udid, try words.text(0)])

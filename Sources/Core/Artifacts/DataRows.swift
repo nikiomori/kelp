@@ -14,9 +14,9 @@ public enum DataRows {
         let split = separator(text)
         var rows: [[String]] = [], row: [String] = [], cell = "", quoted = false
         var chars = Array(text)[...]
-        while let c = chars.popFirst() {
+        while let char = chars.popFirst() {
             if quoted {
-                if c == "\"" {
+                if char == "\"" {
                     if chars.first == "\"" {
                         cell.append("\"")
                         chars = chars.dropFirst()
@@ -24,11 +24,11 @@ public enum DataRows {
                         quoted = false
                     }
                 } else {
-                    cell.append(c)
+                    cell.append(char)
                 }
                 continue
             }
-            switch c {
+            switch char {
             case "\"": quoted = true
             case split:
                 row.append(cell)
@@ -37,7 +37,7 @@ public enum DataRows {
                 row.append(cell)
                 rows.append(row)
                 (row, cell) = ([], "")
-            default: cell.append(c)
+            default: cell.append(char)
             }
         }
         if !cell.isEmpty || !row.isEmpty { rows.append(row + [cell]) }
@@ -63,8 +63,8 @@ public enum DataRows {
     /// The CSV files the page's elements take columns of, in the order they first appear.
     public static func files(in html: String) -> [String] {
         var seen: [String] = []
-        for m in html.matches(of: /\sdata-field="([^":]+):[^"]*"/) where !seen.contains(String(m.output.1)) {
-            seen.append(String(m.output.1))
+        for match in html.matches(of: /\sdata-field="([^":]+):[^"]*"/) where !seen.contains(String(match.output.1)) {
+            seen.append(String(match.output.1))
         }
         return seen
     }
@@ -73,19 +73,20 @@ public enum DataRows {
     /// text, or a picture's `src`, as the page shows it live (`kelpRow`). A row past the end is the last.
     public static func fill(_ html: String, row: Int, tables: [String: [[String]]]) -> String {
         var out = html, from = 0
-        while let m = out[out.index(out.startIndex, offsetBy: from)...].firstMatch(
+        while let match = out[out.index(out.startIndex, offsetBy: from)...].firstMatch(
             of: /<([a-zA-Z][\w-]*)\b[^>]*?\sdata-field="([^":]+):([^"]*)"[^>]*>/)
         {
-            let tag = m.range, at = out.distance(from: out.startIndex, to: tag.lowerBound)
+            let tag = match.range, at = out.distance(from: out.startIndex, to: tag.lowerBound)
             from = out.distance(from: out.startIndex, to: tag.upperBound)
-            guard let table = tables[String(m.output.2)], table.count > 1,
-                let i = table[0].firstIndex(of: String(m.output.3))
+            guard let table = tables[String(match.output.2)], table.count > 1,
+                let column = table[0].firstIndex(of: String(match.output.3))
             else { continue }
-            let cells = table[min(max(row, 1), table.count - 1)], value = i < cells.count ? cells[i] : ""
-            if m.output.1.lowercased() == "img" {
+            let cells = table[min(max(row, 1), table.count - 1)], value = column < cells.count ? cells[column] : ""
+            if match.output.1.lowercased() == "img" {
                 let src = #" src=""# + BoardEdit.escape(value).replacingOccurrences(of: "\"", with: "&quot;") + "\""
                 var opening = String(out[tag]).replacing(/\ssrc="[^"]*"/, with: "")
-                opening.insert(contentsOf: src, at: opening.index(opening.startIndex, offsetBy: m.output.1.count + 1))
+                opening.insert(
+                    contentsOf: src, at: opening.index(opening.startIndex, offsetBy: match.output.1.count + 1))
                 out.replaceSubrange(tag, with: opening)
                 from = at + opening.count
             } else if let whole = BoardEdit.elementRange(out, tag: tag),

@@ -58,21 +58,21 @@ public enum MotionPresets {
                 exit = attribute(text, "data-kelp-out").map(parse)
             guard entrance != nil || exit != nil else { continue }
             var own: [String] = []
-            if let e = entrance {
-                if e.name == "letters" || e.name == "words" {
+            if let entering = entrance {
+                if entering.name == "letters" || entering.name == "words" {
                     used.insert("rise")
-                    let step = e.name == "letters" ? 0.035 : 0.12
+                    let step = entering.name == "letters" ? 0.035 : 0.12
                     rules.append(
-                        "[data-id='\(id)'] > span { display: inline-block; animation: kelp-rise \(e.length)s "
-                            + "\(e.easing) calc(\(e.start)s + var(--i) * \(number(step))s) both; }")
+                        "[data-id='\(id)'] > span { display: inline-block; animation: kelp-rise \(entering.length)s "
+                            + "\(entering.easing) calc(\(entering.start)s + var(--i) * \(number(step))s) both; }")
                 } else {
-                    used.insert(e.name)
-                    own.append("kelp-\(e.name) \(e.length)s \(e.easing) \(e.start)s both")
+                    used.insert(entering.name)
+                    own.append("kelp-\(entering.name) \(entering.length)s \(entering.easing) \(entering.start)s both")
                 }
             }
-            if let x = exit {
-                used.insert(x.name)
-                own.append("kelp-\(x.name) \(x.length)s \(x.easing) \(x.start)s both")
+            if let leaving = exit {
+                used.insert(leaving.name)
+                own.append("kelp-\(leaving.name) \(leaving.length)s \(leaving.easing) \(leaving.start)s both")
             }
             if !own.isEmpty { rules.append("[data-id='\(id)'] { animation: \(own.joined(separator: ", ")); }") }
         }
@@ -108,11 +108,11 @@ public enum MotionPresets {
         }
         let parts =
             words ? text.split(separator: " ", omittingEmptySubsequences: true).map(String.init) : text.map(String.init)
-        var i = 0
+        var index = 0
         let html = parts.map { part -> String in
             if part == " " { return " " }
-            defer { i += 1 }
-            return "<span style=\"--i: \(i)\">\(BoardEdit.escape(part))</span>"
+            defer { index += 1 }
+            return "<span style=\"--i: \(index)\">\(BoardEdit.escape(part))</span>"
         }.joined(separator: words ? " " : "")
         return BoardEdit.setInner(page, id: id, html: html)
     }
@@ -123,11 +123,11 @@ public enum MotionPresets {
         var out = page, any = false
         for which in [Which.entrance, .exit] {
             guard let value = BoardEdit.attribute(out, id: id, name: "data-kelp-\(which.rawValue)") else { continue }
-            let p = parse(value), start = max((Double(p.start) ?? 0) + shift, 0)
+            let parsed = parse(value), start = max((Double(parsed.start) ?? 0) + shift, 0)
             guard
                 let set = BoardEdit.setAttribute(
                     out, id: id, name: "data-kelp-\(which.rawValue)",
-                    value: "\(p.name) \(p.length) \(p.easing) \(number(start))")
+                    value: "\(parsed.name) \(parsed.length) \(parsed.easing) \(number(start))")
             else { return nil }
             (out, any) = (set, true)
         }
@@ -136,9 +136,10 @@ public enum MotionPresets {
 
     /// What an attribute value says: preset, seconds, easing, start.
     public static func parse(_ value: String) -> (name: String, length: String, easing: String, start: String) {
-        let p = value.split(separator: " ").map(String.init)
+        let parts = value.split(separator: " ").map(String.init)
         return (
-            p.first ?? "fade", p.count > 1 ? p[1] : "0.6", p.count > 2 ? p[2] : "ease-out", p.count > 3 ? p[3] : "0"
+            parts.first ?? "fade", parts.count > 1 ? parts[1] : "0.6", parts.count > 2 ? parts[2] : "ease-out",
+            parts.count > 3 ? parts[3] : "0"
         )
     }
 
@@ -149,5 +150,5 @@ public enum MotionPresets {
         return String(tag[at.upperBound..<end])
     }
 
-    static func number(_ v: Double) -> String { String(format: "%g", (v * 1000).rounded() / 1000) }
+    static func number(_ value: Double) -> String { String(format: "%g", (value * 1000).rounded() / 1000) }
 }

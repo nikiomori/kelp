@@ -13,10 +13,10 @@ public struct DashboardSource: Equatable, Sendable {
         do { parsed = try JSONSerialization.jsonObject(with: Data(json.utf8)) } catch { return [] }
         guard let sources = (parsed as? [String: Any])?["sources"] as? [String: Any] else { return [] }
         return sources.keys.sorted().compactMap { name in
-            guard let s = sources[name] as? [String: Any], let run = s["run"] as? String, !run.isEmpty else {
+            guard let source = sources[name] as? [String: Any], let run = source["run"] as? String, !run.isEmpty else {
                 return nil
             }
-            return DashboardSource(name: name, run: run, map: s["map"] as? String ?? "text")
+            return DashboardSource(name: name, run: run, map: source["map"] as? String ?? "text")
         }
     }
 
@@ -34,15 +34,15 @@ public struct DashboardSource: Equatable, Sendable {
         if map == "length" { return (json as? [Any]).map { String($0.count) } }
         var at: Any? = json
         for key in map.split(separator: ".") {
-            if let list = at as? [Any], let i = Int(key) {
-                at = list.indices.contains(i) ? list[i] : nil
+            if let list = at as? [Any], let index = Int(key) {
+                at = list.indices.contains(index) ? list[index] : nil
             } else {
                 at = (at as? [String: Any])?[String(key)]
             }
         }
         switch at {
-        case let s as String: return s
-        case let n as NSNumber: return n.stringValue
+        case let string as String: return string
+        case let number as NSNumber: return number.stringValue
         default: return nil
         }
     }
