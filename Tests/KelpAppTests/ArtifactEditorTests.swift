@@ -351,3 +351,36 @@ extension AppOfItsOwn {
         try await waitFor { gone == nil }   // the read answered, and the bar let go
     }
 }
+
+extension OneAtATime {
+    /// The versions column's foot is a panel bar that sizes itself: no second height pinned on it, which AppKit has to
+    /// break at every text size.
+    @Test func theVersionsColumnAsksForNoHeightItCantHave() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/kelp-versions-foot/.kelp/artifacts/home/page.md")
+        let app = AppModel()
+        let tab = MarkdownTab(editor: CodeEditor(text: "# Home", url: url), url: url, app: app)
+        let bar = ArtifactBar(app: app, path: url.path, markdown: tab)   // the panel holds it unowned
+        var panel: VersionsPanel? = VersionsPanel(bar: bar)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400), styleMask: [], backing: .buffered,
+            defer: true)
+        window.contentView = panel
+        weak let gone = panel
+        window.layoutIfNeeded()
+        func all(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(all) }
+        // Heights set as numbers, not the system's own content sizes (those may give way by design), measured as
+        // constraints measure them: a separator's frame is wider than its line.
+        let broken = all(try #require(panel)).flatMap(\.constraints).filter { c in
+            guard type(of: c) == NSLayoutConstraint.self, c.isActive, c.priority == .required, c.relation == .equal,
+                c.secondItem == nil, c.firstAttribute == .height, let view = c.firstItem as? NSView
+            else { return false }
+            return abs(view.alignmentRect(forFrame: view.frame).height - c.constant) > 0.5
+        }
+        #expect(broken.isEmpty, "heights AppKit had to break: \(broken)")
+        // Its read of the kept names still runs and reads the bar: the bar stays until the panel is gone.
+        (window.contentView, panel) = (nil, nil)
+        try await waitFor { gone == nil }
+        withExtendedLifetime(bar) {}
+    }
+}

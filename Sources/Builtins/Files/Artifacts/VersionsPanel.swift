@@ -59,7 +59,6 @@ final class VersionsPanel: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         let all = stacked(body, foot)
         pin(all)
         widthAnchor.constraint(equalToConstant: Metrics.popoverWidth).isActive = true
-        foot.heightAnchor.constraint(equalToConstant: Metrics.panelHeader).isActive = true
         table.menu = NSMenu()
         table.menu?.delegate = self
         reload()
