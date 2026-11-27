@@ -27,20 +27,13 @@ struct ServerSide: View {
             .onChange(of: app.worktrees) { _, trees in screens = projects.screens(in: trees) }
     }
 
-    /// Re-read on project changes or an edit to a marker, not on every stats reading or session event.
+    /// Re-read when the projects change, not on every stats reading or session event. A remote project's marker is
+    /// written before its project is listed, so the list changing is when to look.
     private func followProjects(_ repos: [Repo]) async {
-        let (changes, feed) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        // This tree holds the local stand-ins, not the files on the servers. Moving a whole folder can change a
-        // marker without an event for the marker file itself.
-        let watcher = FileWatcher(root: Paths.root.appendingPathComponent("remote").path) { _ in feed.yield(()) }
-        defer { withExtendedLifetime(watcher) { feed.finish() } }
-        feed.yield(())
-        for await _ in changes {
-            let next = await Task.detached(priority: .utility) { ServerProjects(repos) }.value
-            guard !Task.isCancelled else { return }
-            projects = next
-            screens = next.screens(in: app.worktrees)
-        }
+        let next = await Task.detached(priority: .utility) { ServerProjects(repos) }.value
+        guard !Task.isCancelled else { return }
+        projects = next
+        screens = next.screens(in: app.worktrees)
     }
 
     /// The column's lists, each under its title: a list with nothing in it is left out, but for the agents (whose
