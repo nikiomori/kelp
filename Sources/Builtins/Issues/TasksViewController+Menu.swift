@@ -25,6 +25,7 @@ extension TasksViewController {
         menu.removeAllItems()
         guard let row = row(at: table.clickedRow), let repoId else { return }
         switch row {
+        case .task(let task): return fillTaskMenu(menu, task)
         case .pr(let pr):
             let work = PRWork(app: app, repoId: repoId, pr: pr)
             menu.add(String(localized: "Open in New Tab")) { [app] in
@@ -47,9 +48,11 @@ extension TasksViewController {
                 IssueWork(app: app, repoId: repoId).startOnBranch(issue)
             }
             menu.add(String(localized: "Start Here")) { [app] in IssueWork(app: app, repoId: repoId).startHere(issue) }
+            addTaskItem(menu, title: issue.title, url: issue.url)
         case .linear, .jira, .item:
             if let brief = Self.brief(row) {
                 menu.add(String(localized: "Start Agent on This")) { [app] in IssueWork.startHere(app, brief) }
+                if let title = brief["title"], let url = brief["url"] { addTaskItem(menu, title: title, url: url) }
             }
         }
         guard let url = row.url else { return }
@@ -63,7 +66,7 @@ extension TasksViewController {
         case .linear(let issue):
             ["ref": issue.identifier, "title": issue.title, "body": issue.description ?? "", "url": issue.url]
         case .jira(let issue): ["ref": issue.key, "title": issue.title, "body": issue.description, "url": issue.url]
-        case .pr, .issue, .item: nil
+        case .pr, .issue, .item, .task: nil
         }
     }
 }

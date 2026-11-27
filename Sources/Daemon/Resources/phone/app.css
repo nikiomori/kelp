@@ -550,3 +550,10 @@ button.cell:active:not(:disabled) { transform: none; }
 @keyframes settle { from { opacity: 0; transform: scale(0.96); } }
 /* A pointer shows what a click would open. */
 @media (hover: hover) { .row:not(.current):hover { background-color: var(--fill); } }
+
+/* The project's tasks in the start sheet: words, what the agent does, ▶. */
+.tasks { list-style: none; margin: 0; padding: 0; }
+.task { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.task-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-state { font-size: 13px; opacity: .6; }
+.task-state.asks { color: #c76b00; opacity: 1; font-weight: 600; }

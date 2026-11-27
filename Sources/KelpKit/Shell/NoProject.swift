@@ -65,8 +65,13 @@ final class NoProject: NSObject {
         // object alive).
         InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, me in
-                guard let me else { return noErr }
+            { _, event, me in
+                // Other hot keys of Kelp's (Quick Entry's ⌃⌥⌘T) come to the same target: only ours is taken.
+                var id = EventHotKeyID()
+                GetEventParameter(
+                    event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                    MemoryLayout<EventHotKeyID>.size, nil, &id)
+                guard let me, id.signature == OSType(0x4B524C4C) else { return OSStatus(eventNotHandledErr) }
                 let np = Unmanaged<NoProject>.fromOpaque(me).takeUnretainedValue()
                 DispatchQueue.main.async { np.newChat() }
                 return noErr

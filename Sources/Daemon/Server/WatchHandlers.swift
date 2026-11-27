@@ -162,7 +162,7 @@ extension Daemon {
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesFileList), backsOffFrom: 10) {
                 [self] _ in await filesRead(key, first: first.take())
             }
-        case .artifacts: return artifactsTopic(key)
+        case .artifacts, .tasks: return watch.topic == .tasks ? TaskStore.topic(key, store, line) : artifactsTopic(key)
         case .databases:
             // The workspace's files are read again (a .env or compose file may have changed); what ran is in memory.
             return Watches.Topic(

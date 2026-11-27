@@ -515,6 +515,8 @@ private func size(_ png: Data) -> [Int] {
     #expect(try await phone.ask("POST", "agents/\(id)/stop", n: next()).status == 204)
     #expect(try await p.c.call(SessionList()).first { $0.id == id }?.status != .exited)
 
+    try await aPhoneWritesAndRunsATask(p) { try await phone.ask($0, $1, $2, n: next()) }
+
     // A Claude Code agent's conversation, from its transcript.
     var chat = Session(
         worktreeId: session.worktreeId, cwd: p.repo.path, command: "claude", agent: "claude",
@@ -614,4 +616,23 @@ private func size(_ png: Data) -> [Int] {
     down.ssh = "/usr/bin/false"
     #expect(d.agentUsage.conversations.remoteTail(of: session, on: down) == nil)
     _ = try await c.call(SessionKill(id: session.id))   // its tmux session on the "host" ends with it
+}
+
+/// A task written down on the phone goes to the project's inbox, and ▶ starts an agent on it with its chat linked.
+private func aPhoneWritesAndRunsATask(
+    _ p: World, _ ask: (String, String, JSONValue?) async throws -> PhoneBridge.Reply
+) async throws {
+    func tasks() async throws -> [JSONValue] {
+        try #require(try await ask("GET", "projects/\(p.repo.id)/tasks", nil).body?["tasks"]?.array)
+    }
+    #expect(try await ask("POST", "projects/\(p.repo.id)/tasks", .object(["text": .string(" ")])).status == 400)
+    _ = try await ask("POST", "projects/\(p.repo.id)/tasks", .object(["text": .string("Dark diff")]))
+    let task = try #require(try await tasks().first)
+    #expect(task["text"]?.string == "Dark diff" && task["status"] == .null)
+    let ran = try await ask(
+        "POST", "projects/\(p.repo.id)/taskrun",
+        .object(["path": task["path"] ?? .null, "id": task["id"] ?? .null, "agent": .string("menu")]))
+    let runner = try #require(ran.body?["id"]?.string)
+    let lines = try await p.c.call(TaskList(repoId: p.repo.id)).flatMap(\.tasks)
+    #expect(lines.first { $0.text == "Dark diff" }?.chats == [runner])
 }

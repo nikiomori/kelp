@@ -219,15 +219,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 
     nonisolated static func section(_ time: Double, now: Date, calendar: Calendar = .current) -> String {
-        let date = Date(timeIntervalSince1970: time), today = calendar.startOfDay(for: now)
-        if date >= today { return String(localized: "Today") }
-        if let yesterday = calendar.date(byAdding: .day, value: -1, to: today), date >= yesterday {
-            return String(localized: "Yesterday")
-        }
-        if let week = calendar.date(byAdding: .day, value: -7, to: today), date >= week {
-            return String(localized: "Previous 7 Days")
-        }
-        return String(localized: "Earlier")
+        DaySections.title(time, now: now, calendar: calendar)
     }
 
     /// Returns the title without the project's name in front ("Kelp — review 232f2997" in Kelp becomes "Review

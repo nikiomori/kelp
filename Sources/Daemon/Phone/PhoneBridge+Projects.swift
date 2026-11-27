@@ -137,8 +137,60 @@ extension PhoneBridge {
                 let started = try await call(SessionCreate(worktreeId: workspace.id, agent: kind, prompt: prompt))
                 return Reply(status: 200, body: .object(["id": .string(started.id)]))
             } catch { return .failed(403, error.rpcMessage) }
+        case ("GET", "tasks"): return Reply(status: 200, body: .object(["tasks": .array(await openTasks(of: repo))]))
+        case ("POST", "tasks"):
+            let text = sent?["text"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !text.isEmpty else { return .failed(400, "Send {\"text\"}.") }
+            do {
+                let made = try await call(TaskAdd(repoId: repo.id, text: text))
+                return Reply(status: 200, body: .object(["id": .string(made.task.id ?? "")]))
+            } catch { return .failed(403, error.rpcMessage) }
+        case ("POST", "taskrun"): return await runTask(in: repo, sent)
         default: return .failed(404, "No such path.")
         }
+    }
+
+    /// The project's open tasks, as the Tasks tab's Open list holds them, with what each one's newest chat does.
+    private func openTasks(of repo: Repo) async -> [JSONValue] {
+        let store = store
+        let pages = await offloaded { TaskStore.pages(root: repo.path) } ?? []
+        return pages.flatMap { page in
+            page.tasks.filter { $0.state == .open && $0.depth == 0 }.map { task in
+                let chat = task.chats?.last.flatMap { id in
+                    Log.session.attempt("reading a task's chat") { try store.session(id) } ?? nil
+                }
+                return JSONValue.object([
+                    "id": .string(task.id ?? ""), "line": .int(task.line), "text": .string(task.title),
+                    "page": .string(page.title), "path": .string(page.path),
+                    "section": task.section.map(JSONValue.string) ?? .null,
+                    "proposed": .bool(task.proposed == true),
+                    "status": chat.map { .string($0.status.rawValue) } ?? .null
+                ])
+            }
+        }
+    }
+
+    /// Starts an agent on a task (`path`, `id` or `line`), as ▶ does in Kelp: in the project's first workspace, told
+    /// the task, with KELP_TASK set, its chat linked to the line.
+    private func runTask(in repo: Repo, _ sent: JSONValue?) async -> Reply {
+        guard settings[SettingKeys.phoneStartAgents] else {
+            return .failed(403, "Starting agents from a phone is turned off in Kelp's Settings.")
+        }
+        guard let path = sent?["path"]?.string, let kind = sent?["agent"]?.string,
+            await kinds().contains(where: { $0.id == kind }), path.hasPrefix(Artifacts.dir(root: repo.path).path + "/")
+        else { return .failed(400, "Send {\"path\", \"id\", \"agent\"}.") }
+        guard let workspace = firstWorkspace(of: repo) else { return .failed(409, "This project has no workspace.") }
+        let ref = TaskRef(id: sent?["id"]?.string, line: sent?["line"]?.int)
+        do {
+            guard let task = try await call(TaskChange(path: path, task: ref)), let id = task.id else {
+                return .failed(404, "No such task.")
+            }
+            var create = SessionCreate(worktreeId: workspace.id, agent: kind, prompt: TaskLines.brief(task, page: path))
+            create.env = ["KELP_TASK": id]
+            let started = try await call(create)
+            _ = try await call(TaskChange(path: path, task: TaskRef(id: id), chat: started.id))
+            return Reply(status: 200, body: .object(["id": .string(started.id)]))
+        } catch { return .failed(403, error.rpcMessage) }
     }
 
     /// The conversation fields of GET agents/<id>. The relay passes at most a megabyte. They carry a fingerprint,
@@ -153,11 +205,12 @@ extension PhoneBridge {
         let reply = detail.reply.map { JSONValue.string(String($0.suffix(200_000))) }
         var fields: [String: JSONValue] = ["lastReply": reply ?? .null]
         if !detail.turns.isEmpty {
-            fields["turns"] = .array(detail.turns.map { turn in
-                var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
-                if let at = turn.at { fields["at"] = .string(at) }
-                return .object(fields)
-            })
+            fields["turns"] = .array(
+                detail.turns.map { turn in
+                    var fields: [String: JSONValue] = ["role": .string(turn.role.rawValue), "text": .string(turn.text)]
+                    if let at = turn.at { fields["at"] = .string(at) }
+                    return .object(fields)
+                })
         }
         guard fields != ["lastReply": .null] else { return fields }
         let print = String(UInt(bitPattern: fields.hashValue), radix: 36)
