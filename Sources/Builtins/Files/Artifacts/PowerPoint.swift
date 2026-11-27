@@ -125,7 +125,8 @@ enum PowerPoint {
         let columns = max(rows.map(\.count).max() ?? 1, 1), height = Int(text.h * 6_858_000) / max(rows.count, 1)
         let width = Int(text.w * 12_192_000) / columns
         let look =
-            #"<a:rPr lang="en-US" sz="\#(Int((text.size * 100).rounded()))"><a:solidFill><a:srgbClr val="\#(text.colour)"/>"#
+            #"<a:rPr lang="en-US" sz="\#(Int((text.size * 100).rounded()))"><a:solidFill>"#
+            + #"<a:srgbClr val="\#(text.colour)"/>"#
             + #"</a:solidFill><a:latin typeface="\#(escape(text.font))"/></a:rPr>"#
         let body = rows.enumerated().map { r, row in
             let cells = (0..<columns).map { column in

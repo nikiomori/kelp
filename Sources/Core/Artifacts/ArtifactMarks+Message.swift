@@ -52,7 +52,8 @@ extension ArtifactMarks {
             let note =
                 (asked.isEmpty ? "look at this" : asked)
                 + (question
-                    ? " (a question: answer it with `kelp artifact reply \(name) \(mark.id) \"…\"`, change nothing for it)"
+                    ? " (a question: answer it with `kelp artifact reply \(name) \(mark.id) \"…\"`, "
+                        + "change nothing for it)"
                     : "")
             lines.append(([head] + what.filter { !$0.isEmpty }).joined(separator: " ") + ": " + note)
             if let more = details[mark.id] { lines.append("  (\(more))") }
