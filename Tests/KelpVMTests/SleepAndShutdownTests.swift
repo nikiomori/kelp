@@ -56,7 +56,7 @@ extension IOSRuntimeOnAStandIn {
     /// Idle, it's shut down (here a slow `simctl shutdown`): a start meanwhile isn't told it runs, it boots again once
     /// the shutdown is through, and ticks meanwhile ask for no second shutdown.
     @Test(.timeLimit(minutes: 1)) func aStartDuringAnIdleShutdownBootsAgain() async throws {
-        let (vm, folder) = try iOS(simctl: #"case "$2" in shutdown) sleep 1 ;; esac"#)
+        let (vm, folder) = try iOS(simctl: #"case "$2" in shutdown) \#(untilTheGateOpens) ;; esac"#)
         defer { putAway(folder) }
         vm.exitProcess = {}
         #expect(await askIOS(vm, .start) == nil)
@@ -64,7 +64,11 @@ extension IOSRuntimeOnAStandIn {
         vm.tick()
         vm.tick()
         #expect(vm.state == .off, "off from when it's asked")
-        #expect(await askIOS(vm, .start) == nil)
+        let again = await withCheckedContinuation { c in
+            vm.handle(.init(op: .start)) { c.resume(returning: $0) }
+            openGate(folder)   // the start is asked while the shutdown goes on
+        }
+        #expect(again == nil)
         #expect(vm.state == .running)
         let calls = try xcrunCalls(folder)
         #expect(calls.filter { $0.hasPrefix("simctl shutdown") }.count == 1)
@@ -78,13 +82,17 @@ extension IOSRuntimeOnAStandIn {
     /// The memory budget's sleep while it boots (here a slow `bootstatus`) leaves it booting: the start that waits on it
     /// is answered, and kelp-vm stays.
     @Test(.timeLimit(minutes: 1)) func theBudgetsSleepLeavesABootingOneBooting() async throws {
-        let (vm, folder) = try iOS(simctl: #"case "$2" in bootstatus) sleep 1 ;; esac"#)
+        let (vm, folder) = try iOS(simctl: #"case "$2" in bootstatus) \#(untilTheGateOpens) ;; esac"#)
         defer { putAway(folder) }
         var ended = false
         vm.exitProcess = { ended = true }
         let start = Task { await askIOS(vm, .start) }
         #expect(try await waitFor { vm.state == .starting })
-        #expect(await withCheckedContinuation { c in vm.handle(.sleepIfIdle) { c.resume(returning: $0) } } == nil)
+        let slept = await withCheckedContinuation { c in
+            vm.handle(.sleepIfIdle) { c.resume(returning: $0) }
+            openGate(folder)   // the sleep is asked while it boots
+        }
+        #expect(slept == nil)
         #expect(await start.value == nil)
         #expect(vm.state == .running && !ended)
         vm.exitProcess = {}

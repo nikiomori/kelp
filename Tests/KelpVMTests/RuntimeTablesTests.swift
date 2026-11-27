@@ -129,12 +129,16 @@ extension IOSRuntimeOnAStandIn {
             (.starting, .quitIfDown, .says("in use again"), .running, false)
         ]
         for (from, asked, answer, state, exits) in rows {
-            let (vm, folder) = try iOS(simctl: from == .starting ? #"[ "$2" = bootstatus ] && sleep 1"# : "")
+            let (vm, folder) = try iOS(
+                simctl: from == .starting ? #"[ "$2" = bootstatus ] && { \#(untilTheGateOpens); }"# : "")
             defer { putAway(folder) }
             var ended = false
             vm.exitProcess = { ended = true }
-            func ask(_ request: VMHelper.Request) async -> String? {
-                await withCheckedContinuation { c in vm.handle(request) { c.resume(returning: $0) } }
+            func ask(_ request: VMHelper.Request, then: () -> Void = {}) async -> String? {
+                await withCheckedContinuation { c in
+                    vm.handle(request) { c.resume(returning: $0) }
+                    then()
+                }
             }
             var booting: Task<String?, Never>?
             switch from {
@@ -147,7 +151,7 @@ extension IOSRuntimeOnAStandIn {
             }
             let row = "\(from), \(asked)"
             #expect(vm.state == "\(from)".vmState, "\(row): set up")
-            let said = await ask(asked.request)
+            let said = await ask(asked.request) { openGate(folder) }   // a boot under way goes on once it's asked
             #expect(answer.fits(said), "\(row): said \(said ?? "nothing")")
             #expect(try await waitFor(5) { vm.state == state }, "\(row): \(vm.state), not \(state)")
             if exits { #expect(try await waitFor(5) { ended }, "\(row): kelp-vm ends") }
