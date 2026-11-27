@@ -31,8 +31,7 @@ enum TaskStore {
             let text = String(decoding: data, as: UTF8.self), tasks = TaskLines.parse(text)
             let isList = slug == listSlug, goal = TaskLines.goal(text)
             guard isList || !tasks.isEmpty || goal != nil else { continue }
-            var info = stat()
-            let modified = stat(path, &info) == 0 ? Double(info.st_mtimespec.tv_sec) : nil
+            let modified = fm.modified(path).map { $0.timeIntervalSince1970.rounded(.down) }
             pages.append(
                 TaskPage(
                     path: path, slug: slug, title: record.title, modified: modified, tasks: tasks,

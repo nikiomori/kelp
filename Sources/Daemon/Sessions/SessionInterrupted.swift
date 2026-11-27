@@ -33,10 +33,8 @@ enum Interruptions {
     /// When the last daemon stopped hearing from a session it lost without stopping (a crash): when its log was last
     /// written, or else when its status last changed.
     static func lastHeard(_ session: Session, root: URL) -> Date {
-        var info = stat()
-        let log = root.appendingPathComponent("history/\(session.id).log").path
-        guard stat(log, &info) == 0 else { return session.statusAt ?? session.createdAt }
-        return Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec))
+        FileManager.default.modified(root.appendingPathComponent("history/\(session.id).log").path)
+            ?? session.statusAt ?? session.createdAt
     }
 
     /// Marks the agents at work as cut short, before the daemon stops them all (`Daemon.stop`).
