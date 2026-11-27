@@ -44,6 +44,7 @@ import Testing
         "Sources/DesignKit/Glyph.swift: symbolCache": "NSCache is thread-safe; the images it hands out aren't changed",
         "Sources/DesignKit/Formatting.swift: spanFormatters": "NSCache is thread-safe, and so is formatting",
         "Sources/DesignKit/LoadingView.swift: patience": "a test's knob, set and read on the main thread",
+        "Sources/DesignKit/LoadingView.swift: held": "a test's knob, set and read on the main thread",
         "Sources/Builtins/Databases/EnginePresets.swift: text": "made once and only read by the image's drawing block",
         "Sources/KelpKit/App/Updates.swift: install":
             "Sparkle's block, called on the main thread where it was handed over"

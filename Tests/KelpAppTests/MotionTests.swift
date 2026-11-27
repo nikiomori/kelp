@@ -137,22 +137,24 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(ghost?.layer?.animation(forKey: "opacity")?.duration == Motion.fast)
 }
 
-/// What a wait shows stays up for a moment, so an answer right behind it doesn't make it blink. A wait that showed
-/// nothing holds no answer up.
-@MainActor @Test func aShownWaitStaysUpForAMoment() async {
-    let wait = LoadingView()
-    let window = onScreen(wait)
-    defer { offScreen(window) }
-    var asked = Date.now
-    await wait.settled()
-    #expect(Date.now.timeIntervalSince(asked) < 0.1)
-    wait.show("Reading the list…")
-    asked = .now
-    await wait.settled()
-    #expect(Date.now.timeIntervalSince(asked) >= LoadingView.held - 0.05)
-}
-
 extension OneAtATime {
+    /// What a wait shows stays up for a moment (`held`, shortened here), so an answer right behind it doesn't make it
+    /// blink. A wait that showed nothing holds no answer up.
+    @Test func aShownWaitStaysUpForAMoment() async {
+        LoadingView.held = 0.1
+        defer { LoadingView.held = 0.4 }
+        let wait = LoadingView()
+        let window = onScreen(wait)
+        defer { offScreen(window) }
+        var asked = Date.now
+        await wait.settled()
+        #expect(Date.now.timeIntervalSince(asked) < LoadingView.held / 2)
+        asked = .now   // before it shows, so all of `held` is after it
+        wait.show("Reading the list…")
+        await wait.settled()
+        #expect(Date.now.timeIntervalSince(asked) >= LoadingView.held - 0.01)
+    }
+
     /// A wait for a first answer says nothing at first, so a quick answer changes nothing on screen, and shows once the
     /// wait has lasted. The answer ends the wait, whether or not it had shown: one answered at once never shows, not even
     /// by the time a wait started after it does.
