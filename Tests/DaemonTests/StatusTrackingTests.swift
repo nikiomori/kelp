@@ -273,6 +273,18 @@ private func onHost() -> LiveSession.State {
     }
 }
 
+/// The guess mark follows where the status came from even when the status stays: a working row read off the screen is
+/// marked, and a hook saying "working" again takes the mark off.
+@Test func theGuessMarkFollowsItsSourceWhileTheStatusStays() {
+    var s = hooked()
+    s.hook(.working)
+    #expect(s.sync()?.guessed == nil)
+    s.detector.hooksSilent()   // still working, now read off the screen
+    #expect(s.sync() != nil && s.record.guessed == true)
+    s.hook(.working)
+    #expect(s.sync() != nil && s.record.guessed == nil)
+}
+
 /// Notifications that ask nothing leave the row alone (a finished background agent turned an idle row into "needs you").
 @Test func aNotificationThatAsksNothingIsNoQuestion() async throws {
     let w = try await world()
