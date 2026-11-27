@@ -139,7 +139,7 @@ extension HostBrowser {
             }
             var note: String?
             if let wid = worktree(session) {
-                if Self.isLoopback(url) {
+                if BrowserWords.isLoopback(host: URLComponents(string: url)?.host) {
                     let here = forwards.forward(url: url, in: wid, remote)
                     params["url"] = .string(here)
                     let (asked, got) = (URLComponents(string: url)?.port, URLComponents(string: here)?.port)
@@ -239,12 +239,6 @@ extension HostBrowser {
                 try forwards.forward("localhost:\(port.port)", in: wid, remote)
             }
         }
-    }
-
-    /// Whether an address is a loopback one, which the host means as its own.
-    static func isLoopback(_ url: String) -> Bool {
-        guard let host = URLComponents(string: url)?.host?.lowercased() else { return false }
-        return ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].contains(host) || host.hasSuffix(".localhost")
     }
 
     /// Text with this Mac's forwarded ports put back as the host's (`localhost:3001` → `localhost:3000`), and a note

@@ -241,10 +241,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         return app.latest(PortsEvent.self, wid)?.ports.contains { ($0.host == nil ? $0.port : $0.here) == port } == true
     }
 
-    static func isLocal(_ url: URL) -> Bool {
-        ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].contains(url.host?.lowercased() ?? "")
-            || url.host?.hasSuffix(".localhost") == true
-    }
+    static func isLocal(_ url: URL) -> Bool { BrowserWords.isLoopback(host: url.host) }
 
     /// Shows the agent's strip (an agent drove the page) in its current state.
     func showAgentBar() {

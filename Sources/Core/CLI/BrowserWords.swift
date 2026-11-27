@@ -179,6 +179,12 @@ public enum BrowserWords {
         [params["key"]?.string, params["ref"]?.string ?? params["to"]?.string].compactMap { $0 }.joined(separator: " ")
     }
 
+    /// Whether a URL's host is this Mac's loopback: localhost (or a name under it), 127.0.0.1, 0.0.0.0 or ::1.
+    public static func isLoopback(host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].contains(host) || host.hasSuffix(".localhost")
+    }
+
     /// Returns the URL for an address as typed. `localhost:3000` and `127.0.0.1:8080` become http, and a bare host
     /// becomes https.
     public static func address(_ typed: String) -> String {
