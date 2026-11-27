@@ -43,18 +43,22 @@ enum AgentRules {
 private struct FenceCheck {
     let store: Store, live: SessionTable, databases: Databases
 
+    /// A report, hook or comment that names another session than the caller's.
+    static let speaksForItself =
+        "A session speaks only for itself: name your own session (`$KELP_SESSION`), not another's."
+
     func allow(_ method: any Answered, _ caller: Caller) throws {
         switch caller {
         case .user: return
         case .session(let own):
             if let id = method.fence.reportsFor, own != id {
-                throw RPCError.refused("A session speaks only for itself.")
+                throw RPCError.refused(Self.speaksForItself)
             }
             guard try store.forAnAgent(own) else { return }
             try allowAgent(method, own: own)
         case .typedAgent(let own):
             if let id = method.fence.reportsFor, own != id {
-                throw RPCError.refused("A session speaks only for itself.")
+                throw RPCError.refused(Self.speaksForItself)
             }
             try allowAgent(method, own: own, typed: true)
         case .unknown:
@@ -187,14 +191,17 @@ private struct FenceCheck {
                 try store.works(own, in: $0.id, typed: typed)
             })
         {
-            throw RPCError.refused("An agent makes workspaces only in the project it works in.")
+            throw RPCError.refused(
+                "An agent makes workspaces only in the project it works in: make it there, or ask the user to "
+                    + "make one in the other project.")
         }
         if let ending = method.fence.ends,
             try store.ending(ending).contains(where: { session in
                 try (typed || session != own) && !reaches(session)
             })
         {
-            throw RPCError.refused("An agent ends only its own sessions and the ones it started.")
+            throw RPCError.refused(
+                "An agent ends only its own sessions and the ones it started: ask the user to end the others.")
         }
     }
 }
@@ -221,7 +228,9 @@ extension Store {
             let parts = Mirror(reflecting: value).children
             // Params nested deeper than any method's are refused, not taken to name nobody.
             guard depth < 6 || parts.isEmpty else {
-                throw RPCError.refused("Kelp can't tell which sessions this call names.")
+                throw RPCError.refused(
+                    "Kelp can't tell which sessions this call names: its params nest deeper than any method's. Send "
+                        + "the method's own fields.")
             }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }

@@ -182,7 +182,11 @@ struct BrowserRelay {
 
     fileprivate func driver(_ conn: Int, words: String) throws -> Driver {
         guard let own = asks.store.agent(origin: Sessions.asker) else { return (nil, nil) }
-        guard let session = own else { throw RPCError.refused("This browser command needs a Kelp session.") }
+        guard let session = own else {
+            throw RPCError.refused(
+                "This browser command needs a Kelp session, and Kelp can't tell which one ran it: run it from a "
+                    + "terminal of Kelp's.")
+        }
         guard HostBrowser.page == nil, let live = asks.existing(session) else { return (session, nil) }
         var call: String?, thread = LiveSession.BrowserThread.unknown
         if live.snapshot.agent == Session.codexAgent, let pid = asks.clients.connection(conn)?.peerPID {

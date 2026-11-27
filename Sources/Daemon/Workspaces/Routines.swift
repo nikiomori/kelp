@@ -291,8 +291,8 @@ extension RoutineSet: AsyncHandled {
             guard answer == "allow" else {
                 throw RPCError.refused(
                     answer == "deny"
-                        ? "The user didn't allow the routine \(routine.name)."
-                        : "Nobody answered: \(routine.name) wasn't added.")
+                        ? "The user didn't allow the routine \(routine.name): don't add it again unless they ask."
+                        : "Nobody answered: \(routine.name) wasn't added. Ask again when the user is back.")
             }
         }
         return try await sessions.offloads.run { [self] in try routines.set(routine) }
