@@ -4,7 +4,7 @@ import Quartz
 
 /// Quick Look (Space) for the chosen task: the page it grew into, or the page it is on, as Artifacts Overview shows a
 /// page and Files a file.
-extension TasksController: @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate {
+extension TasksController: @preconcurrency QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     func togglePreview() {
         guard let panel = QLPreviewPanel.shared() else { return }
         if panel.isVisible {

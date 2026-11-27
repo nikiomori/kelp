@@ -111,7 +111,7 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     defer { try? FileManager.default.removeItem(at: other.root) }
     let theirs = try TaskAdd(repoId: other.repo.id, text: "Theirs").handle(other.store)
     _ = try p.store.save(Repo(id: other.repo.id, name: "other", path: other.root.path))
-    try Sessions.$asker.withValue(p.agent.id) {
+    Sessions.$asker.withValue(p.agent.id) {
         #expect(throws: RPCError.self) {
             try TaskChange(path: theirs.path, task: TaskRef(theirs.task), state: .done).handle(p.store)
         }
@@ -124,7 +124,7 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     let p = try project()
     defer { try? FileManager.default.removeItem(at: p.root) }
     let made = try TaskAdd(repoId: p.repo.id, text: "Search chats").handle(p.store)
-    try Sessions.$asker.withValue(p.agent.id) {
+    Sessions.$asker.withValue(p.agent.id) {
         #expect(throws: RPCError.self) {
             try TaskChange(path: made.path, task: TaskRef(made.task), grow: "Plan").handle(p.store)
         }
@@ -151,7 +151,7 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     defer { try? FileManager.default.removeItem(at: p.root) }
     let first = try TaskAdd(repoId: p.repo.id, text: "Search chats").handle(p.store)
     let second = try TaskAdd(repoId: p.repo.id, text: "Index transcripts", chat: "s1").handle(p.store)
-    try Sessions.$asker.withValue(p.agent.id) {
+    Sessions.$asker.withValue(p.agent.id) {
         #expect(throws: RPCError.self) {
             try TaskChange(path: second.path, task: TaskRef(second.task), move: second.path, under: "Later").handle(
                 p.store)

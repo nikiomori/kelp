@@ -54,7 +54,8 @@ import WorkbenchKit
     own.color = .systemOrange
     own.title = "Checkout"
     pages.drives("p1", own, handle: tab)
-    var mark: RowMark? = try #require(BrowserMarks.row(.agent("s1"), app).first)
+    let first = try #require(BrowserMarks.row(.agent("s1"), app).first)
+    var mark: RowMark? = first
     #expect(mark?.place == .button && mark?.glow == nil && mark?.tip == "Its page: Checkout")
     var sub = AgentPages.Page(session: "s1", subagent: "a1", workspace: "w", tab: "t1")
     sub.color = .systemOrange

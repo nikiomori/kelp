@@ -68,7 +68,7 @@ extension WorkspaceActions {
                 WorkspaceActions.closing.insert(group.id).inserted
             else { continue }
             // Throws only when cancelled, and then the group stays.
-            Task { () async throws in
+            _ = Task { () async throws in
                 defer {
                     WorkspaceActions.closing.remove(group.id)
                     app.workbench.timeUp.remove(group.id)

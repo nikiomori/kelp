@@ -189,7 +189,7 @@ struct PostgresRun: DatabaseRunner {
                     + "WHERE application_name = '\(name)' AND pid <> pg_backend_pid()"
             ]
         // On a thread of its own, not a slot: the Stop comes from a quick call, and the slots may all be held
-        return try DatabaseStop.during({ Task { try await Slots.elsewhere { Self.end(end, env: env) } } }) {
+        return try DatabaseStop.during({ _ = Task { try await Slots.elsewhere { Self.end(end, env: env) } } }) {
             try DatabaseStop.program(psql + arguments, env: env, stdin: stdin, timeLimit: timeout)
         }
     }

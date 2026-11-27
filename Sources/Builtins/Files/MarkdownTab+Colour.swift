@@ -52,8 +52,10 @@ extension MarkdownTab {
     nonisolated static func contrast(_ a: NSColor, _ b: NSColor) -> Double {
         let lum = { (c: NSColor) -> Double in
             let s = c.usingColorSpace(.sRGB) ?? c
-            let v = [s.redComponent, s.greenComponent, s.blueComponent].map { Double($0) }.map {
-                $0 <= 0.03928 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4)
+            // Typed: left to inference, this took 2 s to type-check
+            let v = [s.redComponent, s.greenComponent, s.blueComponent].map { (c: CGFloat) -> Double in
+                let x = Double(c)
+                return x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4)
             }
             return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
         }

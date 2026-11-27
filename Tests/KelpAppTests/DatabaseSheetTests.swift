@@ -16,7 +16,7 @@ extension AppOfItsOwn {
         var sheet: DatabaseSheet? = DatabaseSheet(app: rig.app, worktreeId: rig.workspace.id)
         let db = DatabaseInfo(name: "x", engine: .postgres, host: "127.0.0.1", port: 1, database: "x")
         sheet?.openForm(DatabaseAddress(database: db))
-        weak var form = sheet?.pane, closed = sheet
+        weak let form = sheet?.pane, closed = sheet
         func all(_ view: NSView) -> [NSView] { view.subviews.flatMap { [$0] + all($0) } }
         let fields = all(try #require(sheet?.window.contentView)).compactMap { $0 as? NSTextField }
         // Yielding (not sleeping) between looks, so the sheet goes while the check waits for its answer.

@@ -134,7 +134,7 @@ extension AgentUsage {
         do {
             let inStore = Set(try store.sessions().compactMap(\.agent)), fm = FileManager.default
             return Set(
-                try Self.planProbes.map(\.agent).filter { agent in
+                Self.planProbes.map(\.agent).filter { agent in
                     let mark = dir.appendingPathComponent("\(agent).used")
                     var at = fm.modified(mark.path)
                     if inStore.contains(agent), at.map({ $0 < now - 86400 }) ?? true {

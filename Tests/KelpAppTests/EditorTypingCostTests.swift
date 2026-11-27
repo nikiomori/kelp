@@ -43,7 +43,7 @@ extension OneAtATime {
     /// over the whole of a 5 MB file each time.
     @Test func theSameLookAgainTouchesNoText() {
         let e = shown("let a = 1\n", "look.swift")
-        var edits = 0
+        nonisolated(unsafe) var edits = 0   // posted on this thread, as the edits happen
         let seen = NotificationCenter.default.addObserver(
             forName: NSTextStorage.didProcessEditingNotification, object: e.textView.textStorage, queue: nil
         ) { _ in edits += 1 }

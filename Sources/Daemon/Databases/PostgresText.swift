@@ -228,7 +228,7 @@ enum PostgresText {
         guard addr.count == 16,
             addr.withUnsafeBytes({ inet_ntop(AF_INET6, $0.baseAddress, &out, socklen_t(out.count)) }) != nil
         else { return "" }
-        return String(cString: out)
+        return String(decoding: out.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     /// Writes an array as psql does, such as `{1,2,NULL}`, nested for more dimensions. Elements are quoted where psql

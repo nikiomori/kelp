@@ -72,7 +72,7 @@ final class QuickEntry: NSObject, NSTextFieldDelegate {
         ground.layer?.cornerRadius = Metrics.radiusXL
         panel.contentView = ground
 
-        let box = NSImageView(image: .symbol("square") ?? NSImage())
+        let box = NSImageView(image: .symbol("square"))
         box.contentTintColor = .secondaryLabelColor
         field.isBordered = false
         field.drawsBackground = false

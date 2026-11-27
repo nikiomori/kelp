@@ -51,9 +51,8 @@ import Testing
     let grok = UsageView.Line(
         label: "Week", used: 0.47, resets: "Sat", resetAt: now.addingTimeInterval(32 * 3600), window: week, kind: "week"
     )
-    #expect(
-        PlanOutlook.of(grok, agent: "grok", stale: false, forecast: forecast, now: now)
-            == .atReset(47 + 47.0 / 136 * 32))
+    let atReset: Double = 47 + 47.0 / 136 * 32
+    #expect(PlanOutlook.of(grok, agent: "grok", stale: false, forecast: forecast, now: now) == .atReset(atReset))
     // 84 % in 78 hours fills about 15 hours on, days before the reset.
     let claude = UsageView.Line(
         label: "Week", used: 0.84, resets: "Tue", resetAt: now.addingTimeInterval(90 * 3600), window: week, kind: "week"

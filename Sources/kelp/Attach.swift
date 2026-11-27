@@ -24,7 +24,7 @@ enum Attach {
 
         // Raw mode sends every key to the agent as typed, and the agent's terminal handles echo and line editing.
         let saved = isatty(0) == 1 ? Main.rawTerminal() : nil
-        func restore() {
+        @Sendable func restore() {
             if var attributes = saved { tcsetattr(0, TCSANOW, &attributes) }
         }
 
