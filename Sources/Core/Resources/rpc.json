@@ -6157,6 +6157,21 @@
         ],
         "type" : "object"
       },
+      "TaskAdd.Result" : {
+        "properties" : {
+          "path" : {
+            "type" : "string"
+          },
+          "task" : {
+            "$ref" : "#/components/schemas/TaskLine"
+          }
+        },
+        "required" : [
+          "path",
+          "task"
+        ],
+        "type" : "object"
+      },
       "TaskFromIssue.Result" : {
         "properties" : {
           "session" : {
@@ -6174,6 +6189,174 @@
           "session",
           "setupNeedsTrust",
           "worktree"
+        ],
+        "type" : "object"
+      },
+      "TaskLine" : {
+        "description" : "One task: a `- [ ]` line on a page of Kelp's (`.kelp/artifacts`). Kelp's own facts about it ride at the end of the line in a comment the page doesn't show, `<!-- k:7f3a chats:<session>,… -->`, so they move with the line when it is cut and pasted elsewhere. A line gets an id only once something needs one (a chat, a change from the list); a line written by hand is a task all the same.",
+        "properties" : {
+          "at" : {
+            "type" : "number"
+          },
+          "by" : {
+            "type" : "string"
+          },
+          "chats" : {
+            "description" : "The chats started for the task, oldest first.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "depth" : {
+            "description" : "How far in the line is set: 0 for a task of its own, 1 for a step under one, and so on.",
+            "type" : "integer"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "issue" : {
+            "description" : "The issue the task came from (GitHub, Linear, Jira), by its link.",
+            "type" : "string"
+          },
+          "line" : {
+            "description" : "The 1-based line in its page, as read.",
+            "type" : "integer"
+          },
+          "proposed" : {
+            "description" : "True for a line an agent wrote that the person hasn't taken yet. `by` is that agent's session, `at` when.",
+            "type" : "boolean"
+          },
+          "section" : {
+            "description" : "The heading the line is under (`## Inbox`), without its `#`s. nil before the first heading under the title.",
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/TaskState"
+          },
+          "text" : {
+            "description" : "The line's words, without its box and Kelp's comment.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "depth",
+          "line",
+          "state",
+          "text"
+        ],
+        "type" : "object"
+      },
+      "TaskListNames" : {
+        "description" : "What the project's list is called when a first task makes it: its title and its first heading (the inbox), in the words of the one who writes (the window's language; English from the CLI).",
+        "properties" : {
+          "inbox" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "inbox",
+          "title"
+        ],
+        "type" : "object"
+      },
+      "TaskPage" : {
+        "description" : "One page's task lines, as the Tasks tab lists them.",
+        "properties" : {
+          "goal" : {
+            "description" : "What \"done\" means for the task this page grew from (its **Done when:** line, `TaskLines.goal`).",
+            "type" : "string"
+          },
+          "isList" : {
+            "description" : "True for the project's own list (`Tasks · <project>`), where Quick Entry writes.",
+            "type" : "boolean"
+          },
+          "modified" : {
+            "description" : "When the file was last saved, seconds since 1970.",
+            "type" : "number"
+          },
+          "path" : {
+            "description" : "The page's file.",
+            "type" : "string"
+          },
+          "sections" : {
+            "description" : "The page's `##` headings in order; on the project's list the first is its inbox.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "slug" : {
+            "description" : "The page's folder name in `.kelp/artifacts`, and its title.",
+            "type" : "string"
+          },
+          "tasks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TaskLine"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "path",
+          "slug",
+          "tasks",
+          "title"
+        ],
+        "type" : "object"
+      },
+      "TaskRef" : {
+        "description" : "Which task a change is for: by its id, or, for a line with none yet, by its line and words (so a line that moved since it was read isn't changed by mistake).",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "integer"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
+      "TaskState" : {
+        "description" : "What the person decided about a task: still to do, done, or given up (`- [ ]`, `- [x]`, `- [-]`). What an agent is doing with it is never stored: it is worked out from the task's chats.",
+        "enum" : [
+          "open",
+          "done",
+          "cancelled"
+        ],
+        "type" : "string"
+      },
+      "TasksEvent" : {
+        "description" : "A watched project's task pages (`WatchTopic.tasks`), read again when its `.kelp/artifacts` changes: the project's list first, then the other pages with tasks, the latest changed first. `error` says why they couldn't be read.",
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "pages" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TaskPage"
+            },
+            "type" : "array"
+          },
+          "repo" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "pages",
+          "repo"
         ],
         "type" : "object"
       },
@@ -6954,6 +7137,7 @@
           "databases",
           "phone",
           "prs",
+          "tasks",
           "work"
         ],
         "type" : "string"
@@ -15234,6 +15418,144 @@
       "x-internal" : true
     },
     {
+      "description" : "Adds a task line. It goes on the page `path` names, or on the project's list (made with `names` if there is none yet), as the last line under the heading `under`, or under the first heading. The project is `repoId`, or the one that holds `cwd`. A line from an agent's program is `proposed`, whatever the call says, and an agent may propose at most `TaskAdd.proposalsPerTurn` lines a turn. `chat` links a chat started for the task; `issue` is the issue it came from (a line with that issue already gets the chat instead of a second line). Returns the page and the line written.",
+      "name" : "task.add",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "chat",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "cwd",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "issue",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "names",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TaskListNames"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "repoId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "text",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "under",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/TaskAdd.Result"
+        }
+      }
+    },
+    {
+      "description" : "Changes the task `task` names on the page `path`: its `state`, taking an agent's proposal (`accept`), adding a `chat` started for it, or removing the line (`remove`; refused while chats are linked). Only the person closes or cancels a task line: an agent's program may tick the steps under one (an indented line), and cancel what it proposed. `grow` makes the line a page of its own (the person's alone): a page titled with the line's words, a **Done when:** line in `goalLabel`'s words, a heading named `grow` for its plan, and the line becomes a link to it. Returns the line as written, or nil once removed.",
+      "name" : "task.change",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "accept",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "chat",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "goalLabel",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "grow",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "remove",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/TaskState"
+          }
+        },
+        {
+          "name" : "task",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/TaskRef"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/TaskLine"
+        }
+      }
+    },
+    {
       "description" : "Starts work on an issue or task: a branch with its number, a worktree, and an agent briefed with the issue's text. The session is titled \"ref title\". The brief waits unsent unless `draft` is false, as the issue's author wrote it.",
       "name" : "task.fromIssue",
       "paramStructure" : "by-name",
@@ -15362,6 +15684,36 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/TaskFromIssue.Result"
+        }
+      }
+    },
+    {
+      "description" : "The task pages of the project `repoId` names, or of the project that holds `cwd`, as `TasksEvent` sends them.",
+      "name" : "task.list",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cwd",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "repoId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/TaskPage"
+          },
+          "type" : "array"
         }
       }
     },
@@ -16478,6 +16830,13 @@
       "name" : "event.suggestPull",
       "params" : {
         "$ref" : "#/components/schemas/SuggestPullEvent"
+      }
+    },
+    {
+      "description" : "A watched project's task pages (`WatchTopic.tasks`), read again when its `.kelp/artifacts` changes: the project's list first, then the other pages with tasks, the latest changed first. `error` says why they couldn't be read.",
+      "name" : "event.tasks",
+      "params" : {
+        "$ref" : "#/components/schemas/TasksEvent"
       }
     },
     {

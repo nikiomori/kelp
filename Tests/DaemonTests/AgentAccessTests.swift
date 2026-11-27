@@ -22,13 +22,13 @@ import Testing
         SessionContextParts.self, SessionContextWindow.self, SessionLastReply.self, SessionList.self,
         SessionRead.self, SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self,
         SessionTurns.self, SessionUsage.self, SessionWhy.self, SessionWork.self, SettingsGet.self, SkillsBrowser.self,
-        StateGet.self, TmuxList.self, UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self,
+        StateGet.self, TaskList.self, TmuxList.self, UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self,
         VMList.self, WatchStart.self, WatchStop.self, WorktreeDirty.self, WorktreeList.self,
         WorktreeUnmerged.self
     ]
     let acts: [any RPCMethod.Type] = [
         ArtifactAdd.self, ArtifactAsk.self, ArtifactChange.self, ArtifactKeepAssets.self, ArtifactNew.self,
-        ArtifactReply.self, ArtifactSuggest.self, CommentAdd.self,
+        ArtifactReply.self, ArtifactSuggest.self, CommentAdd.self, TaskAdd.self, TaskChange.self,
         CommentSend.self, CommitPlanAdd.self,
         DatabaseDiff.self, DatabaseList.self, DatabaseQuery.self, DatabaseSchemaRead.self, ExtensionFetch.self,
         GitHunk.self,

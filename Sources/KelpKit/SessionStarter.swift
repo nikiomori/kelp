@@ -15,14 +15,15 @@ package struct SessionStarter {
     /// of the agent's own (an extension's `session` action).
     package func newAgent(
         _ agent: String? = nil, prompt: String? = nil, draft: Bool = false, split: SplitDirection? = nil,
-        focus: Bool = true, model: String? = nil, env: [String: String]? = nil, args: [String]? = nil
+        focus: Bool = true, model: String? = nil, env: [String: String]? = nil, args: [String]? = nil,
+        created: ((Session) -> Void)? = nil
     ) {
         var create = SessionCreate(
             worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent(in: area.worktree),
             model: model?.isEmpty == false ? model : nil, prompt: prompt?.isEmpty == false ? prompt : nil,
             draft: draft ? true : nil)
         (create.env, create.args) = (env, args)
-        createSession(create, split: split, focus: focus)
+        createSession(create, split: split, focus: focus, created: created)
     }
     package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
         createSession(SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: split, focus: focus)

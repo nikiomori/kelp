@@ -288,7 +288,7 @@ extension Daemon {
     static let methods: [String: any Answered.Type] = {
         let all: [any Answered.Type] =
             [DaemonInfo.self] + Methods.addonMethods + Methods.commentMethods + Methods.commitPlanMethods
-            + Methods.daemonMethods
+            + Methods.daemonMethods + Methods.taskMethods
             + Methods.databaseApplyMethods
             + Methods.databaseMethods + Methods.databaseHealthMethods + Methods.databaseImportMethods
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods

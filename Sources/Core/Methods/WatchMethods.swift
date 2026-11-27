@@ -55,6 +55,9 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case phone
     /// A project's open pull requests (`PRsEvent`), read every 2 minutes while watched. Key: repo id.
     case prs
+    /// A project's task lines (`TasksEvent`), read when the `.kelp/artifacts` of its own folder changes. Nothing is
+    /// pushed for a remote project. Key: repo id.
+    case tasks
     /// Where an agent worked (`WorkEvent`): its conversations' sizes, read every 2 s while the Work panel or the Map
     /// tab is on screen. Key: session id.
     case work

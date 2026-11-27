@@ -232,7 +232,11 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +2: a branch's pull request is kept by the shell (`PREvent`'s `key`, `forgottenWith`), not Git's alone, because the
     // Agents Overview puts a chat in review or done by it.
     // −3: the daemon and the sidebar share the project color and its stored representation in Core.
-    #expect(declared == 389, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +43: tasks are drawn and acted on alike by the Tasks built-in and the Issues panel's Tasks source: the lists
+    // (`TaskViews`, `TaskSource`, `TaskRow`, `TaskWork`, the board's `TaskColumn`), what a person does to a task (`TaskActions`: tick, run, the
+    // menu, add, grow, remove, a chat's task for the Agents Overview), the row both draw (`TaskCell`), the days a
+    // logbook groups by (`DaySections`, with Artifacts), and `TasksEvent`'s key.
+    #expect(declared == 432, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

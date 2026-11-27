@@ -12,7 +12,7 @@ extension TasksViewController {
         switch row {
         case .pr(let pr): return ForgeRows.height(title: pr.title, width: width)
         case .issue(let issue): return ForgeRows.height(title: issue.title, width: width)
-        case .linear, .jira, .item: return TextSize.of(Metrics.rowTwoLine)
+        case .linear, .jira, .item, .task: return TextSize.of(Metrics.rowTwoLine)
         }
     }
     /// A heading isn't picked. A ⌘-click leaves the pick as it was, because it opens the row's page (`clicked`), not
@@ -42,6 +42,7 @@ extension TasksViewController {
             case .jira: "Jira"
             case .item: "GitHub"
             case .pr, .issue: site
+            case .task(let task): task.task.issueRef?.hasPrefix("#") == true ? site : "Linear"
             }
         if row.url != nil {
             view.toolTip = [view.toolTip, String(localized: "⌘-click: open on \(place)")].compactMap { $0 }
@@ -54,12 +55,15 @@ extension TasksViewController {
         switch row {
         case .pr(let pr):
             let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false
-            return ForgeRows.pr(pr, worktree: folder, unseen: unseen.contains(pr.number))
+            return ForgeRows.pr(
+                pr, worktree: folder, unseen: unseen.contains(pr.number), task: task(branch: pr.headRefName)?.task.title
+            )
         case .issue(let issue):
             let working = app.worktrees.contains {
                 $0.repoId == repoId && $0.issue == "#\(issue.number)" && !$0.archived
             }
-            return ForgeRows.issue(issue, working: working)
+            return ForgeRows.issue(issue, working: working, task: task(issue: issue.url))
+        case .task(let task): return taskCell(task)
         case .linear, .jira, .item: return trackerCell(row)
         }
     }
@@ -74,6 +78,7 @@ extension TasksViewController {
             case .item(let item): (item.title, "\(item.status ?? String(localized: "No status")) · \(item.type)")
             case .pr(let pr): ("#\(pr.number)  \(pr.title)", pr.author)
             case .issue(let issue): ("#\(issue.number)  \(issue.title)", "")
+            case .task(let task): (task.task.title, task.place)
             }
         let t1 = NSTextField(labelWithString: title)
         t1.font = .ui(TextSize.row)   // a list's row, as a pull request's in Issues & PRs
@@ -107,10 +112,15 @@ extension TasksViewController {
                 table.reloadData(forRowIndexes: [table.selectedRow], columnIndexes: [0])
             }
         case .issue(let issue)?: open(.issue, issue.number)
-        case .linear?, .jira?, .item?, nil: break
+        case .linear?, .jira?, .item?, .task?, nil: break
         }
         let tracker =
-            picked.map { if case .pr = $0 { false } else if case .issue = $0 { false } else { true } } ?? false
+            picked.map {
+                switch $0 {
+                case .pr, .issue, .task: false
+                case .linear, .jira, .item: true
+                }
+            } ?? false
         showDetailPane(tracker)
         showDetail(tracker ? picked : nil)
     }

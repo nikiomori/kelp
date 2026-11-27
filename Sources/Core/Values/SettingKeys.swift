@@ -35,6 +35,7 @@ public enum SettingKeys {
     public static let skillVM = Setting("agents.skills.vm", true)
     public static let skillDatabases = Setting("agents.skills.databases", true)
     public static let skillRoutines = Setting("agents.skills.routines", true)
+    public static let skillTasks = Setting("agents.skills.tasks", true)
     /// What agents may do with a database Kelp found, until the database's own menu says otherwise: "read", "ask" or
     /// "free".
     public static let databaseAccess = Setting("databases.agents", "ask")
