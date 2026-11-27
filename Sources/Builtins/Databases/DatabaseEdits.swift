@@ -59,13 +59,13 @@ struct DatabaseEdits: Equatable {
         let primaries = primary.compactMap { columns.firstIndex(of: $0) }
         let keyed = !primaries.isEmpty && primaries.count == primary.count
         let keys = keyed ? primaries : Array(columns.indices)
-        let name = Self.name(table, engine)
+        let name = engine.table(table)
         func literal(_ value: String?, _ column: Int) -> String {
             engine.literal(value, type: types[columns[column]] ?? "")
         }
         func match(_ row: Int) -> String {
             keys.map { key in
-                let old = rows[row][key], column = Self.name(columns[key], engine)
+                let old = rows[row][key], column = engine.table(columns[key])
                 // Without a key every column is compared, as Kelp shows it (json has no "=", a bool shows as "t")
                 if !keyed { return engine.shows(column, old, type: types[columns[key]] ?? "") }
                 return column + (old == nil ? " IS NULL" : " = \(literal(old, key))")
@@ -88,7 +88,7 @@ struct DatabaseEdits: Equatable {
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
             let set = changed.keys.sorted().filter { !DatabaseInfo.Engine.standIn(changed[$0] ?? nil) }.map {
-                "\(Self.name(columns[$0], engine)) = \(literal(changed[$0] ?? nil, $0))"
+                "\(engine.table(columns[$0])) = \(literal(changed[$0] ?? nil, $0))"
             }
             guard !set.isEmpty else { return nil }
             return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
@@ -98,7 +98,7 @@ struct DatabaseEdits: Equatable {
                 row[$0] != nil && !DatabaseInfo.Engine.standIn(row[$0]) && columns.indices.contains($0)
             }
             guard !given.isEmpty else { return Self.defaults(name, engine) }
-            return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
+            return "INSERT INTO \(name) (" + given.map { engine.table(columns[$0]) }.joined(separator: ", ")
                 + ") VALUES (" + given.map { literal(row[$0], $0) }.joined(separator: ", ") + ")"
         }
         return deletes + updates + inserts
@@ -112,7 +112,4 @@ struct DatabaseEdits: Equatable {
         case .postgres, .sqlite, .duckdb: "INSERT INTO \(table) DEFAULT VALUES"
         }
     }
-
-    /// Quotes a table or column name for the engine (`DatabaseInfo.Engine.table`).
-    static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String { engine.table(name) }
 }

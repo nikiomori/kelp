@@ -28,8 +28,8 @@ import Testing
         edits.statements(table: "t", engine: .mysql, columns: ["a", "b", "c"], primary: [], rows: rows) == [
             "UPDATE `t` SET `b` = 'o''k', `c` = NULL WHERE `a` = '2' AND `b` = 'it''s' AND `c` = 'x' LIMIT 1"
         ])
-    #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public.my``t`")   // a "." of MySQL's is the name's
-    #expect(DatabaseEdits.name("audit.my\"t", .postgres) == #""audit"."my""t""#)
+    #expect(DatabaseInfo.Engine.mysql.table("public.my`t") == "`public.my``t`")   // a "." of MySQL's is the name's
+    #expect(DatabaseInfo.Engine.postgres.table("audit.my\"t") == #""audit"."my""t""#)
     #expect(DatabaseInfo.Engine.mysql.literal(#"a\b"#) == #"'a\\b'"#)
 }
 

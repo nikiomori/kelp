@@ -16,13 +16,13 @@ extension DatabaseTab {
         guard part.selectedSegment == 0 else { return showStructure() }
         let info = current?.columns ?? [], primary = info.filter(\.primary).map(\.name)
         filters.use(columns: info.isEmpty ? grid.columns : info.map(\.name), engine: engine)
-        var sql = "SELECT * FROM " + DatabaseEdits.name(name, engine)
+        var sql = "SELECT * FROM " + engine.table(name)
         let condition = filters.condition
         if !condition.isEmpty { sql += " WHERE " + condition }
         if !grid.orders.isEmpty {
             sql +=
                 " ORDER BY "
-                + grid.orders.map { DatabaseEdits.name($0.column, engine) + ($0.ascending ? " ASC" : " DESC") }
+                + grid.orders.map { engine.table($0.column) + ($0.ascending ? " ASC" : " DESC") }
                 .joined(separator: ", ")
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
@@ -107,7 +107,7 @@ extension DatabaseTab {
 
     /// Counts how many rows the filter leaves. The server stops a count that takes too long.
     private func count(_ name: String, _ condition: String) async -> Int? {
-        let sql = "SELECT count(*) FROM " + DatabaseEdits.name(name, engine) + " WHERE " + condition
+        let sql = "SELECT count(*) FROM " + engine.table(name) + " WHERE " + condition
         let answer = await app.quiet(DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql))
         return (answer?.rows.first?.first ?? nil).flatMap { Int($0) }
     }
@@ -316,14 +316,14 @@ extension DatabaseTab {
     func definition(_ table: DatabaseSchema.Table) -> String {
         let lines =
             table.columns.map { column in
-                "  " + DatabaseEdits.name(column.name, engine) + " " + column.type
+                "  " + engine.table(column.name) + " " + column.type
                     + (column.nullable ? "" : " NOT NULL")
-                    + (column.target.map { " REFERENCES " + DatabaseEdits.name($0.table, engine) + "(\($0.column))" }
+                    + (column.target.map { " REFERENCES " + engine.table($0.table) + "(\($0.column))" }
                         ?? "")
             }
-            + [table.columns.filter(\.primary).map { DatabaseEdits.name($0.name, engine) }].filter { !$0.isEmpty }
+            + [table.columns.filter(\.primary).map { engine.table($0.name) }].filter { !$0.isEmpty }
             .map { "  PRIMARY KEY (" + $0.joined(separator: ", ") + ")" }
-        return "CREATE TABLE " + DatabaseEdits.name(table.name, engine) + " (\n" + lines.joined(separator: ",\n")
+        return "CREATE TABLE " + engine.table(table.name) + " (\n" + lines.joined(separator: ",\n")
             + "\n);"
     }
 

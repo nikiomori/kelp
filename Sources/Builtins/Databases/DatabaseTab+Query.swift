@@ -70,7 +70,7 @@ extension DatabaseTab {
         sidebar.current = nil
         arrange()
         if editor.text.isEmpty, let from {   // selected, so typing a statement of one's own replaces it
-            editor.setText("SELECT * FROM " + DatabaseEdits.name(from, engine) + " LIMIT 100;")
+            editor.setText("SELECT * FROM " + engine.table(from) + " LIMIT 100;")
             editor.select(NSRange(location: 0, length: (editor.text as NSString).length))
         }
         grid.editable = false
