@@ -37,28 +37,25 @@ struct BrowserRequests {
         let page = Self.ownPage(tabs, session: owner, last: last)
         guard action == .open else {
             guard let page else { throw Self.noPage }
+            if let site = last?.sharedSite, session != nil, !allows(site) {
+                pages.browsed[scope] = nil
+                throw RPCError.refused("The user took back their login on \(site).")
+            }
             return try await browse(page, in: wid, action, args)
         }
 
         guard let url = args["url"]?.string, !url.isEmpty else { throw RPCError.invalidParams("open needs url") }
-        if args["shared"]?.bool == true {
-            guard !remote, subagent == nil else {
-                throw RPCError.invalidParams("Use kelp browser open without --shared from a subagent or remote host.")
+        // kelpd alone says an open gets the user's login (`BrowserRelay.login`); it refused `--shared` without it.
+        if let site = args["yourLogin"]?.string {
+            // A command from outside Kelp's chats (a script, an agent in another terminal app) has no row to ask on:
+            // a site not in the list is asked for here, as `--shared` always was.
+            if session == nil, !allows(site), await !Self.allowOutside(site) {
+                throw RPCError.refused("The user didn't let this command use their login on \(site).")
             }
-            guard let site = Self.sharedSite(url) else {
-                throw RPCError.invalidParams("open --shared needs an HTTP or HTTPS site.")
-            }
-            if let page, last?.tab == page.id, last?.sharedSite == site {
-                return try await browse(page, in: wid, .open, args)
-            }
-            let caller = session.flatMap { app.session($0)?.displayTitle } ?? String(localized: "This browser command")
-            guard await Self.allowShared(site, caller: caller) else {
-                throw RPCError.invalidParams(
-                    "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
-            }
-            guard let page = app.workbench.openBeside(url, in: wid, reuse: false) else { throw Self.noPage }
-            pages.browsed[scope] = AgentPages.Visit(tab: page.id, sharedSite: site)
-            return try await browse(page, in: wid, .info, args)
+            return try await openWithLogin(site, url, scope, tabs, args)
+        }
+        guard args["shared"]?.bool != true else {
+            throw RPCError.refused("The user didn't let you use their login there.")
         }
 
         let privatePage = last?.sharedSite == nil ? page : Self.ownPage(tabs, session: owner, last: nil)
@@ -76,23 +73,52 @@ struct BrowserRequests {
         return try await browse(page, in: wid, remote || subagent != nil ? .open : .info, args)
     }
 
-    private static func allowShared(_ site: String, caller: String) async -> Bool {
+    /// Opens `url` with the user's login from Kelp's browser, in a page tab of the chat's own beside it: the one it
+    /// used for `site` before, while that is still on the site. A subagent uses its chat's. Which tab that is lives in
+    /// the daemon's UI state too, because a plain page's address can't name its chat, and after a restart the chat
+    /// would otherwise open the site in one more tab.
+    /// Limit: an entry stays after its tab closes (one short key per chat and site); the next open writes it over.
+    private func openWithLogin(
+        _ site: String, _ url: String, _ scope: AgentPages.Scope, _ tabs: [TabRef], _ args: JSONValue
+    ) async throws -> JSONValue {
+        let pages = AgentPages.of(app), wid = scope.workspace
+        let chat = AgentPages.Scope(workspace: wid, owner: scope.owner, subagent: nil)
+        let key = "browserLogin/\(wid)/\(scope.owner)/\(site)"
+        let known = app.uiState[key]?.string.map { AgentPages.Visit(tab: $0, sharedSite: site) }
+        if let last = pages.browsed[chat] ?? known, last.sharedSite == site,
+            let page = Self.ownPage(tabs, session: scope.owner, last: last)
+        {
+            pages.browsed[scope] = last
+            return try await browse(page, in: wid, .open, args, login: site)
+        }
+        guard let page = app.workbench.openBeside(url, in: wid, reuse: false) else { throw Self.noPage }
+        pages.browsed[chat] = AgentPages.Visit(tab: page.id, sharedSite: site)
+        pages.browsed[scope] = pages.browsed[chat]
+        app.uiState[key] = .string(page.id)
+        return try await browse(page, in: wid, .info, args, login: site)
+    }
+
+    private static func allowOutside(_ site: String) async -> Bool {
         await confirm(
-            String(localized: "Let an agent use your logged-in browser?"),
-            detail: String(localized: "\(caller) can act as you on \(site) using your cookies."),
+            String(localized: "Let this command use your login on \(site)?"),
+            detail: String(
+                localized: "It comes from outside Kelp’s chats and can act as you on \(site) with your cookies."),
             action: String(localized: "Allow"), cancel: String(localized: "Don’t Allow"))
     }
 
+    /// Whether agents may still use the user's login on `site` (Settings › Browser, a page's Stop).
+    private func allows(_ site: String) -> Bool {
+        AgentSites.allowed(site, in: AgentSites.entries(app.settings[SettingKeys.agentSites])) != nil
+    }
+
     /// Runs the action on the page, building the page's tab first if it wasn't built yet.
-    private func browse(_ page: TabRef, in wid: String, _ action: BrowserAction, _ args: JSONValue) async throws
-        -> JSONValue
-    {
+    private func browse(
+        _ page: TabRef, in wid: String, _ action: BrowserAction, _ args: JSONValue, login: String? = nil
+    ) async throws -> JSONValue {
         guard let tab = app.workbench.content(page, in: wid) as? BrowserTab else {
             throw RPCError.invalidParams("That tab shows no page.")
         }
-        if action != .open, tab.ownerSession?.hasPrefix(AgentPages.remotePrefix) == true, tab.hostChip.isHidden {
-            throw Self.noPage
-        }
+        if let login { tab.loginSite = login }
         // Add where the page is, for the marks it shows outside its tab (`AgentPages`).
         var args = args
         if case .object(var fields) = args {
@@ -107,16 +133,14 @@ struct BrowserRequests {
         RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
     }
 
-    private static func sharedSite(_ url: String) -> String? {
-        guard ["http", "https"].contains(TabURI.scheme(url)) else { return nil }
-        return PageOrigin.of(URL(string: url))
-    }
-
     /// After restore, the tab's URI is the record of its owner. Shared and legacy tabs carry no such record.
     static func ownPage(_ tabs: [TabRef], session: String, last: AgentPages.Visit?) -> TabRef? {
         func owns(_ tab: TabRef) -> Bool { TabURI.agentPageSession(tab.uri) == session }
         if let last, let tab = tabs.first(where: { $0.id == last.tab }) {
-            if let site = last.sharedSite { return sharedSite(tab.uri) == site ? tab : nil }
+            if let site = last.sharedSite {
+                return AgentSites.site(of: TabURI.pageURL(tab.uri)).map { AgentSites.covers(site, $0) } == true
+                    ? tab : nil
+            }
             if owns(tab) { return tab }
         }
         return tabs.first { owns($0) && !TabURI.pageURL($0.uri).isEmpty } ?? tabs.first(where: owns)

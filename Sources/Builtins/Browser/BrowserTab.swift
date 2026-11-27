@@ -44,6 +44,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let ownerSession: String?
     /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
+    /// The site where an agent drives this page with the user's login (`AgentSites`), or nil; and the site's entry
+    /// that the strip's Stop took away, which its Undo puts back.
+    var loginSite: String?
+    @ObservationIgnored var loginStopped: JSONValue?
+    @ObservationIgnored var followsLogins = false
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
     /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.
@@ -81,7 +86,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// or Hand Back. It has no height until then.
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
-    @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
+    @ObservationIgnored let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentIcon = NSImageView(image: .symbol("cursorarrow.motionlines"))
     @ObservationIgnored private let agentButton = PointerButton()
     /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.
@@ -214,12 +219,13 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         } changed: { [weak self] served in
             if served { self?.reloadPage() }
         }
-        if opened == nil {
-            // A restored host page needs a new proxy and forwarded ports before it can load again.
-            load(ownerSession?.hasPrefix(AgentPages.remotePrefix) == true ? "about:blank" : start)
-        } else {
+        if opened != nil {
             ports.isHidden = true
             showPage()
+        } else if !agent || ownerSession != nil || previewFile != nil || !Self.loopback(start) {
+            // An agent's page from before owners were recorded loads as it did, but for a local address: which
+            // machine's localhost it was (this Mac's or an ssh host's) isn't known.
+            load(start)
         }
     }
 
@@ -255,7 +261,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             watchUser()
         }
         let asked = drive?.asked?.text, takenOver = drive?.takenOver == true
-        AgentPages.of(app).change(pageId) { $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent) }
+        AgentPages.of(app).change(pageId) {
+            $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent)
+            $0.login = loginSite
+        }
+        showLoginChip()
         let look = stripLook()
         agentLabel.stringValue =
             look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
@@ -264,12 +274,6 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         agentIcon.contentTintColor = asked != nil ? .textOrange : .secondaryLabelColor
         agentButton.title = look.button
         agentButton.toolTip = look.tip
-    }
-
-    private func toggleTakeOver() {
-        if drive?.asked != nil { return done() }
-        drive?.takenOver.toggle()
-        showAgentBar()
     }
 
     /// Lays out the page at the size set in `viewport`, or filling the pane.
@@ -355,6 +359,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func load(_ raw: String) {
+        guard !awaitsHostNetwork else { return }
         if let previewFile, raw == start {
             let fileURL = URL(fileURLWithPath: previewFile), dir = fileURL.deletingLastPathComponent()
             web.loadFileURL(fileURL, allowingReadAccessTo: dir)
@@ -389,11 +394,4 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         load(BrowserHistory.address(for: address.stringValue))
         view.window?.makeFirstResponder(web)
     }
-
-    /// What Safari adds to WebKit's user agent. Without it sites take the page for an unknown browser and serve it
-    /// their fallback layout (old Google, "browser not supported").
-    static let safariName: String = {
-        let safari = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String
-        return "Version/\(safari ?? "26.0") Safari/605.1.15"
-    }()
 }

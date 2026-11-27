@@ -206,9 +206,11 @@ func aBrowserCommandIsTheOneRunningWithItsWords(words: String, running: [String]
     let wt = try await firstWorkspace(w)
     let agent = Session(worktreeId: wt.id, cwd: wt.path, command: "codex", agent: "codex")
     try w.d.store.save(agent)
-    let tab = UIOpen(uri: "AGENTWEB:?session=other&url=https://example.test", worktreeId: wt.id)
-    #expect(throws: RPCError.self) { try w.d.allow(tab, conn: -1, caller: .session(agent.id)) }
-    try w.d.allow(tab, conn: -1, caller: .user)
+    for uri in ["AGENTWEB:?session=other&url=https://example.test", "settings:browser"] {
+        let tab = UIOpen(uri: uri, worktreeId: wt.id)
+        #expect(throws: RPCError.self) { try w.d.allow(tab, conn: -1, caller: .session(agent.id)) }
+        try w.d.allow(tab, conn: -1, caller: .user)
+    }
 }
 
 @Test func browserRoutingReadsTheKelpPeersInitialEnvironment() async throws {

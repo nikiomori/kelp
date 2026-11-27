@@ -21,9 +21,11 @@ extension Builtins {
             - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints, once it loaded,
               `page "Title" url` and its first lines with their refs (no snapshot needed after it) (`failed:` says why
               it didn't load); `reload` and `back` too. The page has cookies and storage of its own, so you start logged
-              out. `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks them first,
-              for that one site; going to another site is blocked (the console says so) until you open it with
-              `--shared` again. Every other command drives a page you opened: the user's own tabs aren't yours.
+              out. When a site needs the user's login (their X feed, their Notion), open it with `--shared`: Kelp asks
+              them once on your row, and a site they allowed opens with their login by itself after that, with plain
+              `open` too. There you stay on that site; if it asks to sign in, `kelp browser ask "Sign in to x.com"`:
+              never type their password, and after a Deny don't ask again in this task. Every other command drives a
+              page you opened: the user's own tabs aren't yours.
             - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
               address it shows does the same).
             - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`, `- textbox

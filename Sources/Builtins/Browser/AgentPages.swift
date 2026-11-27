@@ -40,6 +40,8 @@ final class AgentPages {
         var errors = 0
         var lastError: String?
         var holder: Holder = .agent
+        /// The site where the agent drives the page with the user's login (`BrowserTab.loginSite`).
+        var login: String?
     }
 
     /// The pages by id. There is one id for each web view an agent drives.

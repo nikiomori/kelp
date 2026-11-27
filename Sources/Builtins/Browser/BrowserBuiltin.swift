@@ -38,6 +38,7 @@ extension Builtins {
                     $0.clearSiteData()
                 }
             ],
+            settings: [browserSettings(app)],
             tabs: [
                 TabProvider(
                     schemes: ["http", "https", "about", "preview", TabURI.agentScheme],

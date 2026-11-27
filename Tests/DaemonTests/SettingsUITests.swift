@@ -115,7 +115,8 @@ final class EventBox: @unchecked Sendable {
 }
 
 /// An agent's `kelp browser` drives the page as itself: a session (or subagent) it names in its args, another agent's,
-/// is replaced with its own, so the page's card, pointer and Done don't put its work on someone else.
+/// is replaced with its own, so the page's card, pointer and Done don't put its work on someone else. Nor can it claim
+/// the user's login.
 @Test func anAgentDrivesAPageAsItselfWhateverSessionItNames() async throws {
     let (d, _, root) = try daemon()
     defer { d.stop() }
@@ -130,11 +131,13 @@ final class EventBox: @unchecked Sendable {
     try d.sessions.store.save(mine)
     try d.sessions.store.save(other)
     let relay = BrowserRelay.of(d), id = mine.id
-    let call = UIBrowser(action: .snapshot, args: .obj(["session": .string(other.id), "subagent": "a1"]))
+    let call = UIBrowser(
+        action: .snapshot, args: .obj(["session": .string(other.id), "subagent": "a1", "yourLogin": "x.com"]))
     let page = Task { try await Sessions.$asker.withValue(id) { try await call.handle(relay, conn: -1) } }
     #expect(try await waitFor { box.last("event.ui.browser") != nil })
     let sent = try #require(box.last("event.ui.browser"))
     #expect(sent["args"]?["session"] == .string(mine.id) && sent["args"]?["subagent"] == nil)
+    #expect(sent["args"]?["yourLogin"] == nil)   // only kelpd says a page gets the user's login
     _ = try await app.call("ui.browser.reply", .obj(["request": try #require(sent["request"]), "result": "ok"]))
     #expect(try await page.value == "ok")
 }

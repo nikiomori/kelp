@@ -18,7 +18,7 @@ package struct TabProvider {
                 _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
             ) -> Void
         )? = nil,
-        driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])? = nil
+        driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?, login: Bool)])? = nil
     ) {
         self.schemes = schemes
         self.make = make
@@ -52,9 +52,10 @@ package struct TabProvider {
             ) -> Void
         )?
     /// The built-in's tabs in `workspace` that an agent drives (a page that `kelp browser` acts in), keyed by tab id.
-    /// Each entry names the agent's session and the glow while it acts. Such a tab wears the agent's logo and card.
+    /// Each entry names the agent's session, the glow while it acts, and whether it acts there with the user's login.
+    /// Such a tab wears the agent's logo and card, and a person after its title for the login.
     /// This is read under observation, so it must not do work.
-    var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])?
+    var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?, login: Bool)])?
 }
 
 /// What the branch chip on the window bar does, supplied by the built-in that knows git (Git): what is running on a

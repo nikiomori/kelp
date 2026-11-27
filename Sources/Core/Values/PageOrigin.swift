@@ -6,8 +6,8 @@ import Foundation
 /// suffix, so `a.vercel.app` and `b.vercel.app` are two sites. An IP address or a one-label host (`localhost`) is its
 /// own site, with its port.
 /// Limit: no full public suffix list; a shared host missing from `sharedHosts` is one site.
-enum PageOrigin {
-    static func of(_ url: URL?) -> String? {
+public enum PageOrigin {
+    public static func of(_ url: URL?) -> String? {
         guard let url, let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
             return nil
         }
@@ -26,7 +26,7 @@ enum PageOrigin {
     }
 
     /// Hosts whose subdomains are different people's sites.
-    static let sharedHosts: Set<String> = [
+    public static let sharedHosts: Set<String> = [
         "vercel.app", "netlify.app", "github.io", "gitlab.io", "pages.dev", "workers.dev", "web.app", "firebaseapp.com",
         "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "glitch.me", "repl.co", "ngrok.io", "ngrok-free.app",
         "azurewebsites.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "appspot.com", "blogspot.com",

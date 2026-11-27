@@ -73,6 +73,21 @@ import WorkbenchKit
     #expect(BrowserMarks.row(.workspace("w"), app).isEmpty)
 }
 
+/// A page an agent drives with the user's login says so outside it: the row's mark in the user's own colour, and the
+/// tab a person after its title (`TabStrip.Item.trailing`). Its own page says neither.
+@MainActor @Test func aPageWithTheUsersLoginIsMarkedOnItsRowAndTab() throws {
+    let app = AppModel(), pages = AgentPages.of(app), tab = BrowserTab(uri: "https://x.com/home", app: app)
+    var page = AgentPages.Page(session: "s1", subagent: nil, workspace: "w", tab: "t1")
+    page.title = "Home / X"
+    pages.drives("p1", page, handle: tab)
+    #expect(BrowserMarks.driven("w", app)["t1"]?.login == false)
+    #expect(try #require(BrowserMarks.row(.agent("s1"), app).first).tint == .secondaryLabelColor)
+    pages.change("p1") { $0.login = "x.com" }
+    let mark = try #require(BrowserMarks.row(.agent("s1"), app).first)
+    #expect(mark.tint == .systemBlue && mark.tip == "Its page, with your login on x.com: Home / X")
+    #expect(BrowserMarks.driven("w", app)["t1"]?.login == true)
+}
+
 /// A chat's browser skill line is read back by its enums, not its English: a reason in the app's words, the web app
 /// found as it is, anything else left alone.
 @Test func aBrowserSkillLineIsReadByItsReason() {

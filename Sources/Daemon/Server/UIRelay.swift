@@ -31,6 +31,7 @@ extension UIOpen: Handled {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
+        if scheme == "settings" { return "Settings open from Kelp's own controls: `kelp settings set` changes one." }
         if scheme == "agentweb" {
             return "Open your browser page with `kelp browser open <url>`, which assigns its owner."
         }
@@ -107,12 +108,13 @@ extension UIBrowser: AsyncHandled {
     // With no workspace named, the page would open in the one on screen, which needn't be the agent's.
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        try await forward(relay, driver: relay.driver(conn, words: Self.words(action, args)))
+        let asker = relay.asks.clients.connection(conn)?.peerPID
+        return try await forward(relay, driver: relay.driver(conn, words: Self.words(action, args)), asker: asker)
     }
 
-    fileprivate func forward(_ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil) async throws
-        -> JSONValue
-    {
+    fileprivate func forward(
+        _ relay: BrowserRelay, driver: BrowserRelay.Driver, asking: String? = nil, asker: pid_t? = nil
+    ) async throws -> JSONValue {
         let ui = relay.ui
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
         let clients = ui.clients, apps = clients.apps
@@ -125,6 +127,8 @@ extension UIBrowser: AsyncHandled {
         fields["session"] = driver.session.map(JSONValue.string)
         fields["subagent"] = driver.subagent.map(JSONValue.string)
         fields["askingSession"] = asking.map(JSONValue.string)
+        fields["yourLogin"] = nil
+        if action == .open { fields["yourLogin"] = try await relay.login(fields, driver: driver, asker: asker) }
         var call = self
         call.args = .object(fields)
         let request = UUID().uuidString
@@ -170,10 +174,11 @@ extension UIBrowserAsk: AsyncHandled {
     }
 }
 
-/// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
+/// What answers `ui.browser`: the window it goes to, the sessions that say which subagent asks, and the settings that
+/// hold the sites where agents use the user's login.
 struct BrowserRelay {
-    let ui: UIStore, asks: AgentAsks
-    fileprivate typealias Driver = (session: String?, subagent: String?)
+    let ui: UIStore, asks: AgentAsks, settings: SettingsEvents
+    typealias Driver = (session: String?, subagent: String?)
 
     fileprivate func driver(_ conn: Int, words: String) throws -> Driver {
         guard let own = asks.store.agent(origin: Sessions.asker) else { return (nil, nil) }
@@ -181,6 +186,8 @@ struct BrowserRelay {
         guard HostBrowser.page == nil, let live = asks.existing(session) else { return (session, nil) }
         var call: String?, thread = LiveSession.BrowserThread.unknown
         if live.snapshot.agent == Session.codexAgent, let pid = asks.clients.connection(conn)?.peerPID {
+            // Limit: the agent sets its own environment, so a Codex thread could name another thread of its chat. The
+            // chat itself comes from the caller's process, and a page with the user's login is the chat's anyway.
             let env = Subprocess.environment(pid, keys: ["CODEX_TOOL_CALL_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"])
             call = env["CODEX_TOOL_CALL_ID"].flatMap { $0.isEmpty ? nil : $0 }
             if let label = env["CODEX_THREAD_ID"], let id = UUID(uuidString: label),
