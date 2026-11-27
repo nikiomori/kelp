@@ -44,8 +44,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let ownerSession: String?
     /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
-    /// The site where an agent drives this page with the user's login (`AgentSites`), or nil.
+    /// The site where an agent drives this page with the user's login (`AgentSites`), or nil; and the site's entry
+    /// that the strip's Stop took away, which its Undo puts back.
     var loginSite: String?
+    @ObservationIgnored var loginStopped: JSONValue?
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
     /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.
@@ -257,7 +259,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             watchUser()
         }
         let asked = drive?.asked?.text, takenOver = drive?.takenOver == true
-        AgentPages.of(app).change(pageId) { $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent) }
+        AgentPages.of(app).change(pageId) {
+            $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent)
+            $0.login = loginSite
+        }
+        showLoginChip()
         let look = stripLook()
         agentLabel.stringValue =
             look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
@@ -266,12 +272,6 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         agentIcon.contentTintColor = asked != nil ? .textOrange : .secondaryLabelColor
         agentButton.title = look.button
         agentButton.toolTip = look.tip
-    }
-
-    private func toggleTakeOver() {
-        if drive?.asked != nil { return done() }
-        drive?.takenOver.toggle()
-        showAgentBar()
     }
 
     /// Lays out the page at the size set in `viewport`, or filling the pane.

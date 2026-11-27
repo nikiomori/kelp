@@ -101,9 +101,66 @@ extension BrowserTab {
                 String(localized: "Hand Back"), String(localized: "Let \(who) click and type here again")
             )
         }
+        if let site = loginSite {
+            guard allowsLogin(site) else {
+                return (
+                    String(localized: "Agents no longer use your login on \(site)"),
+                    loginStopped != nil ? String(localized: "Undo") : String(localized: "Take Over"),
+                    String(localized: "Let agents use your login on \(site) again")
+                )
+            }
+            return (
+                String(localized: "\(who) uses your login on \(site)"), String(localized: "Stop"),
+                String(localized: "Agents stop using your login on \(site); the page stays yours")
+            )
+        }
         return (
             String(localized: "\(who) is using this page"), String(localized: "Take Over"),
             String(localized: "Your first click or key in the page takes it too; scrolling doesn’t")
         )
+    }
+}
+
+extension BrowserTab {
+    /// Whether agents may still use the user's login on `site` (Settings › Browser).
+    func allowsLogin(_ site: String) -> Bool {
+        AgentSites.allowed(site, in: AgentSites.entries(app.settings[SettingKeys.agentSites])) != nil
+    }
+
+    /// The strip's button: Done on an agent's question, Stop or Undo on a page with the user's login, else Take Over
+    /// or Hand Back.
+    func toggleTakeOver() {
+        if drive?.asked != nil { return done() }
+        if stopOrUndoLogin() { return }
+        drive?.takenOver.toggle()
+        showAgentBar()
+    }
+
+    /// Stop and Undo on the strip of a page with the user's login: Stop takes the site out of the list, so the agent's
+    /// next command there is refused, and Undo puts it back. Returns whether the click was one of them.
+    func stopOrUndoLogin() -> Bool {
+        guard let site = loginSite, drive?.takenOver != true else { return false }
+        let list = app.settings[SettingKeys.agentSites]
+        if allowsLogin(site) {
+            loginStopped = list.first { $0["site"]?.string == site }
+            app.settings.set(SettingKeys.agentSites.key, .array(AgentSites.removing(site, from: list)))
+        } else if let stopped = loginStopped {
+            app.settings.set(SettingKeys.agentSites.key, .array(list + [stopped]))
+            loginStopped = nil
+        } else {
+            return false
+        }
+        showAgentBar()
+        return true
+    }
+
+    /// The chip before the address on a page with the user's login. It takes the host chip's place: a page driven from
+    /// a host never has the login.
+    func showLoginChip() {
+        guard let site = loginSite, !requiresHostNetwork else { return }
+        hostChip.title = String(localized: "Your login")
+        hostChip.toolTip = String(localized: "Agents use your login from Kelp’s browser on \(site): Settings › Browser")
+        hostChip.onClick = { [weak self] in self?.app.workbench.open("settings:browser") }
+        hostChip.isHidden = false
     }
 }

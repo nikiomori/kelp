@@ -31,6 +31,7 @@ extension UIOpen: Handled {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
+        if scheme == "settings" { return "Settings open from Kelp's own controls: `kelp settings set` changes one." }
         if scheme == "agentweb" {
             return "Open your browser page with `kelp browser open <url>`, which assigns its owner."
         }

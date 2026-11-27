@@ -371,6 +371,24 @@ extension OneAtATime {
     #expect(!own.leavesSharedSite(other, mainFrame: true))   // its own page has no login to keep
 }
 
+/// A page with the user's login says so on its strip. Stop takes the site out of the list, so the agent's next command
+/// there is refused, and Undo puts the same entry back. While the user holds the page, the button hands it back instead.
+@MainActor @Test func aPageWithTheUsersLoginStopsAndUndoes() {
+    let app = AppModel(), entry = AgentSites.adding("example.com", chat: "read posts", to: [])
+    app.settings.apply([SettingKeys.agentSites.key: .array(entry)])
+    let tab = BrowserTab(uri: "https://www.example.com/", app: app)
+    tab.loginSite = "example.com"
+    let drive = tab.watch()
+    drive.drivenAt = Date()
+    #expect(tab.stripLook().button == "Stop" && tab.stripLook().text.hasSuffix("your login on example.com"))
+    #expect(tab.stopOrUndoLogin())
+    #expect(app.settings[SettingKeys.agentSites].isEmpty && tab.stripLook().button == "Undo")
+    #expect(tab.stopOrUndoLogin())
+    #expect(app.settings[SettingKeys.agentSites] == entry && tab.stripLook().button == "Stop")
+    drive.takenOver = true
+    #expect(!tab.stopOrUndoLogin())
+}
+
 /// The user's tab, once taken to another site (by the user, after the agent left it), isn't the agent's to drive there.
 @MainActor @Test(.timeLimit(minutes: 1)) func aSharedTabOnAnotherSiteIsntDriven() async throws {
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
