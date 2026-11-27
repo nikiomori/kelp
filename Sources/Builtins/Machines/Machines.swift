@@ -107,16 +107,15 @@ enum Machines {
         app.workbench.open(TabURI.machine(name), workspace: app.workbench.workspaceId ?? app.worktrees.first?.id)
     }
 
-    /// Opens a terminal in the machine (with nil `command`, its shell), in this screen's project folder, which is
-    /// shared at the same path; or in its home folder when that folder can't be shared or belongs to a remote project.
-    static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
+    /// Opens a terminal with the machine's shell, in this screen's project folder, which is shared at the same path; or
+    /// in its home folder when that folder can't be shared or belongs to a remote project.
+    static func runInMachine(_ app: AppModel, _ name: String) {
         let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
         // A remote project's folder is on its host, not here to share. So the terminal opens in the machine's home,
         // run from this Mac, because `kelp` isn't on the host.
         let remote = folder.map { RemoteHost.of($0) != nil } ?? false
         let home = remote || (folder.map { !VMs.mayShare($0) } ?? true)
-        var line = "kelp vm run " + ShellQuote.word(name) + (home ? " --home" : "")
-        if let command { line += " -- " + command }
+        let line = "kelp vm run " + ShellQuote.word(name) + (home ? " --home" : "")
         app.workbench.starterForNewTab?.run(command: line, title: name, cwd: remote ? NSHomeDirectory() : nil)
     }
 
