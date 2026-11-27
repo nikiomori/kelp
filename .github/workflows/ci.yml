@@ -27,7 +27,6 @@ jobs:
           # UI smoke, the second every other bundle, side by side (none shares the app's main thread).
           - name: App tests (a…) and UI smoke
             cache: tests
-            save: true
             # Built once (`swift test --skip-build` then only runs): each build copies the Swift libraries into every test
             # bundle and signs them, nothing compiled or not, 40 s for a second one.
             build: &tests-build swift build --manifest-cache local --build-tests
@@ -43,7 +42,6 @@ jobs:
               exit ${app:-0}
           - name: Release build
             cache: release
-            save: true
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
             # No dSYMs, as bundle.sh: dsymutil warns of every CodeEditLanguages object (its debug map is its maker's Mac).
             # Neither optimized nor whole-module: what this checks is that the code compiles, and file by file a change
@@ -57,7 +55,6 @@ jobs:
           # and the others, about half each.
           - name: Daemon under Thread Sanitizer (a…)
             cache: tsan
-            save: true
             pick: filter
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
             # tmux (Kelp's tmux terminals, a pane's caller: those tests skip without it) installs while the build runs.
@@ -109,11 +106,17 @@ jobs:
       - if: steps.ghostty.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
+      # The runner's image is in the key: GitHub rolls a new one out over days, and a build cached on the other rebuilt
+      # most of the package (13 s on the same image, 199 s on the other, from one cache). The other image's is a fallback.
+      - id: image
+        run: echo "kind=build-$XCODE-${{ matrix.cache }}-$ImageVersion-" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
         with:
           path: .build
-          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
-          restore-keys: build-${{ env.XCODE }}-${{ matrix.cache }}-
+          key: ${{ steps.image.outputs.kind }}${{ github.sha }}
+          restore-keys: |
+            ${{ steps.image.outputs.kind }}
+            build-${{ env.XCODE }}-${{ matrix.cache }}-
       - name: Date sources by their contents   # a checkout dates them all now, and .build would rebuild everything
         run: git ls-files -sz | perl -0ne 'chomp; ($m,$b,$s,$f)=/^(\S+) (\S+) (\S+)\t(.*)$/s; next if $m eq "120000"; $t=1e9+hex(substr($b,0,7)); utime($t,$t,$f)'
       - id: build
@@ -132,22 +135,23 @@ jobs:
       - if: always() && matrix.smoke
         uses: actions/upload-artifact@v7
         with: { name: ui-smoke, path: ui-smoke, if-no-files-found: ignore }
-      # Saved even when a test failed, by one job of those that share it: on main for every pull request to build on, and
-      # on a pull request for its next push, when this build took long enough that the next one would gain. A branch
-      # keeps only its newest of each kind (the store holds 10 GB). repositories is 3.5 GB of clones nothing reads again.
+      # Saved even when a test failed: on main for every pull request to build on, and on a pull request for its next push,
+      # when this build took long enough that the next one would gain. Two jobs that share a kind on one image make one
+      # key: the second's save is refused, harmlessly. A branch keeps only its newest of each kind and image (the store
+      # holds 10 GB). repositories is 3.5 GB of clones nothing reads again.
       - id: save
         if: >-
-          always() && steps.build.outcome == 'success' && matrix.save
+          always() && steps.build.outcome == 'success'
           && (github.event_name == 'push' || fromJSON(steps.build.outputs.seconds) > 60)
         run: rm -rf .build/repositories
       - if: always() && steps.save.outcome == 'success'
         uses: actions/cache/save@v6
         with:
           path: .build
-          key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
+          key: ${{ steps.image.outputs.kind }}${{ github.sha }}
       # A fork's pull request can't delete: its old caches go as the store fills.
       - if: always() && steps.save.outcome == 'success'
-        env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}", KIND: "build-${{ env.XCODE }}-${{ matrix.cache }}-" }
+        env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}", KIND: "${{ steps.image.outputs.kind }}" }
         run: |
           gh cache list --ref "$GITHUB_REF" --key "$KIND" --limit 100 --json id,key \
             --jq ".[] | select(.key != \"$KIND$GITHUB_SHA\") | .id" | xargs -n1 gh cache delete || true
