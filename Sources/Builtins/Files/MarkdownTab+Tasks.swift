@@ -12,7 +12,7 @@ extension MarkdownTab {
     /// The page's task rows, from its project's watch (started here, see `linkedBlock`).
     private func taskRows() -> [TaskRow] {
         let path = url.standardizedFileURL.path
-        guard let repo = app.repos.first(where: { path.hasPrefix(Artifacts.dir(root: $0.path).path + "/") }) else {
+        guard let repo = app.repos.first(where: { Paths.inside(path, Artifacts.dir(root: $0.path).path) }) else {
             return []
         }
         return TaskViews.rows([(repo.id, app.latest(TasksEvent.self, repo.id)?.pages ?? [])], session: app.session)
@@ -75,7 +75,7 @@ extension MarkdownTab {
     func linkedBlock() -> String {
         let path = url.standardizedFileURL.path
         guard path.contains("/\(Artifacts.folder)/"),
-            let repo = app.repos.first(where: { path.hasPrefix(Artifacts.dir(root: $0.path).path + "/") })
+            let repo = app.repos.first(where: { Paths.inside(path, Artifacts.dir(root: $0.path).path) })
         else { return "" }
         if tasksWatch == nil {
             let watch = Watched(.tasks, in: app)

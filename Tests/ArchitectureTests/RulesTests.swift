@@ -164,9 +164,11 @@ import Testing
         "Sources/Daemon/Hosts/HostFiles.swift": "a host's path, which this Mac can't resolve",
         "Sources/Daemon/Workspaces/DiskUsage+Host.swift": "a host's paths, rebased from one root to another",
         "Sources/Daemon/Workspaces/DiskUsage.swift": "paths of one listing (git's, du's), relative or spelled alike",
-        "Sources/KelpKit/Extensions/ExtPages.swift": "both sides resolved first (`resolvingSymlinksInPath`)"
+        "Sources/KelpKit/Extensions/ExtPages.swift": "both sides resolved first (`resolvingSymlinksInPath`)",
+        "Sources/KelpKit/Extensions/ExtWebController.swift": "both sides resolved first (`resolvingSymlinksInPath`)"
     ]
-    let prefix = try NSRegularExpression(pattern: #"\.hasPrefix\([\w.$]+ \+ "/"\)"#)
+    // The folder may be any expression, a call's result too (`Artifacts.dir(root: x).path + "/"`).
+    let prefix = try NSRegularExpression(pattern: #"\.hasPrefix\((?:[^()\n]|\([^()\n]*\))+ \+ "/"\)"#)
     let files = Set(
         sources(["Sources"]).filter { f in
             let code = f.text.replacingOccurrences(of: #"(?m)(^|\s)//.*$"#, with: "", options: .regularExpression)
