@@ -99,7 +99,6 @@ extension MarkdownTab {
                 String(localized: "The board list can’t be read: fix canvas.json or ask the agent."), style: .error)
             return false
         }
-        editor.apply(text: json, selection: NSRange(location: 0, length: 0))
-        return await saveFile?() ?? false
+        return await save(json).value
     }
 }

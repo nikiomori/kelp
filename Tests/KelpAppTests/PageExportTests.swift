@@ -382,7 +382,7 @@ func buildInCodeGuessesTheStack(json: String, stack: String) {
     let page =
         #"<body data-width="1920" data-height="1080"><audio data-start="0" data-duration="2" src="m.caf"></audio></body>"#
     let tab = MarkdownTab(editor: CodeEditor(text: page, url: url), url: url, app: AppModel())
-    let player = SoundPlayer.of(tab)
+    let player = tab.soundPlayer
     tab.followSound(playing: false, at: 0)
     #expect(!player.sounding, "the first time heard")
     tab.followSound(playing: false, at: 0.5)

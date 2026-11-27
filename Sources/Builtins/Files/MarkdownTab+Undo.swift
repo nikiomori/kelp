@@ -53,6 +53,7 @@ extension MarkdownTab {
     private func write(_ path: String, from: String, to: String) async -> Bool {
         if path == url.path {
             guard editor.text == from else { return false }
+            // Saved in this task, not a new one, so the step reaches the other stack with no extra hop.
             editor.apply(text: to, selection: NSRange(location: 0, length: 0))
             _ = await saveFile?()
             return true

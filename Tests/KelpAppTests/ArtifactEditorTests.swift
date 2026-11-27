@@ -230,7 +230,7 @@ extension OneAtATime {
     #expect(
         MarkdownTab.faint(21) == nil && MarkdownTab.faint(4.5) == nil
             && MarkdownTab.faint(3)?.hasPrefix("3.0:1: ") == true)
-    #expect(MarkdownTab.hex(try #require(NSColor(css: "#0a84ff"))) == "#0a84ff")
+    #expect(try #require(NSColor(css: "#0a84ff")).hexString == "#0a84ff")
     let warned = MarkdownTab.warned("Muted", column: 40)
     let sign = warned.attribute(.attachment, at: warned.length - 1, effectiveRange: nil) as? NSTextAttachment
     #expect(warned.string.hasPrefix("Muted\t") && sign?.image != nil, "the sign after the name, at its column")

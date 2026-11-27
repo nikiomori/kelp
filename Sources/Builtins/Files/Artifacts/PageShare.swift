@@ -69,18 +69,24 @@ extension MarkdownTab {
                 let box = try await web.callAsyncJavaScript(
                     "const b = kelpSlides[i]?.getBoundingClientRect(); return b ? [b.x, b.y, b.width, b.height] : null",
                     arguments: ["i": i], contentWorld: Self.world)
-                guard let b = box as? [Double], b.count == 4 else { return }
-                let shot = WKSnapshotConfiguration()
-                shot.rect = CGRect(x: b[0], y: b[1], width: b[2], height: b[3])
-                shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
-                let image = try await web.takeSnapshot(configuration: shot)
-                guard let png = Self.png(image, width: 1920, height: Int(1920 * b[3] / max(b[2], 1))) else { return }
+                guard let b = box as? [Double], b.count == 4,
+                    let png = try await slidePNG(
+                        CGRect(x: b[0], y: b[1], width: b[2], height: b[3]), height: Int(1920 * b[3] / max(b[2], 1)))
+                else { return }
                 Self.copy(png)
             } catch {
                 Banner.show(
                     String(localized: "Couldn’t copy the picture: \(error.localizedDescription)"), style: .error)
             }
         }
+    }
+
+    /// The slide in `box` (page points) as a PNG 1920 pixels wide and `height` high.
+    func slidePNG(_ box: CGRect, height: Int) async throws -> Data? {
+        let shot = WKSnapshotConfiguration()
+        shot.rect = box
+        shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
+        return Self.png(try await web.takeSnapshot(configuration: shot), width: 1920, height: height)
     }
 
     private static func copy(_ png: Data) {

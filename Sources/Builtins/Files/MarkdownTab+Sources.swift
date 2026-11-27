@@ -47,16 +47,15 @@ extension MarkdownTab {
         followSources()
     }
 
-    /// The updates of open dashboards on their schedules, one each, stopped with the tab.
-    private static let schedules = NSMapTable<MarkdownTab, Schedule>.weakToStrongObjects()
-    private final class Schedule {
+    /// A dashboard's updates on its schedule, stopped with the tab.
+    final class Schedule {
         let task: Task<Void, any Error>
         init(_ task: Task<Void, any Error>) { self.task = task }
         deinit { task.cancel() }
     }
 
     private func followSources() {
-        Self.schedules.removeObject(forKey: self)
+        schedule = nil
         guard let minutes = updateEvery, minutes > 0 else { return }
         let task = Task { [weak self] () throws in
             while true {
@@ -65,7 +64,7 @@ extension MarkdownTab {
                 await refresh(DashboardSource.read(editor.text), onlyAllowed: true)
             }
         }
-        Self.schedules.setObject(Schedule(task), forKey: self)
+        schedule = Schedule(task)
     }
 
     /// Runs the sources and writes their figures; `onlyAllowed` (opening, a timer) runs nothing until all are allowed.

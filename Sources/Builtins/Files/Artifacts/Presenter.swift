@@ -11,8 +11,6 @@ import WebKit
 /// Each is the tab's page loaded again (`PreviewLinks.last`) with `Presenter.script` or Present on top.
 @MainActor
 final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
-    private static var open: [ObjectIdentifier: Presenter] = [:]
-    typealias Page = (html: String, baseURL: URL?, scripts: [String])
     private weak var tab: MarkdownTab?
     private var windows: [NSWindow] = []
     private var views: [WKWebView] = []
@@ -22,13 +20,13 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     /// Starts presenting the slides in `tab` with the speaker's window; a rehearsal times each slide against
     /// `rehearsing` (seconds).
     static func start(for tab: MarkdownTab, rehearsing: Double? = nil) {
-        guard let last = MarkdownTab.loaded.object(forKey: tab)?.page, open[ObjectIdentifier(tab)] == nil else {
+        guard let last = MarkdownTab.loaded.object(forKey: tab)?.page, tab.presenter == nil else {
             return
         }
         let presenter = Presenter()
         presenter.tab = tab
         presenter.target = rehearsing
-        open[ObjectIdentifier(tab)] = presenter
+        tab.presenter = presenter
         let room = NSScreen.screens.first { $0 != tab.view.window?.screen }
         tab.presentingBoards = true
         if let room {
@@ -43,17 +41,17 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
         tab.runJS("window.kelpGo?.(window.kelpAt || 0)")
     }
 
-    static func close(for tab: MarkdownTab) { open[ObjectIdentifier(tab)]?.end() }
+    static func close(for tab: MarkdownTab) { tab.presenter?.end() }
 
     /// The tab's page went to slide `at`: the windows follow.
     static func follow(_ tab: MarkdownTab, at: Int) {
-        for web in open[ObjectIdentifier(tab)]?.views ?? [] {
+        for web in tab.presenter?.views ?? [] {
             web.evaluateJavaScript("kelpGo(\(at))", in: nil, in: MarkdownTab.world)
         }
     }
 
     private func add(
-        _ page: Page, extra: String, frame: NSRect, borderless: Bool
+        _ page: (html: String, baseURL: URL?, scripts: [String]), extra: String, frame: NSRect, borderless: Bool
     ) {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = false   // the page's own scripts, as in the tab
@@ -97,8 +95,8 @@ final class Presenter: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     }
 
     private func end() {
-        guard let tab, Self.open[ObjectIdentifier(tab)] === self else { return }
-        Self.open[ObjectIdentifier(tab)] = nil
+        guard let tab, tab.presenter === self else { return }
+        tab.presenter = nil
         for window in windows {
             window.delegate = nil
             window.close()
@@ -258,16 +256,14 @@ extension MarkdownTab {
             guard let line = (body["line"] as? NSNumber)?.intValue,
                 let next = SlideVariants.keep(editor.text, line: line)
             else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "slideAt":
             if let at = (body["at"] as? NSNumber)?.intValue { Presenter.follow(self, at: at) }
         case "task":
             guard let line = (body["line"] as? NSNumber)?.intValue, let done = body["done"] as? Bool else { break }
             let next = MarkdownTasks.set(editor.text, line: line, done: done)
             guard next != editor.text else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "taskRun":   // ▶ on a task line of the page (`taskScript`)
             guard let line = (body["line"] as? NSNumber)?.intValue, let row = taskRow(line: line) else { break }
             TaskActions.run(app, row)
@@ -282,14 +278,12 @@ extension MarkdownTab {
                     String(localized: "That one has formatting, a list or a quote in it: change it in the text."))
                 break
             }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         case "notes":
             guard let line = (body["line"] as? NSNumber)?.intValue, let text = body["text"] as? String else { break }
             let next = SlideNotes.set(editor.text, line: line, text: text)
             guard next != editor.text else { break }
-            editor.apply(text: next, selection: NSRange(location: 0, length: 0))
-            Task { _ = await saveFile?() }
+            save(next)
         default: return false
         }
         return true

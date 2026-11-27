@@ -218,8 +218,7 @@ extension MarkdownTab {
                     localized: "Couldn’t find “\(edit.id)” on the page any more. Ask the agent to make it editable."),
                 style: .error)
         }
-        editor.apply(text: text, selection: NSRange(location: 0, length: 0))
-        Task { _ = await saveFile?() }
+        save(text)
         didHandEdit(edit, path: url.path, before: before, after: text)
     }
 

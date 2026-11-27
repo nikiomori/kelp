@@ -257,12 +257,9 @@ extension MarkdownTab {
         var slides: [Data] = [], texts: [[PowerPoint.Text]] = []
         try await eachSlide { i, box in
             if editable { texts.append(try await slideTexts(i)) }
-            let shot = WKSnapshotConfiguration()
-            shot.rect = box
-            shot.snapshotWidth = NSNumber(value: 1920 / Double(view.window?.backingScaleFactor ?? 2))
-            let image = try await web.takeSnapshot(configuration: shot)
+            let png = try await slidePNG(box, height: 1080)
             if editable { _ = try await web.callAsyncJavaScript(Self.showWords, contentWorld: Self.world) }
-            if let png = Self.png(image, width: 1920, height: 1080) { slides.append(png) }
+            if let png { slides.append(png) }
         }
         try await writePowerPoint(slides, texts: texts, to: to)
     }

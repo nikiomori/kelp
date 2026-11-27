@@ -216,8 +216,10 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     // page a task shows on), the row both draw (`TaskCell`), the days a logbook groups by (`DaySections`, with
     // Artifacts), and `TasksEvent`'s key.
     // +3: a hot key from any app is one type for No Project's ⌃⌥⌘K and Quick Entry's ⌃⌥⌘T (`GlobalHotKey`, its `init`
-    // and `register`).
-    #expect(declared == 439, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // and `register`). +18 for what built-ins each wrote their own way: ⌘F on a web view (`WebFind`: the browser, a
+    // Markdown tab's page), Quick Look for a list's selection (`QuickLookList`: Files, Tasks), and a movie written
+    // frame by frame (`FrameWriter`: the browser's recording, a motion page's video).
+    #expect(declared == 457, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -736,9 +738,9 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
         "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),
         "KelpKit/Shell/WorkspaceActions+OpenIn.swift": (1, "whether Open In was handed a file or a folder"),
         "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
+        "KelpKit/Shared/FrameWriter.swift": (1, "a recording or a video written over the file it was asked to go to"),
         "Builtins/Agents/Session/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (1, "a local page, shown: it reloads as its folder changes"),
-        "Builtins/Browser/BrowserRecording.swift": (1, "a recording written over the file it was asked to go to"),
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),

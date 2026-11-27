@@ -40,8 +40,7 @@ extension MarkdownTab {
                 FileActions(app).sendToAgent(text: line)
             }
             let now = Date().formatted(date: .omitted, time: .shortened)
-            editor.apply(text: Review.markSent(editor.text, at: now), selection: NSRange(location: 0, length: 0))
-            _ = await saveFile?()
+            _ = await save(Review.markSent(editor.text, at: now)).value
         }
     }
 
