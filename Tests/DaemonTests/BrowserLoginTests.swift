@@ -29,6 +29,13 @@ func aLoginQuestionNamesItsSite(question: String, site: String?) {
     #expect(AgentSites.asked(question) == site)
 }
 
+/// Allow keeps the site for every agent in every project, so the question says that, not only the agent asking.
+@Test func theLoginQuestionSaysItIsForEveryAgent() {
+    let question = AgentSites.question(agent: "Demo Agent", site: "x.com")
+    #expect(question.contains("every other agent") && question.contains("every project"))
+    #expect(AgentSites.asked(question) == "x.com")
+}
+
 /// An agent gets the user's login only on a site they allowed. `--shared` asks on its row; no answer says nobody
 /// answered; a Deny isn't asked again until the turn ends; Allow adds the site, and after that a plain open gets the
 /// login with no question.

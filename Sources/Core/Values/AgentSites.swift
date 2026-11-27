@@ -42,9 +42,10 @@ public enum AgentSites {
 
     /// What an agent's row asks before the agent gets the user's login on `site` (kelpd's `BrowserRelay.login`). It
     /// starts with "Allow", so Kelp offers Allow and Deny wherever it shows (`Session.asksPermission`): the card over
-    /// the agent's terminal (`asksLogin`), the Dock's strip, a notification, the phone.
+    /// the agent's terminal (`asksLogin`), the Dock's strip, a notification, the phone. It says what Allow gives: the
+    /// site is kept for every agent in every project (`browser.agentSites`), not this chat alone.
     public static func question(agent: String, site: String) -> String {
-        "Allow \(agent) to use your login on \(site)?"
+        "Allow \(agent) and every other agent, in every project, to use your login on \(site)?"
     }
 
     /// What a login question's answer names (`SessionChoose.run`), so it answers that question alone: never another
