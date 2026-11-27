@@ -123,14 +123,12 @@ extension StripPlaceTests {
         #expect(try await waitFor { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
         strip.later(asked.id)   // put off: it stops calling
         #expect(try await waitFor { !strip.isShowing })
-        #expect(!strip.isShowing)
         var again = asked
         again.statusAt = Date()   // the agent asks something else
         rig.app.sessions = [again]
         #expect(try await waitFor { strip.isShowing })
         rig.app.sessions = []
         #expect(try await waitFor { !strip.isShowing })
-        #expect(!strip.isShowing)
     }
 }
 
