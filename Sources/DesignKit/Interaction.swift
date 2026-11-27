@@ -84,6 +84,26 @@ extension NSView {
         layer.add(fade, forKey: "opacity")
     }
 
+    /// Hides the view, fading it out over `duration` (at once off screen or under Reduce Motion), unless `back` says
+    /// at the end that it was shown again meanwhile.
+    public func fadeOut(
+        _ duration: TimeInterval = Motion.fast, timing: CAMediaTimingFunction? = CAMediaTimingFunction(name: .easeIn),
+        unless back: @escaping @MainActor () -> Bool
+    ) {
+        guard window != nil, !Motion.reduced else { return isHidden = true }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = timing
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit ends the group on the main thread
+                guard let self, !back() else { return }
+                self.isHidden = true
+                self.alphaValue = 1
+            }
+        }
+    }
+
     /// Where the view stands in its window. Take it before a layout changes, for `slide(from:)` after.
     public var placeInWindow: NSPoint { convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil) }
 

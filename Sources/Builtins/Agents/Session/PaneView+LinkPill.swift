@@ -34,16 +34,7 @@ final class LinkPill: NSView {
     /// Shows `address`, fading in over `Motion.fast`; "" fades it out in two thirds of that.
     func show(_ address: String) {
         guard !address.isEmpty else {
-            guard window != nil, !Motion.reduced else { return isHidden = true }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.fast * 2 / 3
-                animator().alphaValue = 0
-            } completionHandler: { [weak self] in
-                MainActor.assumeIsolated {   // AppKit ends the animation group on the main thread
-                    if self?.alphaValue == 0 { self?.isHidden = true }
-                }
-            }
-            return
+            return fadeOut(Motion.fast * 2 / 3, timing: nil) { [weak self] in self?.alphaValue != 0 }
         }
         label.stringValue = address
         fadeIn(Motion.fast)

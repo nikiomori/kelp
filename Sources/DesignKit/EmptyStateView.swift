@@ -55,18 +55,7 @@ public final class EmptyStateView: NSView {
     private func leave() {
         guard showing else { return }
         showing = false
-        guard window != nil, !Motion.reduced else { return isHidden = true }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.fast
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                guard let self, !self.showing else { return }   // unless it was shown again meanwhile
-                self.isHidden = true
-                self.alphaValue = 1
-            }
-        }
+        fadeOut { [weak self] in self?.showing ?? false }
     }
 
     /// Shows the block; nil `title` hides it. `symbol` is an SF Symbol's name.
