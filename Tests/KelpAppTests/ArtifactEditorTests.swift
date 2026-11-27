@@ -12,6 +12,25 @@ import Testing
 @testable import KelpKit
 
 extension OneAtATime {
+    /// A grown page's Linked block names the line's place as text: a heading on the list (an agent may write one) is
+    /// no markup in a page that can start agents.
+    @Test func theLinkedBlockSaysWhereTheLineIsAsText() {
+        _ = NSApplication.shared
+        let app = AppModel()
+        let root = "/tmp/kelp-linked-\(UUID().uuidString)"
+        app.repos = [Repo(id: "r", name: "kelp", path: root)]
+        let line = TaskLine(id: "g", text: "[Search](../search/doc.md)", line: 4, section: "<img src=x onerror=f()>")
+        let list = TaskPage(
+            path: root + "/.kelp/artifacts/tasks/doc.md", slug: "tasks", title: "Tasks <b>x</b>", tasks: [line],
+            isList: true)
+        app.latest(TasksEvent.self).byKey["r"] = TasksEvent(repo: "r", pages: [list])
+        defer { app.latest(TasksEvent.self).byKey["r"] = nil }
+        let url = URL(fileURLWithPath: root + "/.kelp/artifacts/search/doc.md")
+        let tab = MarkdownTab(editor: CodeEditor(text: "# Search", url: url), url: url, app: app)
+        let block = tab.linkedBlock()
+        #expect(block.contains("&lt;img src=x onerror=f()&gt;") && !block.contains("<img"))
+    }
+
     /// `kelp artifact check` on a motion page waits for the window's next drawing of it, as on a design.
     @Test func aMotionPageTakesAWaitingCheck() async throws {
         _ = NSApplication.shared

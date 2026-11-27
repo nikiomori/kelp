@@ -111,11 +111,67 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     defer { try? FileManager.default.removeItem(at: other.root) }
     let theirs = try TaskAdd(repoId: other.repo.id, text: "Theirs").handle(other.store)
     _ = try p.store.save(Repo(id: other.repo.id, name: "other", path: other.root.path))
+    // A link in this project's pages that leads into the other's is no page of this project.
+    try FileManager.default.createDirectory(
+        at: p.root.appendingPathComponent(".kelp/artifacts"), withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: p.root.appendingPathComponent(".kelp/artifacts/linked").path,
+        withDestinationPath: URL(fileURLWithPath: theirs.path).deletingLastPathComponent().path)
+    let around = p.root.appendingPathComponent(".kelp/artifacts/linked/doc.md").path
     Sessions.$asker.withValue(p.agent.id) {
         #expect(throws: RPCError.self) {
             try TaskChange(path: theirs.path, task: TaskRef(theirs.task), state: .done).handle(p.store)
         }
+        #expect(throws: RPCError.self) { try TaskAdd(repoId: other.repo.id, text: "Proposed there").handle(p.store) }
+        #expect(throws: RPCError.self) {
+            try TaskAdd(repoId: p.repo.id, path: around, text: "Through the link").handle(p.store)
+        }
     }
+    #expect(try TaskList(repoId: other.repo.id).handle(other.store).flatMap(\.tasks).map(\.text) == ["Theirs"])
+}
+
+/// An agent the user typed into a Kelp terminal (`claude` in a shell) is held to the terminal's project and turns: it
+/// ticks the steps there and proposes a few lines a turn, as a chat of Kelp's does.
+@Test func anAgentTypedIntoATerminalWorksOnItsProjectsTasks() throws {
+    let p = try project()
+    defer { try? FileManager.default.removeItem(at: p.root) }
+    var shell = Session(cwd: p.root.path, command: "zsh")
+    shell.worktreeId = try p.store.save(Worktree(repoId: p.repo.id, branch: "main", path: p.root.path, note: "")).id
+    shell.statusAt = Date(timeIntervalSince1970: 1_700_000_000)
+    shell = try p.store.save(shell)
+    let task = try TaskAdd(repoId: p.repo.id, text: "Search chats").handle(p.store)
+    try (String(contentsOfFile: task.path, encoding: .utf8) + "  - [ ] index transcripts\n")
+        .write(toFile: task.path, atomically: true, encoding: .utf8)
+    let step = try #require(try TaskList(repoId: p.repo.id).handle(p.store).first?.tasks.last)
+    try Sessions.$asker.withValue("typed:" + shell.id) {
+        #expect(try TaskChange(path: task.path, task: TaskRef(step), state: .done).handle(p.store)?.state == .done)
+        for n in 1...TaskAdd.proposalsPerTurn {
+            #expect(try TaskAdd(repoId: p.repo.id, text: "Found \(n)").handle(p.store).task.proposed == true)
+        }
+        // A new turn of the terminal's agent may propose again (a line keeps whole seconds).
+        shell.statusAt = Date().addingTimeInterval(2)
+        _ = try p.store.save(shell)
+        #expect(try TaskAdd(repoId: p.repo.id, text: "Next turn").handle(p.store).task.proposed == true)
+    }
+}
+
+/// Two changes to one page at once both land: each reads the page, changes a line and writes it back.
+@Test func changesAtOnceKeepEachOther() throws {
+    let p = try project()
+    defer { try? FileManager.default.removeItem(at: p.root) }
+    let first = try TaskAdd(repoId: p.repo.id, text: "First").handle(p.store)
+    let store = p.store, repo = p.repo.id
+    DispatchQueue.concurrentPerform(iterations: 40) { n in
+        if n.isMultiple(of: 4) {
+            _ = try? TaskChange(path: first.path, task: TaskRef(first.task), chat: "s\(n)").handle(store)
+        } else {
+            _ = try? TaskAdd(repoId: repo, text: "Task \(n)").handle(store)
+        }
+    }
+    let tasks = try TaskList(repoId: p.repo.id).handle(p.store).flatMap(\.tasks)
+    #expect(tasks.count == 31)
+    let chats = Set(stride(from: 0, to: 40, by: 4).map { "s\($0)" })
+    #expect(Set(tasks.first { $0.text == "First" }?.chats ?? []) == chats)
 }
 
 /// A task grows into a page of its own beside the list, with a heading for its plan; the line links to it, and the
@@ -139,10 +195,15 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     #expect(try String(contentsOf: page, encoding: .utf8) == "# Search chats\n\n**Done when:** \n\n## Plan\n")
     try "# Search chats\n\n**Done when:** found in 200 ms\n\n## Plan\n".write(
         to: page, atomically: true, encoding: .utf8)
-    _ = try TaskAdd(repoId: p.repo.id, path: page.path, text: "Index transcripts").handle(p.store)
+    let step = try TaskAdd(repoId: p.repo.id, path: page.path, text: "Index transcripts").handle(p.store)
     let pages = try TaskList(repoId: p.repo.id).handle(p.store)
     #expect(pages.first { $0.path == page.path }?.tasks.map(\.section) == ["Plan"])
     #expect(pages.first { $0.path == page.path }?.goal == "found in 200 ms")
+    // The plan's steps are the agent's to tick, though they're set in no further than a task.
+    try Sessions.$asker.withValue(p.agent.id) {
+        let ticked = try TaskChange(path: page.path, task: TaskRef(step.task), state: .done).handle(p.store)
+        #expect(ticked?.state == .done)
+    }
 }
 
 /// A line moves to another heading or page with its id and chats; only the person moves one.
@@ -174,4 +235,12 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
             ["Index transcripts", "Plan", second.task.id]
         ])
     #expect(pages.first { $0.isList == true }?.tasks.map(\.text) == ["[Search chats](../search-chats/doc.md)"])
+    // A page that is gone (or no page) refuses the move, and the line stays where it was.
+    let gone = URL(fileURLWithPath: page).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("gone/doc.md").path
+    #expect(throws: RPCError.self) {
+        try TaskChange(path: page, task: TaskRef(id: second.task.id), move: gone).handle(p.store)
+    }
+    let after = try TaskList(repoId: p.repo.id).handle(p.store)
+    #expect(after.first { $0.path == page }?.tasks.map(\.id) == [second.task.id])
 }

@@ -635,4 +635,31 @@ private func aPhoneWritesAndRunsATask(
     let runner = try #require(ran.body?["id"]?.string)
     let lines = try await p.c.call(TaskList(repoId: p.repo.id)).flatMap(\.tasks)
     #expect(lines.first { $0.text == "Dark diff" }?.chats == [runner])
+    let list = try #require(task["path"]?.string)
+    func run(_ path: String, _ id: String) async throws -> PhoneBridge.Reply {
+        try await ask(
+            "POST", "projects/\(p.repo.id)/taskrun",
+            .object(["path": .string(path), "id": .string(id), "agent": .string("menu")]))
+    }
+    // A proposal is the person's to take first.
+    try (String(contentsOfFile: list, encoding: .utf8) + "- [ ] An idea <!-- k:ab12 proposed -->\n")
+        .write(toFile: list, atomically: true, encoding: .utf8)
+    #expect(try await run(list, "ab12").status == 403)
+    // A path out of the project and into another's tasks, spelled with `..`, is no task of this project.
+    let name = "other-\(UUID().uuidString)"
+    let otherRoot = URL(fileURLWithPath: p.repo.path).deletingLastPathComponent().appendingPathComponent(name)
+    defer { try? FileManager.default.removeItem(at: otherRoot) }
+    let other = otherRoot.appendingPathComponent(".kelp/artifacts/tasks")
+    try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+    let theirs = other.appendingPathComponent("doc.md").path
+    try "# Theirs\n\n- [ ] Not yours <!-- k:cd34 -->\n".write(toFile: theirs, atomically: true, encoding: .utf8)
+    let around = p.repo.path + "/.kelp/artifacts/../../../\(name)/.kelp/artifacts/tasks/doc.md"
+    #expect(try await run(around, "cd34").status == 400)
+    #expect(try String(contentsOfFile: theirs, encoding: .utf8) == "# Theirs\n\n- [ ] Not yours <!-- k:cd34 -->\n")
+    // The agent started though its line couldn't take the chat: the phone hears it started, not to try again.
+    let folder = (list as NSString).deletingLastPathComponent
+    try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder) }
+    let started = try await run(list, try #require(task["id"]?.string))
+    #expect(started.status == 200 && started.body?["id"]?.string != nil)
 }

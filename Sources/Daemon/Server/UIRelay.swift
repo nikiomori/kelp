@@ -91,8 +91,7 @@ extension UICommand: Handled {
         guard case .object(let a) = args, case .string(let path) = a["path"], case .string(let to) = a["to"],
             let root = path.range(of: "/.kelp/artifacts/").map({ String(path[..<$0.lowerBound]) })
         else { return Fence(notForAgents: "An export names its page and where it goes.") }
-        let inside = { (p: String) in URL(fileURLWithPath: p).standardizedFileURL.resolvingSymlinksInPath().path }
-        guard inside(to).hasPrefix(inside(root) + "/") else {
+        guard Paths.inside(to, root), Paths.realNearest(to) != Paths.realNearest(root) else {
             return Fence(
                 notForAgents: "An agent exports into its project's folder (\(root)), never over a file elsewhere.")
         }

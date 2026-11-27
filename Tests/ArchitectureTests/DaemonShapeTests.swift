@@ -129,6 +129,8 @@ func closing(_ text: String, from start: String.Index) -> String.Index {
             "one version kept at a time, whichever of a turn's end, hand edits or a send asks: no two take one number",
         "Sources/Core/Artifacts/ArtifactMarks.swift: lock":
             "one change at a time to a page's marks file, which is one file whichever daemon writes it",
+        "Sources/Core/Tasks/TaskLines.swift: lock":
+            "one change at a time to a project's task pages, which are files whichever daemon writes them",
         "Sources/Core/System/Subprocess.swift: running":
             "the programs this process started: a fact of the process itself",
         "Sources/AgentData/ClaudeBuiltIns.swift: known":

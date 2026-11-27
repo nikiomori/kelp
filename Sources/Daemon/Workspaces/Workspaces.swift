@@ -84,7 +84,7 @@ final class Workspaces: Sendable {
     /// Returns whether a group is one that a home seeded from Kelp's (`HomeSeed`) shares. Its folder is in Kelp's
     /// home, and an agent there may be at work in it. Closing the group here closes it only here.
     static func borrowed(_ path: String, seed: URL?) -> Bool {
-        seed.map { path.hasPrefix($0.appendingPathComponent("worktrees").path + "/") } == true
+        seed.map { Paths.inside(path, $0.appendingPathComponent("worktrees").path) } == true
     }
 
     /// Makes sure every project keeps at least one workspace, and that workspaces follow the branch checked out in the
