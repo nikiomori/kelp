@@ -356,10 +356,16 @@ final class StartView: NSView {
         let row = NSStackView(views: [icon, prompt])
         row.spacing = Metrics.gapWide
         row.alignment = .top
+        icon.widthAnchor.constraint(equalToConstant: side).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: side).isActive = true
+        return Self.field(row, MakeChips { [weak self] k in self?.draftMake(k) })
+    }
+
+    /// The field's box: `top` over a line, and Make's chips at its foot, all in from its edges as far as the text.
+    static func field(_ top: NSView, _ make: MakeChips) -> NSView {
         let line = NSBox()
         line.boxType = .separator
-        let make = MakeChips { [weak self] k in self?.draftMake(k) }
-        let column = NSStackView(views: [row, line, make])
+        let column = NSStackView(views: [top, line, make])
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.gapWide
@@ -367,11 +373,9 @@ final class StartView: NSView {
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.gapWide, right: Metrics.inset)
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         box.pin(column)
-        NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: side), icon.heightAnchor.constraint(equalToConstant: side),
-            row.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset),
-            line.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset)
-        ])
+        for part in [top, line, make] {
+            part.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset).isActive = true
+        }
         return box
     }
 

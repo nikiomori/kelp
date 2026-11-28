@@ -70,13 +70,13 @@ enum Make {
 }
 
 /// Make on the start page, in the foot of the field it fills: a small grey chip for each kind. A chip only puts a line
-/// in the field, so it weighs no more than the words it adds.
+/// in the field, so it weighs no more than the words it adds. The chips keep their whole width and wrap onto another
+/// row when the field is too narrow for them (AppKit's stack views don't wrap), so the field grows by a row.
 @MainActor
-final class MakeChips: NSStackView {
+final class MakeChips: NSView {
+    let chips: [PointerButton]
     init(pick: @escaping (Make.Kind) -> Void) {
-        super.init(frame: .zero)
-        spacing = Metrics.gap
-        let chips = Make.kinds.map { kind in
+        chips = Make.kinds.map { kind in
             let chip = PointerButton(title: kind.title) { pick(kind) }
             chip.font = .ui(TextSize.row)
             chip.padding = Metrics.gap
@@ -86,7 +86,44 @@ final class MakeChips: NSStackView {
             chip.setAccessibilityHelp(kind.help)
             return chip
         }
-        setViews(chips, in: .leading)
+        super.init(frame: .zero)
+        chips.forEach(addSubview)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+
+    /// Each chip's frame at `width`: in order, a gap apart, starting a new row (a gap below) where the next wouldn't
+    /// fit.
+    private func frames(_ width: CGFloat) -> [NSRect] {
+        var origin = NSPoint.zero, rowHeight: CGFloat = 0
+        return chips.map { chip in
+            let size = chip.intrinsicContentSize
+            if origin.x > 0, origin.x + size.width > width {
+                origin = NSPoint(x: 0, y: origin.y + rowHeight + Metrics.gap)
+                rowHeight = 0
+            }
+            defer {
+                origin.x += size.width + Metrics.gap
+                rowHeight = max(rowHeight, size.height)
+            }
+            return NSRect(origin: origin, size: size)
+        }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: frames(bounds.width).map(\.maxY).max() ?? 0)
+    }
+
+    /// A new width can take another row, or one fewer.
+    override func setFrameSize(_ newSize: NSSize) {
+        let wider = newSize.width != frame.width
+        super.setFrameSize(newSize)
+        if wider { invalidateIntrinsicContentSize() }
+    }
+
+    override func layout() {
+        super.layout()
+        for (chip, frame) in zip(chips, frames(bounds.width)) { chip.frame = frame }
+    }
 }
