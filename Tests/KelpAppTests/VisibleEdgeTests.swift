@@ -52,18 +52,19 @@ extension OneAtATime {
             cell.layoutSubtreeIfNeeded()
             let row = try #require(cell.changes.superview as? NSStackView)
             let shown = row.arrangedSubviews.filter { !$0.isHidden && $0.superview != nil && $0.frame.width > 0 }
-            let end = try #require(shown.last)
+            // The + stands over the row's end, not in the row.
+            let end = try #require(last == .plus ? cell.add : shown.last)
             let expected: NSView =
                 switch last {
                 case .dot: cell.changes
                 case .pr: cell.pr
                 case .ci: cell.ci
                 case .count: cell.stack
-                case .plus: try #require(cell.add)
+                case .plus: end
                 }
             #expect(end === expected)
             let edge = cell.bounds.maxX
-            let lined = cell.convert(end.alignmentRect(forFrame: end.frame), from: row)
+            let lined = cell.convert(end.alignmentRect(forFrame: end.frame), from: end.superview)
             #expect(abs(lined.maxX - edge) < 0.01, "\(last): lined up at \(lined.maxX), the edge is \(edge)")
             // What it draws ends there too: the dot, the pill, the CI mark's place, the count's words, the "+".
             let button = try #require(
@@ -72,6 +73,35 @@ extension OneAtATime {
                     : end as? PointerButton)
             let ink = cell.convert(drawn(button), from: button)
             #expect(abs(ink.maxX - edge) <= 0.5, "\(last): drawn to \(ink.maxX), the edge is \(edge)")
+        }
+    }
+
+    /// The + comes in under the pointer where the row's last mark is, over it, so no mark moves: each keeps its frame,
+    /// the one under the + fades while it shows, and the +'s glyph ends on the row's edge.
+    @Test func theRowsPlusComesInWithoutMovingItsMarks() throws {
+        let idle = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "A")
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: [idle]) { vc, o in
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            vc.view.frame.size.width = 280
+            vc.view.layoutSubtreeIfNeeded()
+            let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true) as? SidebarCell)
+            let add = try #require(cell.add as? PointerButton)
+            cell.hasBadge = (true, false, false)
+            cell.fitBadges()
+            cell.layoutSubtreeIfNeeded()
+            let row = try #require(cell.changes.superview as? NSStackView)
+            let frames = { row.arrangedSubviews.map { $0.isHidden ? NSRect.zero : $0.frame } }
+            let before = frames()
+            #expect(!cell.changes.isHidden && !cell.stack.isHidden)   // the count, then the dot
+            cell.showHoverControls(true)
+            cell.layoutSubtreeIfNeeded()
+            #expect(frames() == before)
+            #expect(!add.isHidden && cell.changes.alphaValue == 0 && cell.stack.alphaValue == 1)
+            let glyph = cell.convert(drawn(add), from: add)
+            #expect(abs(glyph.maxX - cell.bounds.maxX) <= 0.5, "the + ends at \(glyph.maxX)")
+            cell.showHoverControls(false)
+            cell.layoutSubtreeIfNeeded()
+            #expect(frames() == before && add.isHidden && cell.changes.alphaValue == 1)
         }
     }
 

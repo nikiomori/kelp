@@ -25,6 +25,7 @@ extension SidebarCell {
             ctx.duration = Motion.duration(Motion.fast)
             ctx.allowsImplicitAnimation = true
             add.isHidden = !on
+            cover(on)
             fitBadges()
             layoutSubtreeIfNeeded()
             guard coming else { return }
@@ -43,6 +44,7 @@ extension SidebarCell {
     /// mark stays while the pointer is on it, whatever room the name needs, because if hidden it would go out from
     /// under the pointer and come back.
     func spell(_ badge: NSView?, _ on: Bool) {
+        if on, badge === covered { return }   // under the +, it doesn't spell its words out from under it
         if on { spelling = badge } else if spelling === badge { spelling = nil }
         if badge === pr { updateBadges() } else { showChanges() }
         ciMark.spelled = spelling === ci
@@ -51,6 +53,35 @@ extension SidebarCell {
             ctx.allowsImplicitAnimation = true
             fitBadges()
             layoutSubtreeIfNeeded()
+        }
+    }
+
+    /// Puts a project's + over the row's end, its glyph on the row's edge, where the last mark ends. It stands over the
+    /// marks instead of beside them, so they keep their places when it comes.
+    func overlay(_ button: NSButton) {
+        button.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(button)
+        guard let row = changes.superview else { return }
+        NSLayoutConstraint.activate([
+            button.trailingAnchor.constraint(equalTo: trailingAnchor),
+            button.centerYAnchor.constraint(equalTo: row.centerYAnchor)
+        ])
+    }
+
+    /// While the + shows, the mark it stands over fades out, and a row that ends in words (its name) ends them short of
+    /// the +.
+    func cover(_ on: Bool) {
+        guard let row = changes.superview as? NSStackView, let add else { return }
+        covered?.alphaValue = 1
+        covered = nil
+        row.edgeInsets.right = 0
+        guard on else { return }
+        let last = row.arrangedSubviews.last { !$0.isHidden && row.visibilityPriority(for: $0) != .notVisible }
+        if let last, [changes, pr, ci, stack].contains(where: { $0 === last }) {
+            covered = last
+            last.alphaValue = 0
+        } else {
+            row.edgeInsets.right = add.intrinsicContentSize.width + row.spacing
         }
     }
 

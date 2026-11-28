@@ -243,7 +243,9 @@ extension SidebarCell {
         let others = rowStack.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
         // Use the fitting size, not the intrinsic size. The slot and the "+" are sized by constraints and have no
         // intrinsic width, so with the intrinsic size the name lost their room to the marks ("K…").
-        var room = bounds.width - 2 - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
+        var room =
+            bounds.width - 2 - rowStack.edgeInsets.right
+            - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
         let gap = rowStack.spacing
         func take(_ badge: NSView, _ has: Bool, _ need: CGFloat) {
             let show = has && (room >= need + gap || badge === spelling)

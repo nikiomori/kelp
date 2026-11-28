@@ -93,6 +93,8 @@ final class SidebarCell: NSTableCellView {
     lazy var markButton = Self.markButton(self)
     var buttonMark: RowMark?
     var add: NSButton?
+    /// The mark under the + while it shows (`cover`).
+    weak var covered: NSView?
     /// The Remove button on a group whose branch holds nothing of its own and has no agents on it, so the group can
     /// simply go (`showGroupLine`).
     lazy var remove: TextButton = {
@@ -172,7 +174,8 @@ final class SidebarCell: NSTableCellView {
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingMiddle
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
-            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate, button])
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate])
+            overlay(button)
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
