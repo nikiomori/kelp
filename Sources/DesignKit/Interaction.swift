@@ -225,7 +225,7 @@ extension NSView {
     @objc private func flowMotionChanged() { flow(up: layer?.value(forKey: "flowUp") as? Bool) }
 
     /// `transform` about the view's middle, because a layer-backed view's anchor is its corner.
-    private func aboutCentre(_ transform: CATransform3D) -> CATransform3D {
+    func aboutCentre(_ transform: CATransform3D) -> CATransform3D {
         CATransform3DConcat(
             CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), transform),
             CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))

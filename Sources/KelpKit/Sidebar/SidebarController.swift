@@ -90,6 +90,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var folds = 0
     /// Rows that just arrived. They have no height until they open out (`settle`).
     var arriving: Set<String> = []
+    /// The key of the row the selection pill stands on, for the pill to glide from there (`glidePill`).
+    var pillAt: String?
     /// Each project's card, under its rows (`placeCards`).
     var cards: [String: ProjectCard] = [:]
     /// The project whose group the pointer is over (`glow`).

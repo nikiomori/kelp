@@ -227,7 +227,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     func showWorkspace(_ id: String?) {
+        // The inspector's panel follows the group too: a picture of what it showed leaves over what it shows next.
+        let panel = inspector.panel
+        let picture =
+            id != app.workbench.mainWorkspaceId && editors.ownWindow(id) == nil ? panel.pictureForSwitch() : nil
         editors.show(id)
+        if let picture { panel.leave(picture, shrinking: false) }   // shrunk, its rows ghosted over the new ones
         updateTitle()
         app.publishUIState()
     }

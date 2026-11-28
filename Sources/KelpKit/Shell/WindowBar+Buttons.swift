@@ -4,6 +4,24 @@ import Core
 import DesignKit
 
 extension WindowBar {
+    /// Shows the project's icon for `worktree`. After a switch on screen it returns which way it went: true down the
+    /// sidebar, where the names roll up. Another project's icon then comes in.
+    func showIcon(switchingTo worktree: Worktree) -> Bool? {
+        let up = shown.flatMap {
+            $0.id == worktree.id || window?.isVisible != true
+                ? nil : app.workbench.goesDown(from: $0.id, to: worktree.id)
+        }
+        let otherProject = shown?.repoId != worktree.repoId
+        shown = worktree
+        guard let repo = app.repo(worktree.repoId) else {
+            icon.image = nil
+            return up
+        }
+        ProjectIcon.show(repo.path, in: icon, app: app)
+        if up != nil, otherProject { icon.popIn() }
+        return up
+    }
+
     /// The Keep Mac Awake mode: the setting ("always", "agents", "off"), or "working" when agents keep the Mac awake
     /// right now (as the daemon counts them). It is "hidden" once the button's right-click hid it, whatever the mode.
     static func awakeMode(_ app: AppModel) -> String {

@@ -167,6 +167,13 @@ extension Workbench {
 
     /// Workspaces in sidebar order (⌃1–9, ⌃⌘↑ / ↓).
     var workspacesInOrder: [Worktree] { app.projects.flatMap { app.workspaces(of: $0) } }
+    /// Whether going from `from` to `id` goes down the sidebar, so what names the group rolls up (nil when either
+    /// isn't listed).
+    func goesDown(from: String, to id: String) -> Bool? {
+        let ids = workspacesInOrder.map(\.id)
+        guard let old = ids.firstIndex(of: from), let new = ids.firstIndex(of: id) else { return nil }
+        return new > old
+    }
 
     func showWorkspace(offset: Int) {
         let all = workspacesInOrder

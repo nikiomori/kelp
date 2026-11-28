@@ -54,8 +54,26 @@ final class SidebarRowView: NSTableRowView {
         (group.first ? 6 : 0, group.last ? 6 : 0)
     }
 
+    /// True while the pill glides here from the row it stood on (`PillGlide`): the row draws its own once it's here.
+    var pillWaits = false { didSet { if pillWaits != oldValue { needsDisplay = true } } }
+    /// Where the pill stands in the row.
+    var pillRect: NSRect { Self.pill(in: bounds, group: group, gap: gap, content: content) }
+    private var dark: Bool { effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+    private var front: Bool { window?.isKeyWindow ?? true }
+    /// The pill's fill. When another window is in front, the pill stays but quieter, as Finder's selection goes grey.
+    var pillFill: NSColor { NSColor.white.withAlphaComponent(dark ? (front ? 0.12 : 0.055) : (front ? 1 : 0.6)) }
+    /// In light, a hairline shadow lifts the pill off the card. Dark has none: lighter reads nearer.
+    var pillShadow: NSShadow? {
+        guard !dark, front else { return nil }
+        let shadow = NSShadow()
+        shadow.shadowColor = .black.withAlphaComponent(0.12)
+        shadow.shadowBlurRadius = 2
+        shadow.shadowOffset = .init(width: 0, height: -0.5)
+        return shadow
+    }
+
     override func drawBackground(in dirtyRect: NSRect) {
-        let pill = Self.pill(in: bounds, group: group, gap: gap, content: content)
+        let pill = pillRect
         let radius = Self.pillRadius(inCard: group != nil)
         let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
         CATransaction.begin()
@@ -64,19 +82,11 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.path = path.cgPath
         hoverLayer.fillColor = NSColor.fillHover.cgColor   // drawing runs in the row's appearance
         CATransaction.commit()
-        guard isSelected else { return }   // the outline draws no selection itself (selectionHighlightStyle .none)
-        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua,
-            key = window?.isKeyWindow ?? true
+        // The outline draws no selection itself (selectionHighlightStyle .none).
+        guard isSelected, !pillWaits else { return }
         NSGraphicsContext.saveGraphicsState()
-        if !dark && key {   // light: a hairline shadow lifts the pill off the card. Dark has none: lighter reads nearer
-            let shadow = NSShadow()
-            shadow.shadowColor = .black.withAlphaComponent(0.12)
-            shadow.shadowBlurRadius = 2
-            shadow.shadowOffset = .init(width: 0, height: -0.5)
-            shadow.set()
-        }
-        // When another window is in front, the pill stays but quieter, as Finder's selection goes grey.
-        NSColor.white.withAlphaComponent(dark ? (key ? 0.12 : 0.055) : (key ? 1 : 0.6)).setFill()
+        pillShadow?.set()
+        pillFill.setFill()
         path.fill()
         NSGraphicsContext.restoreGraphicsState()
         if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {   // the pill alone is 1.5:1 to its card
@@ -145,6 +155,7 @@ final class SidebarRowView: NSTableRowView {
         super.prepareForReuse()
         clipsToBounds = true   // a project's row lets the glow of its icon out (SidebarController.glow)
         layer?.removeAnimation(forKey: "cascade")   // the row may have scrolled away while it was coming in
+        pillWaits = false
         hovering = false
         menuTarget = false
     }

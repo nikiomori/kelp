@@ -186,6 +186,7 @@ extension SidebarController {
 extension SidebarController {
     func outlineViewSelectionDidChange(_ notification: Notification) {
         card.close()
+        glidePill()
         // With several rows selected nothing opens, because they wait for the menu.
         guard !syncing, outline.selectedRowIndexes.count == 1,
             let node = outline.item(atRow: outline.selectedRow) as? Node

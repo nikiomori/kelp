@@ -83,7 +83,15 @@ final class EditorHost: NSViewController {
             return
         }
         let wasOwn = current != nil && current !== mainArea
+        // What the card shows changes: the new group is in place at once, with a picture of the old one leaving on
+        // top of it while the new one settles (`leave`, `settleIn`). Under Reduce Motion or off screen, there's no
+        // picture and it just shows, as before.
+        let picture = page != nil || mainArea?.workspaceId != id ? card.pictureForSwitch() : nil
         showInMain(id)
+        if let picture {
+            card.leave(picture, after: Motion.switchHold)   // a tab's content may come a few frames late
+            mainArea?.settleIn()
+        }
         current = mainArea
         if wasOwn { view.window?.makeKeyAndOrderFront(nil) }
     }
