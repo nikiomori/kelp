@@ -429,6 +429,25 @@ extension AppOfItsOwn {
         try png(20)
         #expect(try await waitFor { side() == 20 })
     }
+
+    /// A text or CSV file starts right under its bars: the hidden merge conflicts bar kept its height and left a blank
+    /// band over line 1. A file with conflicts makes room for the bar, and only for it.
+    @Test(arguments: [("a.txt", false), ("a.txt", true), ("a.csv", false), ("a.csv", true)])
+    func aFileStartsRightUnderItsBars(name: String, conflicted: Bool) async throws {
+        let text = conflicted ? "a\n<<<<<<< ours\nb\n=======\nc\n>>>>>>> theirs\n" : "a,b\n1,2\n"
+        let rig = try await AppRig(files: [name: text])
+        defer { rig.done() }
+        let tab = await opened(rig.workspace.path + "/" + name, in: rig)
+        tab.view.layoutSubtreeIfNeeded()
+        let body = try #require(tab.csv?.view ?? tab.editor?.view)
+        let crumbs = try #require(tab.view.allSubviews(of: Breadcrumbs.self).first)
+        func frame(_ v: NSView) -> NSRect { v.convert(v.bounds, to: nil) }
+        let gap = frame(crumbs).minY - frame(body).maxY
+        let conflictBar = try #require(tab.conflicts?.bar)
+        #expect(conflictBar.isHidden == !conflicted)
+        #expect(gap == (conflicted ? frame(conflictBar).height : 0))
+        if conflicted { #expect(gap > 0) }
+    }
 }
 
 /// A picture bigger than the window is shown smaller: it used to grow the window to its own size (#39).
