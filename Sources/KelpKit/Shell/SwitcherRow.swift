@@ -33,7 +33,7 @@ struct SwitcherRow {
         }
         let folder = app.gitFolder(of: worktree.id)
         let badges = [
-            folder.flatMap { GitFolders.changes(app.gitState.stats[$0.id], compact: true) },
+            folder.flatMap { GitFolders.changes(app.gitState.stats($0.id), compact: true) },
             folder.flatMap { app.extensions.all.ci?.pr($0.id)?.title }
         ].compactMap { $0 }
         let said = lead.flatMap { $0.rowLine(mode: "always", children: app.children(of: $0.id)) }

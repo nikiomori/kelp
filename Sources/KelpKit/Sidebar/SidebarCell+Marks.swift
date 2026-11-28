@@ -148,7 +148,7 @@ extension SidebarCell {
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     func updateBadges() {
         let badgeFolder = app.settings[SettingKeys.gitBadges] ? folder : nil,
-            stats = badgeFolder.flatMap { app.gitState.stats[$0.id] }
+            stats = badgeFolder.flatMap { app.gitState.stats($0.id) }
         let changeCounts = GitFolders.changes(stats)
         let prBadge = badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
         let sharedTip = badgeFolder.flatMap { GitFolders.sharedTip(app.gitState.shared($0.id)) }
