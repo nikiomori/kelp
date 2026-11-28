@@ -176,7 +176,7 @@ struct KeyboardSettings: View {
     @State private var entries: [KeyBindings.Entry] = []
     @State private var recording: String?
     @State private var warning: [String: String] = [:]
-    @State private var monitor: Any?
+    @State private var recorder: KeyRecorder?
     @State private var open: Set<String> = []
 
     var body: some View {
@@ -309,29 +309,32 @@ struct KeyboardSettings: View {
     private func record(_ id: String) {
         stop()
         recording = id
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            let mods = ev.modifierFlags.intersection([.command, .shift, .option, .control])
-            let chars = ev.charactersIgnoringModifiers ?? ""
-            switch ev.keyCode {
-            case 53 where mods.isEmpty: stop()   // Esc keeps the shortcut
-            case 51 where mods.isEmpty: change(id, to: .init(key: "", mods: []), shows: nil)   // ⌫ removes the shortcut
-            default:
-                let fKey = (0xF704...0xF70F).contains(chars.unicodeScalars.first?.value ?? 0)
-                guard !mods.subtracting(.shift).isEmpty || fKey else {
-                    NSSound.beep()
-                    return nil
-                }   // a plain letter would type, so it needs a modifier or an F key
-                let key = KeySpec(
-                    key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
-                change(id, to: key, shows: key, warning: KeyBindings.conflict(key, keyCode: ev.keyCode, except: id))
-            }
-            return nil
+        recorder = KeyRecorder(in: SettingsWindow.window, key: { ev in take(ev, for: id) }, ended: { stop() })
+    }
+
+    /// A key typed in Settings while `id` is recorded: Esc keeps the shortcut, ⌫ removes it, and a key with a
+    /// modifier, or an F key, becomes it.
+    private func take(_ ev: NSEvent, for id: String) {
+        let mods = ev.modifierFlags.intersection([.command, .shift, .option, .control])
+        let chars = ev.charactersIgnoringModifiers ?? ""
+        switch ev.keyCode {
+        case 53 where mods.isEmpty: stop()   // Esc keeps the shortcut
+        case 51 where mods.isEmpty: change(id, to: .init(key: "", mods: []), shows: nil)   // ⌫ removes the shortcut
+        default:
+            let fKey = (0xF704...0xF70F).contains(chars.unicodeScalars.first?.value ?? 0)
+            guard !mods.subtracting(.shift).isEmpty || fKey else {
+                NSSound.beep()
+                return
+            }   // a plain letter would type, so it needs a modifier or an F key
+            let key = KeySpec(
+                key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
+            change(id, to: key, shows: key, warning: KeyBindings.conflict(key, keyCode: ev.keyCode, except: id))
         }
     }
 
     private func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        recorder?.stop()
+        recorder = nil
         recording = nil
     }
 
