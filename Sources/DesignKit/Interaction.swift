@@ -107,17 +107,25 @@ extension NSView {
     /// Where the view stands in its window. Take it before a layout changes, for `slide(from:)` after.
     public var placeInWindow: NSPoint { convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil) }
 
-    /// Makes a view that a layout moved seem to travel from where it stood (`placeInWindow`) instead of jumping there.
-    public func slide(from place: NSPoint, duration: TimeInterval = Motion.appear) {
+    /// Makes a view that a layout moved seem to travel from where it stood (`placeInWindow`) instead of jumping there:
+    /// over `duration`, or on `Motion.switchSpring` when `switching` groups.
+    public func slide(from place: NSPoint, duration: TimeInterval = Motion.appear, switching: Bool = false) {
         let now = placeInWindow, dx = place.x - now.x, dy = place.y - now.y
         wantsLayer = true
         guard !Motion.reduced, let layer, abs(dx) + abs(dy) > 0.5 else { return }
-        let animation = CABasicAnimation(keyPath: "transform.translation")
+        let animation = Self.eased("transform.translation", over: duration, Motion.soft, switching: switching)
         animation.fromValue = NSValue(size: NSSize(width: dx, height: superview?.isFlipped == true ? -dy : dy))
         animation.toValue = NSValue(size: .zero)
-        animation.duration = duration
-        animation.timingFunction = Motion.soft
         layer.add(animation, forKey: "slide")
+    }
+    private static func eased(
+        _ keyPath: String, over duration: TimeInterval, _ timing: CAMediaTimingFunction, switching: Bool
+    ) -> CABasicAnimation {
+        if switching { return Motion.switchSpring(keyPath) }
+        let change = CABasicAnimation(keyPath: keyPath)
+        change.duration = duration
+        change.timingFunction = timing
+        return change
     }
 
     /// Brings the view into view, for what appears over content, not a row. It fades in, rising a little.
@@ -168,16 +176,18 @@ extension NSView {
     /// For a number on show that changed. The old number drifts off and fades while the new one comes in from the
     /// other side, up the screen when it grew (`up`) and down when it fell, as the system's numeric text does. Call it
     /// right before setting the new number, on a view showing only the number, so its words or its capsule stay put.
-    public func roll(up: Bool) {
+    /// A name `switching` groups rolls on the switch's timing: the old one goes over `Motion.switchOut` and the new
+    /// comes in on `Motion.switchSpring`, with the group it names.
+    public func roll(up: Bool, switching: Bool = false) {
         guard !Motion.reduced, window != nil, let parent = superview, bounds.height > 0 else { return }
         let shift = bounds.height / 2 * (up ? 1 : -1)
-        leaveGhost(in: parent, duration: Motion.fast, drift: shift)   // what leaves goes in two thirds of the time
-        slide(from: NSPoint(x: placeInWindow.x, y: placeInWindow.y - shift), duration: Motion.base)
-        let fade = CABasicAnimation(keyPath: "opacity")
+        // What leaves goes in two thirds of the time.
+        leaveGhost(in: parent, duration: switching ? Motion.switchOut : Motion.fast, drift: shift)
+        let from = NSPoint(x: placeInWindow.x, y: placeInWindow.y - shift)
+        slide(from: from, duration: Motion.base, switching: switching)
+        let fade = Self.eased("opacity", over: Motion.base, CAMediaTimingFunction(name: .easeOut), switching: switching)
         fade.fromValue = 0
         fade.toValue = 1
-        fade.duration = Motion.base
-        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
         layer?.add(fade, forKey: "roll")
     }
 

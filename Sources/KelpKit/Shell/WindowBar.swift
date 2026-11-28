@@ -253,7 +253,7 @@ final class WindowBar: NSView {
         context.isHidden = false
         let up = showIcon(switchingTo: worktree)   // after a switch the names roll in from the way it went
         let group = app.groupName(worktree) ?? ""   // a project's own screen has no name; the folder says it
-        if let up, !name.isHidden, !group.isEmpty, group != name.stringValue { name.roll(up: up) }
+        if let up, !name.isHidden, !group.isEmpty, group != name.stringValue { name.roll(up: up, switching: true) }
         name.stringValue = group
         name.isHidden = name.stringValue.isEmpty
         // Show the project's folder name, as Xcode and Finder name a project, also on a branch. A branch folder's own
@@ -267,7 +267,7 @@ final class WindowBar: NSView {
         let project =
             NoProject.holds(app.repo(worktree.repoId))
             ? app.projectName(worktree.repoId) ?? "" : (place as NSString).lastPathComponent
-        if let up, project != folder.title { folder.roll(up: up) }
+        if let up, project != folder.title { folder.roll(up: up, switching: true) }
         folder.title = project
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
