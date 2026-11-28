@@ -8,9 +8,10 @@ private var sheetWindow: NSWindow? {
 }
 
 /// Runs an alert as a sheet on the front window and waits (native, with no nested modal loop). Every question in the
-/// app goes here.
+/// app goes here, and none has a destructive default (`noDestructiveDefault`).
 @MainActor
 public func runSheet(_ alert: NSAlert) async -> NSApplication.ModalResponse {
+    alert.noDestructiveDefault()
     guard let window = sheetWindow else { return alert.runModal() }
     return await withCheckedContinuation { c in alert.beginSheetModal(for: window) { c.resume(returning: $0) } }
 }
