@@ -93,8 +93,8 @@ final class SidebarCell: NSTableCellView {
     lazy var markButton = Self.markButton(self)
     var buttonMark: RowMark?
     var add: NSButton?
-    /// The mark under the + while it shows (`cover`).
-    weak var covered: NSView?
+    /// The marks under and beside the + while it shows (`cover`).
+    var covered: [NSView] = []
     /// The Remove button on a group whose branch holds nothing of its own and has no agents on it, so the group can
     /// simply go (`showGroupLine`).
     lazy var remove: TextButton = {

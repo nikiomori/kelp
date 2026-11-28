@@ -44,7 +44,8 @@ extension SidebarCell {
     /// mark stays while the pointer is on it, whatever room the name needs, because if hidden it would go out from
     /// under the pointer and come back.
     func spell(_ badge: NSView?, _ on: Bool) {
-        if on, badge === covered { return }   // under the +, it doesn't spell its words out from under it
+        // Under the + or beside it, it doesn't spell its words out from under it.
+        if on, covered.contains(where: { $0 === badge }) { return }
         if on { spelling = badge } else if spelling === badge { spelling = nil }
         if badge === pr { updateBadges() } else { showChanges() }
         ciMark.spelled = spelling === ci
@@ -68,21 +69,27 @@ extension SidebarCell {
         ])
     }
 
-    /// While the + shows, the mark it stands over fades out, and a row that ends in words (its name) ends them short of
-    /// the +.
+    /// While the + shows, the mark it stands over fades out, and so does any mark that would end within `Metrics.gap`
+    /// of its glyph, because the "+" is wider than the dot it stands over and touched the mark before it ("1+").
+    /// Nothing moves. A row that ends in words (its name) ends them short of the +.
     func cover(_ on: Bool) {
         guard let row = changes.superview as? NSStackView, let add else { return }
-        covered?.alphaValue = 1
-        covered = nil
+        for mark in covered { mark.alphaValue = 1 }
+        covered = []
         row.edgeInsets.right = 0
         guard on else { return }
-        let last = row.arrangedSubviews.last { !$0.isHidden && row.visibilityPriority(for: $0) != .notVisible }
-        if let last, [changes, pr, ci, stack].contains(where: { $0 === last }) {
-            covered = last
-            last.alphaValue = 0
-        } else {
+        let marks: [NSView] = [changes, pr, ci, stack]
+        let shown = row.arrangedSubviews.filter { !$0.isHidden && row.visibilityPriority(for: $0) != .notVisible }
+        guard let last = shown.last, marks.contains(where: { $0 === last }) else {
             row.edgeInsets.right = add.intrinsicContentSize.width + row.spacing
+            return
         }
+        let glyph = convert(add.alignmentRect(forFrame: add.frame), from: add.superview).minX
+        covered = shown.filter { view in
+            marks.contains { $0 === view }
+                && convert(view.alignmentRect(forFrame: view.frame), from: row).maxX > glyph - Metrics.gap
+        }
+        for mark in covered { mark.alphaValue = 0 }
     }
 
     /// Fills the slot with `view` at rest, and the row's action over it under the pointer. The slot tracks the pointer
