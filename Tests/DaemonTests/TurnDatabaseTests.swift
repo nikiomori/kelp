@@ -307,3 +307,10 @@ func aRedoNeverLeavesAPostgresCopyWithoutItsName(failing: [Int], left: [String: 
     }
     #expect(dbs == left)
 }
+
+/// An undo that fails after putting some databases back takes them back; any it couldn't take back is named, never
+/// "nothing was put back".
+@Test(arguments: [([], nil), (["shop"], "shop"), (["shop", "app_fix"], "shop, app_fix")] as [([String], String?)])
+func aFailedUndoNamesTheDatabasesItLeftUndone(stuck: [String], named: String?) {
+    #expect(Databases.stayed(stuck)?.components(separatedBy: " stayed as the undo left them").first == named)
+}

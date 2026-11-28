@@ -40,8 +40,10 @@ extension SessionTurnUndo: AsyncHandled {
                 state: try await turns.offloads.run { [self] in try undoFiles(turns, mark, dir, plan.files, before) }
             )
         } catch {
-            await databases?.redoTurn(Turns.undoneKey(id))
-            throw error
+            let stuck = await databases?.redoTurn(Turns.undoneKey(id)) ?? []
+            guard let stayed = Databases.stayed(stuck), var said = error as? RPCError else { throw error }
+            said.message += " " + stayed
+            throw said
         }
     }
 
