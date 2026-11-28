@@ -11,7 +11,7 @@ import WorkbenchKit
 final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate,
     NSToolbarDelegate
 {
-    private var window: NSWindow?
+    private(set) var window: NSWindow?
     private let table = NSTableView()
     private let searchItem = NSSearchToolbarItem(itemIdentifier: .init("search"))
     private var search: NSSearchField { searchItem.searchField }
@@ -37,7 +37,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         load()
     }
 
-    private func build() {
+    func build() {
         for (id, title, width) in [
             ("agent", String(localized: "Agent"), 100.0), ("title", String(localized: "Conversation"), 380),
             ("cwd", String(localized: "Folder"), 260), ("updated", String(localized: "Last active"), 130)
@@ -94,8 +94,8 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         failure.setHuggingPriority(.defaultHigh, for: .vertical)
         for view in [failure, sv] { view.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true }
         window.contentView = content
-        empty.place(in: content)
-        loading.place(in: content)
+        empty.place(in: content, under: table.headerView)   // under the columns' titles, not over them
+        loading.place(in: content, under: table.headerView)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("history")
         window.center()
