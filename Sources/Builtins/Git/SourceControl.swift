@@ -292,7 +292,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     private func list(_ outline: NSOutlineView) -> NSScrollView {
         let scrollView = outline.plainList("scm")
         scrollView.autohidesScrollers = true
-        outline.intercellSpacing = .zero
         outline.indentationPerLevel = 0
         outline.rowSizeStyle = .custom
         outline.columnAutoresizingStyle = .uniformColumnAutoresizingStyle

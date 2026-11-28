@@ -45,8 +45,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let latest = app.latest(DatabasesEvent.self, workspace)
         return latest?.error == nil ? latest : read?.worktree == workspace ? read : nil
     }
-    /// The header every inspector panel has, 36 pt tall with its hairline.
-    private var bar: Bar?
     var rows: [Row] = [] {
         didSet { cards = Self.cards(rows) }
     }
@@ -115,7 +113,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             self?.addDatabase()
         }
         let bar = Bar.panel([search], [add], stretching: search)
-        self.bar = bar
         let top = failureBar.under(bar)
         let content = stacked(top, scroll)
         empty.place(in: content)
@@ -141,16 +138,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         } changed: { [weak self] _ in
             self?.markOpen()
         }
-    }
-    /// The field starts where the rows' badges do, because the list's cells sit past the list's own edge.
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        alignSearch()
-    }
-    private func alignSearch() {
-        guard !rows.isEmpty else { return }
-        let left = Metrics.inset + table.frameOfCell(atColumn: 0, row: 0).minX
-        if let stack = bar?.stack, stack.edgeInsets.left != left { stack.edgeInsets.left = left }
     }
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -226,7 +213,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             table.reloadData()
         }
         markOpen()
-        alignSearch()
         check(databases, library: false)
         if libraryOpen { check(library, library: true) }
     }

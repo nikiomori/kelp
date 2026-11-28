@@ -296,7 +296,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     private func line(_ views: [NSView], inset: CGFloat) -> NSView {
         let stack = NSStackView(views: views)
         stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.insetTrailing)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.inset)
         return stack
     }
     private func symbol(_ name: String) -> NSImageView {

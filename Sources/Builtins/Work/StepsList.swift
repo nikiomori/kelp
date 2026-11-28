@@ -112,7 +112,6 @@ final class StepsList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         table.dataSource = self
         table.delegate = self
         table.rowHeight = TextSize.of(Metrics.row)
-        table.intercellSpacing = .zero
         table.target = self
         table.action = #selector(clicked)
         table.onReturn = { [weak self] in self?.clicked() }

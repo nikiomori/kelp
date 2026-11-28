@@ -175,11 +175,12 @@ extension NSTableView {
     }
 }
 
-/// An inspector list that is an outline. The plain style puts the disclosure triangles at the edge (the source-list
-/// style had an inset of its own), so its rows start 8 pt in and line up with the panel's other rows.
+/// An inspector list that is an outline. The plain style puts a top-level row's disclosure triangle 2 pt from the
+/// edge (the source-list style had an inset of its own), so the rows move in until the triangle starts at a panel's
+/// inset, under the header's first item, where Source Control's chevrons are.
 @MainActor
 open class ListOutlineView: NSOutlineView {
-    public static let leading: CGFloat = 8
+    public static let leading: CGFloat = Metrics.inset - 2
 
     override open func frameOfOutlineCell(atRow row: Int) -> NSRect {
         super.frameOfOutlineCell(atRow: row).offsetBy(dx: Self.leading, dy: 0)

@@ -17,6 +17,7 @@ final class TaskCell: NSView {
     private let word = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let run = IconButton(.symbol("play.fill"), tip: "") {}
     private let more = IconButton(.symbol("ellipsis"), tip: String(localized: "More Actions")) {}
+    private let content = NSStackView()
     private var hovering = false { didSet { showButtons() } }
     private var offersRun = false
     var onToggle: (_ cancel: Bool) -> Void = { _ in }
@@ -48,11 +49,11 @@ final class TaskCell: NSView {
         let work = NSStackView(views: [face, mark, word, run, more])
         work.spacing = Metrics.gapTight
         work.detachesHiddenViews = true
-        let row = NSStackView(views: [box, words, NSView(), work])
-        row.spacing = Metrics.gap
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
-        row.setHuggingPriority(.defaultLow, for: .horizontal)
-        pin(row)
+        for view in [box, words, NSView(), work] { content.addArrangedSubview(view) }
+        content.spacing = Metrics.gap
+        content.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        content.setHuggingPriority(.defaultLow, for: .horizontal)
+        pin(content)
         NSLayoutConstraint.activate([
             face.widthAnchor.constraint(equalToConstant: Metrics.iconSmall),
             face.heightAnchor.constraint(equalToConstant: Metrics.iconSmall)
@@ -116,6 +117,8 @@ final class TaskCell: NSView {
     private func showButtons() {
         run.isHidden = !(hovering && offersRun)
         more.isHidden = !hovering
+        // A word ends at the inset, as a row's text does; ⋯ at a bar's, as its last icon button does.
+        content.edgeInsets.right = hovering ? Metrics.insetTrailing : Metrics.inset
     }
 
     @objc private func boxed() {

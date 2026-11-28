@@ -266,7 +266,9 @@ private final class Ghost: NSImageView {
 @MainActor
 extension NSTableView {
     /// Makes this a panel's list: one column as wide as the table (an outline's own column), no header and no fill, in
-    /// `scroll`, which gets a vertical scroller and no fill either.
+    /// `scroll`, which gets a vertical scroller and no fill either. A cell spans the row, so a row's content starts at
+    /// a panel's inset from the list's own edge, under its header's first item; the table's default spacing between
+    /// cells would move it 8.5 pt further in on both sides.
     @discardableResult
     public func plainList(_ column: String, in scroll: NSScrollView = NSScrollView()) -> NSScrollView {
         let col = NSTableColumn(identifier: .init(column))
@@ -278,6 +280,7 @@ extension NSTableView {
         (self as? NSOutlineView)?.autoresizesOutlineColumn = false
         headerView = nil
         style = .plain
+        intercellSpacing = .zero
         backgroundColor = .clear
         scroll.documentView = self
         scroll.hasVerticalScroller = true
