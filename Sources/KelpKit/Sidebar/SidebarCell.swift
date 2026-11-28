@@ -93,6 +93,8 @@ final class SidebarCell: NSTableCellView {
     lazy var markButton = Self.markButton(self)
     var buttonMark: RowMark?
     var add: NSButton?
+    /// The mark under the + while it shows (`cover`).
+    weak var covered: NSView?
     /// The Remove button on a group whose branch holds nothing of its own and has no agents on it, so the group can
     /// simply go (`showGroupLine`).
     lazy var remove: TextButton = {
@@ -172,7 +174,8 @@ final class SidebarCell: NSTableCellView {
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingMiddle
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
-            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate, button])
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, locate])
+            overlay(button)
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
@@ -206,6 +209,7 @@ final class SidebarCell: NSTableCellView {
         // The badges fill grey under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" sit on a
         // pill, as counts do in Source Control's sections, because bare they read as part of the name.
         for badge in [changes, pr, ci] {
+            badge.linesUpDrawn = true   // the row's marks end on one line, whichever is last
             badge.radius = badge === pr ? nil : Metrics.radiusXS
             badge.padding = badge === pr ? Metrics.gap : Metrics.iconGap
             badge.restFill = badge === pr ? .fillRest : nil
@@ -410,10 +414,11 @@ extension SidebarCell {
         button.isHidden = true
         button.symbolConfiguration = .chrome(Metrics.iconSmall)
         button.tints = (.tertiaryLabelColor, .secondaryLabelColor)
+        button.linesUpDrawn = true
         // A fixed square, whatever room the row's stack had left when the button appeared on hover (without this it
-        // came out narrower than tall).
+        // came out narrower than tall). The width is the glyph's, which the row lines up; the square is round it.
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+            button.widthAnchor.constraint(equalToConstant: button.intrinsicContentSize.width),
             button.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
         ])
         return button

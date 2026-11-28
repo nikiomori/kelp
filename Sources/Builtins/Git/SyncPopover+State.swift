@@ -312,6 +312,9 @@ extension SyncPopover {
         let blocked = list.contains(where: \.conflicted) || GitSync.state(app).running[wid] != nil || committing
         commit.isEnabled = typed && !blocked
         commit.isBordered = commit.isEnabled
+        // Its word alone ends where the column does, as "+2 −1" over it and the chevron under it: centred in the room
+        // the button keeps, it ended 12 pt short.
+        commit.alignment = commit.isEnabled ? .center : .right
         message.isEnabled = !committing
     }
 }

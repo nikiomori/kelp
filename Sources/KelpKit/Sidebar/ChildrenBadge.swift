@@ -29,7 +29,7 @@ final class ChildrenBadge: PointerControl {
         count.textColor = .secondaryLabelColor
         let row = NSStackView(views: [pips, count])
         row.spacing = Metrics.lineGap
-        pin(row, inset: NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2))
+        pin(row, inset: NSEdgeInsets(top: Self.edge, left: Self.edge, bottom: Self.edge, right: Self.edge))
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setContentHuggingPriority(.required, for: .horizontal)
         setAccessibilityElement(true)
@@ -39,6 +39,11 @@ final class ChildrenBadge: PointerControl {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    /// The row lines up the dots and the number, not the 2 pt of hover grey round them, as it does a button's glyph.
+    override var alignmentRectInsets: NSEdgeInsets {
+        NSEdgeInsets(top: 0, left: Self.edge, bottom: 0, right: Self.edge)
+    }
+    private static let edge: CGFloat = 2
 
     /// The status the badge shows for an agent. An agent that a plan limit stopped hasn't finished, whatever its status
     /// says, when Kelp isn't continuing it by itself, because someone has to decide.

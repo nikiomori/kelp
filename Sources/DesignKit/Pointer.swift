@@ -29,8 +29,18 @@ open class PointerButton: NSButton {
     public var radius: CGFloat? = Metrics.radiusSM { didSet { needsLayout = true } }
     /// Room left and right of the title or image, inside the fill.
     public var padding: CGFloat = 0 { didSet { invalidateIntrinsicContentSize() } }
-    /// The fill the button rests on (nil for none); hover and press go a step past it.
-    public var restFill: NSColor? { didSet { showFill() } }
+    /// Whether a row or bar lines the button up by what it draws, not by its frame (`alignmentRectInsets`). The bars
+    /// and the sidebar's row ends turn it on. Limit: off elsewhere, because a width given to the button by hand, or a
+    /// capsule hugging it, would then grow past what was drawn for it.
+    public var linesUpDrawn = false { didSet { if linesUpDrawn != oldValue { invalidateIntrinsicContentSize() } } }
+    /// The fill the button rests on (nil for none); hover and press go a step past it. With one, the plate is what
+    /// lines up (`alignmentRectInsets`).
+    public var restFill: NSColor? {
+        didSet {
+            showFill()
+            if (restFill == nil) != (oldValue == nil) { invalidateIntrinsicContentSize() }
+        }
+    }
     /// Makes the button a link, with no fill; under the pointer its words are underlined, as links are. A link is
     /// made with `PointerButton.link`.
     public var underlinesOnHover = false { didSet { showFill() } }
@@ -61,13 +71,50 @@ open class PointerButton: NSButton {
 
     @objc private func runClick() { onClick?() }
 
-    /// The frame is the button, because AppKit's alignment insets made it taller than its constraints (a 22 pt square
-    /// drew its hover fill 22 × 26, and the "+" of a sidebar row stood taller than the row's other marks).
-    override open var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
+    /// With `linesUpDrawn`, the frame is the plate the pointer greys in and the alignment rect is what shows at rest,
+    /// so a row or a bar lines up what you see, as a label lines up by its words. A button on a plate shows the plate.
+    /// One without shows its glyph or words alone, a few points inside the frame (a 22 pt square's symbol 4.5 pt), and
+    /// lined up by the frame the marks at the end of a sidebar row ended 2–5 pt apart. Top and bottom are the frame's,
+    /// because AppKit's own insets made the button taller than its constraints (a 22 pt square drew its hover fill
+    /// 22 × 26).
+    override open var alignmentRectInsets: NSEdgeInsets {
+        let side = sides
+        return NSEdgeInsets(top: 0, left: side.left, bottom: 0, right: side.right)
+    }
 
-    override open var intrinsicContentSize: NSSize {
-        let size = super.intrinsicContentSize
+    /// The size of the frame: what the button shows, with `padding` left and right of it.
+    open var plateSize: NSSize {
+        // The cell's size, which NSButton's own intrinsic size is less the alignment insets it asks for.
+        let size = cell?.cellSize ?? .zero
         return NSSize(width: size.width + 2 * padding, height: size.height)
+    }
+
+    /// The alignment rect's size, so a frame sized by it is `plateSize`.
+    override open var intrinsicContentSize: NSSize {
+        let plate = plateSize, side = sides
+        return NSSize(width: plate.width - side.left - side.right, height: plate.height)
+    }
+
+    /// How far the drawn glyph or words are inside the frame's left and right, measured at `plateSize`. None on a
+    /// plate, or with nothing drawn.
+    private var sides: (left: CGFloat, right: CGFloat) {
+        guard linesUpDrawn, restFill == nil, let cell = cell as? NSButtonCell else { return (0, 0) }
+        let plate = NSRect(origin: .zero, size: plateSize)
+        var drawn = NSRect.null
+        if imagePosition != .noImage, image != nil { drawn = cell.imageRect(forBounds: plate) }
+        let words = imagePosition == .imageOnly ? 0 : attributedTitle.size().width
+        if words > 0 {
+            let room = cell.titleRect(forBounds: plate)
+            let x =
+                switch alignment {
+                case .right: room.maxX - words
+                case .left, .natural, .justified: room.minX
+                default: room.midX - words / 2
+                }
+            drawn = drawn.union(NSRect(x: x, y: room.minY, width: words, height: max(1, room.height)))
+        }
+        guard !drawn.isNull, drawn.width > 0 else { return (0, 0) }
+        return (max(0, drawn.minX), max(0, plate.width - drawn.maxX))
     }
 
     override open func layout() {

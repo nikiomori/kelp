@@ -213,7 +213,7 @@ extension OneAtATime {
             logos.layoutSubtreeIfNeeded()
             let more = try #require(
                 logos.subviews.compactMap { $0 as? PointerButton }.first { $0.title.hasPrefix("+") })
-            #expect(more.frame.maxX <= logos.intrinsicContentSize.width)
+            #expect(more.frame.maxX <= logos.bounds.width)
             // The words and 2 pt on each side of them: narrower, the last digit's edge is cut.
             #expect(more.frame.width >= ceil(more.attributedTitle.size().width) + 4)
             more.performClick(nil)

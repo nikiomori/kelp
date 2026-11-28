@@ -41,7 +41,8 @@ public final class IconButton: PointerButton {
             crossfade()
             if busy {
                 idle = image
-                image = nil
+                // A blank of the symbol's size keeps its place, so the button stays where its glyph lined up.
+                image = idle.map { NSImage(size: $0.size) }
                 spinner.isHidden = false
                 spinner.startAnimation(nil)
             } else {
@@ -63,8 +64,8 @@ public final class IconButton: PointerButton {
         return spinner
     }()
 
-    override public var intrinsicContentSize: NSSize {
-        let size = super.intrinsicContentSize
+    override public var plateSize: NSSize {
+        let size = super.plateSize
         return NSSize(
             width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : Metrics.gap)), height: Metrics.iconButton)
     }
