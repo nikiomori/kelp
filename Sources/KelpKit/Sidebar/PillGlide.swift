@@ -19,7 +19,7 @@ final class PillGlide: NSView {
         glide.end = end
         glide.wantsLayer = true
         guard let layer = glide.layer else { return }
-        layer.cornerRadius = SidebarRowView.pillRadius(inCard: end.group != nil)
+        layer.cornerRadius = SidebarRowView.pillRadius(inCard: end.cardInset != nil)
         layer.backgroundColor = end.pillFill.cgColor
         if let shadow = end.pillShadow {
             layer.shadowColor = shadow.shadowColor?.cgColor

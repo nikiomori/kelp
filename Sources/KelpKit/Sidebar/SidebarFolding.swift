@@ -144,9 +144,9 @@ extension SidebarController {
 
     /// Places the cards. A project's card runs from the project's row to the last row under it, drawn as one shape so
     /// it grows and shrinks with the rows (when each row drew a slice of it, the card couldn't follow a project
-    /// opening). A project with nothing under it has no card unless its colour is drawn on one, and then the card is
-    /// where the row's pill goes. Below the project cards, after a gap, there is one hatched card for each server's
-    /// header and its projects ("s:<host>"), marking where one machine's projects end and another's begin.
+    /// opening). A project with nothing under it has a card only in the Filled Card look (`cardInset`). There is one
+    /// hatched card for each server's header and its projects ("s:<host>"), marking where one machine's projects end
+    /// and another's begin. Every card is one step from the next (`pads`).
     func placeCards() {
         var shown: Set<String> = [], made = false
         let look = app.arrangement.projectLook
@@ -165,49 +165,32 @@ extension SidebarController {
             cards[key] = card
             made = true
         }
-        var server: (host: String, rows: NSRect)?
+        var server: (host: String, header: Node, last: Node)?
         func endServer() {
-            guard let current = server else { return }
-            // The card reaches 2 pt past the pills of its rows, starting below the header's gap.
-            var frame = SidebarRowView.band(current.rows, 4).insetBy(dx: 0, dy: -1)
-            frame.origin.y += Self.serverGap
-            frame.size.height -= Self.serverGap
-            put("s:" + current.host, frame, ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
+            guard let current = server, let inset = cardInset(current.header) else { return }
+            // Round its projects' cards, the card reaches the rim past them.
+            let past = current.last === current.header ? 0 : SidebarRowView.rim
+            put(
+                "s:" + current.host, cardFrame(current.header, current.last, inset: inset, past: past),
+                ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
             server = nil
         }
-        for root in roots {
-            guard case let first = outline.row(forItem: root), first >= 0,
-                case let last = outline.row(forItem: lastRow(root)), last >= 0
-            else { continue }
-            let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last))
+        for root in roots where outline.row(forItem: root) >= 0 {
+            let last = lastRow(root)
             if case .host(let host) = root.kind {   // a server's card starts at its header
                 endServer()
-                server = (host, rows)
+                server = (host, root, root)
                 continue
             }
             guard case .project(let id) = root.kind else { continue }
-            if let host = projectHosts[id], let current = server, host == current.host {
-                server = (host, current.rows.union(rows))
+            if let host = projectHosts[id], host == server?.host {
+                server?.last = last
             } else {
                 endServer()
             }
+            guard let inset = cardInset(root) else { continue }
             let color = look.style == .card ? look.colors[id] : nil
-            guard root.holds || color != nil else { continue }
-            var frame = SidebarRowView.band(rows, 6)
-            // The outline is flipped. The card starts 4 pt below the first row's top and ends 4 pt above the last row's
-            // bottom, which leaves 2 pt round the rows' content (`pads` is 6).
-            if !root.holds {
-                frame = frame.insetBy(dx: 0, dy: 1)
-            } else {
-                frame.origin.y += 4
-                frame.size.height -= 8
-            }
-            // The gap above the No Project row stays outside its card, as the row's pill leaves it out
-            // (SidebarRowView.gap).
-            let gap = serverGap(root)
-            frame.origin.y += gap
-            frame.size.height -= gap
-            put(root.key, frame, ProjectCard.Look(color: color, plain: !root.holds))
+            put(root.key, cardFrame(root, last, inset: inset), ProjectCard.Look(color: color, plain: false))
         }
         endServer()
         for (key, card) in cards where !shown.contains(key) {
@@ -220,6 +203,16 @@ extension SidebarController {
                 outline.addSubview(card, positioned: .below, relativeTo: nil)
             }
         }
+    }
+
+    /// The card under the rows from `first` to `last`: the rim round their content (inside their `pads`), `past` more
+    /// below, and `inset` in from the sides (SidebarRowView.band). The outline is flipped.
+    private func cardFrame(_ first: Node, _ last: Node, inset: CGFloat, past: CGFloat = 0) -> NSRect {
+        let top = outline.rect(ofRow: outline.row(forItem: first)),
+            end = outline.rect(ofRow: outline.row(forItem: last))
+        let minY = top.minY + pads(first).top - SidebarRowView.rim
+        let maxY = end.maxY - pads(last).bottom + SidebarRowView.rim + past
+        return SidebarRowView.band(NSRect(x: top.minX, y: minY, width: top.width, height: maxY - minY), inset)
     }
 
     /// Returns the key of the project row that `row` is in: the row itself, or the row it sits under.

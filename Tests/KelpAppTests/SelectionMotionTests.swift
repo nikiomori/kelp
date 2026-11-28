@@ -38,12 +38,13 @@ import Testing
 /// (its card's end) changes at once and the row's height takes a third of a second to follow: on the way, the pill is
 /// as tall as at rest and the name stands in the same place. A row arriving from nothing has no room for a pill yet.
 @MainActor @Test func aProjectsPillKeepsItsHeightWhileTheProjectFolds() {
-    let row: CGFloat = 28, open = (first: true, last: false), folded = (first: true, last: true)
-    func pill(_ height: CGFloat, _ group: (first: Bool, last: Bool), content: CGFloat = 28) -> NSRect {
+    let row: CGFloat = 28, ends = (top: SidebarRowView.pad, bottom: SidebarRowView.pad)
+    let open = (top: ends.top, bottom: CGFloat(0)), folded = ends
+    func pill(_ height: CGFloat, _ pads: (top: CGFloat, bottom: CGFloat), content: CGFloat = 28) -> NSRect {
         SidebarRowView.pill(
-            in: NSRect(x: 0, y: 0, width: 240, height: height), group: group, gap: 0, content: content)
+            in: NSRect(x: 0, y: 0, width: 240, height: height), pads: pads, card: SidebarRowView.cardBand,
+            content: content)
     }
-    let ends = SidebarRowView.pads(folded)
     let atRest = pill(row + ends.top, open)
     #expect(atRest.height == row - 4 && atRest.minY == ends.top + 2)
     #expect(pill(row + ends.top + ends.bottom, folded) == atRest)
@@ -53,7 +54,7 @@ import Testing
         #expect(SidebarOutline.rest(in: height, pad: ends, rest: row) == row)
         #expect(SidebarOutline.rest(in: height, pad: (ends.top, 0), rest: row) == row)
     }
-    #expect(pill(0.01 + ends.bottom, (first: false, last: true), content: 0.01).height == 0)
+    #expect(pill(0.01 + ends.bottom, (0, ends.bottom), content: 0.01).height == 0)
     #expect(SidebarOutline.rest(in: 0.01 + ends.bottom, pad: (0, ends.bottom), rest: 0.01) == 0.01)
 }
 

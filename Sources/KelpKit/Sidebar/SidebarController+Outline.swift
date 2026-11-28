@@ -30,7 +30,6 @@ extension SidebarController {
     // One line per row, as tall as Finder's rows at the same sidebar size. An agent that asks gets a second line.
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         guard let node = item as? Node else { return TextSize.of(rowBase) }
-        if case .host = node.kind { return TextSize.of(rowBase) + Self.serverGap }
         if underFold(node) { return 0.01 }   // the outline doesn't accept 0
         let pad = pads(node)
         // The edge of the row's card keeps its room, because without it the cell's height comes out below 0, and the
@@ -64,28 +63,48 @@ extension SidebarController {
             mode: app.settings[SettingKeys.agentDetail], children: app.children(of: id),
             back: app.arrangement.parkedBack[id], plans: app.extensions.all.plans) != nil
     }
-    /// The room in a row where the project's card opens (above the project's name) and closes (below its last row).
+    /// The room in a row where its card opens (above a project's or a server's first row) and closes (below the last
+    /// one), half the step to the next card outside it. Every root keeps that room, on a card or not, so the cards and
+    /// the plain rows between them all stand one step apart. A server's header and its projects share one card, which
+    /// reaches the rim past its projects' cards.
     func pads(_ node: Node) -> (top: CGFloat, bottom: CGFloat) {
-        var pad = group(node).map(SidebarRowView.pads) ?? (top: 0, bottom: 0)
-        pad.top += serverGap(node)
-        return pad
+        let root = root(of: node), pad = SidebarRowView.pad
+        let top = node === root ? pad : 0
+        guard node === lastRow(root) else { return (top, 0) }
+        let onServer = host(of: root) != nil, more = onServer && servedNext(root)
+        if case .host = root.kind { return (top, more ? 0 : pad) }   // its projects go on under it
+        return (top, onServer && !more ? pad + SidebarRowView.rim : pad)
     }
-    /// The gap above a server's header, which starts that server's card, and above the No Project row at the end.
-    /// Without the gap, No Project would read as one more project (or one more of the last server's projects).
-    func serverGap(_ node: Node) -> CGFloat {
-        switch node.kind {
-        case .host: Self.serverGap
-        case .project(let id) where app.repo(id).map(NoProject.holds) == true: Self.serverGap
-        default: 0
+    /// How far in from the sides the card under the row is (SidebarRowView.band), or nil when the row has none. A
+    /// project has a card when it holds rows, or always in the Filled Card look. A server's card reaches the rim past
+    /// the cards of its projects, when they show.
+    func cardInset(_ node: Node) -> CGFloat? {
+        let root = root(of: node), band = SidebarRowView.cardBand
+        switch root.kind {
+        case .host: return servedNext(root) ? band - SidebarRowView.rim : band
+        case .project: return root.holds || app.arrangement.projectLook.style == .card ? band : nil
+        default: return nil
         }
     }
-    /// Whether this row is first or last in its project's card. It is nil for a project with nothing under it, which
-    /// is a plain row.
-    func group(_ node: Node) -> (first: Bool, last: Bool)? {
+    func root(of node: Node) -> Node {
         var top = node
         while let up = outline.parent(forItem: top) as? Node { top = up }
-        guard case .project = top.kind, top.holds else { return nil }
-        return (node === top, node === lastRow(top))
+        return top
+    }
+    /// The server a root is on: its header's, or the host of a project over SSH.
+    func host(of root: Node) -> String? {
+        switch root.kind {
+        case .host(let host): host
+        case .project(let id): projectHosts[id]
+        default: nil
+        }
+    }
+    /// Whether the root after `root` is a project on the same server, on the same card.
+    private func servedNext(_ root: Node) -> Bool {
+        guard let index = roots.firstIndex(where: { $0 === root }), index + 1 < roots.count,
+            case .project = roots[index + 1].kind
+        else { return false }
+        return host(of: roots[index + 1]) == host(of: root)
     }
     /// The last row under `node`, or `node` itself when it is folded or folding.
     func lastRow(_ node: Node) -> Node {
@@ -111,10 +130,11 @@ extension SidebarController {
     }
 
     func place(_ rowView: NSTableRowView, _ row: Int) {
+        guard let rowView = rowView as? SidebarRowView else { return }
         let node = outline.item(atRow: row) as? Node
-        (rowView as? SidebarRowView)?.group = node.flatMap(group)
-        (rowView as? SidebarRowView)?.gap = node.map(serverGap) ?? 0
-        (rowView as? SidebarRowView)?.content = node.map(rest) ?? 0
+        rowView.pads = node.map(pads) ?? (0, 0)
+        rowView.cardInset = node.flatMap(cardInset)
+        rowView.content = node.map(rest) ?? 0
     }
     /// The cards follow rows that open, close or move, and a project's last row changes height with them. Inside an
     /// animation group, the cards move with the group. Outside one, they move the way the outline moves rows by itself

@@ -45,7 +45,7 @@ extension OneAtATime {
                 let row = try projectRow(title)
                 return o.frameOfCell(atColumn: 0, row: row).offsetBy(dx: 0, dy: -o.rect(ofRow: row).minY)
             }
-            let own = TextSize.of(vc.rowBase), ends = SidebarRowView.pads((first: true, last: true))
+            let own = TextSize.of(vc.rowBase), ends = (top: SidebarRowView.pad, bottom: SidebarRowView.pad)
             for title in ["Beta", "Atlas"] {   // the lower one folds first, then the one above it
                 vc.toggle(try #require(o.item(atRow: try projectRow(title)) as? SidebarController.Node))
                 let beta = try name("Beta")

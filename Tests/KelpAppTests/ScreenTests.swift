@@ -288,7 +288,7 @@ extension OneAtATime {
             #expect(vc.app.arrangement.iconColor(folder: here.path) == nil)
             vc.app.arrangement.colorPreview = ("r1", nil)   // the dot under the pointer: shown, not kept
             vc.placeCards()
-            #expect(vc.cards.isEmpty)
+            #expect(vc.cards["p:r1"]?.look.color == nil)   // a card still, as every project's in this style
             vc.app.arrangement.colorPreview = nil
             #expect(vc.app.arrangement.projectColors["r1"] == .blue)
             #expect(ProjectColor.read(.obj(["r1": .string("a colour a later build dropped")])).isEmpty)
@@ -308,8 +308,8 @@ extension OneAtATime {
             #expect(!card.glowing && card.layer?.shadowOpacity == 0)
             vc.app.arrangement.projectColors["r1"] = nil
             vc.placeCards()
-            vc.glowing = "p:r1"   // a project with no colour has no card to light
-            #expect(vc.cards["p:r1"] == nil)
+            vc.glowing = "p:r1"   // a project with no colour has a card, with no colour to light
+            #expect(card.layer?.shadowOpacity == 0)
         }
     }
 
