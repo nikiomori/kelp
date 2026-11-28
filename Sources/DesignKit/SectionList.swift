@@ -80,9 +80,6 @@ public struct SectionList: NSViewRepresentable {
         let lists = context.coordinator, table = lists.table
         let scroll = table.plainList("s", in: scrolls ? NSScrollView() : StillScrollView())
         scroll.hasVerticalScroller = scrolls
-        // A row's words start a panel's inset from the list's own edge, where a page's other blocks start too. The
-        // table's spacing between cells would move them 8.5 pt further in.
-        table.intercellSpacing = .zero
         table.dataSource = lists
         table.delegate = lists
         table.target = lists

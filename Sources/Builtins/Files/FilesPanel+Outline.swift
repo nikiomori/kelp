@@ -136,7 +136,7 @@ final class FileRowCell: NSTableCellView {
             name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Metrics.gap),
             name.centerYAnchor.constraint(equalTo: centerYAnchor),
             badge.leadingAnchor.constraint(greaterThanOrEqualTo: name.trailingAnchor, constant: 4),
-            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.inset),
             badge.centerYAnchor.constraint(equalTo: centerYAnchor),
             dot.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
             dot.centerYAnchor.constraint(equalTo: centerYAnchor)

@@ -185,7 +185,7 @@ enum CIRow {
         cell.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            stack.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -Metrics.inset),
             stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
         return cell

@@ -120,7 +120,7 @@ struct DatabasePanelRows {
         }
         // Under the database it copies, a copy's badge sits where that database's name starts.
         let inset = Self.inCard + (under ? 19 + Metrics.gap : 0)
-        let row = line(views, inset: inset, trailing: Metrics.insetTrailing, hovered: hovered)
+        let row = line(views, inset: inset, trailing: Self.inCardTrailing, hovered: hovered)
         row.toolTip = card(db, health: health)
         return row
     }
@@ -143,6 +143,9 @@ struct DatabasePanelRows {
 
     /// Where a card's content starts. A card's icon sits 4 pt further in than a plain row's, as the selection does.
     static let inCard = Metrics.inset + 4
+    /// Where a card's last icon button ends: 4 pt further in than a plain row's, as the content starts. Text on a card
+    /// ends at `inCard`, as it starts.
+    static let inCardTrailing = Metrics.insetTrailing + 4
 
     var projectTitle: String {
         app.projectName(app.worktree(panel.workspace)?.repoId) ?? String(localized: "This Project")
@@ -167,7 +170,7 @@ struct DatabasePanelRows {
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true   // the column of the badges under it
         let name = NSTextField.label(projectTitle, font: .ui(TextSize.row))
         let views = [slot, name, NSView()] + (count > 0 ? [capsule(count)] : [])   // with none, the last row says so
-        return line(views, inset: Self.inCard, trailing: Metrics.insetTrailing)
+        return line(views, inset: Self.inCard, trailing: Self.inCard)
     }
 
     /// The project card's last row, a menu of All My Databases to use here. When the project uses none yet, the row
@@ -190,7 +193,7 @@ struct DatabasePanelRows {
                     color: .secondaryLabelColor)
             ])
         }
-        let row = line([slot, words, NSView()], inset: Self.inCard, trailing: Metrics.insetTrailing)
+        let row = line([slot, words, NSView()], inset: Self.inCard, trailing: Self.inCard)
         row.toolTip = String(localized: "Pick one of All My Databases, or drag one onto this card.")
         return row
     }
@@ -209,7 +212,7 @@ struct DatabasePanelRows {
         let slot = NSStackView(views: [folder, fold])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
         let title = NSTextField.label(name, font: .ui(TextSize.row))
-        let row = line([slot, title, NSView(), capsule(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
+        let row = line([slot, title, NSView(), capsule(count)], inset: Self.inCard, trailing: Self.inCard)
         (row as? HoverRow)?.hovered = [fold]
         (row as? HoverRow)?.resting = [folder]
         return row
@@ -279,14 +282,14 @@ struct DatabasePanelRows {
             views.append(start)
         }
         let under = Self.inCard + 19 + Metrics.gap   // starts under the database's name
-        return line(views, inset: under, trailing: Metrics.inset)
+        return line(views, inset: under, trailing: Self.inCard)
     }
 
     /// The row under a database whose migrations aren't all applied: "2 migrations not applied", in grey, because
     /// Kelp only shows it.
     func migrations(_ count: Int) -> NSView {
         let said = small(String(localized: "\(DatabaseMigrations.count(count)) not applied"))
-        return line([said, NSView()], inset: Self.inCard + 19 + Metrics.gap, trailing: Metrics.inset)
+        return line([said, NSView()], inset: Self.inCard + 19 + Metrics.gap, trailing: Self.inCard)
     }
 
     func ran(_ run: DatabaseRun) -> NSView {
