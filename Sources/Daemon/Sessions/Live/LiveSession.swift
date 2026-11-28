@@ -47,6 +47,8 @@ final class LiveSession: Sendable {
     /// Whether a failed write of the history was logged already. It is logged once, because a full disk fails every
     /// chunk after it.
     private let logFailed = OSAllocatedUnfairLock(initialState: false)
+    /// What ⌘P last made of the output, and the output's stamp then (`searchable`).
+    let searched = OSAllocatedUnfairLock<(stamp: [Int], text: OutputSearch.Lines)?>(initialState: nil)
     let logURL: URL
     let trail: StatusTrail
     /// Everything written into the program, in order: text Kelp types (Enter included, see `type`) and the user's keys,
