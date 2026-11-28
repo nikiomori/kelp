@@ -76,9 +76,6 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         }
     }
 
-    /// The one place Kelp hands a URL to macOS to open in another app (ArchitectureTests enforces that). It opens a web
-    /// page, mail, or a pane of System Settings. A file, an app or another app's scheme could run something, so those
-    /// are refused.
     /// Opens an HTML file Kelp wrote (a page exported to show it at its own width) in the default web browser, as that
     /// browser's page: never by the file's own handler, so nothing else runs it.
     package static func openInBrowser(_ file: URL) {
@@ -88,6 +85,9 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         NSWorkspace.shared.open([file], withApplicationAt: browser, configuration: NSWorkspace.OpenConfiguration())
     }
 
+    /// The one place Kelp hands a URL to macOS to open in another app (ArchitectureTests enforces that). It opens a web
+    /// page, mail, or a pane of System Settings. A file, an app or another app's scheme could run something, so those
+    /// are refused.
     package static func openOutside(_ url: URL) {
         guard opensOutside(url) else { return refuse(url) }
         NSWorkspace.shared.open(url)
