@@ -8,6 +8,24 @@ import WorkbenchKit
 /// Handles what the page's loads tell the tab, and the address bar's completion of what's typed. A commit or a finish
 /// shows the page, a failure shows why in the page's place, and an agent driving the page hears its address and status.
 extension BrowserTab {
+    /// Shows a local page and loads it again when a file beside it, or in a folder under it, changes. Git's own files
+    /// don't count (a fetch, the index), and a tab off screen loads once when it shows, not on every change.
+    func loadPreview(_ file: String) {
+        let fileURL = URL(fileURLWithPath: file), dir = fileURL.deletingLastPathComponent()
+        web.loadFileURL(fileURL, allowingReadAccessTo: dir)
+        address.stringValue = fileURL.absoluteString
+        watcher = FileWatcher(root: dir.path) { [weak self] paths in
+            MainActor.assumeIsolated { self?.previewChanged(paths) }   // FileWatcher delivers on the main thread
+        }
+    }
+
+    func previewChanged(_ paths: [String]) {
+        guard paths.contains(where: { !Self.inGit($0) }) else { return }
+        whenShown.run { [weak self] in _ = self?.web.reload() }
+    }
+
+    nonisolated static func inGit(_ path: String) -> Bool { path.hasSuffix("/.git") || path.contains("/.git/") }
+
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         drive?.nameDocument += 1
         drive?.names.removeAll()

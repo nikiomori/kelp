@@ -32,7 +32,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The file of a local page (`preview:/path/page.html`), shown as the browser sees it and reloaded whenever a file
     /// next to it changes.
     private var previewFile: String? { start.hasPrefix("preview:") ? String(start.dropFirst("preview:".count)) : nil }
-    private var watcher: FileWatcher?
+    @ObservationIgnored var watcher: FileWatcher?
+    @ObservationIgnored lazy var whenShown = WhenShown(view)
     /// The page's address and title as of its last commit or load. What the tab shows follows these.
     private var page: (url: URL?, title: String?) = (nil, nil)
     var uri: String {
@@ -359,14 +360,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
 
     func load(_ raw: String) {
         guard !awaitsHostNetwork else { return }
-        if let previewFile, raw == start {
-            let fileURL = URL(fileURLWithPath: previewFile), dir = fileURL.deletingLastPathComponent()
-            web.loadFileURL(fileURL, allowingReadAccessTo: dir)
-            address.stringValue = fileURL.absoluteString
-            watcher = FileWatcher(root: dir.path) { [weak self] _ in MainActor.assumeIsolated { _ = self?.web.reload() }
-            }   // FileWatcher delivers on the main thread
-            return
-        }
+        if let previewFile, raw == start { return loadPreview(previewFile) }
         let typed = raw.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty, typed != "https:", !typed.hasPrefix("about:blank") else {
             ports.isHidden = false

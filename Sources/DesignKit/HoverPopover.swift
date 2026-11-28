@@ -33,9 +33,11 @@ public final class HoverPopover {
     }
 
     /// Closes the card, but not while the pointer is in it (its buttons are for clicking); then it looks again until
-    /// the pointer leaves.
+    /// the pointer leaves. A card already gone, or left behind when Kelp went to the back, stops the looking.
     public func closeUnlessInside() {
-        guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else {
+        guard popover.isShown, NSApplication.shared.isActive,
+            popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true
+        else {
             close()
             return
         }

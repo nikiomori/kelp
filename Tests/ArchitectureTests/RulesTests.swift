@@ -217,8 +217,8 @@ import Testing
                 && !(i > 0 && lines[i - 1].contains("//"))
         }.map { "\(f.path):\($0 + 1)" }
     }
-    #expect(bare.count <= 37, "say which callback delivers it on the main thread: \(bare)")
-    #expect(bare.count >= 37, "\(bare.count) say nothing now: lower this")
+    #expect(bare.count <= 36, "say which callback delivers it on the main thread: \(bare)")
+    #expect(bare.count >= 36, "\(bare.count) say nothing now: lower this")
 }
 
 /// UserDefaults holds what one Mac likes to see (a width, a fold, the agent asked last). What names a daemon's record
