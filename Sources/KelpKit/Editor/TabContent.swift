@@ -96,7 +96,7 @@ package struct TabBadge: Equatable {
     var status: AgentStatus?
     /// Finished and not looked at yet (the filled ✓).
     var unread = false
-    /// How full an agent's conversation is; the tab shows a ring once answers may start to slip (`ContextMeter.level`).
+    /// How full an agent's conversation is; the tab shows a pie once answers may start to slip (`ContextMeter.level`).
     var meter: SessionContextWindow.Usage?
     /// How far the program running in the session got (0…1), when it says; the status mark fills to match.
     var progress: Double?

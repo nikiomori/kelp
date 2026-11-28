@@ -23,7 +23,7 @@ final class TabButton: NSControl, NSDraggingSource {
     }
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
-    /// How full the context is, shown next to the ring once the ring is red. Before that the ring and its tooltip say
+    /// How full the context is, shown next to the pie once the pie is red. Before that the pie and its tooltip say
     /// it, and the strip stays quiet.
     private let full = NSTextField(labelWithString: "")
     /// What runs beside the tab's agent, whatever it's doing (a dev server), with the names in the tooltip.
