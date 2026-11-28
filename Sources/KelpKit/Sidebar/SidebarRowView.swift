@@ -4,16 +4,14 @@ import DesignKit
 
 /// A sidebar row, drawn like Safari's tab groups. A project with rows under it sits on a quiet card (ProjectCard), and
 /// the row you're on is a raised pill. The pill has no accent colour, so the text and the status marks keep theirs. A
-/// project with nothing under it is a plain row, on a card only when its colour fills one.
+/// project with nothing under it is a plain row, on a card only in the Filled Card look.
 @MainActor
 final class SidebarRowView: NSTableRowView {
-    /// Whether this row is first or last in the project's card. The outline leaves room for the card's ends (`pads`),
-    /// and the pill follows the card's corners.
-    var group: (first: Bool, last: Bool)? {
-        didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } }
-    }
-    /// Room above the row where a server's card starts (`SidebarController.serverGap`). The pill doesn't cover it.
-    var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
+    /// Room above and below the row's content: where its card opens and closes, and half the step to the next card
+    /// (`SidebarController.pads`). The pill covers no more of it than the row's card would.
+    var pads: (top: CGFloat, bottom: CGFloat) = (0, 0) { didSet { if pads != oldValue { needsDisplay = true } } }
+    /// How far in from the sidebar's sides the card under the row is (`band`), or nil for a row on its own.
+    var cardInset: CGFloat? { didSet { if cardInset != oldValue { needsDisplay = true } } }
     /// The row's own height, without the room its card's ends take: what the pill stands in. 0 while it isn't known.
     var content: CGFloat = 0 { didSet { if content != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
@@ -49,15 +47,22 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.animate("opacity", to: Float((hovering || menuTarget || lit) && !isSelected ? 1 : 0))
     }
 
-    /// A card takes 6 pt above a project's first row and below its last, 2 pt of it inside, so cards sit 8 pt apart.
-    static func pads(_ group: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
-        (group.first ? 6 : 0, group.last ? 6 : 0)
-    }
+    /// The one step between two cards, anywhere in the list.
+    static let step: CGFloat = 8
+    /// How far a card reaches past its rows' content, above and below.
+    static let rim: CGFloat = 2
+    /// The room a card's row keeps above the card's first row and below its last: half the step outside the card, the
+    /// rim inside it.
+    static let pad = step / 2 + rim
+    /// A card's inset (`band`): 8 pt in from the sidebar's left edge and from the editor area.
+    static let cardBand: CGFloat = 6
+    /// How far a pill sits inside its card, on every side: as far as from the next pill.
+    static let pillInset: CGFloat = 4
 
     /// True while the pill glides here from the row it stood on (`PillGlide`): the row draws its own once it's here.
     var pillWaits = false { didSet { if pillWaits != oldValue { needsDisplay = true } } }
     /// Where the pill stands in the row.
-    var pillRect: NSRect { Self.pill(in: bounds, group: group, gap: gap, content: content) }
+    var pillRect: NSRect { Self.pill(in: bounds, pads: pads, card: cardInset, content: content) }
     private var dark: Bool { effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
     private var front: Bool { window?.isKeyWindow ?? true }
     /// The pill's fill. When another window is in front, the pill stays but quieter, as Finder's selection goes grey.
@@ -74,7 +79,7 @@ final class SidebarRowView: NSTableRowView {
 
     override func drawBackground(in dirtyRect: NSRect) {
         let pill = pillRect
-        let radius = Self.pillRadius(inCard: group != nil)
+        let radius = Self.pillRadius(inCard: cardInset != nil)
         let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -97,22 +102,26 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// The pill of a row that fills `bounds`. In a card, the pill is 4 pt inside the card on every side, as far as from
-    /// the next pill, and its corners follow the card's (radiusLG − 4). A row on its own gets a pill where its card
-    /// would be. The pill hangs from the card's top at the row's own height (`content`), so it keeps its height while
-    /// a project folds or opens: the room under its row changes at once and the row takes a third of a second to
-    /// follow, in which a pill cut from what the pads left shrank by that room and grew back. With less room than
-    /// its height (a row arriving from nothing), it has what there is.
-    static func pill(in bounds: NSRect, group: (first: Bool, last: Bool)?, gap: CGFloat, content: CGFloat) -> NSRect {
-        let pad = group.map(pads) ?? (top: 0, bottom: 0), edge: CGFloat = group == nil ? 1 : 2
-        var pill = band(bounds, group == nil ? 6 : 10)
-        pill.origin.y += pad.top + gap + edge
-        let room = bounds.height - pad.top - gap - 2 * edge
-        pill.size.height = max(0, content > 0 ? min(content - 2 * edge, room) : room - pad.bottom)
+    /// The pill of a row that fills `bounds`. In a card (`card` is its inset), the pill is 4 pt inside the card on
+    /// every side, as far as from the next pill, and its corners follow the card's (radiusLG − 4). A row on its own
+    /// gets a pill where its card would be, the rim past its content, or 1 pt inside the row where it has no pad for
+    /// that (a parked chat between others). The pill hangs from the card's top at the row's own height (`content`), so
+    /// it keeps its height while a project folds or opens: the room under its row changes at once and the row takes a
+    /// third of a second to follow, in which a pill cut from what the pads left shrank by that room and grew back. With
+    /// less room than its height (a row arriving from nothing), it has what there is.
+    static func pill(
+        in bounds: NSRect, pads: (top: CGFloat, bottom: CGFloat), card: CGFloat?, content: CGFloat
+    ) -> NSRect {
+        func edge(_ pad: CGFloat) -> CGFloat { card != nil ? rim : pad > 0 ? -rim : 1 }   // from the content
+        let top = edge(pads.top), bottom = edge(pads.bottom)
+        var pill = band(bounds, card.map { $0 + pillInset } ?? cardBand)
+        pill.origin.y += pads.top + top
+        let room = bounds.height - pads.top - top - bottom
+        pill.size.height = max(0, content > 0 ? min(content - top - bottom, room) : room - pads.bottom)
         return pill
     }
     /// Returns the pill's corner radius: a card's for a row on its own, or 4 pt less (radiusSM) for a row in a card.
-    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
+    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - pillInset : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right. Past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same 8 pt gap to the window's edge and to the editor.
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
@@ -213,11 +222,11 @@ enum ServerLook: String {
 }
 
 /// A project's card: one shape under all its rows, growing and shrinking with them as the project opens or folds
-/// (SidebarController.placeCards). It reaches 2 pt past the first and last rows and 4 pt past their pills (`pads`).
+/// (SidebarController.placeCards). It reaches the rim past its rows' content and 4 pt past their pills.
 @MainActor
 final class ProjectCard: NSView {
-    /// What the card shows: `color` fills it, or else the quiet grey unless `plain` (a project's own row with nothing
-    /// under it). `remote` marks a server's card as on another machine, as Settings › Appearance › Servers picks.
+    /// What the card shows: `color` fills it, or else the quiet grey unless `plain` (a server's, which its stripes
+    /// mark instead). `remote` marks a server's card as on another machine, as Settings › Appearance › Servers picks.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool

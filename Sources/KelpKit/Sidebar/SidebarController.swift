@@ -113,8 +113,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Project id → the host the project is on. A host's header and its projects share one hatched card
     /// (`placeCards`).
     var projectHosts: [String: String] = [:]
-    /// The room between a server's card and whatever is above it.
-    static let serverGap: CGFloat = 8
     var collapsed: Set<String> {
         get { Set(app.uiState.strings("sidebar.collapsed")) }
         set { app.uiState["sidebar.collapsed"] = try? .from(newValue.sorted()) }

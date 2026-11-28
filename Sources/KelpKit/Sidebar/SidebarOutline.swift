@@ -8,7 +8,7 @@ final class SidebarOutline: NSOutlineView {
     static let lead: CGFloat = 14, step: CGFloat = 12
     /// Extra indent steps beyond a row's level, for a group under the chat that made it and for that group's chats.
     var steps: (Int) -> Int = { _ in 0 }
-    /// Room above and below a row's content, where the project's card opens and closes (SidebarRowView.group).
+    /// Room above and below a row's content, where its card opens and closes (SidebarRowView.pads).
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
     /// A row's own height, without that room (`SidebarRowView.content`). 0 while it isn't known.
     var rests: (Int) -> CGFloat = { _ in 0 }
