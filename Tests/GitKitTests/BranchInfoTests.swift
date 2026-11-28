@@ -121,3 +121,14 @@ import Testing
     try Git.run(["commit", "-q", "--allow-empty", "-m", "i"], cwd: d, remotes: .none)
     #expect(try Git.currentBranch(d, remotes: .none) == "trunk")
 }
+
+/// A linked worktree's branch is read off the HEAD file its `.git` file points at, without a git process: each PR and
+/// CI read asks it for each workspace. This git folder holds a HEAD and nothing else, so git itself couldn't answer.
+@Test func theBranchOfALinkedWorktreeIsReadOffItsHeadFile() throws {
+    let d = tmp().path, gitDir = d + "/repo.git/worktrees/feature"
+    try FileManager.default.createDirectory(atPath: gitDir, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(atPath: d + "/feature", withIntermediateDirectories: true)
+    try "gitdir: \(gitDir)\n".write(toFile: d + "/feature/.git", atomically: true, encoding: .utf8)
+    try "ref: refs/heads/feature/x\n".write(toFile: gitDir + "/HEAD", atomically: true, encoding: .utf8)
+    #expect(try Git.currentBranch(d + "/feature", remotes: .none) == "feature/x")
+}
