@@ -275,7 +275,8 @@ extension MarkdownTab {
     /// The page as one file: its pictures and styles from its folder put inside it; slides keep their own script.
     private func exportHTML(_ to: URL) async throws {
         guard let page = Self.loaded.object(forKey: self)?.page else { throw CocoaError(.fileReadUnknown) }
-        var html = PageInline.inline(page.html, folder: url.deletingLastPathComponent())
+        let (source, folder) = (page.html, url.deletingLastPathComponent())
+        var html = await Task.detached { PageInline.inline(source, folder: folder) }.value   // a video takes a while
         if self.page == .slides {
             let shim = "window.webkit = window.webkit || { messageHandlers: {} };"
             html += "<script>\(shim)\(SlidesPage.script(labels: slidesLabels))</script>"

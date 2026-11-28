@@ -53,18 +53,25 @@ import Testing
     #expect(drawn.pixelsHigh == 300)
 }
 
-/// A page's own pictures and stylesheets go inside it; a path outside its folder or on the web stays a link.
+/// A page's own pictures and stylesheets go inside it; a path outside its folder, a link in it to a file outside, or
+/// one on the web stays a link.
 @Test func aPageGoesIntoOneFile() throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-inline-\(UUID().uuidString)")
+    let top = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-inline-\(UUID().uuidString)")
+    let folder = top.appendingPathComponent("page")
     try FileManager.default.createDirectory(at: folder.appendingPathComponent("img"), withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: folder) }
+    defer { try? FileManager.default.removeItem(at: top) }
     try Data([1, 2, 3]).write(to: folder.appendingPathComponent("img/a.png"))
+    try Data([4, 5, 6]).write(to: top.appendingPathComponent("secret.png"))
+    try FileManager.default.createSymbolicLink(
+        at: folder.appendingPathComponent("l.png"), withDestinationURL: top.appendingPathComponent("secret.png"))
     try "h1{color:red}".write(to: folder.appendingPathComponent("s.css"), atomically: true, encoding: .utf8)
     let page =
-        #"<link rel="stylesheet" href="s.css"><img src="img/a.png"><img src="../x.png"><img src="https://e.com/b.png">"#
+        #"<link rel="stylesheet" href="s.css"><img src="img/a.png"><img src="../x.png"><img src="l.png">"#
+        + #"<img src="https://e.com/b.png">"#
     #expect(
         PageInline.inline(page, folder: folder)
-            == #"<style>h1{color:red}</style><img src="data:image/png;base64,AQID"><img src="../x.png"><img src="https://e.com/b.png">"#
+            == #"<style>h1{color:red}</style><img src="data:image/png;base64,AQID"><img src="../x.png">"#
+            + #"<img src="l.png"><img src="https://e.com/b.png">"#
     )
 }
 

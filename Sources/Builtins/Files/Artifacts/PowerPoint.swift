@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 /// A PowerPoint of pictures, one a slide, 16:9: the parts of a .pptx (Office Open XML) written into a folder, which a
@@ -193,13 +194,12 @@ enum PageInline {
     static func inline(_ html: String, folder: URL) -> String {
         let regex: NSRegularExpression
         do { regex = try NSRegularExpression(pattern: ##"(src|href)="([^"#:?]+)""##) } catch { return html }   // fixed
-        let out = NSMutableString(string: html), root = folder.standardizedFileURL.path + "/"
+        let out = NSMutableString(string: html)
         for match in regex.matches(in: html, range: NSRange(location: 0, length: out.length)).reversed() {
             let attr = out.substring(with: match.range(at: 1)), path = out.substring(with: match.range(at: 2))
             let file = folder.appendingPathComponent(path).standardizedFileURL
-            guard file.path.hasPrefix(root), let data = FileManager.default.contents(atPath: file.path) else {
-                continue
-            }
+            guard Paths.inside(file.path, folder.path), let data = FileManager.default.contents(atPath: file.path)
+            else { continue }
             let ext = file.pathExtension.lowercased()
             if attr == "href", ext == "css" {
                 // `<link href="x.css">` becomes the stylesheet itself.
