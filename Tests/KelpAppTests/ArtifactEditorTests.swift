@@ -350,6 +350,26 @@ extension AppOfItsOwn {
         rig.app.land(ArtifactsEvent(worktree: rig.workspace.id, items: [page]))   // what the bar watches changes too
         try await waitFor { gone == nil }   // the read answered, and the bar let go
     }
+
+    /// A board taken off the canvas keeps its file: duplicating the board again makes a file of its own beside it,
+    /// never over the one left.
+    @Test func aDuplicatedBoardNeverWritesOverAFileLeftOnDisk() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let folder = URL(fileURLWithPath: rig.workspace.path + "/.kelp/artifacts/home")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try "<p>home</p>".write(to: folder.appendingPathComponent("home.html"), atomically: true, encoding: .utf8)
+        let left = folder.appendingPathComponent("home-copy.html")
+        try "<p>edited</p>".write(to: left, atomically: true, encoding: .utf8)
+        let url = folder.appendingPathComponent("canvas.json")
+        let canvas = #"{"boards": [{"file": "home.html", "title": "Home"}]}"#
+        let tab = MarkdownTab(editor: CodeEditor(text: canvas, url: url), url: url, app: rig.app)
+        await tab.duplicateBoard("home.html").value
+        #expect(try String(contentsOf: left, encoding: .utf8) == "<p>edited</p>")
+        let copy = try #require(ArtifactCanvas.read(tab.editor.text)?.boards.last?.file)
+        #expect(copy != "home-copy.html")
+        #expect(try String(contentsOf: folder.appendingPathComponent(copy), encoding: .utf8) == "<p>home</p>")
+    }
 }
 
 extension OneAtATime {
