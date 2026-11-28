@@ -232,7 +232,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let picture =
             id != app.workbench.mainWorkspaceId && editors.ownWindow(id) == nil ? panel.pictureForSwitch() : nil
         editors.show(id)
-        if let picture { panel.leave(picture) }
+        if let picture { panel.leave(picture, shrinking: false) }   // shrunk, its rows ghosted over the new ones
         updateTitle()
         app.publishUIState()
     }

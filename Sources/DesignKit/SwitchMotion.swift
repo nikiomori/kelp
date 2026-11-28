@@ -42,12 +42,13 @@ extension NSView {
     public static let leaving = "leaving"
 
     /// Lays `picture` (`pictureForSwitch`, taken before the swap) over the view, in the same frame as the swap so the
-    /// view never shows its empty background, and lets it leave: it shrinks about its middle, blurs and fades over
-    /// `Motion.switchOut`, then goes. A picture still leaving from a switch before goes at once, because the new
-    /// picture already shows it.
-    public func leave(_ picture: CGImage) {
+    /// view never shows its empty background, and lets it leave once `hold` is over: it fades over `Motion.switchOut`,
+    /// and when `shrinking` it also shrinks about its middle and blurs, then goes. Until it starts to leave it covers
+    /// the view whole. A picture still leaving from a switch before goes at once, because the new picture already
+    /// shows it.
+    public func leave(_ picture: CGImage, after hold: TimeInterval = 0, shrinking: Bool = true) {
         wantsLayer = true
-        layerUsesCoreImageFilters = true
+        if shrinking { layerUsesCoreImageFilters = true }
         guard let layer else { return }
         layer.sublayers?.filter { $0.name == Self.leaving }.forEach { $0.removeFromSuperlayer() }
         let ghost = CALayer()
@@ -57,26 +58,31 @@ extension NSView {
         ghost.contentsScale = window?.backingScaleFactor ?? 2
         ghost.frame = layer.bounds
         ghost.zPosition = 1   // over the swapped-in view's layer, wherever AppKit puts it
-        let blur = CIFilter(name: "CIGaussianBlur")
-        blur?.name = "blur"
-        blur?.setValue(0, forKey: kCIInputRadiusKey)
-        ghost.filters = blur.map { [$0] }
-        let shrink = CATransform3DMakeScale(Motion.switchShrink, Motion.switchShrink, 1)   // a layer's own middle
+        var changes = [Self.change("opacity", 1, 0)]
+        if shrinking {
+            let blur = CIFilter(name: "CIGaussianBlur")
+            blur?.name = "blur"
+            blur?.setValue(0, forKey: kCIInputRadiusKey)
+            ghost.filters = blur.map { [$0] }
+            let shrink = CATransform3DMakeScale(Motion.switchShrink, Motion.switchShrink, 1)   // a layer's own middle
+            ghost.transform = shrink   // where it ends, as the opacity below
+            changes += [
+                Self.change("transform", NSValue(caTransform3D: CATransform3DIdentity), NSValue(caTransform3D: shrink)),
+                Self.change("filters.blur.inputRadius", 0, Motion.switchBlur)
+            ]
+        }
         let away = CAAnimationGroup()
-        away.animations = [
-            Self.change("transform", NSValue(caTransform3D: CATransform3DIdentity), NSValue(caTransform3D: shrink)),
-            Self.change("opacity", 1, 0),
-            Self.change("filters.blur.inputRadius", 0, Motion.switchBlur)
-        ]
+        away.animations = changes
         away.duration = Motion.switchOut
         away.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        away.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + hold
+        away.fillMode = .backwards   // whole until it starts to leave
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         CATransaction.setCompletionBlock {
             MainActor.assumeIsolated { ghost.removeFromSuperlayer() }   // Core Animation runs it on the main thread
         }
         ghost.opacity = 0   // where it ends, so nothing shows it again before it goes
-        ghost.transform = shrink
         layer.addSublayer(ghost)
         ghost.add(away, forKey: Self.leaving)
         CATransaction.commit()

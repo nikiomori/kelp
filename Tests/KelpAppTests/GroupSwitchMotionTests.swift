@@ -98,8 +98,10 @@ import WorkbenchKit
 }
 
 extension OneAtATime {
-    /// The card holds the new group alone at once, under a picture of the old one, taken of the card, that leaves
-    /// within `switchOut`; the inspector's panel gets one too. The new group's strips settle at once and its panes one
+    private static let shrinksAndBlurs: Set = ["opacity", "transform", "filters.blur.inputRadius"]
+
+    /// The card holds the new group alone at once, under a picture of the old one, taken of the card, that shrinks,
+    /// blurs and fades over `switchOut` once `switchHold` is over; the inspector's panel gets one that only fades. The new group's strips settle at once and its panes one
     /// after the other, on a spring that doesn't overshoot, from a little bigger.
     @Test func aSwitchLeavesAPictureOfTheOldGroupOverTheNewOne() async throws {
         let rig = Switching(reduced: false)
@@ -111,11 +113,20 @@ extension OneAtATime {
         #expect(rig.areas == ["b"])
         #expect(rig.asked.contains(card.convert(card.bounds, to: nil)))
         #expect(rig.pictures(over: card).count == 1)
-        #expect(rig.pictures(over: card).first?.animation(forKey: NSView.leaving)?.duration == Motion.switchOut)
+        let away = try #require(rig.pictures(over: card).first?.animation(forKey: NSView.leaving) as? CAAnimationGroup)
+        #expect(away.duration == Motion.switchOut)
+        #expect(Set(away.animations?.compactMap { ($0 as? CABasicAnimation)?.keyPath } ?? []) == Self.shrinksAndBlurs)
+        // The inspector's panel only fades: shrunk, its rows ghosted over the new rows.
         #expect(rig.pictures(over: panel).count == 1)
+        let fade = rig.pictures(over: panel).first?.animation(forKey: NSView.leaving) as? CAAnimationGroup
+        #expect(fade?.duration == Motion.switchOut)
+        #expect(fade?.animations?.compactMap { ($0 as? CABasicAnimation)?.keyPath } == ["opacity"])
         let springs = rig.springs()
         try #require(springs.count == 2)
         let start = try #require(springs[0].strip?.beginTime)
+        // The card's picture stays whole for `switchHold` before it leaves, the inspector's leaves at once.
+        #expect(abs(away.beginTime - start - Motion.switchHold) < 0.005 && away.fillMode == .backwards)
+        #expect(abs((fade?.beginTime ?? 0) - start) < 0.005)
         for (index, spring) in springs.enumerated() {
             #expect(abs((spring.strip?.beginTime ?? 0) - start) < 0.005)
             #expect(abs((spring.pane?.beginTime ?? 0) - start - Double(index + 1) * Motion.switchStagger) < 0.005)

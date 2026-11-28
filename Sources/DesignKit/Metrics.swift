@@ -143,6 +143,9 @@ public enum Motion {
     // tab strip first and each pane `switchStagger` after the one before (`switchSpring`). Its project's icon comes in
     // from `switchPop` on the same spring.
     public static let switchOut: TimeInterval = 0.17
+    /// How long the old group's picture stays whole before it leaves, for a tab whose content comes a few frames after
+    /// the swap (a diff): faded over an area still empty, it read as a fade to white. About three frames.
+    public static let switchHold: TimeInterval = 0.05
     public static let switchIn: TimeInterval = 0.32
     public static let switchStagger: TimeInterval = 0.04
     public static let switchShrink: CGFloat = 0.97

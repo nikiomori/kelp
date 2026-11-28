@@ -89,7 +89,7 @@ final class EditorHost: NSViewController {
         let picture = page != nil || mainArea?.workspaceId != id ? card.pictureForSwitch() : nil
         showInMain(id)
         if let picture {
-            card.leave(picture)
+            card.leave(picture, after: Motion.switchHold)   // a tab's content may come a few frames late
             mainArea?.settleIn()
         }
         current = mainArea
