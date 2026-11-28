@@ -9,10 +9,24 @@ enum OutputSearch {
     /// does. A carriage return alone starts a line too, because a program redraws its line with one ("\r\n" is one
     /// character in Swift, so a line is split at any newline character, not at "\n" and "\r").
     static func newest(_ query: String, in text: String) -> (line: String, count: Int)? {
+        newest(query, in: Lines(text))
+    }
+
+    /// A text split into lines, as it is and folded (`folded`), so one search after another needn't do either again.
+    struct Lines: Sendable {
+        let lines: [Substring], folded: [Substring]
+        init(_ text: String) {
+            lines = text.split(whereSeparator: \.isNewline)
+            // Folding changes ASCII letters only, so the folded text has the same lines.
+            folded = OutputSearch.folded(text).split(whereSeparator: \.isNewline)
+        }
+    }
+
+    static func newest(_ query: String, in text: Lines) -> (line: String, count: Int)? {
         let needle = folded(query)
         guard !needle.isEmpty else { return nil }
         var newest: Substring?, count = 0
-        for line in text.split(whereSeparator: \.isNewline) where folded(line).contains(needle) {
+        for (line, lower) in zip(text.lines, text.folded) where lower.contains(needle) {
             newest = line
             count += 1
         }
@@ -42,9 +56,22 @@ extension SessionFind: Handled {
     func handle(_ live: SessionTable) throws -> [SessionFound] {
         ids.compactMap { id in
             guard let ls = live[id] else { return nil }
-            // swiftlint:disable:next optional_data_string_conversion
-            let text = StatusDetector.stripANSI(String(decoding: ls.tail(LiveSession.ringLimit), as: UTF8.self))
-            return OutputSearch.newest(query, in: text).map { SessionFound(id: id, line: $0.line, count: $0.count) }
+            return OutputSearch.newest(query, in: ls.searchable()).map {
+                SessionFound(id: id, line: $0.line, count: $0.count)
+            }
         }
+    }
+}
+
+extension LiveSession {
+    /// The kept output as ⌘P searches it: its escapes gone, split and folded. ⌘P asks at every key typed, so that is
+    /// kept until the session prints more.
+    func searchable() -> OutputSearch.Lines {
+        let stamp = state.withLock { [$0.logSize, $0.ring.count] }   // changes whenever output comes in
+        if let kept = searched.withLock({ $0 }), kept.stamp == stamp { return kept.text }
+        // swiftlint:disable:next optional_data_string_conversion
+        let text = OutputSearch.Lines(StatusDetector.stripANSI(String(decoding: tail(Self.ringLimit), as: UTF8.self)))
+        searched.withLock { $0 = (stamp, text) }
+        return text
     }
 }

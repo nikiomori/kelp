@@ -741,4 +741,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(try await waitFor { try await r.c.call(SessionRead(id: quiet.id)).contains("nothing") })
     let found = try await r.c.call(SessionFind(ids: [failed.id, quiet.id, "gone"], query: "MIGRATE"))
     #expect(found == [SessionFound(id: failed.id, line: "Error: migrate failed", count: 2)])
+    // What a session printed since is found too: what was kept of its output is read again.
+    _ = try await r.c.call(SessionWrite(id: failed.id, text: "migrate again\n"))
+    #expect(
+        try await waitFor {
+            try await r.c.call(SessionFind(ids: [failed.id], query: "MIGRATE")).first?.line == "migrate again"
+        })
 }

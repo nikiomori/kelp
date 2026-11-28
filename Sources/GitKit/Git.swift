@@ -227,16 +227,15 @@ extension Git {
         return (try? currentBranch(repo, remotes: remotes)) ?? "main"
     }
 
-    /// Returns the current branch. Every workspace list asks this for each project, so a local checkout's HEAD file
-    /// answers without a git process. For a detached HEAD, a linked worktree (.git is a file), a reftable repository or
-    /// a remote project, git itself answers.
+    /// Returns the current branch. Every workspace list asks this for each project, and each PR and CI read for each
+    /// workspace, so a local checkout's HEAD file answers without a git process, a linked worktree's too. For a
+    /// detached HEAD, a reftable repository or a remote project, git itself answers.
     public static func currentBranch(_ path: String, remotes: Remotes) throws -> String {
         var name = ""
-        if remotes.of(path) == nil, let head = String(contentsIfAny: URL(fileURLWithPath: path + "/.git/HEAD")),
-            head.hasPrefix("ref: refs/heads/")
+        if remotes.of(path) == nil, let head = headBranch(path),
+            head != ".invalid"   // a reftable repository's stub HEAD, whose real HEAD is in its tables
         {
-            name = String(head.dropFirst("ref: refs/heads/".count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            if name == ".invalid" { name = "" }   // a reftable repository's stub HEAD, whose real HEAD is in its tables
+            name = head
         }
         if name.isEmpty {
             name = try line(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes)

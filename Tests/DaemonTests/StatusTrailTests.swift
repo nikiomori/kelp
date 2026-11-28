@@ -138,3 +138,26 @@ import Testing
     #expect(changes.first?.at == since)
     #expect(changes.last?.at == ISO8601DateFormatter().date(from: "2026-11-24T02:44:37Z")?.addingTimeInterval(0.596))
 }
+
+/// The Overview asks for the history at every agent's status change, so a trail that hasn't changed since it was read
+/// is answered from memory (here it can't be read any more), and one that grew is read again.
+@Test func anUnchangedTrailIsNotReadAgain() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await workspace(w, "history-memo")
+    let start = Date()
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
+    func statuses() async throws -> [AgentStatus]? {
+        try await w.c.call(SessionHistory(since: start)).first { $0.session == s.id }?.changes.map(\.status)
+    }
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    _ = try await w.c.call(SessionHook(id: s.id, event: "done"))
+    #expect(try await waitFor(10) { try await statuses() == [.working, .done] })
+    let trail = w.root.appendingPathComponent("history/\(s.id).trail").path
+    let fm = FileManager.default
+    try fm.setAttributes([.posixPermissions: 0], ofItemAtPath: trail)
+    #expect(try await statuses() == [.working, .done])
+    try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: trail)
+    _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
+    #expect(try await waitFor(10) { try await statuses() == [.working, .done, .working] })
+}
