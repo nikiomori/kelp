@@ -76,32 +76,46 @@ extension OneAtATime {
         }
     }
 
-    /// The + comes in under the pointer where the row's last mark is, over it, so no mark moves: each keeps its frame,
-    /// the one under the + fades while it shows, and the +'s glyph ends on the row's edge.
-    @Test func theRowsPlusComesInWithoutMovingItsMarks() throws {
+    /// The + comes in under the pointer over the row's end, so no mark moves: each keeps its frame, and while it shows
+    /// the mark under it fades, and so does any mark that would end within `Metrics.gap` of its glyph, so the "+" never
+    /// touches the mark before it ("1+"). Its glyph ends on the row's edge. A row: the mark beside the row's last one.
+    @Test(arguments: [RowEnd.count, .pr])
+    func theRowsPlusComesInWithoutMovingItsMarks(_ beside: RowEnd) throws {
         let idle = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "A")
-        try withSidebar(repos: [atlas], worktrees: [home], sessions: [idle]) { vc, o in
-            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: beside == .count ? [idle] : []) { vc, o in
+            if beside == .count { vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node)) }
             vc.view.frame.size.width = 280
             vc.view.layoutSubtreeIfNeeded()
             let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true) as? SidebarCell)
             let add = try #require(cell.add as? PointerButton)
-            cell.hasBadge = (true, false, false)
+            cell.pr.attributedTitle = NSAttributedString(
+                string: "#3", attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.labelColor])
+            cell.pr.restFill = .fillRest
+            cell.pr.padding = Metrics.gap
+            cell.hasBadge = (true, beside == .pr, false)
             cell.fitBadges()
             cell.layoutSubtreeIfNeeded()
             let row = try #require(cell.changes.superview as? NSStackView)
+            let marks: [NSView] = [cell.stack, cell.changes, cell.pr]
+            let shown = marks.filter { !$0.isHidden && row.visibilityPriority(for: $0) != .notVisible }
+            #expect(shown.count == 2, "\(beside): the marks \(shown)")   // the count and the dot, or the dot and the PR
             let frames = { row.arrangedSubviews.map { $0.isHidden ? NSRect.zero : $0.frame } }
             let before = frames()
-            #expect(!cell.changes.isHidden && !cell.stack.isHidden)   // the count, then the dot
             cell.showHoverControls(true)
             cell.layoutSubtreeIfNeeded()
             #expect(frames() == before)
-            #expect(!add.isHidden && cell.changes.alphaValue == 0 && cell.stack.alphaValue == 1)
+            #expect(!add.isHidden && shown.last?.alphaValue == 0)
             let glyph = cell.convert(drawn(add), from: add)
             #expect(abs(glyph.maxX - cell.bounds.maxX) <= 0.5, "the + ends at \(glyph.maxX)")
+            for mark in shown where mark.alphaValue > 0 {
+                let ink = cell.convert(mark.alignmentRect(forFrame: mark.frame), from: row)
+                #expect(
+                    glyph.minX - ink.maxX >= Metrics.gap,
+                    "\(beside): a mark ends at \(ink.maxX), the + at \(glyph.minX)")
+            }
             cell.showHoverControls(false)
             cell.layoutSubtreeIfNeeded()
-            #expect(frames() == before && add.isHidden && cell.changes.alphaValue == 1)
+            #expect(frames() == before && add.isHidden && shown.allSatisfy { $0.alphaValue == 1 })
         }
     }
 
