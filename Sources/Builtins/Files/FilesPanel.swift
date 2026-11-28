@@ -58,6 +58,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// The files in each open ignored folder, by folder. They're kept when the tree is built again, and read again
     /// after an operation.
     var opened: [String: [String]] = [:]
+    /// The folders New Folder made, relative to the root. git lists files, not folders, so an empty one is kept here
+    /// and shown until it holds a file or is gone.
+    var madeFolders = Set<String>()
     /// The workspace's files and their git status, which the daemon pushes while the panel is on screen
     /// (`WatchTopic.files`, `.git`). A hidden panel costs no listing on every change, and the list comes again when the
     /// panel shows.
@@ -220,6 +223,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             treeBase = nil
             listing += 1
             opened = [:]
+            madeFolders = []
             outline.reloadData()
         }
         worktree = next
@@ -272,12 +276,14 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         loading.show(nil)
         // An empty folder says so in the error's place, without going and coming back on every listing.
-        if event.error == nil, event.paths?.isEmpty == true { showNoFiles() } else { showLoadError(event.error) }
-        guard let paths = event.paths else { return nil }
         let ignored = event.ignored ?? []
+        let paths = event.paths.map { withMadeFolders($0, ignored: ignored) }
+        if event.error == nil, paths?.isEmpty == true { showNoFiles() } else { showLoadError(event.error) }
+        guard let paths else { return nil }
         let same = isNarrowed && shownPaths.map { $0 == paths && $1 == event.ignored } == true
         shownPaths = (paths, event.ignored)
         listing += 1
+        if !madeFolders.isEmpty { forgetGoneFolders(event) }
         guard !isNarrowed else {
             guard !same else { return nil }
             showTree(treeShown(paths, ignored: ignored), base: nil)   // a few thousand rows at most
