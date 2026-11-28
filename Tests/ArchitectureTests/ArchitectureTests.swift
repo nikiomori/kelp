@@ -909,7 +909,7 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
             #"(constant: *-?|(?<!-)\b\w*[sS]pacing(?: =|:) *|\.padding\((?:\.\w+, *)?|EdgeInsets\([^)]*?: *-?)"#
                 + #"(?:[2-9]|[1-9]\d+)(?:\.\d+)?\b"#,
             in: chromeDirs),
-        247, "gaps and insets")
+        246, "gaps and insets")
     // A dev aid's, and key bindings read back: neither is motion.
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
