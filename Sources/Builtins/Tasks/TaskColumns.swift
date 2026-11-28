@@ -20,9 +20,11 @@ enum TaskColumn: Int, CaseIterable, Sendable {
 
 extension TaskViews {
     /// The rows of `source` in the board's columns, with the tasks closed in the last seven days in Done. `inPR` says
-    /// whether a task's chat has its branch's pull request open. A column is worked out, never dragged to.
+    /// whether a task's chat has its branch's pull request open. A column is worked out, never dragged to. A search
+    /// (`find`) keeps the cards the list would show (`matches`).
     static func board(
-        _ rows: [TaskRow], _ source: TaskSource, inPR: (TaskRow) -> Bool, now: Date = Date()
+        _ rows: [TaskRow], _ source: TaskSource, find: String = "", projectName: (String) -> String = { $0 },
+        inPR: (TaskRow) -> Bool, now: Date = Date()
     ) -> [(column: TaskColumn, rows: [TaskRow])] {
         let week = now.timeIntervalSince1970 - 7 * 86_400
         let scope: (TaskRow) -> Bool = {
@@ -33,7 +35,7 @@ extension TaskViews {
             }
         }
         var columns: [TaskColumn: [TaskRow]] = [:]
-        for row in rows {
+        for row in rows where matches(row, find: find, projectName: projectName) {
             let column: TaskColumn
             if row.task.state == .done {
                 guard row.task.depth == 0, scope(row), (row.task.at ?? row.page.modified ?? 0) >= week else { continue }

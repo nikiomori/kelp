@@ -101,6 +101,49 @@ import Testing
     }
 }
 
+extension OneAtATime {
+    /// The board searches as the list does, words and `#tags`, its Done column too; a search that finds nothing says
+    /// so over the board.
+    @Test(arguments: [
+        ("inset", ["Fix the inset"]), ("#design", ["Dark diff #design"]), ("ru STRINGS", ["Ru strings"]),
+        ("", ["Dark diff #design", "Fix the inset", "Ru strings"]), ("nothing like it", [])
+    ])
+    func theBoardShowsOnlyWhatASearchFinds(find: String, titles: [String]) async throws {
+        _ = NSApplication.shared
+        let app = AppModel()
+        app.repos = [Repo(id: "r", name: "kelp", path: "/tmp/kelp-board-search")]
+        let list = TaskPage(
+            path: "/tmp/kelp-board-search/.kelp/artifacts/tasks/doc.md", slug: "tasks", title: "Tasks · kelp",
+            tasks: [
+                TaskLine(id: "a", text: "Dark diff #design", line: 4, section: "Inbox"),
+                TaskLine(id: "b", text: "Fix the inset", line: 7, section: "Now"),
+                TaskLine(
+                    id: "c", text: "Ru strings", state: .done, line: 9, section: "Now", at: Date().timeIntervalSince1970
+                )
+            ], isList: true, sections: ["Inbox", "Now"])
+        app.latest(TasksEvent.self).byKey["r"] = TasksEvent(repo: "r", pages: [list])
+        defer { app.latest(TasksEvent.self).byKey["r"] = nil }
+        let controller = TasksController(model: TasksModel(app: app))
+        let model = controller.model
+        _ = controller.view
+        model.start()
+        model.source = .all
+        model.board = true
+        model.find = find
+        func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+        let cards = {
+            all(controller.board.scroll).compactMap { ($0 as? TaskCell)?.accessibilityLabel() }
+                .compactMap { $0.split(separator: ",").first.map(String.init) }.sorted()
+        }
+        let said = { all(controller.empty).compactMap { ($0 as? NSTextField)?.stringValue } }
+        #expect(
+            try await waitFor(5) {
+                cards() == titles && controller.empty.showing == titles.isEmpty
+                    && said().contains("No Tasks Found") == titles.isEmpty
+            }, "\(cards()) \(controller.empty.showing) \(said())")
+    }
+}
+
 /// Writes a picture of `view` once it is laid out.
 @MainActor private func shootTasks(_ view: NSView, _ window: NSWindow, _ name: String, _ dir: String) async throws {
     for _ in 0..<4 {
