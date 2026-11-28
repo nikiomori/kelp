@@ -46,8 +46,18 @@ enum TaskActions {
     static func take(_ app: AppModel, _ row: TaskRow) {
         Task { _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), accept: true)) }
     }
-    static func remove(_ app: AppModel, _ row: TaskRow) {
-        Task { _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), remove: true)) }
+    /// Takes the lines off their pages once the person says so: a removal has no Undo. `question` names what goes,
+    /// the task's title when nil. Returns false when the person keeps them.
+    @discardableResult
+    static func remove(_ app: AppModel, _ rows: [TaskRow], question: String? = nil) async -> Bool {
+        guard let first = rows.first,
+            await confirm(
+                question ?? String(localized: "Remove “\(first.task.title)”?"),
+                detail: String(localized: "This can’t be undone."), action: String(localized: "Remove"),
+                destructive: true)
+        else { return false }
+        for row in rows { _ = await app.call(TaskChange(path: row.page.path, task: TaskRef(row.task), remove: true)) }
+        return true
     }
 
     /// Makes the task a page of its own, with a Plan heading for its steps, and opens it.
@@ -160,7 +170,7 @@ enum TaskActions {
         let isOpen = row.task.state == .open
         if row.task.proposed == true {
             menu.add(String(localized: "Take Task")) { take(app, row) }
-            menu.add(String(localized: "Remove")) { remove(app, row) }
+            menu.add(String(localized: "Remove")) { Task { await remove(app, [row]) } }
             menu.addItem(.separator())
         }
         if isOpen {
@@ -205,7 +215,7 @@ enum TaskActions {
         }
         if isOpen { menu.add(String(localized: "Cancel Task")) { set(app, row, .cancelled) } }
         if row.task.proposed != true, (row.task.chats ?? []).isEmpty {
-            menu.add(String(localized: "Remove")) { remove(app, row) }
+            menu.add(String(localized: "Remove")) { Task { await remove(app, [row]) } }
         }
     }
 }

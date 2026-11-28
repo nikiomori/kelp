@@ -13,6 +13,8 @@ final class TaskProposalBar: NSStackView {
     private let face = NSImageView()
     private let line = NSTextField.label("", font: .ui(TextSize.caption))
     private var shown: [TaskRow] = []
+    /// The agent who proposed `shown`, as the line names it.
+    private var agent = ""
 
     init(model: TasksModel) {
         self.model = model
@@ -22,8 +24,9 @@ final class TaskProposalBar: NSStackView {
         let show = TextButton(String(localized: "Show")) { [weak self] in self?.model.source = .waiting }
         let remove = TextButton(String(localized: "Remove")) { [weak self] in
             guard let self else { return }
-            for row in shown { TaskActions.remove(model.app, row) }
-            seen()
+            let rows = shown, app = model.app
+            let question = String(localized: "Remove \(rows.count) proposals from \(agent)?")
+            Task { if await TaskActions.remove(app, rows, question: question) { self.seen() } }
         }
         let close = IconButton(.symbol("xmark"), tip: String(localized: "Close")) { [weak self] in self?.seen() }
         for button in [show, remove, close] as [NSView] {
@@ -44,7 +47,7 @@ final class TaskProposalBar: NSStackView {
         shown = waiting.filter { $0.task.by == last }
         if let last {
             let session = model.app.session(last)
-            let agent = session?.agent.map { model.app.catalog.name($0) } ?? String(localized: "An agent")
+            agent = session?.agent.map { model.app.catalog.name($0) } ?? String(localized: "An agent")
             face.image = session?.agent.flatMap { model.app.catalog.icon($0, size: Metrics.iconSmall) }
             line.stringValue = "\(agent): " + String(localized: "\(shown.count) tasks proposed")
         }

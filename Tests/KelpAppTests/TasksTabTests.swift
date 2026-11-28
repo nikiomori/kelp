@@ -138,4 +138,32 @@ extension OneAtATime {
             panel.orderOut(nil)
         }
     }
+
+    // A sheet goes on the process's front window: one at a time.
+    /// Remove asks first, naming the task, as every removal does: Cancel keeps the line on its page, Remove takes it.
+    @Test(arguments: [false, true]) func removingATaskAsksFirst(confirmed: Bool) async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let added = try await rig.client.call(
+            TaskAdd(
+                repoId: rig.project.id, text: "Dark diff theme", names: TaskListNames(title: "Tasks", inbox: "Inbox")))
+        let page = TaskPage(path: added.path, slug: "tasks", title: "Tasks", tasks: [added.task], isList: true)
+        let row = try #require(TaskViews.rows([(rig.project.id, [page])], session: { _ in nil }).first)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.orderFrontRegardless()   // a window never on screen gets no sheet
+        defer { window.orderOut(nil) }
+
+        let removing = Task { await TaskActions.remove(rig.app, [row]) }
+        let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
+        #expect(try await waitFor(10) { asking() != nil })
+        let parent = try #require(asking()), sheet = try #require(parent.attachedSheet)
+        func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+        let words = all(try #require(sheet.contentView)).compactMap { ($0 as? NSTextField)?.stringValue }
+        #expect(words.contains("Remove “Dark diff theme”?"), "\(words)")
+        parent.endSheet(sheet, returnCode: confirmed ? .alertFirstButtonReturn : .alertSecondButtonReturn)
+        #expect(await removing.value == confirmed)
+        #expect(try String(contentsOfFile: added.path, encoding: .utf8).contains("Dark diff theme") == !confirmed)
+    }
 }
