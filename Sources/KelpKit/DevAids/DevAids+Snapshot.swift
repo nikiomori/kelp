@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import TerminalKit
 import WebKit
 import WorkbenchKit
@@ -38,10 +39,9 @@ extension AppDelegate {
         }
     #endif
 
-    /// Saves the window as the window server composites it, including the macOS 26 materials (sidebar, inspector,
-    /// glass) and web content, which the layer render draws white or not at all. An app may read its own windows
-    /// without screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym, and the
-    /// layer render stays as the fallback.
+    /// Saves the window as the window server composites it (`serverPicture`), including the macOS 26 materials
+    /// (sidebar, inspector, glass) and web content, which the layer render draws white or not at all. The layer render
+    /// stays as the fallback.
     static func snap(_ window: NSWindow, to path: String) {
         guard !composited(window, to: path), let view = window.contentView?.superview ?? window.contentView else {
             return
@@ -49,12 +49,7 @@ extension AppDelegate {
         render(view, scale: window.backingScaleFactor, to: path)
     }
     private static func composited(_ window: NSWindow, to path: String) -> Bool {
-        typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
-        // On a sleeping (or locked) display the window server hands back white, so the layers are drawn instead.
-        guard CGDisplayIsAsleep(CGMainDisplayID()) == 0,
-            let sym = dlsym(dlopen(nil, RTLD_NOW), "CGWindowListCreateImage"),
-            let img = unsafeBitCast(sym, to: Capture.self)(.null, 1 << 3, UInt32(window.windowNumber), 1)?
-                .takeRetainedValue(),
+        guard let img = window.serverPicture(),
             let png = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])
         else { return false }
         return (try? png.write(to: URL(fileURLWithPath: path), options: .atomic)) != nil

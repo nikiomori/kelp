@@ -6,7 +6,7 @@ import DesignKit
 final class GroupView: NSView {
     let groupId: String
     let strip = TabStrip()
-    private let container = NSView()
+    let container = NSView()   // what shows the selected tab
     private let hint = DropHint()
     private weak var shown: NSView?
     private let veil = Veil()
@@ -99,6 +99,12 @@ final class GroupView: NSView {
         guard let content else { return }
         content.removeFromSuperview()
         container.pin(content)
+    }
+
+    /// After a switch: the tab strip settles at once and the content, with what lies over it, `delay` later.
+    func settle(after delay: TimeInterval) {
+        strip.settleIn(after: 0)
+        for part in [container, veil, ring] as [NSView] { part.settleIn(after: delay) }
     }
 
     // MARK: tab dropped on the content: an edge splits, the middle moves the tab here

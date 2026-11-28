@@ -137,6 +137,28 @@ public enum Motion {
         return spring
     }
 
+    // Switching the main window to another group: the new one is in place at once, and a picture of the old one leaves
+    // on top of it, eased in over `switchOut`, shrinking to `switchShrink` about its middle and blurring by
+    // `switchBlur` points as it fades. Under it the new group settles from `switchGrow` and `switchDrop` em lower, its
+    // tab strip first and each pane `switchStagger` after the one before (`switchSpring`). Its project's icon comes in
+    // from `switchPop` on the same spring.
+    public static let switchOut: TimeInterval = 0.17
+    public static let switchIn: TimeInterval = 0.32
+    public static let switchStagger: TimeInterval = 0.04
+    public static let switchShrink: CGFloat = 0.97
+    public static let switchGrow: CGFloat = 1.025
+    public static let switchDrop: CGFloat = 0.25
+    public static let switchBlur: CGFloat = 6
+    public static let switchPop: CGFloat = 0.8
+    /// The spring the new group settles on: critically damped, so it goes nowhere past where it ends, and about
+    /// `switchIn` long to the eye.
+    public static func switchSpring(_ keyPath: String) -> CASpringAnimation {
+        let spring = CASpringAnimation(perceptualDuration: switchIn, bounce: 0)
+        spring.keyPath = keyPath
+        spring.duration = spring.settlingDuration
+        return spring
+    }
+
     // What goes on while a state lasts, one way (a breath takes this long there and this long back).
     public static let spin: TimeInterval = 1   // the ring's turn while the agent works
     public static let wait: TimeInterval = 3   // the turn of the ring of dots while it waits for its command

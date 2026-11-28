@@ -15,7 +15,10 @@ final class WindowBar: NSView {
 
     /// The icon, name, folder, branch and pull request. It is hidden when there is no workspace.
     let context = NSStackView()
-    private let icon = NSImageView(), name = NSTextField(labelWithString: "")
+    let icon = NSImageView()
+    private let name = NSTextField(labelWithString: "")
+    /// The workspace the bar showed last, to tell a switch from another change (`showIcon`).
+    var shown: Worktree?
     private let folder = WindowBar.chip(nil), branch = WindowBar.chip("arrow.triangle.branch"),
         pr = WindowBar.chip("arrow.triangle.pull")
     private let search: SearchPill
@@ -248,12 +251,10 @@ final class WindowBar: NSView {
             return
         }
         context.isHidden = false
-        if let repo = app.repo(worktree.repoId) {
-            ProjectIcon.show(repo.path, in: icon, app: app)
-        } else {
-            icon.image = nil
-        }
-        name.stringValue = app.groupName(worktree) ?? ""   // a project's own screen has no name; the folder says it
+        let up = showIcon(switchingTo: worktree)   // after a switch the names roll in from the way it went
+        let group = app.groupName(worktree) ?? ""   // a project's own screen has no name; the folder says it
+        if let up, !name.isHidden, !group.isEmpty, group != name.stringValue { name.roll(up: up) }
+        name.stringValue = group
         name.isHidden = name.stringValue.isEmpty
         // Show the project's folder name, as Xcode and Finder name a project, also on a branch. A branch folder's own
         // name tells no more than the branch's first word, and the chip beside it shows the real branch. The whole
@@ -263,9 +264,11 @@ final class WindowBar: NSView {
         let path =
             worktree.path == app.repo(worktree.repoId)?.path
             ? place : (worktree.path as NSString).abbreviatingWithTildeInPath
-        folder.title =
+        let project =
             NoProject.holds(app.repo(worktree.repoId))
             ? app.projectName(worktree.repoId) ?? "" : (place as NSString).lastPathComponent
+        if let up, project != folder.title { folder.roll(up: up) }
+        folder.title = project
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }

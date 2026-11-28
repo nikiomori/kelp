@@ -29,6 +29,8 @@ final class InspectorController: NSViewController {
     private var seen: [String: String] = [:]
     private var polls: [Task<Void, Never>] = []
     private let host = NSView()   // clips the panel (see showSelected)
+    /// What holds the shown panel, for the picture of it a switch leaves (`MainWindowController.showWorkspace`).
+    var panel: NSView { host }
     var panels: [PanelSpec] = []
     private var made: [String: NSViewController] = [:]
     /// True from ⌥⌘1–9 until the shown panel's list has taken the keys.

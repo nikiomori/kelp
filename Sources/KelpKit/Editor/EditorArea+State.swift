@@ -25,6 +25,15 @@ extension EditorArea {
         DispatchQueue.main.async { [weak self] in self?.contents[tab.id]?.focus() }
     }
 
+    /// After a switch brought the area into the card, it settles there: the tab strips first, then the panes one after
+    /// another in reading order, `Motion.switchStagger` apart (the empty workspace's page as the one pane).
+    func settleIn() {
+        view.layoutSubtreeIfNeeded()   // an area shown for the first time has no size yet
+        let groups = (layout.root?.sessions ?? []).compactMap { groupViews[$0] }
+        for (index, group) in groups.enumerated() { group.settle(after: Double(index + 1) * Motion.switchStagger) }
+        start?.settleIn(after: Motion.switchStagger)
+    }
+
     /// Every open tab (URI and title), for the palette.
     var openTabs: [(String, String)] {
         layout.allTabs.map { ($0.uri, contents[$0.id]?.title ?? placeholder($0).title) }
