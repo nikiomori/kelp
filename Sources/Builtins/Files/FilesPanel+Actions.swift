@@ -43,12 +43,15 @@ extension FilesPanel {
             let url = moved ? dst : edit.url
             edit.field.stringValue = url.lastPathComponent
             let rel = String(url.path.dropFirst(root.count + 1))
-            reloadTree { [weak self] in
-                guard let self, let target = node(at: rel) else { return }
-                outline.selectRowIndexes([outline.row(forItem: target)], byExtendingSelection: false)
-            }
+            reloadTree { [weak self] in self?.select(rel) }
             if edit.open { openFile(rel) }
         }
+    }
+
+    /// Selects the node at a relative path, opening the folders on the way to it.
+    func select(_ rel: String) {
+        guard let target = node(at: rel) else { return }
+        outline.selectRowIndexes([outline.row(forItem: target)], byExtendingSelection: false)
     }
 
     /// Returns the node at a relative path, and opens the folders on the way to it.
@@ -156,9 +159,38 @@ extension FilesPanel {
     private func newFolderNamed(in dir: String) async {
         guard let name = await prompt(String(localized: "New folder"), String(localized: "In /\(dir)")), !name.isEmpty
         else { return }
-        let path = URL(fileURLWithPath: root).appendingPathComponent(dir).appendingPathComponent(name).path
-        guard await app.call(FilesCreate(path: path, folder: true)) != nil else { return }
-        reloadTree()   // git doesn't list empty folders, so the new one shows once it has a file
+        await makeFolder(dir.isEmpty ? name : dir + "/" + name)
+    }
+    /// Makes the folder at `rel` and selects it. git doesn't list an empty folder, so the panel keeps it in the tree.
+    func makeFolder(_ rel: String) async {
+        guard await app.call(FilesCreate(path: root + "/" + rel, folder: true)) != nil else { return }
+        madeFolders.insert(rel)
+        reloadTree { [weak self] in self?.select(rel) }
+    }
+    /// The listed `paths` with the empty folders New Folder made, each ending with "/" as a folder does. One that holds
+    /// a listed file now isn't kept any longer, and one in an ignored folder shows when that folder is read.
+    func withMadeFolders(_ paths: [String], ignored: [String]) -> [String] {
+        guard !madeFolders.isEmpty else { return paths }
+        madeFolders = madeFolders.filter { folder in
+            let inside = folder + "/"
+            return !paths.contains { $0.hasPrefix(inside) }
+                && !ignored.contains { $0.hasSuffix("/") && inside.hasPrefix($0) }
+        }
+        return paths + madeFolders.sorted().map { $0 + "/" }
+    }
+    /// Asks the daemon whether each folder New Folder made is still there (on a remote host too), and shows `event`
+    /// again without the ones that are gone.
+    func forgetGoneFolders(_ event: FilesEvent) {
+        let made = madeFolders, ticket = listing
+        Task {
+            var gone = Set<String>()
+            for folder in made where await app.quiet(FilesIgnored(id: event.worktree, folder: folder + "/")) == nil {
+                gone.insert(folder)
+            }
+            guard !gone.isEmpty, worktree?.id == event.worktree else { return }
+            madeFolders.subtract(gone)
+            if ticket == listing { listed(event) }   // a newer listing leaves them out itself
+        }
     }
     @objc func rename() {
         guard let node = selectedNode else {

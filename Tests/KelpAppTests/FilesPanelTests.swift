@@ -138,6 +138,36 @@ extension AppOfItsOwn {
         #expect(names() == ["build", "a.o", "untitled", ".gitignore", "f.txt"])
         panel.viewDidDisappear()
     }
+
+    /// New Folder's folder shows, selected, though git lists no empty folder: it stays through the listings that follow
+    /// until a file goes in it, and goes when the folder does.
+    @Test func aNewFolderShowsUntilItHoldsAFileOrIsGone() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let panel = FilesPanel(app: rig.app)
+        rig.show(panel, 300, 500)
+        panel.viewWillAppear()
+        @MainActor func names() -> [String] {
+            (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name }
+        }
+        #expect(try await waitFor { names() == ["f.txt"] })
+        await panel.makeFolder("docs")
+        #expect(try await waitFor { names() == ["docs", "f.txt"] })
+        let docs = try #require(panel.selectedNode)
+        #expect(docs.path == "docs" && docs.children?.isEmpty == true)
+        try rig.write("g.txt", "new\n")   // the next listing, pushed
+        #expect(try await waitFor { names() == ["docs", "f.txt", "g.txt"] })
+        try rig.write("docs/a.md", "a\n")
+        panel.outline.expandItem(panel.outline.item(atRow: 0))
+        #expect(try await waitFor { names() == ["docs", "a.md", "f.txt", "g.txt"] })
+        #expect(panel.madeFolders.isEmpty)   // git lists it now
+        await panel.makeFolder("tmp")
+        #expect(try await waitFor { names().contains("tmp") })
+        try FileManager.default.removeItem(atPath: rig.repo + "/tmp")
+        panel.reloadTree()
+        #expect(try await waitFor { !names().contains("tmp") })
+        panel.viewDidDisappear()
+    }
 }
 
 /// A right-click on the empty space under the tree is about the project's folder, not about the row that happens to be
