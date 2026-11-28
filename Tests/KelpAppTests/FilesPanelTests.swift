@@ -153,6 +153,8 @@ extension AppOfItsOwn {
         #expect(try await waitFor { names() == ["f.txt"] })
         await panel.makeFolder("docs")
         #expect(try await waitFor { names() == ["docs", "f.txt"] })
+        // A pushed listing can show the folder before New Folder's own reload selects it.
+        #expect(try await waitFor { panel.selectedNode?.path == "docs" })
         let docs = try #require(panel.selectedNode)
         #expect(docs.path == "docs" && docs.children?.isEmpty == true)
         try rig.write("g.txt", "new\n")   // the next listing, pushed
