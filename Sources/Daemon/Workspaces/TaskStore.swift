@@ -193,10 +193,11 @@ extension TaskChange: Handled {
         if let agent { try TaskStore.ensureOwn(store, agent: agent, path: path) }
         let own = agent != nil && current.by == agent && current.proposed == true
         if agent != nil {
-            if grow != nil { throw RPCError.refused("only the person makes a task a page") }
-            if move != nil { throw RPCError.refused("only the person moves a task") }
-            if accept == true { throw RPCError.refused("only the person takes a proposed task") }
-            if remove == true, !own { throw RPCError.refused("an agent removes only the tasks it proposed") }
+            let ask = ": ask the person in your chat"   // what the agent does instead
+            if grow != nil { throw RPCError.refused("only the person makes a task a page" + ask) }
+            if move != nil { throw RPCError.refused("only the person moves a task" + ask) }
+            if accept == true { throw RPCError.refused("only the person takes a proposed task" + ask) }
+            if remove == true, !own { throw RPCError.refused("an agent removes only the tasks it proposed" + ask) }
             // On the list a task's own line is the person's; the steps on a page it grew into are the agent's to tick.
             if let state, current.depth == 0, TaskStore.isList(path), !(own && state == .cancelled) {
                 throw RPCError.refused("a task line is closed by the person; mark the steps under it")

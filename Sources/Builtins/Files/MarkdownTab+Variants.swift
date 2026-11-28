@@ -59,19 +59,21 @@ extension MarkdownTab {
         }
     }
 
-    private func duplicateBoard(_ board: String) {
+    /// A board's copy beside it, in a file of its own: a name taken on the canvas or on disk (a board taken off the
+    /// canvas keeps its file) is never written over.
+    @discardableResult
+    func duplicateBoard(_ board: String) -> Task<Void, Never> {
         let folder = url.deletingLastPathComponent()
-        Task {
+        return Task {
             guard let file = await app.call(FilesRead(path: folder.appendingPathComponent(board).path)) else { return }
             let base = (board as NSString).deletingPathExtension
             let taken = Set(ArtifactCanvas.read(editor.text)?.boards.map(\.file) ?? [])
-            let copy =
+            let name =
                 (1...).lazy.map { "\(base)-copy\($0 == 1 ? "" : String($0)).html" }.first { !taken.contains($0) }
                 ?? base + "-copy.html"
-            guard
-                await app.call(FilesWrite(path: folder.appendingPathComponent(copy).path, text: file.text, base: nil))
-                    != nil
-            else { return }
+            let made = FilesCreate(path: folder.appendingPathComponent(name).path, text: file.text, unique: true)
+            guard let path = await app.call(made) else { return }
+            let copy = (path as NSString).lastPathComponent
             _ = await changeBoards({ boards in
                 var out = boards
                 guard let i = boards.firstIndex(where: { ($0["file"] as? String) == board }) else {

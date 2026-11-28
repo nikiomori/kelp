@@ -38,9 +38,10 @@ extension Databases {
             do {
                 try await undo(one, keeping: turnKeeps.kept(undone).count, in: undone)
             } catch {
-                await redoTurn(undone)
+                let stuck = await redoTurn(undone)
                 let why = (error as? DatabaseFailure)?.message ?? "\(error)"
-                throw RPCError.invalidParams("\(one.kept.name) couldn't go back (\(why)); nothing was put back.")
+                throw RPCError.invalidParams(
+                    "\(one.kept.name) couldn't go back (\(why)); " + (Self.stayed(stuck) ?? "nothing was put back."))
             }
         }
     }
@@ -123,6 +124,11 @@ extension Databases {
         // What couldn't go back stays kept until the next undo drops it
         if failed.isEmpty { FileManager.default.removeIfAny(turnKeeps.folder(undone)) }
         return failed
+    }
+
+    /// What a failed undo says of the databases `redoTurn` couldn't take back (`stuck`): nil when there are none.
+    static func stayed(_ stuck: [String]) -> String? {
+        stuck.isEmpty ? nil : stuck.joined(separator: ", ") + " stayed as the undo left them."
     }
 
     /// A swap that couldn't put the copy's name back (`swap`).
