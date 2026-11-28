@@ -88,7 +88,9 @@ extension OneAtATime {
         let glyph = bar.convert(drawn(last), from: last)
         #expect(abs(glyph.maxX - lined.maxX) <= 0.5)
         #expect(last.frame.width == Metrics.iconButton && first.frame.width == Metrics.iconButton)
-        #expect(abs(last.frame.minX - first.frame.maxX - Metrics.iconGap) < 0.01)
+        // Within a pixel at 1x: the stack rounds the glyphs' rects, and a square is a fraction of a point round them.
+        let apart = last.frame.minX - first.frame.maxX
+        #expect(abs(apart - Metrics.iconGap) <= 0.5, "the squares are \(apart) pt apart")
     }
 
     /// The branch popover's Commit, before a message is typed, is its word alone, and the word ends on the column, as
