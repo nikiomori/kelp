@@ -90,21 +90,23 @@ public enum TaskViews {
         }
     }
 
+    /// Whether `row` is found by the search `find`, in the list and on the board alike: it has every `#tag` named, and
+    /// its title, page or project holds the other words.
+    public static func matches(_ row: TaskRow, find: String, projectName: (String) -> String = { $0 }) -> Bool {
+        let words = find.split(separator: " ")
+        let tags = words.filter { $0.hasPrefix("#") }.map { $0.dropFirst().lowercased() }
+        let text = words.filter { !$0.hasPrefix("#") }.joined(separator: " ")
+        let held = "\(row.task.title) \(row.page.title) \(projectName(row.repo))"
+        return tags.allSatisfy(row.tags.contains) && (text.isEmpty || held.localizedCaseInsensitiveContains(text))
+    }
+
     /// The rows of `source` whose words hold `find` (a `#word` asks for that tag), in groups with their titles.
     /// `Now` groups by whose turn it is; the journal by day (as the Artifacts panel groups pages); the rest by page.
     public static func sections(
         _ rows: [TaskRow], _ source: TaskSource, find: String = "", projectName: (String) -> String = { $0 },
         now: Date = Date(), calendar: Calendar = .current, day: (Double) -> String
     ) -> [(title: String, rows: [TaskRow])] {
-        let words = find.split(separator: " ")
-        let tags = words.filter { $0.hasPrefix("#") }.map { $0.dropFirst().lowercased() }
-        let text = words.filter { !$0.hasPrefix("#") }.joined(separator: " ")
-        let shown = rows.filter { row in
-            source.holds(row) && tags.allSatisfy(row.tags.contains)
-                && (text.isEmpty
-                    || "\(row.task.title) \(row.page.title) \(projectName(row.repo))"
-                        .localizedCaseInsensitiveContains(text))
-        }
+        let shown = rows.filter { source.holds($0) && matches($0, find: find, projectName: projectName) }
         switch source {
         case .now:
             let asks = shown.filter(\.waitsForYou), going = shown.filter { !$0.waitsForYou }

@@ -41,7 +41,7 @@ final class TasksController: NSViewController {
     private let search = NSSearchField()
     private lazy var failureBar = FailureBar { [weak self] in self?.readAgain() }
     private lazy var proposals = TaskProposalBar(model: model)
-    private let empty = EmptyStateView()
+    let empty = EmptyStateView()
     private let loading = LoadingView(rows: true, rowHeight: Metrics.rowTwoLine)
     private var shown = false
     lazy var quickLook = QuickLookList { [weak self] in
@@ -170,20 +170,28 @@ final class TasksController: NSViewController {
         views.setEnabled(model.source != .journal, forSegment: 1)
         list.scroll.isHidden = asBoard
         board.scroll.isHidden = !asBoard
-        if asBoard { board.show(TaskViews.board(rows, model.source, inPR: model.inPR)) } else { list.show(sections) }
+        let columns =
+            asBoard
+            ? TaskViews.board(rows, model.source, find: model.find, projectName: model.projectName, inPR: model.inPR)
+            : []
+        if asBoard { board.show(columns) } else { list.show(sections) }
         failureBar.show(model.failures.isEmpty ? nil : model.failures.joined(separator: "; "))
         proposals.show(rows)
         if !rows.isEmpty || !model.waiting { loading.show(nil) }
-        let none = (asBoard ? rows.isEmpty : sections.isEmpty) && !(model.waiting && rows.isEmpty)
+        // A board keeps its empty columns, unless a search found nothing.
+        let found = !searching || columns.contains { !$0.rows.isEmpty }
+        let none = (asBoard ? rows.isEmpty || !found : sections.isEmpty) && !(model.waiting && rows.isEmpty)
         let record = NSButton(title: String(localized: "New Task…"), target: self, action: #selector(newTask))
         empty.show(
             none ? emptyTitle(rows) : nil, symbol: "checklist", text: none ? emptyText(rows) : nil,
             buttons: rows.isEmpty || model.source == .inbox ? [record] : [])
     }
 
+    private var searching: Bool { !model.find.trimmingCharacters(in: .whitespaces).isEmpty }
+
     private func emptyTitle(_ rows: [TaskRow]) -> String {
         if rows.isEmpty { return String(localized: "No Tasks Yet") }
-        if !model.find.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "No Tasks Found") }
+        if searching { return String(localized: "No Tasks Found") }
         return switch model.source {
         case .inbox: String(localized: "The Inbox Is Empty")
         case .now: String(localized: "No Agent Works on a Task")
