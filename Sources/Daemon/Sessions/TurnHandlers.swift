@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import GitKit
+import os
 
 // An agent's turns: their snapshots kept under refs/kelp/turns/, listed, undone and redone.
 
@@ -110,6 +111,9 @@ struct Turns: Sendable {
     let live: SessionTable, store: Store, remotes: Remotes
     let databases: TurnDatabases   // the databases as each turn found them, which its undo puts back too
     let offloads: Slots, setup: SessionSetup   // the undo's git runs off the pool; the sheet names the agent
+    /// Each trail's status changes as `session.history` last read them, by path, with the file's size and date then.
+    /// The Overview asks again at every status change of any agent, and most trails are of agents at rest.
+    let trailsRead = OSAllocatedUnfairLock(initialState: [String: (stamp: [Int], changes: [SessionHistory.Change])]())
 
     init(live: SessionTable, store: Store, remotes: Remotes, root: URL, offloads: Slots, setup: SessionSetup) {
         (self.live, self.store, self.remotes, self.offloads, self.setup) = (live, store, remotes, offloads, setup)
