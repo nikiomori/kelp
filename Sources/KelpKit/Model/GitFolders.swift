@@ -11,7 +11,15 @@ package final class GitFolders {
     private let app: AppModel
     /// Worktree id → changes (observed through AppModel).
     var stats: [String: LineStats] { app.latest(GitEvent.self).byKey.compactMapValues(\.stats) }
+    /// Folder `id`'s changes, read alone: a row asks for its own, not for every folder's.
+    func stats(_ id: String) -> LineStats? { app.latest(GitEvent.self, id)?.stats }
     @ObservationIgnored private var following: Set<String> = []
+    /// Each folder's changed and branch files as a set, with the lists it was made from. Every sidebar row asks
+    /// `shared` on each update, so a set is made again only when its folder's status brings new lists.
+    @ObservationIgnored private(set) var touchedSets: [String: Touched] = [:]
+    struct Touched {
+        let changes: [FileChange]?, branchFiles: [String]?, paths: Set<String>
+    }
 
     init(app: AppModel) {
         self.app = app
@@ -64,11 +72,8 @@ package final class GitFolders {
     /// Appearance › Changes and pull requests).
     func shared(_ id: String) -> [String: [String]] {
         let events = app.latest(GitEvent.self).byKey
-        func touched(_ gitEvent: GitEvent?) -> Set<String> {
-            Set((gitEvent?.changes ?? []).map(\.path) + (gitEvent?.branchFiles ?? []))
-        }
         guard let me = app.worktree(id) else { return [:] }
-        let mine = touched(events[id])
+        let mine = touched(id, events[id])
         guard !mine.isEmpty else { return [:] }
         var out: [String: [String]] = [:], seen: Set<String> = [me.path]
         for (other, event) in events.sorted(by: { $0.key < $1.key }) {
@@ -77,9 +82,20 @@ package final class GitFolders {
             else {
                 continue
             }
-            for path in mine.intersection(touched(event)) { out[path, default: []].append(worktree.branch) }
+            for path in mine.intersection(touched(other, event)) { out[path, default: []].append(worktree.branch) }
         }
         return out
+    }
+
+    /// The files folder `id` changes or its branch brings, from `touchedSets` while its lists are the same (unchanged
+    /// lists share their storage, so the check costs nothing).
+    private func touched(_ id: String, _ event: GitEvent?) -> Set<String> {
+        if let known = touchedSets[id], known.changes == event?.changes, known.branchFiles == event?.branchFiles {
+            return known.paths
+        }
+        let paths = Set((event?.changes ?? []).map(\.path) + (event?.branchFiles ?? []))
+        touchedSets[id] = Touched(changes: event?.changes, branchFiles: event?.branchFiles, paths: paths)
+        return paths
     }
 
     /// Returns a tip such as "Also changed on fix-login: App.swift, Login.swift and 2 more", one line per branch.

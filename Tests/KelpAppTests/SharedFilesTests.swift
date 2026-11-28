@@ -51,3 +51,26 @@ import Testing
     m.land(GitEvent(worktree: "m", changes: [FileChange(path: "a.swift", index: ".", worktree: "M")]))
     #expect(changed.count == 1)
 }
+
+/// Every sidebar row asks for its shared files on each update, so each folder's set of files is kept while its status
+/// is the same, and made again from a status that changes them.
+@MainActor @Test func eachFoldersFilesAreKeptUntilItsStatusChanges() {
+    _ = testHome
+    let m = AppModel(builtins: [])
+    m.worktrees = [
+        Worktree(id: "m", repoId: "r", branch: "main", path: "/tmp/p"),
+        Worktree(id: "a", repoId: "r", branch: "fix-login", path: "/tmp/p-a")
+    ]
+    func land(_ id: String, _ changed: [String]) {
+        m.land(GitEvent(worktree: id, changes: changed.map { FileChange(path: $0, index: ".", worktree: "M") }))
+    }
+    land("m", ["Login.swift"])
+    land("a", ["Login.swift", "App.swift"])
+    #expect(m.sharedFiles("a") == ["Login.swift": ["main"]])
+    #expect(m.gitState.touchedSets["m"]?.paths == ["Login.swift"])
+    #expect(m.gitState.touchedSets["a"]?.paths == ["Login.swift", "App.swift"])
+    land("m", ["App.swift"])
+    #expect(m.sharedFiles("a") == ["App.swift": ["main"]])
+    #expect(m.gitState.touchedSets["m"]?.paths == ["App.swift"])
+    #expect(m.gitState.stats("m") == nil)
+}
