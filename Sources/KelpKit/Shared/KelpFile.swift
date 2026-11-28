@@ -38,7 +38,7 @@ package struct KelpFile {
                 localized:
                     "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. "
             ) + String(localized: "Skip it to read the code first."),
-            action: String(localized: "Run Setup"), cancel: String(localized: "Skip"))
+            action: String(localized: "Run Setup"), cancel: String(localized: "Skip"), destructive: true)
         alert.accessoryView = Self.trustText(info)
         return await runSheet(alert) == .alertFirstButtonReturn
     }

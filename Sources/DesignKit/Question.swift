@@ -2,7 +2,7 @@ import AppKit
 
 extension NSAlert {
     /// A question before something that can't be undone, for `runSheet`: the action first (red when `destructive`),
-    /// with Cancel (or `cancel`) beside it.
+    /// with Cancel (or `cancel`, which Esc picks) beside it.
     public convenience init(
         question: String, detail: String = "", action: String, cancel: String? = nil, destructive: Bool = false
     ) {
@@ -10,7 +10,15 @@ extension NSAlert {
         messageText = question
         informativeText = detail
         addButton(withTitle: action).hasDestructiveAction = destructive
-        addButton(withTitle: cancel ?? String(localized: "Cancel"))
+        addButton(withTitle: cancel ?? String(localized: "Cancel")).keyEquivalent = "\u{1b}"
+    }
+
+    /// Return never picks a destructive button: it loses Return, so the question has no default and only a click
+    /// does it. `runSheet` does this to every question, built here or by hand.
+    func noDestructiveDefault() {
+        for button in buttons where button.hasDestructiveAction && button.keyEquivalent == "\r" {
+            button.keyEquivalent = ""
+        }
     }
 }
 
