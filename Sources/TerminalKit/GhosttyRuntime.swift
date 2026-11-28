@@ -164,6 +164,7 @@ public final class GhosttyRuntime {
         clipboard-write = ask
         window-padding-x = 12
         window-padding-y = 8
+        abnormal-command-exit-runtime = 0
         """
 
     private func setUp(_ cfg: ghostty_config_t?) {

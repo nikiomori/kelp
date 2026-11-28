@@ -261,6 +261,24 @@ let wrappedRows = [
     #expect(problems.isEmpty, "\(problems)")
 }
 
+/// A command that ends at once (a quick `ls`, a script) shows Kelp's "Session ended" bar alone: on macOS Ghostty takes
+/// any exit sooner than `abnormal-command-exit-runtime` (250 ms by default) for a failed launch, whatever its code, and
+/// draws its own red "failed to launch" page over the terminal.
+@Test @MainActor func aQuickExitIsntAFailedLaunch() throws {
+    try #require(ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) == GHOSTTY_SUCCESS)
+    let file = tmp().appendingPathComponent("kelp-overrides-\(UUID().uuidString).conf")
+    try GhosttyRuntime.overrides.write(to: file, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: file) }
+    let cfg = ghostty_config_new()
+    defer { ghostty_config_free(cfg) }
+    ghostty_config_load_file(cfg, file.path)
+    ghostty_config_finalize(cfg)
+    let key = "abnormal-command-exit-runtime"
+    var runtime: UInt32 = .max
+    #expect(ghostty_config_get(cfg, &runtime, key, UInt(key.utf8.count)))
+    #expect(runtime == 0)
+}
+
 /// Lines a program copied (OSC 52) aren't typed on ⌘V where they would run, unseen; lines you copied are.
 @Test @MainActor func aProgramsCopyIsntPastedToRun() async throws {
     try await takeTerminal()
