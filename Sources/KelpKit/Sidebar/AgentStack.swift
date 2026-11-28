@@ -66,8 +66,9 @@ final class AgentStack: NSView {
     func width(showing logos: Int) -> CGFloat {
         guard total > 0 else { return 0 }
         let logos = min(logos, faces.count), rest = total - logos
-        guard logos > 0 else { return labelWidth(Self.words(logos: 0, total: total)) }
-        return Self.side + CGFloat(logos - 1) * Self.step + (rest > 0 ? Self.gap + labelWidth("+\(rest)") : 0)
+        guard logos > 0 else { return labelWidth(Self.words(logos: 0, total: total)) - 2 * Self.pad }
+        let words = rest > 0 ? Self.gap + labelWidth("+\(rest)") - Self.pad : 0
+        return Self.side + CGFloat(logos - 1) * Self.step + words
     }
     /// The words after the logos: the rest ("+4"), or all of them ("5") when no logo is shown.
     private static func words(logos: Int, total: Int) -> String {
@@ -75,10 +76,18 @@ final class AgentStack: NSView {
     }
     /// The gap between the last logo and "+N".
     private static let gap: CGFloat = 4
-    /// The room "+N" takes: its words and the 2 pt a label keeps on each side of them. The field's own measure came out
-    /// as the words alone, and the last digit lost its right edge.
+    /// The room "+N" takes: its words and the 2 pt a label keeps on each side of them (`pad`). The field's own measure
+    /// came out as the words alone, and the last digit lost its right edge.
     private func labelWidth(_ words: String) -> CGFloat {
-        ceil(NSAttributedString(string: words, attributes: [.font: more.font as Any]).size().width) + 4
+        ceil(NSAttributedString(string: words, attributes: [.font: more.font as Any]).size().width) + 2 * Self.pad
+    }
+    private static let pad: CGFloat = 2
+    /// The row lines up the words, not the room around them, as it does a button's glyph: that room is outside the
+    /// alignment rect, on the right of "+N" and on both sides of a count alone. `width(showing:)` leaves it out.
+    override var alignmentRectInsets: NSEdgeInsets {
+        guard !more.isHidden else { return NSEdgeInsetsZero }
+        let alone = min(cap, faces.count) == 0
+        return NSEdgeInsets(top: 0, left: alone ? Self.pad : 0, bottom: 0, right: Self.pad)
     }
     var count: Int { faces.count }
 

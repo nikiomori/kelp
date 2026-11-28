@@ -69,10 +69,14 @@ public final class Bar: NSView {
             stack.addArrangedSubview(view)
         }
         if sizesControls { (leading + trailing).forEach(Self.small) }
-        // Icon buttons side by side get less spacing, because their 22 pt squares already hold them apart.
+        // Its icon buttons end their glyphs on the bar's insets, as its words do.
+        for case let button as IconButton in leading + trailing { button.linesUpDrawn = true }
+        // Icon buttons side by side get less spacing, because their 22 pt squares already hold them apart: the squares
+        // stand `iconGap` apart, and the stack spaces their glyphs (`alignmentRectInsets`).
         for (left, right) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst())
         where left is IconButton && right is IconButton {
-            stack.setCustomSpacing(Metrics.iconGap, after: left)
+            stack.setCustomSpacing(
+                Metrics.iconGap + left.alignmentRectInsets.right + right.alignmentRectInsets.left, after: left)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
