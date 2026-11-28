@@ -235,9 +235,9 @@ final class FileTab: SavableTab {
             let grid = CSVGrid(editor: codeEditor, path: path)
             csv = grid
             bar.show(modes: grid.modes)
-            box.pin(stacked(withTrustBar(crumbs), conflictBar, grid.view, bar))
+            box.pin(stacked(bars(withTrustBar(crumbs), conflictBar), grid.view, bar))
         } else {
-            box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
+            box.pin(stacked(bars(withTrustBar(crumbs), conflictBar), codeEditor.view, bar))
         }
         let before = codeEditor.onSelection   // kept, because Markdown's selection bar follows the selection too
         codeEditor.onSelection = { [weak bar, weak codeEditor] in
