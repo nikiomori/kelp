@@ -141,17 +141,18 @@ public enum Motion {
     // on top of it, eased in over `switchOut`, shrinking to `switchShrink` about its middle and blurring by
     // `switchBlur` points as it fades. Under it the new group settles from `switchGrow` and `switchDrop` em lower, its
     // tab strip first and each pane `switchStagger` after the one before (`switchSpring`). Its project's icon comes in
-    // from `switchPop` on the same spring.
-    public static let switchOut: TimeInterval = 0.17
+    // from `switchPop` on the same spring, the sidebar's pill glides to its row on it, and the window bar's names roll
+    // in on it. The first take (170 / 50 / 320 / 40 ms, 6 pt) looked right but felt slow.
+    public static let switchOut: TimeInterval = 0.12
     /// How long the old group's picture stays whole before it leaves, for a tab whose content comes a few frames after
-    /// the swap (a diff): faded over an area still empty, it read as a fade to white. About three frames.
-    public static let switchHold: TimeInterval = 0.05
-    public static let switchIn: TimeInterval = 0.32
-    public static let switchStagger: TimeInterval = 0.04
+    /// the swap (a diff): faded over an area still empty, it read as a fade to white. About two frames.
+    public static let switchHold: TimeInterval = 0.03
+    public static let switchIn: TimeInterval = 0.24
+    public static let switchStagger: TimeInterval = 0.025
     public static let switchShrink: CGFloat = 0.97
     public static let switchGrow: CGFloat = 1.025
     public static let switchDrop: CGFloat = 0.25
-    public static let switchBlur: CGFloat = 6
+    public static let switchBlur: CGFloat = 4
     public static let switchPop: CGFloat = 0.8
     /// The spring the new group settles on: critically damped, so it goes nowhere past where it ends, and about
     /// `switchIn` long to the eye.

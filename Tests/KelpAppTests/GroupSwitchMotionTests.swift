@@ -146,7 +146,7 @@ extension OneAtATime {
     }
 
     /// The sidebar's pill travels from the old group's row to the new one's, which draws its own once it's there. The
-    /// group's name in the window bar rolls in, up: Beta is below Alpha.
+    /// group's name in the window bar rolls in, up: Beta is below Alpha. Both move on the spring the group settles on.
     @Test func aSwitchGlidesTheSidebarsPillToTheNewRow() async throws {
         let rig = Switching(reduced: false)
         defer { rig.done() }
@@ -163,9 +163,18 @@ extension OneAtATime {
         let leaves = try #require((move.fromValue as? NSValue)?.pointValue)
         let lands = try #require((move.toValue as? NSValue)?.pointValue)
         #expect(abs(leaves.y - lands.y - (from.minY - to.minY)) < 0.5 && abs(leaves.x - lands.x) < 0.5)
+        let settles = Motion.switchSpring("transform")
+        /// Whether an animation moves on the switch's spring.
+        func onTheSwitchSpring(_ animation: CAAnimation?) -> Bool {
+            guard let spring = animation as? CASpringAnimation else { return false }
+            return spring.duration == settles.duration && spring.stiffness == settles.stiffness
+                && spring.damping == settles.damping
+        }
+        #expect(onTheSwitchSpring(move))
         let name = rig.main.bar.context.arrangedSubviews.compactMap { $0 as? NSTextField }.first
         #expect(try await waitFor(5) { name?.stringValue == "Beta" })
-        #expect(name?.layer?.animation(forKey: "roll") != nil)
+        #expect(onTheSwitchSpring(name?.layer?.animation(forKey: "roll")))
+        #expect(onTheSwitchSpring(name?.layer?.animation(forKey: "slide")))
         #expect(try await waitFor(5) { rig.glides.isEmpty && !end.pillWaits })
     }
 
