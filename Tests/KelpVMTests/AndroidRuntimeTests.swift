@@ -159,12 +159,8 @@ import Testing
             String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(theirs, SIGTERM) }
-    var seen = 0   // once it has started
-    try await waitFor(2) {
-        seen = Usage.clients(of: serial, programs: ["bash"])
-        return seen != 0
-    }
-    #expect(seen == 1)
+    // Once it has started: until bash's child for `sleep` execs, it is a second bash with the same words.
+    #expect(try await waitFor(2) { Usage.clients(of: serial, programs: ["bash"]) == 1 })
     #expect(
         Usage.clients(of: serial + "0", programs: ["bash"]) == 0 && Usage.clients(of: serial, programs: ["adb"]) == 0)
 }
