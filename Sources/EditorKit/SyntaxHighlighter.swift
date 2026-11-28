@@ -89,7 +89,9 @@ final class SyntaxHighlighter {
     /// Colors `range` (the visible part, mostly) from the tree, and the languages inside it (a Markdown paragraph's
     /// inline marks, a fenced block, `<script>` in HTML) from their own.
     func color(_ range: NSRange, in tv: NSTextView) {
-        guard let lm = tv.layoutManager, let tree, let root = tree.rootNode else { return }
+        // An empty range colors nothing: tree-sitter reads an end of 0 as no end and would query the whole text (a
+        // hidden or zero-width editor's screen, 220 ms in a 2 MB Markdown file).
+        guard range.length > 0, let lm = tv.layoutManager, let tree, let root = tree.rootNode else { return }
         let string = tv.string as NSString
         let text: SwiftTreeSitter.Predicate.TextProvider = { piece, _ in
             NSMaxRange(piece) <= string.length ? string.substring(with: piece) : nil

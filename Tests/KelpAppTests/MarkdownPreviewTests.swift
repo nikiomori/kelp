@@ -36,4 +36,25 @@ extension OneAtATime {
         #expect(try await waitFor(10) { await page(heading) as? String == "Two" })
         #expect(await page("window.kept ?? 0") as? Int == 1)   // the same page
     }
+
+    /// A page opened in Source mode in a wide pane gives the source the whole pane. The divider used to go to the middle
+    /// with the page hidden, and the source came out as wide as its gutter, so each parse colored an empty screen, which
+    /// tree-sitter took as the whole file (220 ms a key in a 2 MB page).
+    @Test func aPageOpenedInSourceModeFillsThePane() async throws {
+        _ = NSApplication.shared
+        let url = URL(fileURLWithPath: "/tmp/wide.md")
+        let editor = CodeEditor(text: "# One\n", url: url)
+        let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
+        _ = tab.view   // loading it sets the mode from the settings
+        tab.modeSegment = 0   // before the tab has a size, as when it opens
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = tab.view
+        PreviewWindow.kept.append(window)
+        let fits = try await waitFor(3) {
+            tab.split.bounds.width > 700 && editor.view.frame.width > tab.split.bounds.width - 10
+        }
+        #expect(fits, "\(editor.view.frame.width) of \(tab.split.bounds.width)")
+    }
 }

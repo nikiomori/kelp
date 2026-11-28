@@ -355,7 +355,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        if !positioned, split.bounds.width > 700 {
+        if !positioned, !web.isHidden, split.bounds.width > 700 {
             positioned = true
             split.setPosition(split.bounds.width / 2, ofDividerAt: 0)
         }

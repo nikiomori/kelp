@@ -69,6 +69,19 @@ extension OneAtATime {
         }
     }
 
+    /// An empty range, as a hidden or squeezed editor's screen is, costs nothing to color: tree-sitter takes a range
+    /// ending at 0 for one with no end, and the whole file was queried on the main thread after each parse.
+    @Test func anEmptyRangeCostsNothingToColor() async throws {
+        let e = shown(String(repeating: "let value = compute(index: 42) // a line\n", count: 20_000), "empty.swift")
+        let h = try #require(e.highlighter)
+        #expect(try await waitFor(10) { h.tree != nil && !h.waiting })   // parsed off the main thread
+        let all = NSRange(location: 0, length: e.textView.string.utf16.count)
+        let clock = ContinuousClock()
+        let whole = clock.measure { h.color(all, in: e.textView) }
+        let empty = clock.measure { h.color(NSRange(location: 0, length: 0), in: e.textView) }
+        #expect(empty * 20 < whole, "\(empty) against \(whole)")
+    }
+
     /// A look given while an editor is off screen (its tab hidden) waits until it shows.
     @Test func aHiddenEditorTakesANewLookWhenShown() {
         _ = NSApplication.shared
