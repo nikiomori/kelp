@@ -92,6 +92,26 @@ private func project() throws -> (store: Store, repo: Repo, agent: Session, root
     }
 }
 
+/// What only the person does to a task, an agent is refused with what to do instead: ask the person.
+@Test(arguments: ["grow", "move", "accept", "remove"])
+func anAgentRefusedATaskChangeIsToldWhatToDoInstead(change: String) throws {
+    let p = try project()
+    defer { try? FileManager.default.removeItem(at: p.root) }
+    let task = try TaskAdd(repoId: p.repo.id, text: "Search chats").handle(p.store)
+    var asked = TaskChange(path: task.path, task: TaskRef(task.task))
+    switch change {
+    case "grow": asked.grow = "Plan"
+    case "move": (asked.move, asked.under) = (task.path, "Later")
+    case "accept": asked.accept = true
+    default: asked.remove = true
+    }
+    let said = Sessions.$asker.withValue(p.agent.id) { () -> String in
+        do { _ = try asked.handle(p.store) } catch { return (error as? RPCError)?.message ?? "\(error)" }
+        return "done"
+    }
+    #expect(said.hasSuffix(": ask the person in your chat"), "\(change): \(said)")
+}
+
 /// A chat started from an issue that already has a line joins that line instead of writing a second one.
 @Test func anIssueHasOneLine() throws {
     let p = try project()

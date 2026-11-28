@@ -27,7 +27,7 @@ extension BrowserRelay {
         guard let ls = asks.existing(session) else {
             throw RPCError.refused("open --shared runs in a session of Kelp's: its row asks the user.")
         }
-        let denied = RPCError.refused("The user didn't let you use their login on \(site).")
+        let denied = RPCError.refused("The user didn't let you use their login on \(site): go on without it.")
         guard asks.permissions.deniedLogins.withLock({ $0[session]?.contains(site) != true }) else { throw denied }
         let home = settings.store.url.deletingLastPathComponent()   // the agents of this home, the user's own too
         let agent = AgentManifest.load(dir: Paths.agents(in: home)).first { $0.id == ls.snapshot.agent }?.name
@@ -41,7 +41,9 @@ extension BrowserRelay {
             }
             _ = asks.permissions.deniedLogins.withLock { $0[session, default: []].insert(site) }
             guard answer == "deny" else {
-                throw RPCError.refused("Nobody answered whether you may use the user's login on \(site).")
+                throw RPCError.refused(
+                    "Nobody answered whether you may use the user's login on \(site): ask them in your chat, or go on "
+                        + "without it.")
             }
             throw denied
         }

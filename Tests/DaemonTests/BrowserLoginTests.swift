@@ -71,13 +71,14 @@ func aLoginQuestionNamesItsSite(question: String, site: String?) {
     do {
         _ = try await unanswered.value
         Issue.record("an unanswered question let the agent in")
-    } catch { #expect("\(error)".contains("Nobody answered")) }
+    } catch { #expect("\(error)".contains("Nobody answered") && "\(error)".contains("go on without it")) }
     permissions.endKelpQuestions(agent.id)
 
     let denied = Task { try await login("x.com", shared: true) }
     #expect(try await waitFor { try asked() })
     #expect(permissions.answerKelp(agent.id, question: nil, "deny"))
-    await #expect(throws: RPCError.self) { try await denied.value }
+    let no = await #expect(throws: RPCError.self) { try await denied.value }
+    #expect(no?.message.hasSuffix("didn't let you use their login on x.com: go on without it.") == true)
     await #expect(throws: RPCError.self) { try await login("x.com", shared: true) }   // not asked again this turn
     permissions.endKelpQuestions(agent.id)   // the turn ends
 
